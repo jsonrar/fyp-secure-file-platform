@@ -1,0 +1,18 @@
+services:
+  mysql:
+    image: mysql:8.4
+    container_name: fyp_secure_file_mysql
+    restart: unless-stopped
+    environment:
+      MYSQL_ROOT_PASSWORD: root_password
+      MYSQL_DATABASE: fyp_secure_file_platform
+      MYSQL_USER: fyp_user
+      MYSQL_PASSWORD: fyp_password
+    ports:
+      - "3306:3306"
+    volumes:
+      - mysql_data:/var/lib/mysql
+      - ./docs/init.sql:/docker-entrypoint-initdb.d/init.sql:ro
+
+volumes:
+  mysql_data:
