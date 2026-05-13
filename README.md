@@ -99,20 +99,6 @@ Open frontend:
 http://localhost:5173
 ```
 
-## Git Push Suggestion
-
-Do not push the zip file itself. Extract this folder, then run:
-
-```bash
-cd fyp-secure-file-platform
-git init
-git add .
-git commit -m "Initial FYP project architecture scaffold"
-git branch -M main
-git remote add origin <your-github-repo-url>
-git push -u origin main
-```
-
 ## Important Security Note
 
 This starter project is an architecture scaffold. The cryptographic flow is designed for an FYP prototype and demonstration. For production deployment, key management should be strengthened using KMS/HSM, hardened server configuration, secure key custody procedures, formal audit approval workflows, and professional security review.
