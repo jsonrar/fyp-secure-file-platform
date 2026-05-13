@@ -1,5 +1,10 @@
-from sqlalchemy import BigInteger, DateTime, ForeignKey, LargeBinary, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from __future__ import annotations
+
+from datetime import datetime
+
+from sqlalchemy import DateTime, Enum, ForeignKey, String, func
+from sqlalchemy.dialects.mysql import BIGINT, VARBINARY
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
 
@@ -7,17 +12,49 @@ from app.core.database import Base
 class File(Base):
     __tablename__ = "files"
 
-    file_id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    owner_id: Mapped[int] = mapped_column(ForeignKey("users.user_id"), nullable=False)
+    id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+
+    file_uuid: Mapped[str] = mapped_column(String(36), unique=True, nullable=False)
+    owner_id: Mapped[int] = mapped_column(
+        BIGINT(unsigned=True),
+        ForeignKey("users.id", ondelete="RESTRICT", onupdate="CASCADE"),
+        nullable=False,
+    )
+
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
-    stored_filename: Mapped[str] = mapped_column(String(255), nullable=False)
+    stored_filename: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
     storage_path: Mapped[str] = mapped_column(String(500), nullable=False)
-    mime_type: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    file_size: Mapped[int] = mapped_column(BigInteger, nullable=False)
-    encryption_algorithm: Mapped[str] = mapped_column(String(50), default="AES-256-GCM", nullable=False)
-    iv: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
-    auth_tag: Mapped[bytes] = mapped_column(LargeBinary(32), nullable=False)
+
+    mime_type: Mapped[str | None] = mapped_column(String(150), nullable=True)
+
+    file_size_bytes: Mapped[int] = mapped_column(BIGINT(unsigned=True), nullable=False)
+    encrypted_size_bytes: Mapped[int | None] = mapped_column(BIGINT(unsigned=True), nullable=True)
+
+    encryption_algorithm: Mapped[str] = mapped_column(String(50), nullable=False, default="AES-256-GCM", server_default="AES-256-GCM")
+
+    iv: Mapped[bytes] = mapped_column(VARBINARY(32), nullable=False)
+    auth_tag: Mapped[bytes] = mapped_column(VARBINARY(32), nullable=False)
+
     encrypted_sha256: Mapped[str] = mapped_column(String(64), nullable=False)
-    status: Mapped[str] = mapped_column(String(30), default="active", nullable=False)
-    created_at: Mapped[str] = mapped_column(DateTime, server_default=func.now())
-    updated_at: Mapped[str] = mapped_column(DateTime, server_default=func.now(), onupdate=func.now())
+
+    status: Mapped[str] = mapped_column(
+        Enum("ACTIVE", "DELETED", "CORRUPTED", name="file_status_enum"),
+        nullable=False,
+        default="ACTIVE",
+        server_default="ACTIVE",
+    )
+
+    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=func.now(),
+        onupdate=func.now(),
+    )
+    deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
+    owner = relationship("User", back_populates="owned_files", foreign_keys=[owner_id])
+    key_wrappings = relationship("FileKeyWrapping", back_populates="file", cascade="all, delete-orphan")
+    access_grants = relationship("FileAccessGrant", back_populates="file", cascade="all, delete-orphan")
+    integrity_checks = relationship("IntegrityCheck", back_populates="file", cascade="all, delete-orphan")
+    recovery_requests = relationship("RecoveryRequest", back_populates="file", cascade="all, delete-orphan")
