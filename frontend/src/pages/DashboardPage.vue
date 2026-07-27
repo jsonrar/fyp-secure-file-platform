@@ -1,16 +1,9 @@
-<template>
-  <section class="card">
-    <h1>Dashboard</h1>
-    <p>This dashboard summarises encrypted files, sharing activity, integrity status, and audit events.</p>
-  </section>
+<script setup lang="ts">
+import HeroSection from '@/components/securfile/hero-section.vue'
+import FeaturesSection from '@/components/securfile/features-section.vue'
+</script>
 
-  <section class="card">
-    <h2>Core Security Design</h2>
-    <ul>
-      <li>AES-256-GCM encrypts uploaded files.</li>
-      <li>RSA-OAEP wraps the AES file key for authorised users.</li>
-      <li>SHA-256 verifies encrypted file integrity.</li>
-      <li>Audit logs use hash chaining for tamper evidence.</li>
-    </ul>
-  </section>
+<template>
+  <HeroSection />
+  <FeaturesSection />
 </template>

@@ -5,17 +5,23 @@
   "type": "module",
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
-    "build": "vue-tsc -b && vite build",
+    "build": "vite build",
     "preview": "vite preview"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "latest",
     "axios": "latest",
+    "lucide-vue-next": "latest",
     "pinia": "latest",
     "vue": "latest",
     "vue-router": "latest"
   },
   "devDependencies": {
+    "@tailwindcss/postcss": "latest",
+    "@types/node": "latest",
+    "postcss": "latest",
+    "tailwindcss": "latest",
+    "tw-animate-css": "latest",
     "typescript": "latest",
     "vite": "latest",
     "vue-tsc": "latest"

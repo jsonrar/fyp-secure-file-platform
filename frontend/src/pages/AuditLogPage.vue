@@ -1,6 +1,7 @@
+<script setup lang="ts">
+import FileAccessRecords from '@/components/securfile/file-access-records.vue'
+</script>
+
 <template>
-  <section class="card">
-    <h1>Audit Logs</h1>
-    <p>Security-sensitive actions are recorded here. Hash chain verification can be added in this page.</p>
-  </section>
+  <FileAccessRecords />
 </template>
