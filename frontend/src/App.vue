@@ -1,16 +1,13 @@
 <script setup lang="ts">
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { RouterView, useRoute } from 'vue-router'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { RouterView } from 'vue-router'
 import AppHeader from '@/components/securfile/header.vue'
 import AppFooter from '@/components/securfile/footer.vue'
 import { useTheme } from '@/composables/useTheme'
 
-const route = useRoute()
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
 const { theme, toggleTheme } = useTheme()
-
-const hideChrome = computed(() => ['/login', '/register'].includes(route.path))
 
 const onScroll = () => {
   isScrolled.value = window.scrollY > 20
@@ -29,7 +26,6 @@ onBeforeUnmount(() => {
 <template>
   <main class="min-h-screen bg-background">
     <AppHeader
-      v-if="!hideChrome"
       :is-scrolled="isScrolled"
       :is-mobile-menu-open="isMobileMenuOpen"
       :theme="theme"
@@ -38,6 +34,6 @@ onBeforeUnmount(() => {
       @toggle-theme="toggleTheme"
     />
     <RouterView />
-    <AppFooter v-if="!hideChrome" />
+    <AppFooter />
   </main>
 </template>

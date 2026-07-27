@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { Menu, Moon, FileLock, Sun, X } from 'lucide-vue-next'
 import { computed } from 'vue'
-import { RouterLink, useRoute } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth_store'
 
 defineProps<{
@@ -17,6 +17,7 @@ const emit = defineEmits<{
 }>()
 
 const route = useRoute()
+const router = useRouter()
 const auth = useAuthStore()
 
 const navLinks = [
@@ -28,6 +29,13 @@ const navLinks = [
 const isActive = (match: string[]) => match.some((path) => route.path.startsWith(path))
 
 const homeActive = computed(() => route.path === '/')
+
+// Log out page
+function handleLogout() {
+  auth.logout()
+  emit('close-mobile-menu')
+  router.push('/login')
+}
 </script>
 
 <template>
@@ -73,13 +81,21 @@ const homeActive = computed(() => route.path === '/')
           >
             Get Started
           </RouterLink>
-          <RouterLink
-            v-else
-            to="/upload"
-            class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center"
-          >
-            Dashboard
-          </RouterLink>
+          <!-- Log out page -->
+          <template v-else>
+            <RouterLink
+              to="/upload"
+              class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center"
+            >
+              Dashboard
+            </RouterLink>
+            <button
+              class="h-9 px-4 rounded-md text-muted-foreground hover:bg-secondary transition-colors"
+              @click="handleLogout"
+            >
+              Log Out
+            </button>
+          </template>
         </div>
 
         <button class="md:hidden h-9 w-9 inline-flex items-center justify-center rounded-md hover:bg-secondary transition-colors" @click="emit('toggle-mobile-menu')">
@@ -129,6 +145,22 @@ const homeActive = computed(() => route.path === '/')
           >
             Get Started
           </RouterLink>
+          <!-- Log out page -->
+          <template v-else>
+            <RouterLink
+              to="/upload"
+              class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
+              @click="emit('close-mobile-menu')"
+            >
+              Dashboard
+            </RouterLink>
+            <button
+              class="h-9 px-4 rounded-md text-left text-muted-foreground hover:bg-secondary transition-colors"
+              @click="handleLogout"
+            >
+              Log Out
+            </button>
+          </template>
         </div>
       </nav>
     </div>
