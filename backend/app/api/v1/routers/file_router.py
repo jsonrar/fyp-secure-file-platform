@@ -1,38 +1,37 @@
+from uuid import UUID
+
 from fastapi import APIRouter, File, UploadFile
 
-from app.services.file_service import FileService
-from app.utils.response import ok
+from app.api.dependencies import reject_unimplemented_api
 
 router = APIRouter()
 
 
 @router.post("/upload")
-async def upload_file(file: UploadFile = File(...)):
-    content = await file.read()
-    result = FileService().encrypt_uploaded_bytes_draft(file.filename or "uploaded_file", content)
-    return ok("File encrypted and stored in draft flow", result)
+async def upload_file(file: UploadFile = File(...)) -> None:
+    reject_unimplemented_api()
 
 
 @router.get("")
-def list_files():
-    return ok("File list draft", {"files": []})
+def list_files() -> None:
+    reject_unimplemented_api()
 
 
 @router.get("/{file_id}")
-def get_file(file_id: int):
-    return ok("File metadata draft", {"file_id": file_id})
+def get_file(file_id: UUID) -> None:
+    reject_unimplemented_api()
 
 
 @router.post("/{file_id}/download")
-def download_file(file_id: int):
-    return ok("Download draft. Real flow should check permission, unwrap key, decrypt, watermark, and return file.", {"file_id": file_id})
+def download_file(file_id: UUID) -> None:
+    reject_unimplemented_api()
 
 
 @router.delete("/{file_id}")
-def delete_file(file_id: int):
-    return ok("Delete draft", {"file_id": file_id})
+def delete_file(file_id: UUID) -> None:
+    reject_unimplemented_api()
 
 
 @router.post("/{file_id}/integrity-check")
-def integrity_check(file_id: int):
-    return ok("Integrity check draft", {"file_id": file_id, "status": "VALID"})
+def integrity_check(file_id: UUID) -> None:
+    reject_unimplemented_api()

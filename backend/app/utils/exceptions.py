@@ -1,4 +1,3 @@
-class AppError(Exception):
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(message)
+from app.domain.errors import AppError
+
+__all__ = ["AppError"]

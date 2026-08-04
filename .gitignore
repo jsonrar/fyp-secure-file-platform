@@ -60,3 +60,8 @@ pnpm-debug.log*
 *.zip
 *.tar
 *.tar.gz
+
+# ===== Local agent skills =====
+.agents/skills/
+.claude/skills/
+skills-lock.json

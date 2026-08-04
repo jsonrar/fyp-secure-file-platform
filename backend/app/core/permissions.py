@@ -1,16 +1,5 @@
-from enum import Enum
+"""Compatibility exports for domain authorization enums."""
 
+from app.domain.enums import FileCapability, SystemRole
 
-class SystemRole(str, Enum):
-    USER = "USER"
-    ADMIN = "ADMIN"
-    RECOVERY_OFFICER = "RECOVERY_OFFICER"
-
-
-class FilePermission(str, Enum):
-    OWNER = "OWNER"
-    VIEW = "VIEW"
-    DOWNLOAD = "DOWNLOAD"
-    SHARE = "SHARE"
-    REVOKE = "REVOKE"
-    MANAGE = "MANAGE"
+__all__ = ["FileCapability", "SystemRole"]

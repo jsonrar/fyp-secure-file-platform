@@ -1,44 +1,74 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 
-from sqlalchemy import Boolean, DateTime, Enum, String, func
+from sqlalchemy import CHAR, Boolean, DateTime, Enum, Index, String, UniqueConstraint, func
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
+from app.domain.enums import SystemRole, UserStatus
 
 
 class User(Base):
     __tablename__ = "users"
+    __table_args__ = (
+        UniqueConstraint("user_uuid", name="uq_users_user_uuid"),
+        UniqueConstraint("username", name="uq_users_username"),
+        UniqueConstraint("email", name="uq_users_email"),
+        Index("idx_users_role", "role"),
+        Index("idx_users_status", "status"),
+        Index("idx_users_created_at", "created_at"),
+        {
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_unicode_ci",
+        },
+    )
 
     id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    user_uuid: Mapped[str] = mapped_column(
+        CHAR(36),
+        nullable=False,
+        default=lambda: str(uuid4()),
+    )
 
-    username: Mapped[str] = mapped_column(String(100), unique=True, nullable=False)
-    email: Mapped[str] = mapped_column(String(255), unique=True, nullable=False)
+    username: Mapped[str] = mapped_column(String(100), nullable=False)
+    email: Mapped[str] = mapped_column(String(255), nullable=False)
     password_hash: Mapped[str] = mapped_column(String(255), nullable=False)
 
-    role: Mapped[str] = mapped_column(
-        Enum("USER", "ADMIN", "RECOVERY_OFFICER", name="user_role_enum"),
+    role: Mapped[SystemRole] = mapped_column(
+        Enum(SystemRole, name="user_role_enum"),
         nullable=False,
-        default="USER",
-        server_default="USER",
+        default=SystemRole.USER,
+        server_default=SystemRole.USER.value,
     )
-    status: Mapped[str] = mapped_column(
-        Enum("ACTIVE", "DISABLED", "DELETED", name="user_status_enum"),
+    status: Mapped[UserStatus] = mapped_column(
+        Enum(UserStatus, name="user_status_enum"),
         nullable=False,
-        default="ACTIVE",
-        server_default="ACTIVE",
+        default=UserStatus.ACTIVE,
+        server_default=UserStatus.ACTIVE.value,
     )
 
-    email_verified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    email_verified: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+    password_changed_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        default=func.now(),
+        server_default=func.now(),
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 

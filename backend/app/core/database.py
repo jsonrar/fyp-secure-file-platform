@@ -1,19 +1,49 @@
+from collections.abc import Generator
+
 from sqlalchemy import create_engine
-from sqlalchemy.orm import DeclarativeBase, sessionmaker
+from sqlalchemy.engine import URL, Engine
+from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 
 from app.core.config import settings
 
-engine = create_engine(settings.DATABASE_URL, pool_pre_ping=True, pool_recycle=3600)
-SessionLocal = sessionmaker(bind=engine, autocommit=False, autoflush=False)
+
+def create_db_engine(database_url: URL | str) -> Engine:
+    return create_engine(
+        database_url,
+        pool_pre_ping=True,
+        pool_recycle=3600,
+    )
+
+
+def create_session_factory(db_engine: Engine) -> sessionmaker[Session]:
+    return sessionmaker(
+        bind=db_engine,
+        class_=Session,
+        autoflush=False,
+        expire_on_commit=False,
+    )
+
+
+engine = create_db_engine(settings.DATABASE_URL)
+SessionLocal = create_session_factory(engine)
 
 
 class Base(DeclarativeBase):
     pass
 
 
-def get_db():
+def get_db() -> Generator[Session, None, None]:
+    """Yield a request-scoped session without committing implicitly."""
     db = SessionLocal()
     try:
         yield db
+    except Exception:
+        db.rollback()
+        raise
     finally:
         db.close()
+
+
+def dispose_engine() -> None:
+    """Release all pooled database connections during application shutdown."""
+    engine.dispose()

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, UniqueConstraint, func
+from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, UniqueConstraint, func
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -13,37 +13,63 @@ class FileAccessGrant(Base):
     __tablename__ = "file_access_grants"
     __table_args__ = (
         UniqueConstraint("file_id", "user_id", name="uq_file_access_grants_file_user"),
+        Index("idx_file_access_grants_file_id", "file_id"),
+        Index("idx_file_access_grants_user_id", "user_id"),
+        Index("idx_file_access_grants_granted_by", "granted_by"),
+        Index("idx_file_access_grants_status", "status"),
+        Index("idx_file_access_grants_created_at", "created_at"),
+        {
+            "mysql_engine": "InnoDB",
+            "mysql_charset": "utf8mb4",
+            "mysql_collate": "utf8mb4_unicode_ci",
+        },
     )
 
     id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
 
     file_id: Mapped[int] = mapped_column(
         BIGINT(unsigned=True),
-        ForeignKey("files.id", ondelete="CASCADE", onupdate="CASCADE"),
+        ForeignKey(
+            "files.id",
+            name="fk_file_access_grants_file",
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+        ),
         nullable=False,
     )
     user_id: Mapped[int] = mapped_column(
         BIGINT(unsigned=True),
-        ForeignKey("users.id", ondelete="CASCADE", onupdate="CASCADE"),
+        ForeignKey(
+            "users.id",
+            name="fk_file_access_grants_user",
+            ondelete="CASCADE",
+            onupdate="CASCADE",
+        ),
         nullable=False,
     )
     granted_by: Mapped[int] = mapped_column(
         BIGINT(unsigned=True),
-        ForeignKey("users.id", ondelete="RESTRICT", onupdate="CASCADE"),
+        ForeignKey(
+            "users.id",
+            name="fk_file_access_grants_granted_by",
+            ondelete="RESTRICT",
+            onupdate="CASCADE",
+        ),
         nullable=False,
     )
 
-    permission_level: Mapped[str] = mapped_column(
-        Enum("OWNER", "VIEWER", "EDITOR", name="file_permission_level_enum"),
-        nullable=False,
-        default="VIEWER",
-        server_default="VIEWER",
+    can_download: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=True, server_default="1"
     )
-
-    can_download: Mapped[bool] = mapped_column(Boolean, nullable=False, default=True, server_default="1")
-    can_share: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
-    can_revoke: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
-    can_manage: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, server_default="0")
+    can_share: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    can_revoke: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+    can_manage: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
 
     status: Mapped[str] = mapped_column(
         Enum("ACTIVE", "REVOKED", name="file_access_grant_status_enum"),
@@ -52,7 +78,9 @@ class FileAccessGrant(Base):
         server_default="ACTIVE",
     )
 
-    created_at: Mapped[datetime] = mapped_column(DateTime, nullable=False, server_default=func.now())
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     file = relationship("File", back_populates="access_grants")

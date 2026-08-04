@@ -1,8 +1,10 @@
+from uuid import UUID
+
 from pydantic import BaseModel
 
 
 class RecoveryRequestCreate(BaseModel):
-    file_id: int
+    file_id: UUID
     reason: str
 
 

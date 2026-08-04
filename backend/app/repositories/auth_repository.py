@@ -1,0 +1,255 @@
+from __future__ import annotations
+
+from datetime import datetime
+from uuid import UUID
+
+from sqlalchemy import delete, or_, select
+from sqlalchemy.dialects.mysql import insert as mysql_insert
+from sqlalchemy.orm import Session
+
+from app.domain.enums import LoginThrottleScope, SessionStatus
+from app.models.auth_login_throttle import AuthLoginThrottle
+from app.models.session_refresh_token import SessionRefreshToken
+from app.models.user import User
+from app.models.user_key import UserKey
+from app.models.user_session import UserSession
+
+
+class AuthRepository:
+    """MySQL-backed identity persistence. Transaction ownership stays in AuthService."""
+
+    def __init__(self, db: Session) -> None:
+        self.db = db
+
+    def identifier_exists(self, username: str, email: str) -> bool:
+        statement = select(User.id).where(or_(User.username == username, User.email == email))
+        return self.db.scalar(statement.limit(1)) is not None
+
+    def get_user_by_username(self, username: str) -> User | None:
+        return self.db.scalar(select(User).where(User.username == username).limit(1))
+
+    def get_user(self, user_id: int) -> User | None:
+        return self.db.scalar(
+            select(User).where(User.id == user_id).execution_options(populate_existing=True)
+        )
+
+    def lock_user(self, user_id: int) -> User | None:
+        return self.db.scalar(
+            select(User)
+            .where(User.id == user_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def add_user(self, user: User) -> None:
+        self.db.add(user)
+
+    def add_user_key(self, user_key: UserKey) -> None:
+        self.db.add(user_key)
+
+    def add_session(self, user_session: UserSession) -> None:
+        self.db.add(user_session)
+
+    def add_refresh_token(self, refresh_token: SessionRefreshToken) -> None:
+        self.db.add(refresh_token)
+
+    def flush(self) -> None:
+        self.db.flush()
+
+    def get_access_principal(
+        self,
+        access_token_hash: str,
+    ) -> tuple[UserSession, User] | None:
+        row = self.db.execute(
+            select(UserSession, User)
+            .join(User, User.id == UserSession.user_id)
+            .where(UserSession.access_token_hash == access_token_hash)
+            .limit(1)
+        ).one_or_none()
+        if row is None:
+            return None
+        return row._tuple()
+
+    def lock_session(self, session_id: int) -> UserSession | None:
+        return self.db.scalar(
+            select(UserSession)
+            .where(UserSession.id == session_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def lock_session_for_user(
+        self,
+        user_id: int,
+        session_public_id: UUID,
+    ) -> UserSession | None:
+        return self.db.scalar(
+            select(UserSession)
+            .where(
+                UserSession.user_id == user_id,
+                UserSession.session_uuid == str(session_public_id),
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def list_sessions(self, user_id: int, *, limit: int = 100) -> list[UserSession]:
+        return list(
+            self.db.scalars(
+                select(UserSession)
+                .where(UserSession.user_id == user_id)
+                .order_by(UserSession.created_at.desc(), UserSession.id.desc())
+                .limit(limit)
+                .execution_options(populate_existing=True)
+            )
+        )
+
+    def lock_active_sessions(self, user_id: int) -> list[UserSession]:
+        return list(
+            self.db.scalars(
+                select(UserSession)
+                .where(
+                    UserSession.user_id == user_id,
+                    UserSession.status == SessionStatus.ACTIVE,
+                )
+                .order_by(UserSession.created_at.asc(), UserSession.id.asc())
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        )
+
+    def lock_refresh_token(self, token_hash: str) -> SessionRefreshToken | None:
+        return self.db.scalar(
+            select(SessionRefreshToken)
+            .where(SessionRefreshToken.token_hash == token_hash)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def get_refresh_route(self, token_hash: str) -> tuple[int, int] | None:
+        row = self.db.execute(
+            select(SessionRefreshToken.session_id, UserSession.user_id)
+            .join(UserSession, UserSession.id == SessionRefreshToken.session_id)
+            .where(SessionRefreshToken.token_hash == token_hash)
+            .limit(1)
+        ).one_or_none()
+        if row is None:
+            return None
+        return row[0], row[1]
+
+    def lock_refresh_tokens_for_session(self, session_id: int) -> list[SessionRefreshToken]:
+        return list(
+            self.db.scalars(
+                select(SessionRefreshToken)
+                .where(SessionRefreshToken.session_id == session_id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        )
+
+    def revoke_session_family(
+        self,
+        user_session: UserSession,
+        *,
+        now: datetime,
+        reason: str,
+    ) -> bool:
+        changed = user_session.status == SessionStatus.ACTIVE
+        if changed:
+            user_session.status = SessionStatus.REVOKED
+            user_session.revoked_at = now
+            user_session.revoked_reason = reason
+
+        for refresh_token in self.lock_refresh_tokens_for_session(user_session.id):
+            if refresh_token.consumed_at is None and refresh_token.revoked_at is None:
+                refresh_token.revoked_at = now
+        return changed
+
+    def expire_session_family(
+        self,
+        user_session: UserSession,
+        *,
+        now: datetime,
+    ) -> bool:
+        changed = user_session.status == SessionStatus.ACTIVE
+        if changed:
+            user_session.status = SessionStatus.EXPIRED
+            user_session.revoked_at = now
+            user_session.revoked_reason = "absolute_expiry"
+        for refresh_token in self.lock_refresh_tokens_for_session(user_session.id):
+            if refresh_token.consumed_at is None and refresh_token.revoked_at is None:
+                refresh_token.revoked_at = now
+        return changed
+
+    def revoke_all_session_families(
+        self,
+        user_id: int,
+        *,
+        now: datetime,
+        reason: str,
+    ) -> int:
+        sessions = self.lock_active_sessions(user_id)
+        revoked = 0
+        for user_session in sessions:
+            if self.revoke_session_family(user_session, now=now, reason=reason):
+                revoked += 1
+        return revoked
+
+    def get_blocked_until(
+        self,
+        buckets: tuple[tuple[LoginThrottleScope, str], ...],
+        *,
+        now: datetime,
+    ) -> datetime | None:
+        if not buckets:
+            return None
+        clauses = [
+            (AuthLoginThrottle.scope == scope) & (AuthLoginThrottle.key_hash == key_hash)
+            for scope, key_hash in buckets
+        ]
+        blocked_values = self.db.scalars(
+            select(AuthLoginThrottle.blocked_until).where(or_(*clauses))
+        )
+        active_blocks = [value for value in blocked_values if value is not None and value > now]
+        return max(active_blocks, default=None)
+
+    def lock_or_create_throttle(
+        self,
+        scope: LoginThrottleScope,
+        key_hash: str,
+        *,
+        now: datetime,
+    ) -> AuthLoginThrottle:
+        insert_statement = mysql_insert(AuthLoginThrottle).values(
+            scope=scope,
+            key_hash=key_hash,
+            failed_count=0,
+            window_started_at=now,
+            blocked_until=None,
+            updated_at=now,
+        )
+        self.db.execute(
+            insert_statement.on_duplicate_key_update(
+                key_hash=insert_statement.inserted.key_hash,
+            )
+        )
+        throttle = self.db.scalar(
+            select(AuthLoginThrottle)
+            .where(
+                AuthLoginThrottle.scope == scope,
+                AuthLoginThrottle.key_hash == key_hash,
+            )
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+        if throttle is None:  # pragma: no cover - database invariant
+            raise RuntimeError("Authentication throttle row could not be locked")
+        return throttle
+
+    def clear_throttle(self, scope: LoginThrottleScope, key_hash: str) -> None:
+        self.db.execute(
+            delete(AuthLoginThrottle).where(
+                AuthLoginThrottle.scope == scope,
+                AuthLoginThrottle.key_hash == key_hash,
+            )
+        )

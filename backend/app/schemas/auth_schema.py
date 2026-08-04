@@ -1,127 +1,150 @@
+from __future__ import annotations
+
+import unicodedata
 from datetime import datetime
-from typing import Literal, Optional
+from typing import Any, Literal
+from uuid import UUID
 
-from pydantic import BaseModel, EmailStr, Field, field_validator, model_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
+
+from app.domain.enums import SessionStatus, SystemRole, UserStatus
 
 
-# =========================================================
-# Shared Auth/User DTOs
-# =========================================================
+class _AuthRequest(BaseModel):
+    model_config = ConfigDict(extra="forbid")
 
-class AuthUserResponse(BaseModel):
-    id: int
+
+class _AuthResponse(BaseModel):
+    model_config = ConfigDict(extra="forbid", from_attributes=True)
+
+
+def _normalize_password(value: Any) -> Any:
+    if isinstance(value, str):
+        return unicodedata.normalize("NFC", value)
+    return value
+
+
+def _normalize_username(value: Any) -> Any:
+    if isinstance(value, str):
+        return value.strip()
+    return value
+
+
+def _validate_username(value: str) -> str:
+    allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
+    if any(char not in allowed_chars for char in value):
+        raise ValueError("Username can only contain letters, numbers, underscore, dot, and hyphen")
+    return value
+
+
+class AuthUserResponse(_AuthResponse):
+    id: UUID
     username: str
     email: EmailStr
-    role: Literal["USER", "ADMIN", "RECOVERY_OFFICER"]
-    status: Literal["ACTIVE", "DISABLED", "DELETED"]
+    role: SystemRole
+    status: UserStatus
     email_verified: bool
     created_at: datetime
-    last_login_at: Optional[datetime] = None
-
-    model_config = {
-        "from_attributes": True
-    }
+    last_login_at: datetime | None = None
 
 
-class AuthSessionResponse(BaseModel):
-    token_type: str = "bearer"
-    access_token: str
-    expires_at: datetime
+class UserRegisterRequest(_AuthRequest):
+    username: str = Field(min_length=3, max_length=100)
+    email: EmailStr = Field(max_length=255)
+    password: str = Field(min_length=15, max_length=128, repr=False)
 
-
-# =========================================================
-# Register
-# =========================================================
-
-class UserRegisterRequest(BaseModel):
-    username: str = Field(..., min_length=3, max_length=100)
-    email: EmailStr
-    password: str = Field(..., min_length=8, max_length=128)
-
-    @field_validator("username")
-    @classmethod
-    def validate_username(cls, value: str) -> str:
-        value = value.strip()
-
-        if not value:
-            raise ValueError("Username is required")
-
-        allowed_chars = set("abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789_.-")
-        if any(char not in allowed_chars for char in value):
-            raise ValueError(
-                "Username can only contain letters, numbers, underscore, dot, and hyphen"
-            )
-
-        return value
+    _strip_username = field_validator("username", mode="before")(_normalize_username)
+    _check_username = field_validator("username")(_validate_username)
+    _normalize_password = field_validator("password", mode="before")(_normalize_password)
 
     @field_validator("email")
     @classmethod
-    def normalize_email(cls, value: EmailStr) -> EmailStr:
-        return value.lower()
+    def normalize_email(cls, value: EmailStr) -> str:
+        return str(value).lower()
 
 
-class UserRegisterResponse(BaseModel):
+class UserRegisterResponse(_AuthResponse):
     user: AuthUserResponse
-    private_key_pem: str
-    private_key_filename: str
-    message: str = (
-        "Registration successful. Please download and store your private key securely. "
-        "The platform does not permanently store your private key."
-    )
+    private_key_pem: str = Field(repr=False)
+    private_key_filename: str = Field(repr=False)
 
 
-# =========================================================
-# Login
-# =========================================================
+class UserLoginRequest(_AuthRequest):
+    username: str = Field(min_length=3, max_length=100)
+    password: str = Field(min_length=1, max_length=128, repr=False)
 
-class UserLoginRequest(BaseModel):
-    username: str = Field(..., min_length=3, max_length=100)
-    password: str = Field(..., min_length=1, max_length=128)
-
-    @field_validator("username")
-    @classmethod
-    def normalize_username(cls, value: str) -> str:
-        return value.strip()
+    _strip_username = field_validator("username", mode="before")(_normalize_username)
+    _check_username = field_validator("username")(_validate_username)
+    _normalize_password = field_validator("password", mode="before")(_normalize_password)
 
 
-class UserLoginResponse(BaseModel):
+class UserLoginResponse(_AuthResponse):
     user: AuthUserResponse
-    session: AuthSessionResponse
+    access_token: str = Field(repr=False)
+    refresh_token: str = Field(repr=False)
+    token_type: Literal["bearer"] = "bearer"
+    access_expires_at: datetime
+    refresh_expires_at: datetime
+    session_id: UUID
 
 
-# =========================================================
-# OAuth2-compatible token response
-# Used by Swagger Authorize button if needed.
-# =========================================================
-
-class AuthTokenResponse(BaseModel):
-    access_token: str
-    token_type: str = "bearer"
-    expires_at: datetime
+class AuthRefreshRequest(_AuthRequest):
+    refresh_token: str = Field(min_length=1, max_length=512, repr=False)
 
 
-# =========================================================
-# Current User / Me
-# =========================================================
+class AuthRefreshResponse(_AuthResponse):
+    access_token: str = Field(repr=False)
+    refresh_token: str = Field(repr=False)
+    token_type: Literal["bearer"] = "bearer"
+    access_expires_at: datetime
+    refresh_expires_at: datetime
+    session_id: UUID
 
-class AuthMeResponse(BaseModel):
+
+class AuthMeResponse(_AuthResponse):
     user: AuthUserResponse
 
 
-# =========================================================
-# Logout
-# =========================================================
-
-class UserLogoutResponse(BaseModel):
+class UserLogoutResponse(_AuthResponse):
     logged_out: bool = True
-    message: str = "Logout successful"
 
 
-# =========================================================
-# Session Validation
-# =========================================================
+class UserLogoutAllResponse(_AuthResponse):
+    revoked_sessions: int = Field(ge=0)
 
-class AuthSessionValidateResponse(BaseModel):
-    valid: bool
-    user: Optional[AuthUserResponse] = None
-    expires_at: Optional[datetime] = None
+
+class ChangePasswordRequest(_AuthRequest):
+    current_password: str = Field(min_length=1, max_length=128, repr=False)
+    new_password: str = Field(min_length=15, max_length=128, repr=False)
+
+    _normalize_current_password = field_validator("current_password", mode="before")(
+        _normalize_password
+    )
+    _normalize_new_password = field_validator("new_password", mode="before")(_normalize_password)
+
+
+class ChangePasswordResponse(_AuthResponse):
+    password_changed: bool = True
+    revoked_sessions: int = Field(ge=0)
+    reauthentication_required: bool = True
+
+
+class AuthSessionResponse(_AuthResponse):
+    session_id: UUID = Field(validation_alias=AliasChoices("session_id", "id", "session_uuid"))
+    status: SessionStatus
+    current: bool
+    created_at: datetime
+    access_expires_at: datetime
+    absolute_expires_at: datetime
+    ip_address: str | None = None
+    user_agent: str | None = None
+    revoked_at: datetime | None = None
+
+
+class AuthSessionListResponse(_AuthResponse):
+    sessions: list[AuthSessionResponse]
+
+
+class AuthSessionRevokeResponse(_AuthResponse):
+    session_id: UUID
+    revoked: bool = True

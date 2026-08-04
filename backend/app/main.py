@@ -1,35 +1,73 @@
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
-from app.api.v1.routers import auth_router, file_router, share_router, audit_router, recovery_router, admin_router
-from app.core.config import settings
-
-app = FastAPI(
-    title=settings.APP_NAME,
-    version="0.1.0",
-    description="Secure File Encryption and Sharing Platform API",
+from app.api.error_handlers import register_exception_handlers
+from app.api.v1.router import api_router
+from app.core.config import Settings, settings
+from app.core.database import (
+    create_db_engine,
+    create_session_factory,
 )
-
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
+from app.core.database import (
+    engine as default_engine,
 )
-
-app.include_router(auth_router.router, prefix=f"{settings.API_PREFIX}/auth", tags=["Auth"])
-app.include_router(file_router.router, prefix=f"{settings.API_PREFIX}/files", tags=["Files"])
-app.include_router(share_router.router, prefix=f"{settings.API_PREFIX}/files", tags=["Sharing"])
-app.include_router(audit_router.router, prefix=f"{settings.API_PREFIX}/audit-logs", tags=["Audit Logs"])
-app.include_router(recovery_router.router, prefix=f"{settings.API_PREFIX}/recovery", tags=["Recovery"])
-app.include_router(admin_router.router, prefix=f"{settings.API_PREFIX}/admin", tags=["Admin"])
+from app.core.security import PasswordManager
 
 
-@app.get("/")
-def root():
-    return {
-        "success": True,
-        "message": "Secure File Encryption Platform API is running",
-        "docs": "/docs",
-    }
+@asynccontextmanager
+async def lifespan(application: FastAPI) -> AsyncIterator[None]:
+    try:
+        yield
+    finally:
+        application.state.db_engine.dispose()
+
+
+def create_app(app_settings: Settings | None = None) -> FastAPI:
+    active_settings = app_settings or settings
+    application = FastAPI(
+        title=active_settings.APP_NAME,
+        version=active_settings.APP_VERSION,
+        description="Secure File Encryption and Sharing Platform API",
+        lifespan=lifespan,
+    )
+    application.state.settings = active_settings
+    application.state.db_engine = (
+        default_engine
+        if active_settings is settings
+        else create_db_engine(active_settings.DATABASE_URL)
+    )
+    application.state.db_session_factory = create_session_factory(application.state.db_engine)
+    application.state.password_manager = PasswordManager(
+        max_concurrent_operations=active_settings.AUTH_PASSWORD_HASH_CONCURRENCY
+    )
+
+    application.add_middleware(
+        CORSMiddleware,
+        allow_origins=active_settings.CORS_ORIGINS,
+        allow_credentials=active_settings.CORS_ALLOW_CREDENTIALS,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
+
+    application.include_router(api_router, prefix=active_settings.API_PREFIX)
+    register_exception_handlers(application)
+
+    @application.get("/")
+    def root():
+        return {
+            "success": True,
+            "message": "Secure File Encryption Platform API is running",
+            "docs": "/docs",
+        }
+
+    @application.get("/health/live", tags=["Health"])
+    def liveness():
+        return {"status": "ok"}
+
+    return application
+
+
+app = create_app()
