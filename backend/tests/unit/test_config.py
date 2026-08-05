@@ -27,6 +27,49 @@ def test_database_url_handles_reserved_password_characters() -> None:
 
     assert configured.DATABASE_URL.password == "p@ss:/word"
     assert "p%40ss%3A%2Fword" in configured.DATABASE_URL.render_as_string(hide_password=False)
+    assert configured.DATABASE_CONNECT_ARGS == {"init_command": "SET time_zone = '+00:00'"}
+
+
+def test_database_identity_rejects_whitespace_padding() -> None:
+    with pytest.raises(ValidationError, match="without whitespace padding"):
+        Settings(_env_file=None, DB_USER=" runtime ")
+
+
+def test_database_tls_uses_ca_and_optional_client_identity(tmp_path: Path) -> None:
+    ca_path = tmp_path / "ca.pem"
+    cert_path = tmp_path / "client-cert.pem"
+    key_path = tmp_path / "client-key.pem"
+    ca_path.touch()
+    cert_path.touch()
+    key_path.touch()
+
+    configured = Settings(
+        _env_file=None,
+        DB_SSL_CA=ca_path,
+        DB_SSL_CERT=cert_path,
+        DB_SSL_KEY=key_path,
+    )
+
+    expected_connect_args = {
+        "init_command": "SET time_zone = '+00:00'",
+        "ssl_ca": str(ca_path),
+        "ssl_verify_cert": True,
+        "ssl_verify_identity": True,
+        "ssl_cert": str(cert_path),
+        "ssl_key": str(key_path),
+    }
+    assert expected_connect_args == configured.DATABASE_CONNECT_ARGS
+
+
+def test_production_requires_verified_database_tls() -> None:
+    with pytest.raises(ValidationError, match="DB_SSL_CA is required"):
+        Settings(
+            _env_file=None,
+            APP_ENV="production",
+            APP_DEBUG=False,
+            SECRET_KEY="a-production-secret-that-is-long-enough",
+            DB_PASSWORD="a-production-database-password",
+        )
 
 
 def test_production_rejects_development_security_defaults() -> None:

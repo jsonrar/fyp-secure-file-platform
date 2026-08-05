@@ -60,6 +60,7 @@ fyp-secure-file-platform/
 |   |   |-- schemas/
 |   |   `-- services/
 |   |-- migrations/
+|   |-- scripts/
 |   |-- tests/
 |   `-- requirements.txt
 |-- frontend/
@@ -69,6 +70,7 @@ fyp-secure-file-platform/
 |   |-- ARCHITECTURE.md
 |   |-- API_DESIGN.md
 |   |-- DATABASE_SCHEMA.md
+|   |-- DEPLOYMENT.md
 |   |-- SECURITY_FLOWS.md
 |   `-- PROJECT_SCOPE.md
 |-- .env.example
@@ -105,13 +107,31 @@ uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 history. A local database created by the former `docs/init.sql` must not be blindly upgraded
 or stamped; follow [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md#adopting-a-legacy-development-database).
 
+### MySQL deployment
+
+Production and staging releases use the guarded scripts in `backend/scripts/`. They provision
+separate runtime and migration accounts, serialize migrations with a MySQL advisory lock,
+refuse unmanaged legacy schemas, run Alembic to head, and verify metadata drift.
+
+```bash
+cd backend
+python -m scripts.provision_mysql       # first deployment only; requires admin variables
+python -m scripts.deploy_mysql          # clean database
+python -m scripts.deploy_mysql --confirm-backup  # managed database that needs an upgrade
+python -m scripts.verify_mysql
+```
+
+See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for required secret variables, account grants,
+backup requirements, release order, and rollback guidance. The deployment scripts require
+MySQL 8.4 with strict SQL mode; they never drop, reset, or stamp an unmanaged database.
+
 OpenAPI: <http://localhost:8000/docs>
 
 Run backend quality checks from `backend/`:
 
 ```bash
-ruff format --check app tests migrations
-ruff check app tests migrations
+ruff format --check app tests migrations scripts
+ruff check app tests migrations scripts
 pytest
 alembic check
 pip-audit -r requirements.txt

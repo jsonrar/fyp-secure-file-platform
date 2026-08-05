@@ -37,7 +37,10 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     application.state.db_engine = (
         default_engine
         if active_settings is settings
-        else create_db_engine(active_settings.DATABASE_URL)
+        else create_db_engine(
+            active_settings.DATABASE_URL,
+            connect_args=active_settings.DATABASE_CONNECT_ARGS,
+        )
     )
     application.state.db_session_factory = create_session_factory(application.state.db_engine)
     application.state.password_manager = PasswordManager(

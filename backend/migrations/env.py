@@ -4,6 +4,7 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import create_engine, pool
+from sqlalchemy.engine import Connection
 
 import app.models  # noqa: F401 -- registers every model with Base.metadata
 from app.core.config import settings
@@ -32,21 +33,34 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
+def _run_migrations_with_connection(connection: Connection) -> None:
+    context.configure(
+        connection=connection,
+        target_metadata=target_metadata,
+        compare_type=True,
+        compare_server_default=True,
+    )
+
+    with context.begin_transaction():
+        context.run_migrations()
+
+
 def run_migrations_online() -> None:
-    """Run migrations with a short-lived, non-pooled connection."""
-    connectable = create_engine(settings.DATABASE_URL, poolclass=pool.NullPool)
+    """Run migrations with an injected deployment connection or a short-lived engine."""
+    supplied_connection = config.attributes.get("connection")
+    if supplied_connection is not None:
+        _run_migrations_with_connection(supplied_connection)
+        return
+
+    connectable = create_engine(
+        settings.DATABASE_URL,
+        poolclass=pool.NullPool,
+        connect_args=settings.DATABASE_CONNECT_ARGS,
+    )
 
     try:
         with connectable.connect() as connection:
-            context.configure(
-                connection=connection,
-                target_metadata=target_metadata,
-                compare_type=True,
-                compare_server_default=True,
-            )
-
-            with context.begin_transaction():
-                context.run_migrations()
+            _run_migrations_with_connection(connection)
     finally:
         connectable.dispose()
 

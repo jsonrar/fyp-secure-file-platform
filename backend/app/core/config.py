@@ -52,6 +52,9 @@ class Settings(BaseSettings):
     DB_USER: str = "fyp_user"
     DB_PASSWORD: str = Field(default=_DEVELOPMENT_DB_PASSWORD, repr=False)
     DB_NAME: str = "fyp_secure_file_platform"
+    DB_SSL_CA: Path | None = None
+    DB_SSL_CERT: Path | None = None
+    DB_SSL_KEY: Path | None = None
 
     ENCRYPTED_FILE_DIR: Path = Path("backend/encrypted_files")
     TEMP_FILE_DIR: Path = Path("backend/temp_files")
@@ -98,6 +101,15 @@ class Settings(BaseSettings):
             raise ValueError(f"LOG_LEVEL must be one of {sorted(allowed_levels)}")
         return normalized
 
+    @field_validator("DB_HOST", "DB_USER", "DB_NAME")
+    @classmethod
+    def validate_database_connection_name(cls, value: str) -> str:
+        if not value or value != value.strip():
+            raise ValueError(
+                "database host, user, and name must be non-empty without whitespace padding"
+            )
+        return value
+
     @field_validator("USER_RSA_KEY_SIZE")
     @classmethod
     def validate_user_rsa_key_size(cls, value: int) -> int:
@@ -109,10 +121,15 @@ class Settings(BaseSettings):
         "ENCRYPTED_FILE_DIR",
         "TEMP_FILE_DIR",
         "RECOVERY_PUBLIC_KEY_PATH",
+        "DB_SSL_CA",
+        "DB_SSL_CERT",
+        "DB_SSL_KEY",
         mode="before",
     )
     @classmethod
-    def resolve_repository_path(cls, value: str | Path) -> Path:
+    def resolve_repository_path(cls, value: str | Path | None) -> Path | None:
+        if value is None:
+            return None
         path = Path(value).expanduser()
         if not path.is_absolute():
             path = REPO_ROOT / path
@@ -149,10 +166,26 @@ class Settings(BaseSettings):
                 errors.append("SECRET_KEY must be a non-default value of at least 32 characters")
             if self.DB_PASSWORD == _DEVELOPMENT_DB_PASSWORD:
                 errors.append("DB_PASSWORD must not use the development default")
+            if self.DB_SSL_CA is None:
+                errors.append("DB_SSL_CA is required for verified database TLS")
             if errors:
                 raise ValueError(
                     f"Unsafe settings for APP_ENV={self.APP_ENV!r}: " + "; ".join(errors)
                 )
+
+        if bool(self.DB_SSL_CERT) != bool(self.DB_SSL_KEY):
+            raise ValueError("DB_SSL_CERT and DB_SSL_KEY must either both be set or both be absent")
+
+        tls_paths = {
+            "DB_SSL_CA": self.DB_SSL_CA,
+            "DB_SSL_CERT": self.DB_SSL_CERT,
+            "DB_SSL_KEY": self.DB_SSL_KEY,
+        }
+        missing_tls_files = [
+            name for name, path in tls_paths.items() if path and not path.is_file()
+        ]
+        if missing_tls_files:
+            raise ValueError(f"Database TLS files do not exist: {', '.join(missing_tls_files)}")
 
         return self
 
@@ -167,6 +200,24 @@ class Settings(BaseSettings):
             database=self.DB_NAME,
             query={"charset": "utf8mb4"},
         )
+
+    @property
+    def DATABASE_CONNECT_ARGS(self) -> dict[str, object]:
+        connect_args: dict[str, object] = {"init_command": "SET time_zone = '+00:00'"}
+        if self.DB_SSL_CA is None:
+            return connect_args
+
+        connect_args.update(
+            {
+                "ssl_ca": str(self.DB_SSL_CA),
+                "ssl_verify_cert": True,
+                "ssl_verify_identity": True,
+            }
+        )
+        if self.DB_SSL_CERT is not None and self.DB_SSL_KEY is not None:
+            connect_args["ssl_cert"] = str(self.DB_SSL_CERT)
+            connect_args["ssl_key"] = str(self.DB_SSL_KEY)
+        return connect_args
 
 
 @lru_cache(maxsize=1)

@@ -7,11 +7,16 @@ from sqlalchemy.orm import DeclarativeBase, Session, sessionmaker
 from app.core.config import settings
 
 
-def create_db_engine(database_url: URL | str) -> Engine:
+def create_db_engine(
+    database_url: URL | str,
+    *,
+    connect_args: dict[str, object] | None = None,
+) -> Engine:
     return create_engine(
         database_url,
         pool_pre_ping=True,
         pool_recycle=3600,
+        connect_args=connect_args or {},
     )
 
 
@@ -24,7 +29,10 @@ def create_session_factory(db_engine: Engine) -> sessionmaker[Session]:
     )
 
 
-engine = create_db_engine(settings.DATABASE_URL)
+engine = create_db_engine(
+    settings.DATABASE_URL,
+    connect_args=settings.DATABASE_CONNECT_ARGS,
+)
 SessionLocal = create_session_factory(engine)
 
 

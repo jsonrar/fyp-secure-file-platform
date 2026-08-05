@@ -39,6 +39,30 @@ def test_database_dependency_closes_successful_session(
     assert session.rolled_back is False
 
 
+def test_database_engine_forwards_connection_security_options(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    captured: dict[str, Any] = {}
+    expected_engine = object()
+
+    def fake_create_engine(database_url: str, **options: Any) -> object:
+        captured["url"] = database_url
+        captured.update(options)
+        return expected_engine
+
+    monkeypatch.setattr(database, "create_engine", fake_create_engine)
+
+    result = database.create_db_engine(
+        "mysql+pymysql://example.invalid/database",
+        connect_args={"ssl_verify_identity": True},
+    )
+
+    assert result is expected_engine
+    assert captured["connect_args"] == {"ssl_verify_identity": True}
+    assert captured["pool_pre_ping"] is True
+    assert captured["pool_recycle"] == 3600
+
+
 def test_database_dependency_rolls_back_failed_session(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:

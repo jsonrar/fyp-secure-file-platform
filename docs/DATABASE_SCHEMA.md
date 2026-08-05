@@ -40,6 +40,10 @@ forward-only because its public UUIDs, session generations, throttle evidence, a
 hash upgrades cannot round-trip through `0001`; restore a backup for rollback, or rebuild a
 disposable development database.
 
+Staging and production releases must use the guarded MySQL workflow in
+[DEPLOYMENT.md](DEPLOYMENT.md). It uses a dedicated migration identity, checks schema ownership,
+and requires explicit backup confirmation before upgrading a managed database.
+
 ### Adopting a Legacy Development Database
 
 A database created by the former `docs/init.sql` has application tables but no
