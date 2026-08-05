@@ -1,5 +1,7 @@
 # Security Flows
 
+English | [简体中文](SECURITY_FLOWS.zh-CN.md)
+
 These flows define transaction and trust boundaries. Auth is implemented. Upload, download,
 sharing, access revocation, audit-query, recovery, and admin route handlers remain guarded
 with `501 feature_not_implemented`; their sections below are requirements, not claims of

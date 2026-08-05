@@ -1,5 +1,7 @@
 # Frontend
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Vue 3 + TypeScript frontend integrated with SecurFile UI and FYP backend APIs.
 
 ## Run

@@ -1,5 +1,7 @@
 # API Design
 
+English | [简体中文](API_DESIGN.zh-CN.md)
+
 ## Current Status
 
 Auth is the first implemented business router. Its nine endpoints use real persistence,

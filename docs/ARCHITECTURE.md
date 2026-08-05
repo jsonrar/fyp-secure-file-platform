@@ -1,5 +1,7 @@
 # Backend Architecture
 
+[English](ARCHITECTURE.md) | [简体中文](ARCHITECTURE.zh-CN.md)
+
 ## Decision
 
 The backend is a **modular monolith**. This fits the FYP scope: one deployable FastAPI

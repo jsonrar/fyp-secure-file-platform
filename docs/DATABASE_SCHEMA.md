@@ -1,5 +1,7 @@
 # Database Schema and Migration Policy
 
+[English](DATABASE_SCHEMA.md) | [简体中文](DATABASE_SCHEMA.zh-CN.md)
+
 ## Source of Truth
 
 SQLAlchemy metadata in `backend/app/models/` and the ordered Alembic revisions in

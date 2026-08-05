@@ -1,5 +1,7 @@
 # Project Scope
 
+English | [简体中文](PROJECT_SCOPE.zh-CN.md)
+
 ## Final Product
 
 A secure file encryption and sharing platform that protects uploaded files using server-side AES encryption, manages file access through RSA-based key wrapping, supports controlled sharing and revocation, and strengthens accountability through integrity verification, recovery governance, and tamper-evident audit logs.

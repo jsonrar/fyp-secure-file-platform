@@ -1,5 +1,7 @@
 # Secure File Encryption and Sharing Platform
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 Final Year Project architecture for a secure file encryption and sharing platform.
 
 ## Project Goal
@@ -90,7 +92,7 @@ an `alembic_version` row. The currently inspected local legacy database does not
 normal upgrade and follow the adoption warning below if that database is still present.
 
 ```bash
-docker compose up -d mysql
+docker compose up -d --wait mysql
 cd backend
 python -m venv .venv
 # Windows

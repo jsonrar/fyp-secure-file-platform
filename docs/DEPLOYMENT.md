@@ -1,5 +1,7 @@
 # MySQL Deployment
 
+[English](DEPLOYMENT.md) | [简体中文](DEPLOYMENT.zh-CN.md)
+
 These instructions deploy the database schema to MySQL 8.4. SQLAlchemy models and Alembic
 revisions remain the only schema source of truth; the deployment scripts do not maintain a
 second schema dump and never run `create_all()`.

@@ -1,5 +1,7 @@
 # Backend
 
+[English](README.md) | [简体中文](README.zh-CN.md)
+
 FastAPI modular-monolith backend for the secure file encryption and sharing platform.
 
 ## Current Status
@@ -54,7 +56,7 @@ instead of running or stamping the normal history against it.
 
 ```powershell
 Copy-Item .env.example .env
-docker compose up -d mysql
+docker compose up -d --wait mysql
 Set-Location backend
 python -m venv .venv
 .\.venv\Scripts\Activate.ps1

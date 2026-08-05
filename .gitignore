@@ -65,3 +65,6 @@ pnpm-debug.log*
 .agents/skills/
 .claude/skills/
 skills-lock.json
+
+# ===== Local agent context =====
+/AGENT_CONTEXT.local.md
