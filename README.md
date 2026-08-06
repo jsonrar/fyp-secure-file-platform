@@ -36,6 +36,8 @@ Backend Auth readiness does not make the current frontend login flow production-
 page still contains a prototype credential bypass/token fallback that must be removed before
 end-to-end authentication testing or deployment.
 
+The prioritized implementation backlog is tracked in [TODO.md](TODO.md).
+
 ## Recommended Stack
 
 | Layer | Technology |
