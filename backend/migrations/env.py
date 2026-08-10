@@ -18,6 +18,35 @@ if config.config_file_name is not None:
 target_metadata = Base.metadata
 
 
+def _normalize_mysql_timestamp_default(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = "".join(value.strip().lower().split())
+    while normalized.startswith("(") and normalized.endswith(")"):
+        normalized = normalized[1:-1]
+    if normalized in {"now()", "current_timestamp", "current_timestamp()"}:
+        return "current_timestamp"
+    return normalized
+
+
+def _compare_server_default(
+    migration_context,
+    inspected_column,
+    metadata_column,
+    inspected_default,
+    metadata_default,
+    rendered_metadata_default,
+):
+    if migration_context.dialect.name != "mysql":
+        return None
+
+    inspected = _normalize_mysql_timestamp_default(inspected_default)
+    rendered = _normalize_mysql_timestamp_default(rendered_metadata_default)
+    if inspected == rendered:
+        return False
+    return None
+
+
 def run_migrations_offline() -> None:
     """Render migrations without opening a database connection."""
     context.configure(
@@ -26,7 +55,7 @@ def run_migrations_offline() -> None:
         literal_binds=True,
         dialect_opts={"paramstyle": "named"},
         compare_type=True,
-        compare_server_default=True,
+        compare_server_default=_compare_server_default,
     )
 
     with context.begin_transaction():
@@ -38,7 +67,7 @@ def _run_migrations_with_connection(connection: Connection) -> None:
         connection=connection,
         target_metadata=target_metadata,
         compare_type=True,
-        compare_server_default=True,
+        compare_server_default=_compare_server_default,
     )
 
     with context.begin_transaction():
