@@ -1,0 +1,6 @@
+[mysqld]
+require_secure_transport=ON
+ssl_ca=/etc/mysql/gate-tls/ca.pem
+ssl_cert=/etc/mysql/gate-tls/server-cert.pem
+ssl_key=/etc/mysql/gate-tls/server-key.pem
+default-time-zone=+00:00

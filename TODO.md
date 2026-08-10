@@ -2,7 +2,7 @@
 
 English | [简体中文](TODO.zh-CN.md)
 
-Last reviewed: 2026-08-06
+Last reviewed: 2026-08-11
 
 This backlog is based on the current code, migrations, tests, and project documentation.
 Priorities are ordered as follows:
@@ -16,18 +16,19 @@ Priorities are ordered as follows:
 - Backend Auth is the only completed business vertical slice.
 - The other 18 file, sharing, audit-query, recovery, and admin endpoints remain fail-closed
   with `501 feature_not_implemented`.
-- Local backend checks pass: Ruff is clean and `pytest` reports `110 passed, 2 skipped`.
-  The skipped tests require a disposable MySQL integration database.
+- Backend checks pass: Ruff is clean; the isolated gate reports `108` API/unit tests and
+  `14` real MySQL 8.4 integration tests, with zero integration skips.
 - The frontend production build passes.
 - Frontend type-checking currently fails because `typescript@7.0.2` and `vue-tsc@3.3.7`
   are incompatible.
-- The repository has no CI workflow.
+- The repository includes a required MySQL 8.4 GitHub Actions release gate. See the
+  [test report](docs/MYSQL_8_4_INTEGRATION_TEST_REPORT.md).
 
 ## P0 — Release and Demo Blockers
 
 ### Database and Release Safety
 
-- [ ] Repair and validate Alembic revision `0002_auth_identity_sessions` on MySQL 8.4.
+- [x] Repair and validate Alembic revision `0002_auth_identity_sessions` on MySQL 8.4.
   - Determine whether `0002` has been applied outside disposable development databases;
     add a corrective revision instead of rewriting applied history when necessary.
   - Create a replacement `user_sessions(user_id, status)` index before dropping
@@ -35,7 +36,7 @@ Priorities are ordered as follows:
   - Test both an empty database upgraded to `head` and a real `0001 -> 0002` upgrade.
   - Verify and document recovery from partially committed MySQL DDL.
 
-- [ ] Add a required MySQL 8.4 CI and release gate.
+- [x] Add a required MySQL 8.4 CI and release gate.
   - Run `alembic upgrade head`, `alembic check`, and schema verification against a
     disposable database.
   - Exercise `0001 -> 0002`, repeated deployment, failure refusal, and
@@ -50,7 +51,7 @@ Priorities are ordered as follows:
 
 ### Frontend Authentication
 
-- [ ] Remove all demo authentication behavior from `frontend/src/pages/LoginPage.vue`.
+- [x] Remove all demo authentication behavior from `frontend/src/pages/LoginPage.vue`.
   - Delete the hard-coded `admin / 12345678` bypass.
   - Delete `demo-admin-token` and the fallback `demo-token`.
   - Treat a missing or malformed token response as a failed login.

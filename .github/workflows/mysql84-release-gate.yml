@@ -1,0 +1,38 @@
+name: MySQL 8.4 release gate
+
+on:
+  pull_request:
+    paths:
+      - ".dockerignore"
+      - ".github/workflows/mysql84-release-gate.yml"
+      - "backend/**"
+      - "docker-compose.yml"
+  push:
+    branches:
+      - main
+    paths:
+      - ".dockerignore"
+      - ".github/workflows/mysql84-release-gate.yml"
+      - "backend/**"
+      - "docker-compose.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: mysql84-release-gate-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  mysql84-release-gate:
+    name: MySQL 8.4 migrations, TLS, grants, and constraints
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Run isolated MySQL 8.4 release gate
+        run: ./backend/tests/integration/run_mysql84_release_gate.sh

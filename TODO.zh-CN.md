@@ -2,7 +2,7 @@
 
 [English](TODO.md) | 简体中文
 
-最后审查日期：2026-08-06
+最后审查日期：2026-08-11
 
 本待办清单依据当前代码、迁移、测试及项目文档整理。优先级定义如下：
 
@@ -15,17 +15,18 @@
 - 后端 Auth 是目前唯一完成的业务纵向切片。
 - 其余 18 个文件、共享、审计查询、恢复及管理端点仍以
   `501 feature_not_implemented` 方式保持失败关闭。
-- 本地后端检查通过：Ruff 无错误，`pytest` 结果为 `110 passed, 2 skipped`。
-  跳过的测试需要一次性 MySQL 集成测试数据库。
+- 后端检查通过：Ruff 无错误；隔离门禁运行 `108` 项 API/单元测试及 `14` 项真实
+  MySQL 8.4 集成测试，集成测试无跳过。
 - 前端生产构建通过。
 - 前端类型检查当前失败，因为 `typescript@7.0.2` 与 `vue-tsc@3.3.7` 不兼容。
-- 仓库中尚无 CI 工作流。
+- 仓库已包含必需的 MySQL 8.4 GitHub Actions 发布门禁。参见
+  [测试报告](docs/MYSQL_8_4_INTEGRATION_TEST_REPORT.zh-CN.md)。
 
 ## P0 — 发布与演示阻塞项
 
 ### 数据库与发布安全
 
-- [ ] 修复并在 MySQL 8.4 上验证 Alembic 修订 `0002_auth_identity_sessions`。
+- [x] 修复并在 MySQL 8.4 上验证 Alembic 修订 `0002_auth_identity_sessions`。
   - 确认 `0002` 是否已在一次性开发数据库以外的环境执行；若已执行，应新增修正修订，
     不得改写已发布的迁移历史。
   - 在删除当前支撑 `fk_user_sessions_user` 的 `idx_user_sessions_user_id` 前，先创建
@@ -33,7 +34,7 @@
   - 同时测试空数据库直接升级至 `head` 以及真实的 `0001 -> 0002` 升级。
   - 验证并记录 MySQL DDL 部分提交后的恢复流程。
 
-- [ ] 增加必需的 MySQL 8.4 CI 与发布门禁。
+- [x] 增加必需的 MySQL 8.4 CI 与发布门禁。
   - 针对一次性数据库运行 `alembic upgrade head`、`alembic check` 及 Schema 验证。
   - 覆盖 `0001 -> 0002`、重复部署、失败拒绝，以及
     `provision_mysql -> deploy_mysql -> verify_mysql`。
@@ -46,7 +47,7 @@
 
 ### 前端身份认证
 
-- [ ] 删除 `frontend/src/pages/LoginPage.vue` 中所有演示认证逻辑。
+- [x] 删除 `frontend/src/pages/LoginPage.vue` 中所有演示认证逻辑。
   - 删除硬编码的 `admin / 12345678` 绕过。
   - 删除 `demo-admin-token` 及后备 `demo-token`。
   - 令牌响应缺失或格式错误时必须判定登录失败。
