@@ -19,21 +19,11 @@ async function login() {
   isSubmitting.value = true
   errorMessage.value = ''
   try {
-    // 临时测试：跳过后端，写死账号
-    if (username.value === 'admin' && password.value === '12345678') {
-      auth.setToken('demo-admin-token')
-      const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/upload'
-      router.push(redirect)
-      return
-    }
-
-    if (username.value === 'admin') {
-      errorMessage.value = 'Invalid username or password'
-      return
-    }
-
     const res = await authApi.login({ username: username.value, password: password.value })
-    const token = res.data?.data?.access_token || 'demo-token'
+    const token = res.data?.data?.access_token
+    if (!token) {
+      throw new Error('Login response did not contain an access token')
+    }
     auth.setToken(token)
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/upload'
     router.push(redirect)

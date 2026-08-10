@@ -39,6 +39,9 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     assert "ck_auth_0002_requires_empty_audit_log" in rendered_sql
     assert "SELECT 0 FROM audit_logs LIMIT 1" in rendered_sql
     assert "CREATE TABLE users" in rendered_sql
+    replacement_index_position = rendered_sql.index("CREATE INDEX idx_user_sessions_user_status")
+    legacy_index_drop_position = rendered_sql.index("DROP INDEX idx_user_sessions_user_id")
+    assert replacement_index_position < legacy_index_drop_position
     assert "UPDATE users SET user_uuid = UUID()" in rendered_sql
     assert "CREATE TABLE session_refresh_tokens" in rendered_sql
     assert "CREATE TABLE auth_login_throttles" in rendered_sql

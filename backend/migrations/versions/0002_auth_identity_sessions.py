@@ -91,6 +91,16 @@ def upgrade() -> None:
         "user_sessions",
         type_="unique",
     )
+    # MySQL requires an index whose first column is user_id for the existing
+    # fk_user_sessions_user foreign key. Create the replacement composite index
+    # before removing the legacy single-column index so the constraint remains
+    # backed throughout this non-transactional DDL sequence.
+    op.create_index(
+        "idx_user_sessions_user_status",
+        "user_sessions",
+        ["user_id", "status"],
+        unique=False,
+    )
     op.drop_index("idx_user_sessions_user_id", table_name="user_sessions")
     op.drop_index("idx_user_sessions_status", table_name="user_sessions")
     op.drop_index("idx_user_sessions_expires_at", table_name="user_sessions")
@@ -154,12 +164,6 @@ def upgrade() -> None:
         "ck_user_sessions_access_before_absolute",
         "user_sessions",
         "access_expires_at <= absolute_expires_at",
-    )
-    op.create_index(
-        "idx_user_sessions_user_status",
-        "user_sessions",
-        ["user_id", "status"],
-        unique=False,
     )
     op.create_index(
         "idx_user_sessions_status_access_expires",

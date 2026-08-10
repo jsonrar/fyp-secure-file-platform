@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CHAR, DateTime, Enum, Index, func
+from sqlalchemy import CHAR, DateTime, Enum, Index, func, text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column
 
@@ -36,12 +36,12 @@ class AuthLoginThrottle(Base):
     window_started_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        server_default=func.now(),
+        server_default=text("now()"),
     )
     blocked_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
     updated_at: Mapped[datetime] = mapped_column(
         DateTime,
         nullable=False,
-        server_default=func.now(),
+        server_default=text("now()"),
         onupdate=func.now(),
     )

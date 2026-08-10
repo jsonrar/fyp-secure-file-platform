@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CHAR, DateTime, Enum, Index, String, Text, UniqueConstraint, func
+from sqlalchemy import CHAR, DateTime, Enum, Index, String, Text, UniqueConstraint, text
 from sqlalchemy.dialects.mysql import BIGINT
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -38,7 +38,7 @@ class RecoveryKey(Base):
     )
 
     created_at: Mapped[datetime] = mapped_column(
-        DateTime, nullable=False, server_default=func.now()
+        DateTime, nullable=False, server_default=text("now()")
     )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
