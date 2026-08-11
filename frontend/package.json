@@ -13,12 +13,14 @@
     "axios": "latest",
     "lucide-vue-next": "latest",
     "pinia": "latest",
+    "three": "^0.185.1",
     "vue": "latest",
     "vue-router": "latest"
   },
   "devDependencies": {
     "@tailwindcss/postcss": "latest",
     "@types/node": "latest",
+    "@types/three": "^0.185.3",
     "postcss": "latest",
     "tailwindcss": "latest",
     "tw-animate-css": "latest",

@@ -45,7 +45,7 @@ const guides = [
       <div class="text-center mb-12">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Education</h2>
         <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">
-          Learn how to use CryptDrop effectively, discover practical tips, and follow secure file sharing workflows.
+          Learn how to use SecureView effectively, discover practical tips, and follow secure file sharing workflows.
         </p>
       </div>
 

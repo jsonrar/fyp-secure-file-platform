@@ -46,7 +46,7 @@ function handleLogout() {
           <div class="p-2 rounded-lg bg-primary/10">
             <FileLock class="h-6 w-6 text-primary" />
           </div>
-          <span class="text-xl font-semibold text-foreground">CryptDrop</span>
+          <span class="text-xl font-semibold text-foreground">SecureView</span>
         </RouterLink>
 
         <nav class="hidden md:flex items-center gap-8">

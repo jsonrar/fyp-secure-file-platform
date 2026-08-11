@@ -21,10 +21,10 @@ const socialLinks = ['GitHub', 'X', 'Discord']
             <div class="p-2 rounded-lg bg-primary/10">
               <FileLock class="h-5 w-5 text-primary" />
             </div>
-            <span class="text-lg font-semibold text-foreground">CryptDrop</span>
+            <span class="text-lg font-semibold text-foreground">SecureView</span>
           </RouterLink>
           <p class="text-muted-foreground text-sm max-w-md">
-            CryptDrop provides enterprise-grade file encryption solutions using cutting-edge encryption technology to ensure your sensitive data is always secure.
+            SecureView provides enterprise-grade file encryption solutions using cutting-edge encryption technology to ensure your sensitive data is always secure.
           </p>
         </div>
 
@@ -48,7 +48,7 @@ const socialLinks = ['GitHub', 'X', 'Discord']
       </div>
 
       <div class="border-t border-border mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
-        <p class="text-muted-foreground text-sm">© 2026 CryptDrop. All rights reserved.</p>
+        <p class="text-muted-foreground text-sm">© 2026 SecureView. All rights reserved.</p>
         <div class="flex items-center gap-6 text-sm">
           <a
             v-for="link in socialLinks"
