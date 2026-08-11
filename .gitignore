@@ -16,6 +16,7 @@ Thumbs.db
 *.pfx
 recovery_keys/*
 !recovery_keys/.gitkeep
+test-accounts/
 
 # ===== Python =====
 __pycache__/

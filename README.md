@@ -36,6 +36,11 @@ The frontend login page now uses the real Auth endpoint and rejects responses wi
 access token; the former hard-coded credential bypass and demo-token fallback are gone. Its
 browser refresh, expiry, and revoked-session handling still require production hardening.
 
+Reusable staging identities for administrator, owner, and sharing-recipient tests have been
+provisioned without committing their credentials or RSA private keys. See the
+[staging test-account runbook](docs/STAGING_TEST_ACCOUNTS.md) for roles, verification evidence,
+secret handling, and the idempotent provisioning command.
+
 The prioritized implementation backlog is tracked in [TODO.md](TODO.md).
 
 ## Recommended Stack
@@ -74,11 +79,15 @@ fyp-secure-file-platform/
 |-- frontend/
 |   |-- src/
 |   `-- package.json
+|-- scripts/
+|   |-- provision_staging_test_accounts.py
+|   `-- tests/
 |-- docs/
 |   |-- ARCHITECTURE.md
 |   |-- API_DESIGN.md
 |   |-- DATABASE_SCHEMA.md
 |   |-- DEPLOYMENT.md
+|   |-- STAGING_TEST_ACCOUNTS.md
 |   |-- SECURITY_FLOWS.md
 |   `-- PROJECT_SCOPE.md
 |-- .env.example

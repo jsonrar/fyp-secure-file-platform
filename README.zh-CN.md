@@ -28,6 +28,10 @@
 判定登录失败。完整的 refresh token 轮换、身份恢复和浏览器会话生命周期仍待实现，因此
 当前前端仍不能作为生产级认证客户端。
 
+Staging 环境已配置管理员、文件拥有者和分享接收者测试身份，账号密码及 RSA 私钥均未提交到
+仓库。角色、核验结果、Secret 管理要求和可重复配置命令详见
+[Staging 测试账号说明](docs/STAGING_TEST_ACCOUNTS.zh-CN.md)。
+
 项目按优先级排列的实施待办事项记录在 [TODO.zh-CN.md](TODO.zh-CN.md)。
 
 ## 推荐技术栈
@@ -66,11 +70,15 @@ fyp-secure-file-platform/
 |-- frontend/
 |   |-- src/
 |   `-- package.json
+|-- scripts/
+|   |-- provision_staging_test_accounts.py
+|   `-- tests/
 |-- docs/
 |   |-- ARCHITECTURE.md
 |   |-- API_DESIGN.md
 |   |-- DATABASE_SCHEMA.md
 |   |-- DEPLOYMENT.md
+|   |-- STAGING_TEST_ACCOUNTS.md
 |   |-- SECURITY_FLOWS.md
 |   `-- PROJECT_SCOPE.md
 |-- .env.example
