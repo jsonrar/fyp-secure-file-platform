@@ -12,6 +12,9 @@ import TeamPage from '@/pages/TeamPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
+  scrollBehavior() {
+    return { top: 0, left: 0 }
+  },
   routes: [
     { path: '/', component: DashboardPage },
     { path: '/login', component: LoginPage, meta: { guestOnly: true } },
