@@ -5,7 +5,20 @@
 ## Source of Truth
 
 SQLAlchemy metadata in `backend/app/models/` and the ordered Alembic revisions in
-`backend/migrations/` are the only schema authority.
+`backend/migrations/` are the development and CI schema-authoring authority.
+
+Production does not run Alembic. The reviewed delivery artifacts under `database/mysql/`
+are derived from that authoring history and are executed by a MySQL root/administrator:
+
+1. `01-provision.sql` creates the database and the TLS-required `fyp_user` runtime account.
+2. `02-schema.sql` installs the complete schema on an empty database, seeds the audit-chain
+   singleton and compatibility marker, and grants exact table-level runtime privileges.
+3. `03-verify.sql` reads server, account, grant, schema, marker, and singleton metadata before
+   the application starts.
+
+CI must compare the production schema artifact with the current Alembic head and ORM
+metadata. A model or revision change is incomplete until the reviewed SQL artifact,
+verification expectations, and parity tests change with it.
 
 The current ordered history is:
 
@@ -15,13 +28,15 @@ The current ordered history is:
    one-time refresh generations, persistent authentication throttles, password-change time,
    and the singleton audit-chain head.
 
-`docs/init.sql` is not an application schema and is not mounted by Compose. It may create
-an empty development database for manual setups, but it must never create/drop application
-tables. The backend also must not call `Base.metadata.create_all()` at startup.
+The historical `docs/init.sql` development bootstrap has been deleted. A database previously
+created from it is not automatically managed. The backend must not call
+`Base.metadata.create_all()` at startup. `02-schema.sql` is the sole reviewed production
+empty-database installer, not an application-startup hook.
 
-## Migration Workflow
+## Development and CI Authoring Workflow
 
-Run commands from `backend/`:
+Run these commands from `backend/` only against disposable or explicitly Alembic-managed
+development/CI databases:
 
 ```bash
 alembic upgrade head
@@ -42,14 +57,27 @@ forward-only because its public UUIDs, session generations, throttle evidence, a
 hash upgrades cannot round-trip through `0001`; restore a backup for rollback, or rebuild a
 disposable development database.
 
-Staging and production releases must use the guarded MySQL workflow in
-[DEPLOYMENT.md](DEPLOYMENT.md). It uses a dedicated migration identity, checks schema ownership,
-and requires explicit backup confirmation before upgrading a managed database.
+For a new staging or production database, follow [DEPLOYMENT.md](DEPLOYMENT.md): the same
+root/administrator runs `01-provision.sql`, `02-schema.sql`, and the read-only
+`03-verify.sql` in fail-fast batch mode. Only then does the application start as `fyp_user`.
+There is no production `fyp_migrator`, no temporary switch of application `DB_*` credentials,
+and no Python/Alembic command on the database server.
+
+`02-schema.sql` deliberately refuses a non-empty schema and MySQL DDL is not fully
+transactional. It must never be used as an upgrade mechanism. Future changes to a non-empty
+production database require an immutable, versioned, reviewed DBA SQL upgrade with writer
+drain, serialization, bounded waits, a verified restorable backup, explicit preconditions,
+and release-specific post-verification.
+
+The deleted Python runner previously supplied advisory locking, connectivity retries,
+preflight/refusal checks, exact table validation, and backup confirmation. Release
+orchestration and operator procedure must provide those controls around the root-executed SQL.
 
 ### Adopting a Legacy Development Database
 
-A database created by the former `docs/init.sql` has application tables but no
-`alembic_version` row. Do **not** run `alembic upgrade head` or blindly stamp it as current:
+A database created by the historical, now-deleted `docs/init.sql` has application tables but no
+`alembic_version` row. For local development, do **not** run `alembic upgrade head` or blindly
+stamp it as current:
 the new baseline also renames `files.storage_path` to `storage_object_key` and removes the
 ambiguous `file_access_grants.permission_level` column.
 
@@ -59,17 +87,16 @@ does not make blind stamping safe. It also requires `audit_logs` to be empty: a 
 revision-0001 chain needs a reviewed adoption/checkpoint migration because its historical hash
 payload and timestamp precision are not losslessly convertible.
 
-- If the legacy database is disposable and contains no needed data, recreate that database
-  and then run `alembic upgrade head`.
-- If it contains data, back it up and write/review a one-time adoption migration that
-  performs those transformations before stamping the baseline. Never reset it merely to
-  make Alembic pass.
+- If the legacy development database is disposable and contains no needed data, recreate it
+  and then use the normal development Alembic workflow.
+- If a development database contains needed data, back it up and write/review a one-time
+  adoption migration that performs those transformations before stamping the baseline.
+- If any non-empty staging or production database needs to be retained, do not run Alembic or
+  `02-schema.sql`; use a separately reviewed, versioned DBA SQL adoption/upgrade procedure.
 
-At the last workspace inspection, the existing local `fyp_secure_file_platform` database
-still had the ten former application tables, no `alembic_version` row, and no application
-rows. It therefore remains a legacy database: do not run the normal upgrade command against
-it until it is deliberately recreated as disposable or handled through a reviewed adoption
-procedure. No migration command in this repository silently deletes or adopts it.
+Any such database remains legacy until it is deliberately recreated as disposable or handled
+through a reviewed adoption procedure. No development migration command or production SQL in
+this repository silently deletes, stamps, or adopts it.
 
 ## Table Groups
 
@@ -137,8 +164,13 @@ The models use MySQL-specific `UNSIGNED`, `ENUM`, `VARBINARY`, JSON, collation, 
 actions. Schema and repository integration tests therefore run against MySQL 8.4. SQLite is
 not an acceptable behavioral substitute.
 
-The minimum migration test starts with an empty database, applies the ordered revisions
-through `alembic upgrade head`, checks the current revision and expected tables, and then
-runs `alembic check` to detect metadata drift. Offline SQL is also generated for upgrade and
-downgrade review. A legacy adoption test, when added, must begin from an explicit legacy
+The minimum development migration test starts with an empty database, applies the ordered
+revisions through `alembic upgrade head`, checks the current revision and expected tables,
+and runs `alembic check` to detect metadata drift. A separate MySQL 8.4 production-path test
+must run `01-provision.sql -> 02-schema.sql -> 03-verify.sql` against a disposable server,
+inspect every verification result, and prove that the resulting schema matches the Alembic
+head and ORM metadata. That test also checks the exact table-level grant matrix, absence of
+the retired migrator identity and all elevated grant paths, the compatibility marker, and the
+initial audit-chain singleton. Offline Alembic SQL remains a development/CI review aid, not a
+production execution artifact. A legacy adoption test must begin from an explicit legacy
 fixture rather than pretending it is revision `0001_initial`.

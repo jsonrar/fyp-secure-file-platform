@@ -60,11 +60,16 @@ backend/app/
 |-- utils/               仅限纯函数、无依赖的辅助工具
 `-- main.py              应用工厂与组合根
 
-backend/migrations/      Alembic Schema 历史（Schema 的唯一事实来源）
+backend/migrations/      仅供开发/CI 编写与验证的 Alembic Schema 历史
 backend/tests/
 |-- unit/                纯策略、密码学、校验及服务测试
 |-- api/                 FastAPI 契约及依赖覆盖测试
 `-- integration/         MySQL、迁移、Repository 及存储测试
+
+database/mysql/
+|-- 01-provision.sql     生产数据库及唯一运行时账户 Provision
+|-- 02-schema.sql        当前 head 的空库生产 Schema 与表级授权快照
+`-- 03-verify.sql        管理员只读核验
 ```
 
 认证纵向切片引入了具体的 `AuthRepository`；SQLAlchemy 的请求级 `Session` 是其工作单元，
@@ -157,9 +162,10 @@ MySQL 事务无法与本地文件进行原子提交。因此，上传采用暂�
 
 审计写入与安全敏感操作属于同一个事务。认证模块目前通过使用
 `SELECT ... FOR UPDATE` 锁定的单例 `audit_chain_heads` 行进行追加；该行记录最后一条日志
-和当前哈希，因此并发事务无法让链产生分叉。迁移只会在审计表为空时写入 genesis。由于
-revision `0001` 使用不同的规范化 payload 且丢失了 datetime 的微秒，`0002` 会拒绝升级
-非空的旧版审计表；接管此类表需要经过评审的迁移和外部 checkpoint。新时间戳保留六位
+和当前哈希，因此并发事务无法让链产生分叉。开发/CI migration 及生产空库
+`02-schema.sql` 都只为新审计链写入 genesis。由于 revision `0001` 使用不同的规范化
+payload 且丢失了 datetime 的微秒，`0002` 会拒绝升级非空的旧版审计表；生产接管此类表
+需要版本化、经 DBA 评审的 SQL 和外部 checkpoint。新时间戳保留六位
 小数，缺失的 metadata 以 `{}` 规范化存储，因此可依据持久化值重新计算各行。用户引用
 采用限制型外键，因为级联更新 ID 或硬删除会改变已被哈希的历史；因此账户删除必须继续
 采用基于状态的软删除。只驻留于数据库的普通哈希链可以检测意外修改，却无法阻止数据库
@@ -168,12 +174,19 @@ revision `0001` 使用不同的规范化 payload 且丢失了 datetime 的微秒
 
 ## Schema 与交付规则
 
-- ORM metadata 加 Alembic migration 是唯一的 Schema 权威。
+- ORM metadata 加 Alembic migration 是开发/CI 的 Schema 编写与评审权威；生产
+  `02-schema.sql` 是从当前 head 派生且必须通过 parity 测试的交付物，不是独立设计来源。
 - 应用绝不调用 `create_all()`，也绝不在启动时运行破坏性 SQL。
-- 空数据库必须能够通过 `alembic upgrade head` 达到当前 Schema。
+- 生产首次部署只允许 root/管理员依次执行 `01-provision.sql -> 02-schema.sql ->
+  03-verify.sql`，随后应用仅使用具有精确表级 DML 的 `fyp_user`；生产不运行 Alembic，也
+  不创建 `fyp_migrator`。
+- `02-schema.sql` 只接受空数据库。部分失败后不得覆盖或盲目重跑；非空生产数据库只能由
+  独立、版本化且经 DBA 评审的前向 SQL 升级。
+- 本地/CI 空数据库必须能通过 `alembic upgrade head` 达到当前 Schema，也必须能通过三份
+  生产 SQL 得到等价 Schema。
 - MySQL 专用集成测试使用 MySQL 8.4，而非 SQLite 替代品。
-- 合并前必须通过格式检查、lint、单元/API 测试、migration upgrade 和 migration drift
-  检查。
+- 合并前必须通过格式检查、lint、单元/API 测试、migration upgrade、migration drift、
+  生产 SQL 空库保护，以及 Alembic/生产快照 parity 检查。
 
 ## 用例就绪定义
 

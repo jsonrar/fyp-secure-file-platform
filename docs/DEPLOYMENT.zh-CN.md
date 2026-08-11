@@ -2,142 +2,200 @@
 
 [English](DEPLOYMENT.md) | [简体中文](DEPLOYMENT.zh-CN.md)
 
-本文说明如何将数据库 Schema 部署至 MySQL 8.4。SQLAlchemy Model 和 Alembic revision
-仍是 Schema 的唯一事实来源；部署脚本不会维护第二份 Schema dump，也绝不会运行
-`create_all()`。
+本文说明如何把数据库部署到 MySQL 8.4。生产及预发布环境只接受经过评审的 SQL；这些环境
+不安装、不调用 Alembic，也不创建 `fyp_migrator`。SQLAlchemy metadata 和
+Alembic revision 仍用于开发与 CI 中编写、评审及验证 Schema；生产交付物是与当前 head
+保持一致的 `database/mysql/02-schema.sql`。
 
-请在已安装生产环境 Python 依赖项的情况下，从 `backend/` 目录运行所有命令：
+生产首次部署使用以下顺序：
 
-```bash
-python -m pip install -r requirements.txt
-```
+1. 数据库管理员以 root/管理员身份执行 `database/mysql/01-provision.sql`。
+2. 同一管理员执行 `database/mysql/02-schema.sql`；该文件只允许用于空应用数据库。
+3. 同一管理员执行只读的 `database/mysql/03-verify.sql` 并评审全部结果。
+4. 只有核验通过后，应用才以 `fyp_user` 启动。
 
-## 必需配置
+三个步骤必须分别在 MySQL 客户端的遇错停止 batch 模式下成功。不要使用交互式 `SOURCE`，
+不要添加 `--force`，也不要在某一步失败后继续下一步。
 
-通过部署环境或已排除在版本控制外的根目录 `.env` 注入 secret。不要在命令行中写入密码。
+## 身份、配置与 Secret
 
-应用/运行时身份使用现有设置：
+生产只使用两个身份：
 
-- `DB_HOST`、`DB_PORT` 和 `DB_NAME`
-- `DB_USER` 和 `DB_PASSWORD`
-- `DB_SSL_CA`：可读取的 CA bundle，用于验证服务器证书及 `DB_HOST`
+- MySQL root/管理员创建数据库和运行时账户、创建 Schema、授予权限并执行最终核验。管理员
+  凭据不得写入应用 `.env`、命令参数、Git、日志或工单。
+- `fyp_user` 是唯一应用身份。应用通过标准 `DB_USER`/`DB_PASSWORD` 注入其凭据，绝不能
+  获得管理员凭据。
 
-当服务器要求双向 TLS 时，还可同时设置 `DB_SSL_CERT` 和 `DB_SSL_KEY`。除开发/测试环境
-外，必须使用经过验证的 TLS；服务器证书中必须包含每一个已配置的数据库/管理员主机名。
-CA/client 文件应作为挂载的部署 secret 保存，不得存入 Git。
+应用继续使用以下标准设置：
 
-部署 runner 使用独立身份：
+- `DB_HOST`、`DB_PORT`、`DB_NAME`（所提供 SQL 固定使用
+  `fyp_secure_file_platform`）、`DB_USER` 和 `DB_PASSWORD`；
+- `DB_SSL_CA`，用于验证服务器证书和 `DB_HOST`；
+- 需要双向 TLS 时，同时提供 `DB_SSL_CERT` 和 `DB_SSL_KEY`。
 
-- `MIGRATION_DB_USER`
-- `MIGRATION_DB_PASSWORD`
+`fyp_user` 带有 `REQUIRE SSL`。非开发环境必须验证服务器证书；CA/client 文件应作为只读
+部署 secret 挂载。管理员远程连接同样应使用 `--ssl-mode=VERIFY_IDENTITY` 和受信任 CA。
+非开发环境还必须设置 `APP_DEBUG=false`、不少于 32 个字符的非默认 `SECRET_KEY`，并明确
+列出允许的 CORS origin。
 
-常规的非开发环境设置也必须提供：`APP_ENV` 必须标识目标环境，`APP_DEBUG=false`，
-`SECRET_KEY` 必须是至少 32 个字符的非默认值，且必须明确列出 CORS origin。
+`MYSQL_ROOT_PASSWORD` 和 `MYSQL_PORT` 仅供根目录 Compose 本地开发使用，不是生产管理员
+配置。生产不使用任何部署专用的管理员、迁移或账户 Host 环境变量。
 
-数据库 provision 还需要以下临时管理员值：
+## `localhost` 与远程账户来源
 
-- `MYSQL_ADMIN_USER` 和 `MYSQL_ADMIN_PASSWORD`
-- 当管理员连接与 `DB_HOST`、`DB_PORT` 不同时，设置 `MYSQL_ADMIN_HOST` 和
-  `MYSQL_ADMIN_PORT`
-- `MYSQL_RUNTIME_USER_HOST`：应用 MySQL 账户的主机 pattern
-- `MYSQL_MIGRATION_USER_HOST`：部署 runner 账户的主机 pattern
+仓库中的三份 SQL 默认使用 ``'fyp_user'@'localhost'``，适用于应用从数据库主机连接的
+部署。MySQL 账户中的 Host 表示客户端连接来源，并不是 `DB_HOST` 的值。
 
-账户主机 pattern 是 MySQL 对连接来源主机的限制，并非数据库服务器地址。应选择部署网络
-允许的最窄值。MySQL 接受 `%`，但只有在网络与防火墙已另外限制的私有网络中才应使用它。
+若应用远程连接，请在仓库外为三份 SQL 各制作一份受保护、经评审的部署副本，并在三份
+副本中一致替换每一个 `localhost` 账户 Host：
 
-## 账户 Provision
+- `01-provision.sql` 中的账户创建目标；
+- `02-schema.sql` 中的表级授权目标；
+- `03-verify.sql` 中的账户与授权期望。
 
-对于新的自托管 MySQL 实例，使用能够创建数据库、用户及 grant 的管理员运行一次以下命令。
-Grant 校验还要求该管理员能够检查其他账户的 grant（通常需要 MySQL 系统 Schema 的
-`SELECT` 权限）：
+使用部署网络允许的最窄固定主机或模式。不要提交环境专用副本，也不要无条件使用 `%`；
+即使网络和防火墙另有限制，数据库账户本身也应限制来源。
 
-```bash
-python -m scripts.provision_mysql
-```
+## 1. 管理员执行 Provision
 
-只要两个身份继续专用于该数据库，此命令可安全地重复运行。它会使用 `utf8mb4` 和
-`utf8mb4_unicode_ci` 创建 `DB_NAME`、创建缺失的账户，并重新应用限定于该 Schema 的
-grant。它不会创建应用表。
-
-现有账户的密码会被有意保留、不作修改。若已协调应用发布并要执行有意的凭据轮换，请使用：
-
-```bash
-python -m scripts.provision_mysql --rotate-passwords
-```
-
-在开发/测试环境之外，两个账户均以 `REQUIRE SSL` 创建。运行时账户仅获得 `SELECT`、
-`INSERT`、`UPDATE` 和 `DELETE`。迁移账户还会获得该数据库上的 `CREATE`、`DROP`、
-`ALTER`、`INDEX`、`REFERENCES` 和 `CREATE TEMPORARY TABLES`。它不会获得任何全局
-权限。托管数据库服务也可以通过其控制平面 provision 这些身份；最终的 grant 和环境变量
-必须等效。
-
-当现有身份具有全局、role、proxy、grant-option、其他数据库、表级或多余的 Schema 权限
-时，provision 会失败关闭。请使用新的专用身份，或以管理员身份评审并移除多余 grant；
-脚本绝不会自动撤销无关账户的访问权限。
-
-运行时身份是在数据库/DDL 边界而非逐表边界上受限：其 DML grant 也涵盖审计表和 migration
-metadata 表。如果威胁模型包含运行时数据库凭据被盗，则应引入经过评审的表级专用身份
-或存储过程，并在外部锚定审计 checkpoint，之后才能将审计链视为具备独立防篡改能力。
-
-Provision 完成后，请立即从部署环境中移除 `MYSQL_ADMIN_PASSWORD`。Migration 和验证
-命令均不需要管理员凭据。
-
-## 发布顺序
-
-1. 确认目标为 MySQL 8.4、已启用 strict SQL mode，并且 Schema 升级过程中应用不会写入。
-2. 对于已经由 Alembic 管理、但落后于仓库 head 的数据库，创建并验证可恢复的备份。
-   MySQL DDL 并非完全事务化。
-3. 启动新版应用前运行 migration。
-4. 使用运行时身份验证 Schema。
-
-对于新的空数据库：
+在数据库服务器的仓库根目录中，如果 MySQL root 使用本机 socket 认证，执行：
 
 ```bash
-python -m scripts.deploy_mysql
-python -m scripts.verify_mysql
+sudo mysql < database/mysql/01-provision.sql
 ```
 
-对于需要升级、已由 Alembic 管理的现有数据库：
+如果 root 使用密码认证，让客户端交互提示密码，不要把密码写进命令：
 
 ```bash
-python -m scripts.deploy_mysql --confirm-backup
-python -m scripts.verify_mysql
+mysql --user=root --password < database/mysql/01-provision.sql
 ```
 
-`--confirm-backup` 记录的是操作员声明，并不会创建备份。备份应存储在本仓库之外、经过
-加密、限制访问，并定期测试恢复。数据库 dump 包含账户哈希、安全审计证据、加密文件
-metadata 和已包装 key。
-
-Migration runner 会等待连接、验证服务器与数据库编码、设置并验证 UTC Session 时区，
-以及获取数据库专属的 MySQL advisory lock。它只允许完全为空的数据库，或与某个已知
-Alembic revision 完全匹配的 Schema。执行 `alembic upgrade head` 后，它会检查 revision、
-预期表集合、单例审计链头和 Alembic metadata drift。数据库已在 head 时，第二次运行具有
-幂等性，无需确认备份。
-
-当编排器需要不同的等待时间时，两个命令都接受有界等待选项：
+远程管理员连接使用受保护的环境副本并验证 TLS：
 
 ```bash
-python -m scripts.deploy_mysql --wait-timeout 120 --lock-timeout 120
-python -m scripts.verify_mysql --wait-timeout 60 --lock-timeout 60
+mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
+  --ssl-mode=VERIFY_IDENTITY --ssl-ca=/path/to/mysql-ca.pem \
+  < /protected/path/01-provision.sql
 ```
 
-## 旧数据库与部署失败
+`01-provision.sql` 创建固定名称、`utf8mb4`/`utf8mb4_unicode_ci` 的数据库，并创建带
+`REQUIRE SSL` 的 `fyp_user`。MySQL 为新账户生成随机密码并在客户端结果集中返回。管理员
+必须在不会记录会话输出的受控终端中立即把该明文保存到 secret store；MySQL 之后无法还原
+它。禁止截图、复制到聊天或工单，或写入持久化应用 `.env`。
 
-没有 `alembic_version` 的非空数据库不受管理。Runner 会停止，而不会升级、stamp、删除
-或重置数据库。请遵循[旧数据库接管策略](DATABASE_SCHEMA.zh-CN.md)；绝不能仅为了绕过
-防护而使用 `alembic stamp`。
+该文件不创建应用表，也不授予尚不存在表上的运行时权限。表和精确表级授权由下一步统一
+创建，避免给 `fyp_user` Schema 级 DML 或任何 DDL 权限。
 
-Revision `0002_auth_identity_sessions` 也会拒绝审计链已经包含数据行的 revision-`0001`
-数据库。该历史需要经过评审的接管/checkpoint migration。
+脚本使用 `CREATE USER IF NOT EXISTS`：重复执行不会修改已有账户的密码、认证插件或 TLS
+策略。已有同名账户必须评审 `SHOW WARNINGS` 及最终核验结果；不要把重复运行 Provision
+当作凭据轮换或权限修复。凭据轮换和额外账户清理都必须作为单独、经过协调的运维变更。
 
-如果 migration 失败，请保持应用停止，并保留数据库供诊断。由于当前 `0002` 数据转换
-有意设计为只能向前迁移，而且 MySQL DDL 可能增量提交，因此回滚意味着恢复已验证的
-部署前备份。不要运行 `alembic downgrade`、手动编辑 `alembic_version`，也不要把带密码
-轮换的 provision 重新运行作为恢复手段。
+## 2. 管理员创建空库 Schema 与表级授权
 
-## 容器说明
+`02-schema.sql` 是当前生产 Schema 的完整快照，只能用于不含任何应用表和迁移 metadata 的
+空数据库。它不是已有数据库的升级脚本。执行前确认目标名称无误，并确认没有需要保留的
+数据：
 
-根目录 `docker-compose.yml` 是本地 MySQL 服务，不是生产部署栈。不要将 migration 挂载到
-`/docker-entrypoint-initdb.d`：官方镜像的初始化只会对全新数据卷运行，因此现有部署会
-在没有提示的情况下错过后续 Schema revision。应改为把受防护的 migration 命令作为明确
-的发布 Job 运行。
+```bash
+sudo mysql < database/mysql/02-schema.sql
+# root 使用密码认证时：
+mysql --user=root --password < database/mysql/02-schema.sql
+```
+
+远程执行时使用三份受保护副本中的第二份：
+
+```bash
+mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
+  --ssl-mode=VERIFY_IDENTITY --ssl-ca=/path/to/mysql-ca.pem \
+  < /protected/path/02-schema.sql
+```
+
+该文件负责：
+
+- 在外键依赖允许的顺序中创建当前 head 的全部表、索引、约束和 Schema 版本标记；
+- 创建单例 `audit_chain_heads.id = 1` 初始行；
+- 在表已经存在后，只向 `fyp_user` 授予应用所需的精确表级 DML；
+- 不授予 Schema 级、全局、DDL、`GRANT OPTION`、role 或 proxy 权限。
+
+空库保护失败、任何对象已存在或任何 DDL 报错时，必须立即停止。MySQL DDL 可能部分提交；
+失败后不得加入 `IF NOT EXISTS`、不得覆盖或盲目重跑脚本。应保持应用停止、保留现场供诊断，
+并从已验证备份恢复；若这是全新的无数据目标，也只能在确认完整清理范围后重新创建空库。
+
+生产环境不运行 `alembic upgrade`、`alembic current`、`alembic check` 或
+`alembic stamp`。`alembic_version` 若作为快照中的 Schema 标记存在，只表示该快照与哪个
+开发/CI head 对齐，不表示生产曾执行 Alembic。
+
+## 3. 管理员执行只读核验
+
+只有前两份 SQL 都成功后，执行：
+
+```bash
+sudo mysql < database/mysql/03-verify.sql
+# root 使用密码认证时：
+mysql --user=root --password < database/mysql/03-verify.sql
+```
+
+远程部署使用包含同一窄 Host 的第三份受保护副本：
+
+```bash
+mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
+  --ssl-mode=VERIFY_IDENTITY --ssl-ca=/path/to/mysql-ca.pem \
+  < /protected/path/03-verify.sql
+```
+
+操作员必须逐项确认：
+
+- 服务器为 MySQL 8.4、严格 SQL mode 已启用、Session 时区符合部署预期，数据库字符集和
+  排序规则正确；
+- `fyp_user` 只有一个预期 Host 行，凭据、认证插件、锁定/过期状态和 TLS 要求符合预期；
+- 不存在任何 Host 的旧 `fyp_migrator` 账户；
+- `fyp_user` 没有全局或 Schema 级权限，只有 `02-schema.sql` 定义的精确表级权限，且
+  `IS_GRANTABLE=NO`；
+- 列级、routine、role、default-role 和 proxy 结果为空，服务器没有会向应用账户附加权限的
+  mandatory role；
+- 应用表集合、关键 Schema metadata、版本标记及约束符合当前快照；
+- `audit_chain_heads` 恰好包含一个 `id = 1` 的单例行。
+
+任何 `REVIEW`、缺失项、多余账户或多余权限都必须阻止应用启动。核验 SQL 只读取状态，不会
+自动修复账户、权限或 Schema。
+
+## 4. 退役旧 `fyp_migrator` 并启动应用
+
+从旧流程升级运维规范时，可能仍存在一个或多个 `fyp_migrator@Host`。先确认没有发布 Job、
+定时任务或外部服务仍依赖它，记录其所有 Host 和 grant，再由管理员显式撤权并 `DROP USER`。
+不要让 Provision 自动删除来源不明的账户。必须重复运行 `03-verify.sql`，直到所有旧 migrator
+行都消失且其权限不再存在。
+
+核验完全通过后，只向应用进程注入 `fyp_user` 的标准 `DB_*` 和 TLS secret，再启动新版本。
+应用不得持有 root/管理员凭据，也不得获得 DDL 或账户管理权限。
+
+## 后续非空生产数据库升级
+
+不得在非空生产数据库上重跑 `02-schema.sql`，也不得运行 Alembic。每次 Schema 变化必须提供
+独立、按版本命名、经过 DBA 评审的前向 SQL，并明确：
+
+1. 唯一允许的前置 Schema 版本和完整预检；
+2. 停止/排空写入以及同一数据库只允许一个升级执行者；
+3. 已验证可恢复的加密备份、整体期限和有限 metadata-lock 等待；
+4. DDL 执行顺序、数据回填、发布后核验以及部分提交时的恢复步骤；
+5. 成功后更新 Schema 版本标记，并运行当前 `03-verify.sql` 或该升级配套的核验 SQL。
+
+Alembic revision 可继续在开发/CI 中表达同一变化，但生产 DBA SQL 必须单独评审，且 CI 必须
+证明它产生的最终 Schema 与当前 Alembic head/ORM metadata 等价。
+
+## Compose、本地开发与历史 `init.sql`
+
+根目录 `docker-compose.yml` 只用于本地开发。MySQL 官方镜像会在全新 volume 上根据
+`MYSQL_ROOT_PASSWORD`、`DB_NAME`、`DB_USER` 和 `DB_PASSWORD` 创建数据库及开发账户；
+开发者可在该一次性环境中运行 Alembic。这不等同于生产表级权限，也不会自动执行三份生产
+SQL。已有 volume 不会因为环境变量变化而重新初始化。
+
+不要在普通 Compose 开发 volume 上随意执行生产 Provision/Schema SQL。同名开发账户可能
+已有更宽权限，已有表也应触发空库保护。三份生产 SQL 和 Alembic revision 都不应挂载到
+`/docker-entrypoint-initdb.d`；官方镜像只在全新 volume 初始化时执行该目录，无法承担持续
+版本升级。
+
+历史版本曾包含 `docs/init.sql`。它不是当前 Schema 来源，现已从部署流程移除。由它创建的
+非空、无已知版本标记数据库仍属于未受管理旧数据库，不能运行 `02-schema.sql`，也不能在
+生产环境运行 Alembic；应按[数据库接管策略](DATABASE_SCHEMA.zh-CN.md)重建，或使用单独、
+经评审的 DBA 接管 SQL。

@@ -35,7 +35,10 @@ Auth 纵向功能切片已完成，不再受草案路由依赖项保护。它负
 
 在仓库根目录中，仅当 `.env` 尚不存在时才创建它：
 
-执行 `alembic upgrade head` 前，请确认目标数据库为空，或已经包含一条 `alembic_version` 记录。目前检查过的本地旧数据库不满足该条件；请遵循[数据库接管策略](../docs/DATABASE_SCHEMA.zh-CN.md)，不要在该数据库上执行或强制标记常规迁移历史。
+以下 Alembic 步骤仅限本地开发。执行 `alembic upgrade head` 前，请确认目标数据库为空，
+或已经包含一条 `alembic_version` 记录。目前检查过的本地旧数据库不满足该条件；请遵循
+[数据库接管策略](../docs/DATABASE_SCHEMA.zh-CN.md)，不要在该数据库上执行或强制标记常规
+迁移历史。
 
 ```powershell
 Copy-Item .env.example .env
@@ -46,6 +49,10 @@ python -m venv .venv
 python -m pip install -r requirements-dev.txt
 alembic upgrade head
 ```
+
+Compose 只提供本地开发便捷环境：它会在全新 volume 上按 `DB_NAME`、`DB_USER` 和
+`DB_PASSWORD` 创建数据库及开发账户，但不会执行生产用的账户 Provision 或权限核验 SQL。
+生产／预发布环境必须遵循下方由 root／管理员执行的 SQL-only 流程。
 
 macOS/Linux 激活命令：
 
@@ -74,8 +81,8 @@ OpenAPI：<http://localhost:8000/docs>
 在 `backend/` 目录中运行：
 
 ```bash
-ruff format --check app tests migrations scripts
-ruff check app tests migrations scripts
+ruff format --check app tests migrations
+ruff check app tests migrations
 pytest
 alembic check
 pip-audit -r requirements.txt
@@ -85,7 +92,8 @@ pip-audit -r requirements.txt
 
 ## 数据库变更
 
-架构演进由 Alembic 管理。应用程序绝不会调用 `create_all()`，Compose 也不再挂载会破坏数据的表初始化脚本。
+Alembic revision 和 ORM metadata 用于本地开发／CI 中编写、评审和测试 Schema 变更。
+应用程序绝不会调用 `create_all()`，Compose 也不再挂载会破坏数据的表初始化脚本。
 
 ```bash
 alembic upgrade head
@@ -93,18 +101,39 @@ alembic revision --autogenerate -m "describe the change"
 alembic check
 ```
 
-提交前请审查每一个自动生成的修订版本。
+提交前必须审查每一个自动生成的 revision，并在 CI 中验证 Alembic head 与生产
+`02-schema.sql` 的最终 Schema 一致。上述 Alembic 命令不是生产部署步骤。
 
-对于预发布环境或生产环境，请使用带保护措施的部署运行器，不要使用运行时数据库账户直接调用 Alembic：
+预发布和生产环境不运行 Alembic，也不创建 `fyp_migrator`。数据库 root／管理员从仓库
+根目录以遇错停止的 batch 模式依次执行：
 
 ```bash
-python -m scripts.deploy_mysql
-python -m scripts.verify_mysql
+# 数据库服务器仓库根目录；MySQL root 使用本机 socket 认证
+sudo mysql < database/mysql/01-provision.sql
+sudo mysql < database/mysql/02-schema.sql
+sudo mysql < database/mysql/03-verify.sql
 ```
 
-如果现有的受管理数据库落后于 head，还必须传入 `--confirm-backup`。账户配置方式和所有必需的环境变量记录于 [DEPLOYMENT.zh-CN.md](../docs/DEPLOYMENT.zh-CN.md)。
+`01-provision.sql` 只创建固定数据库和带 `REQUIRE SSL` 的 `fyp_user`，并为新账户返回一个
+随机密码；密码必须直接写入 secret store。`02-schema.sql` 只允许用于完全空的目标
+Schema，它创建最终表、唯一应用种子和 `alembic_version` 兼容性 marker，并授予 11 张
+普通状态表 CRUD、`audit_logs` 的 `SELECT`／`INSERT`、`audit_chain_heads` 的
+`SELECT`／`UPDATE`；应用无权访问 `alembic_version`。
+`03-verify.sql` 是只读核验。核验通过后，应用才通过标准 `DB_*` 以 `fyp_user` 启动；
+root 凭据绝不能进入应用 `.env`。
 
-如果旧版本地数据库是由之前的 `docs/init.sql` 创建的，请在升级前阅读 `docs/DATABASE_SCHEMA.md` 中关于接管旧数据库的警告；不要对它执行 `upgrade head`，也不要盲目为其标记版本。Auth 迁移可以安全地接续 Alembic 基线，但不会将未受管理的旧架构转变成由 Alembic 管理的架构。
+三份 SQL 都以 `localhost` 为账户 host 默认值；远程部署应在仓库外制作三份受保护、经
+评审的副本，并一致替换其中每一个 `localhost` 账户 host 字面量。若执行 02 时任何语句
+失败，不得在部分 Schema 上重跑；应查明原因后重建一次性空库或恢复已验证备份。已有
+非空生产库的后续升级必须使用新的、版本化且经 DBA 评审的 root SQL，不能重跑 02，
+也不能在服务器上改用 Alembic。现有环境若遗留 `fyp_migrator`，须确认归属后显式撤权或
+删除。停止写入、发布串行化、备份／恢复演练、DDL 超时和失败处置均由发布编排器与操作员
+负责。完整要求见
+[DEPLOYMENT.zh-CN.md](../docs/DEPLOYMENT.zh-CN.md)。
+
+如果旧版本地数据库是由历史 `docs/init.sql` 创建的，请阅读
+[数据库接管策略](../docs/DATABASE_SCHEMA.zh-CN.md)；不要对它执行 `upgrade head`，也不要
+盲目标记版本。该警告仅说明本地开发接管；生产非空库必须走单独的 DBA SQL 升级方案。
 
 ## 架构规则
 

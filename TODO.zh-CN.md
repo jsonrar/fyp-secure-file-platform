@@ -2,7 +2,7 @@
 
 [English](TODO.md) | 简体中文
 
-最后审查日期：2026-08-06
+最后审查日期：2026-08-11
 
 本待办清单依据当前代码、迁移、测试及项目文档整理。优先级定义如下：
 
@@ -15,7 +15,7 @@
 - 后端 Auth 是目前唯一完成的业务纵向切片。
 - 其余 18 个文件、共享、审计查询、恢复及管理端点仍以
   `501 feature_not_implemented` 方式保持失败关闭。
-- 本地后端检查通过：Ruff 无错误，`pytest` 结果为 `110 passed, 2 skipped`。
+- 本地后端检查通过：Ruff 无错误，`pytest` 结果为 `99 passed, 2 skipped`。
   跳过的测试需要一次性 MySQL 集成测试数据库。
 - 前端生产构建通过。
 - 前端类型检查当前失败，因为 `typescript@7.0.2` 与 `vue-tsc@3.3.7` 不兼容。
@@ -25,31 +25,51 @@
 
 ### 数据库与发布安全
 
-- [ ] 修复并在 MySQL 8.4 上验证 Alembic 修订 `0002_auth_identity_sessions`。
+- [ ] 在 MySQL 8.4 开发／CI 环境完整验证 Alembic 修订 `0002_auth_identity_sessions`。
   - 确认 `0002` 是否已在一次性开发数据库以外的环境执行；若已执行，应新增修正修订，
     不得改写已发布的迁移历史。
-  - 在删除当前支撑 `fk_user_sessions_user` 的 `idx_user_sessions_user_id` 前，先创建
+  - [x] 在删除当前支撑 `fk_user_sessions_user` 的 `idx_user_sessions_user_id` 前，先创建
     `user_sessions(user_id, status)` 替代索引。
   - 同时测试空数据库直接升级至 `head` 以及真实的 `0001 -> 0002` 升级。
+  - 验证 Alembic head 与 `database/mysql/02-schema.sql` 生成的最终 Schema 完全一致。
   - 验证并记录 MySQL DDL 部分提交后的恢复流程。
+  - 这些 Alembic 验证只用于开发／CI；生产数据库不运行 Alembic。
+
+- [x] 用可直接评审的 SQL 替换 MySQL Python 部署 runner 和专用部署环境变量。
+  - root／管理员从仓库根目录以遇错停止的 batch 模式依次运行
+    `database/mysql/01-provision.sql`、`02-schema.sql` 和 `03-verify.sql`；生产流程不运行
+    Alembic，也不创建 `fyp_migrator`。
+  - 01 创建带 TLS 要求和 MySQL 随机密码的 `fyp_user`；密码直接存入 secret store。
+    02 仅接受完全空库，创建最终 Schema、种子、表级最小权限及兼容性 marker；03 只读
+    核验通过后，应用才通过标准 `DB_*` 以 `fyp_user` 启动。
+  - 三份 SQL 默认为 `localhost`。远程部署必须使用仓库外的三份受保护、经评审副本，并
+    一致替换每一个账户 host 字面量与对应核验期望。
+  - 部署文档明确了备份／恢复、发布串行化、超时、空库预检、部分 DDL 失败处置，以及
+    旧 `fyp_migrator` 经确认后显式退役的责任。
 
 - [ ] 增加必需的 MySQL 8.4 CI 与发布门禁。
-  - 针对一次性数据库运行 `alembic upgrade head`、`alembic check` 及 Schema 验证。
-  - 覆盖 `0001 -> 0002`、重复部署、失败拒绝，以及
-    `provision_mysql -> deploy_mysql -> verify_mysql`。
+  - 在隔离的开发／CI 数据库运行 `alembic upgrade head`、`alembic check` 和
+    `0001 -> 0002`，验证 revision 历史。
+  - 在独立的一次性 MySQL 8.4 空库以管理员身份运行
+    `01-provision.sql -> 02-schema.sql -> 03-verify.sql`，验证拒绝非空库、遇错停止、精确
+    表集／约束／索引、唯一种子、兼容性 marker 和 48 项表级 grant。
+  - 比较 Alembic head、ORM metadata 与 02 的最终 Schema，防止两条开发／交付路径漂移。
+  - 覆盖远程 host 一致替换、旧 `fyp_migrator` 检出和部分失败恢复。
   - 实际运行目前跳过的 MySQL 集成测试，不得将跳过视为发布通过。
 
 - [ ] 决定未受管理旧数据库的处理方式。
   - 若无须保留其中数据，则重建数据库。
-  - 若需保留，则先备份并编写、评审一次性接管迁移。
-  - 绝不能仅为绕过部署保护而执行 `alembic stamp`。
+  - 若需保留，则先备份；本地开发可设计一次性 Alembic 接管，预发布／生产必须编写并
+    评审版本化 DBA 接管 SQL。
+  - 生产非空库的每次后续升级都必须使用新的版本化 DBA SQL；不得重跑 02，也不得仅为
+    绕过部署保护而执行 `alembic stamp`。
 
 ### 前端身份认证
 
-- [ ] 删除 `frontend/src/pages/LoginPage.vue` 中所有演示认证逻辑。
-  - 删除硬编码的 `admin / 12345678` 绕过。
-  - 删除 `demo-admin-token` 及后备 `demo-token`。
-  - 令牌响应缺失或格式错误时必须判定登录失败。
+- [x] 删除 `frontend/src/pages/LoginPage.vue` 中所有演示认证逻辑。
+  - [x] 删除硬编码的 `admin / 12345678` 绕过。
+  - [x] 删除 `demo-admin-token` 及后备 `demo-token`。
+  - [x] 令牌响应缺失或格式错误时判定登录失败。
 
 - [ ] 实现完整的浏览器会话生命周期。
   - 根据明确的浏览器存储威胁模型，对 access/refresh 令牌对进行类型化和存储。
@@ -164,20 +184,22 @@
 
 ### 部署与数据保护
 
-- [ ] 新增 `/health/ready`，在接收流量前检查 MySQL 连通性及预期 Alembic head。
-- [ ] 在迁移前由发布编排停止或排空应用写入，并为 MySQL metadata lock 设置有限超时及
-  整体部署期限。
+- [ ] 新增 `/health/ready`，在接收流量前检查 MySQL 连通性及预期 Schema release marker。
+- [ ] 在执行版本化 DBA Schema SQL 前由发布编排停止或排空应用写入，并为 MySQL
+  metadata lock 设置有限超时及整体部署期限。
 - [ ] 自动创建加密备份/快照，记录每次发布使用的备份标识，定义保留策略及 RPO/RTO，并定期
   执行恢复演练。
 - [ ] 定义后端、前端、TLS 终止、持久化加密文件存储、secret 注入及存储备份/恢复的部署方式；
   当前 Compose 仅部署 MySQL。
-- [ ] 增加结构化脱敏日志、指标、告警及运行手册，覆盖认证滥用、存储失败、迁移失败及审计链验证。
+- [ ] 增加结构化脱敏日志、指标、告警及运行手册，覆盖认证滥用、存储失败、Schema
+  交付失败及审计链验证。
 
 ### 安全运维
 
 - [ ] 拒绝空的生产 `DB_PASSWORD`，并从 secret manager 获取高熵凭据。
-- [ ] 缩减运行时数据库权限，特别是 `alembic_version`、`audit_logs` 及
-  `audit_chain_heads`；Schema 变更只能由迁移账户执行。
+- [x] 将运行时数据库权限缩减为表级最小集合：`fyp_user` 无权访问 `alembic_version`，
+  对 `audit_logs` 仅可 `SELECT`／`INSERT`，对 `audit_chain_heads` 仅可 `SELECT`／`UPDATE`，
+  其余应用表才拥有 CRUD；Schema 变更只能由 root／管理员通过经评审 SQL 执行。
 - [ ] 在应用数据库外发布已签名/HMAC 审计 checkpoint。
 - [ ] 在信任 forwarded IP 前配置可信代理边界及边缘限流。
 - [ ] 为过期会话、refresh 凭据、限流 bucket、陈旧暂存文件及孤儿加密对象增加清理/保留任务。

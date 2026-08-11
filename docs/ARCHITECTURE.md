@@ -63,7 +63,8 @@ backend/app/
 |-- utils/               Pure, dependency-free helpers only
 `-- main.py              Application factory and composition root
 
-backend/migrations/      Alembic schema history (the schema source of truth)
+backend/migrations/      Alembic schema-authoring history for development and CI
+database/mysql/          Reviewed root/admin SQL for production database delivery
 backend/tests/
 |-- unit/                Pure policy, crypto, validation, and service tests
 |-- api/                 FastAPI contract and dependency-override tests
@@ -188,12 +189,20 @@ checkpoints outside the audit database are still required for stronger tamper ev
 
 ## Schema and Delivery Rules
 
-- ORM metadata plus Alembic migrations are the only schema authority.
+- ORM metadata plus Alembic migrations are the development/CI schema-authoring authority.
+- `database/mysql/02-schema.sql` is the reviewed production empty-database artifact derived
+  from that authority; CI must prove that its tables, columns, indexes, and constraints match.
 - The application never calls `create_all()` and never runs destructive SQL on startup.
-- A clean database must reach the current schema with `alembic upgrade head`.
+- Production root/administrator delivery is strictly
+  `01-provision.sql -> 02-schema.sql -> 03-verify.sql -> fyp_user`; no production process runs
+  Alembic or holds a persistent DDL-capable migrator identity.
+- `02-schema.sql` is non-idempotent and empty-database-only. A future non-empty deployment
+  requires a separate versioned DBA SQL upgrade, writer drain, serialization, verified
+  backup, and release-specific verification.
+- A clean development/CI database must reach the same schema with `alembic upgrade head`.
 - MySQL-specific integration tests use MySQL 8.4, not SQLite substitutes.
-- Before merge: format check, lint, unit/API tests, migration upgrade, and migration drift
-  checks must pass.
+- Before merge: format check, lint, unit/API tests, development migration upgrade/drift,
+  production SQL execution, and cross-path schema-parity checks must pass.
 
 ## Definition of Ready for a Use Case
 

@@ -24,7 +24,9 @@
 
 文件、共享、审计查询、恢复和管理业务 API 仍会显示在 OpenAPI 中，但会有意返回 `501 feature_not_implemented`。这些功能将在相应的授权、事务、审计、存储和拒绝访问测试完善后，按纵向功能切片逐一启用。
 
-后端 Auth 已就绪并不代表当前前端登录流程可用于生产环境：该页面仍包含原型阶段的凭据绕过／令牌回退逻辑。在进行端到端身份认证测试或部署之前，必须移除这些逻辑。
+前端登录页已移除原型阶段的硬编码凭据绕过和演示令牌回退；后端响应缺少访问令牌时会直接
+判定登录失败。完整的 refresh token 轮换、身份恢复和浏览器会话生命周期仍待实现，因此
+当前前端仍不能作为生产级认证客户端。
 
 项目按优先级排列的实施待办事项记录在 [TODO.zh-CN.md](TODO.zh-CN.md)。
 
@@ -54,9 +56,13 @@ fyp-secure-file-platform/
 |   |   |-- schemas/
 |   |   `-- services/
 |   |-- migrations/
-|   |-- scripts/
 |   |-- tests/
 |   `-- requirements.txt
+|-- database/
+|   `-- mysql/
+|       |-- 01-provision.sql
+|       |-- 02-schema.sql
+|       `-- 03-verify.sql
 |-- frontend/
 |   |-- src/
 |   `-- package.json
@@ -94,33 +100,49 @@ alembic upgrade head
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-对于空数据库，或已由当前 Alembic 迁移历史管理的数据库，执行 `alembic upgrade head` 是安全的。对于由旧版 `docs/init.sql` 创建的本地数据库，不得直接升级或标记版本；请遵循 [DATABASE_SCHEMA.zh-CN.md](docs/DATABASE_SCHEMA.zh-CN.md) 中的说明。
+Compose 会在全新本地 volume 上创建数据库及开发账户，因此上述命令只适用于本地开发。
+Alembic 在本项目中保留为开发／CI 的 Schema 编写与一致性检查工具；生产和预发布服务器
+不得运行 Alembic。对于由历史 `docs/init.sql` 创建的本地数据库，不得直接升级或标记版本；
+请遵循 [DATABASE_SCHEMA.zh-CN.md](docs/DATABASE_SCHEMA.zh-CN.md) 中的说明。
 
 ### MySQL 部署
 
-生产环境和预发布环境使用 `backend/scripts/` 中带保护措施的脚本。它们会分别配置运行时账户和迁移账户、通过 MySQL advisory lock（咨询锁）串行执行迁移、拒绝未受管理的旧数据库架构、运行 Alembic 迁移至 head，并检查元数据漂移。
+生产环境和预发布环境完全由 MySQL root／管理员按顺序执行三份经评审 SQL，不运行
+Alembic，也不使用 Python 部署 runner 或 `fyp_migrator`：
 
 ```bash
-cd backend
-python -m scripts.provision_mysql       # 仅首次部署；需要管理员变量
-python -m scripts.deploy_mysql          # 空数据库
-python -m scripts.deploy_mysql --confirm-backup  # 需要升级且已受管理的数据库
-python -m scripts.verify_mysql
+# 数据库服务器仓库根目录；MySQL root 使用本机 socket 认证
+sudo mysql < database/mysql/01-provision.sql
+sudo mysql < database/mysql/02-schema.sql
+sudo mysql < database/mysql/03-verify.sql
 ```
 
-所需的密钥变量、账户权限、备份要求、发布顺序和回滚指南，请参阅 [DEPLOYMENT.zh-CN.md](docs/DEPLOYMENT.zh-CN.md)。部署脚本要求 MySQL 8.4 并启用严格 SQL 模式；脚本绝不会删除、重置未受管理的数据库，也不会为其强制标记迁移版本。
+`01-provision.sql` 创建带 `REQUIRE SSL` 的 `fyp_user` 并返回 MySQL 随机密码；应把该密码
+直接写入 secret store。`02-schema.sql` 只接受完全空的目标 Schema，创建最终表、种子、
+兼容性 marker 及表级最小权限：11 张普通状态表拥有 CRUD，`audit_logs` 只有
+`SELECT`／`INSERT`，`audit_chain_heads` 只有 `SELECT`／`UPDATE`，且应用无权访问
+`alembic_version`。`03-verify.sql` 只读核验服务器、账户、精确权限和 Schema。
+只有全部核验通过后，应用才通过标准 `DB_*` 以 `fyp_user` 启动。
+
+三份 SQL 的账户 host 默认为 `localhost`。远程部署必须在仓库外制作三份受保护、经评审
+副本，并一致替换其中每一个 `localhost` 账户 host 字面量。现有部署若遗留
+`fyp_migrator`，须先确认其归属与用途，再显式撤权或删除。备份、串行化、失败恢复、
+Compose 差异及未来非空数据库升级规则详见
+[DEPLOYMENT.zh-CN.md](docs/DEPLOYMENT.zh-CN.md)。
 
 OpenAPI：<http://localhost:8000/docs>
 
 在 `backend/` 目录中运行后端质量检查：
 
 ```bash
-ruff format --check app tests migrations scripts
-ruff check app tests migrations scripts
+ruff format --check app tests migrations
+ruff check app tests migrations
 pytest
 alembic check
 pip-audit -r requirements.txt
 ```
+
+其中 `alembic check` 只用于开发／CI 漂移检查，不是生产部署步骤。
 
 ### 前端
 

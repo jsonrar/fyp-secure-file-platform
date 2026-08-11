@@ -2,7 +2,7 @@
 
 English | [简体中文](TODO.zh-CN.md)
 
-Last reviewed: 2026-08-06
+Last reviewed: 2026-08-11
 
 This backlog is based on the current code, migrations, tests, and project documentation.
 Priorities are ordered as follows:
@@ -16,7 +16,7 @@ Priorities are ordered as follows:
 - Backend Auth is the only completed business vertical slice.
 - The other 18 file, sharing, audit-query, recovery, and admin endpoints remain fail-closed
   with `501 feature_not_implemented`.
-- Local backend checks pass: Ruff is clean and `pytest` reports `110 passed, 2 skipped`.
+- Local backend checks pass: Ruff is clean and `pytest` reports `99 passed, 2 skipped`.
   The skipped tests require a disposable MySQL integration database.
 - The frontend production build passes.
 - Frontend type-checking currently fails because `typescript@7.0.2` and `vue-tsc@3.3.7`
@@ -27,33 +27,54 @@ Priorities are ordered as follows:
 
 ### Database and Release Safety
 
-- [ ] Repair and validate Alembic revision `0002_auth_identity_sessions` on MySQL 8.4.
+- [ ] Complete MySQL 8.4 development/CI validation for Alembic revision
+  `0002_auth_identity_sessions` and the derived production SQL artifact.
   - Determine whether `0002` has been applied outside disposable development databases;
     add a corrective revision instead of rewriting applied history when necessary.
-  - Create a replacement `user_sessions(user_id, status)` index before dropping
-    `idx_user_sessions_user_id`, which currently backs `fk_user_sessions_user`.
+  - [x] The migration now creates `user_sessions(user_id, status)` before dropping the old
+    foreign-key-supporting index; prove that ordering with a real `0001 -> 0002` upgrade.
   - Test both an empty database upgraded to `head` and a real `0001 -> 0002` upgrade.
   - Verify and document recovery from partially committed MySQL DDL.
 
+- [x] Replace the MySQL Python deployment runners and dedicated deployment variables with
+  directly reviewable SQL.
+  - A root/administrator runs `database/mysql/01-provision.sql -> 02-schema.sql ->
+    03-verify.sql`; production does not install or run Alembic.
+  - `01` creates one TLS-required runtime identity. `02` grants CRUD on eleven ordinary
+    state tables, only `SELECT`/`INSERT` on `audit_logs`, only `SELECT`/`UPDATE` on
+    `audit_chain_heads`, and no access to `alembic_version`.
+  - All three SQL files default to `localhost`. Remote releases use protected copies with
+    every account-host literal and verification expectation changed consistently.
+  - The former `fyp_migrator` identity is retired from the production design; verification
+    fails if any host row or grant for that name remains.
+  - Deployment documentation assigns writer drain, serialization, backup/recovery, bounded
+    waits, legacy-schema preflight, and partial-DDL failure handling to orchestration and
+    operators now that the custom runner has been removed.
+
 - [ ] Add a required MySQL 8.4 CI and release gate.
-  - Run `alembic upgrade head`, `alembic check`, and schema verification against a
-    disposable database.
-  - Exercise `0001 -> 0002`, repeated deployment, failure refusal, and
-    `provision_mysql -> deploy_mysql -> verify_mysql`.
+  - Exercise `database/mysql/01-provision.sql -> 02-schema.sql -> 03-verify.sql` against a
+    disposable database and inspect every verification result.
+  - Separately run the development/CI Alembic path, including `alembic current`,
+    `alembic check`, and `0001 -> 0002`, then prove its schema matches `02-schema.sql`.
+  - Test comprehensive privilege verification, remote-host substitution, the empty-schema
+    refusal, stale-migrator detection, and partial-failure recovery.
+  - Prove the release platform replaces the deleted runner's writer drain, serialization,
+    bounded retry/lock waits, unmanaged-schema refusal, and verified-backup controls.
   - Run the currently skipped MySQL integration tests instead of treating a skip as a
     release pass.
 
 - [ ] Decide the fate of the unmanaged legacy database.
   - Recreate it when it contains no required data.
-  - Otherwise back it up and build a reviewed one-time adoption migration.
-  - Never use `alembic stamp` merely to bypass the deployment guard.
+  - Otherwise back it up and build a reviewed one-time adoption path: Alembic only for local
+    development, or a versioned DBA SQL procedure for staging/production.
+  - Never use `alembic stamp` or rerun the empty-schema installer merely to bypass a guard.
 
 ### Frontend Authentication
 
-- [ ] Remove all demo authentication behavior from `frontend/src/pages/LoginPage.vue`.
-  - Delete the hard-coded `admin / 12345678` bypass.
-  - Delete `demo-admin-token` and the fallback `demo-token`.
-  - Treat a missing or malformed token response as a failed login.
+- [x] Remove all demo authentication behavior from `frontend/src/pages/LoginPage.vue`.
+  - Removed the hard-coded `admin / 12345678` bypass.
+  - Removed `demo-admin-token` and the fallback `demo-token`.
+  - A missing or malformed token response now fails login.
 
 - [ ] Implement the complete browser session lifecycle.
   - Type and store the access/refresh pair according to an explicit browser-storage threat
@@ -192,24 +213,26 @@ criteria and denial tests pass.
 
 ### Deployment and Data Protection
 
-- [ ] Add `/health/ready` to check MySQL connectivity and the expected Alembic head before
-  receiving traffic.
-- [ ] Make release orchestration drain/stop application writers before migration, and set
-  finite MySQL metadata-lock timeouts plus an overall deployment deadline.
+- [ ] Add `/health/ready` to check MySQL connectivity and the expected schema compatibility
+  marker before receiving traffic.
+- [ ] Make release orchestration drain/stop application writers before any versioned DBA
+  schema upgrade, and set finite MySQL metadata-lock timeouts plus an overall deployment
+  deadline.
 - [ ] Automate encrypted backups/snapshots, record the backup identifier used for a release,
   define retention and RPO/RTO, and run restore drills.
 - [ ] Define deployment for the backend, frontend, TLS termination, persistent encrypted-file
   storage, secret injection, and storage backup/restore; the current Compose file deploys
   only MySQL.
 - [ ] Add structured redacted logging, metrics, alerts, and runbooks for authentication
-  abuse, storage failures, migration failures, and audit-chain verification.
+  abuse, storage failures, schema-delivery failures, and audit-chain verification.
 
 ### Security Operations
 
 - [ ] Reject an empty production `DB_PASSWORD` and source high-entropy credentials from a
   secret manager.
-- [ ] Reduce runtime database privileges, especially for `alembic_version`, `audit_logs`,
-  and `audit_chain_heads`; keep schema changes migration-only.
+- [x] Restrict production runtime database privileges: no access to `alembic_version`, only
+  `SELECT`/`INSERT` on `audit_logs`, and only `SELECT`/`UPDATE` on `audit_chain_heads`; keep
+  production schema changes root/administrator-executed and independently reviewed.
 - [ ] Publish signed/HMAC audit checkpoints outside the application database.
 - [ ] Configure a trusted proxy boundary and edge rate limits before trusting forwarded IPs.
 - [ ] Add cleanup/retention jobs for expired sessions, refresh credentials, throttle buckets,

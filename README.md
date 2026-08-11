@@ -32,9 +32,9 @@ File, sharing, audit-query, recovery, and admin business APIs remain visible in 
 deliberately return `501 feature_not_implemented`. They will be enabled one vertical slice
 at a time after their authorization, transaction, audit, storage, and denial tests exist.
 
-Backend Auth readiness does not make the current frontend login flow production-ready: its
-page still contains a prototype credential bypass/token fallback that must be removed before
-end-to-end authentication testing or deployment.
+The frontend login page now uses the real Auth endpoint and rejects responses without an
+access token; the former hard-coded credential bypass and demo-token fallback are gone. Its
+browser refresh, expiry, and revoked-session handling still require production hardening.
 
 The prioritized implementation backlog is tracked in [TODO.md](TODO.md).
 
@@ -64,9 +64,13 @@ fyp-secure-file-platform/
 |   |   |-- schemas/
 |   |   `-- services/
 |   |-- migrations/
-|   |-- scripts/
 |   |-- tests/
 |   `-- requirements.txt
+|-- database/
+|   `-- mysql/
+|       |-- 01-provision.sql
+|       |-- 02-schema.sql
+|       `-- 03-verify.sql
 |-- frontend/
 |   |-- src/
 |   `-- package.json
@@ -107,39 +111,55 @@ alembic upgrade head
 uvicorn app.main:app --reload --host 127.0.0.1 --port 8000
 ```
 
-`alembic upgrade head` is safe for a clean database or one already managed by this Alembic
-history. A local database created by the former `docs/init.sql` must not be blindly upgraded
-or stamped; follow [DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md#adopting-a-legacy-development-database).
+The Alembic command above is a local-development and CI authoring workflow only. It is safe
+for a clean development database or one already managed by this Alembic history. A local
+database created by the historical, now-deleted `docs/init.sql` must not be blindly upgraded
+or stamped; follow
+[DATABASE_SCHEMA.md](docs/DATABASE_SCHEMA.md#adopting-a-legacy-development-database).
+
+Compose creates the configured database and `DB_USER` only when initializing a fresh local
+volume. That account is a development convenience and does not reproduce the table-scoped,
+least-privilege runtime policy required for staging or production.
 
 ### MySQL deployment
 
-Production and staging releases use the guarded scripts in `backend/scripts/`. They provision
-separate runtime and migration accounts, serialize migrations with a MySQL advisory lock,
-refuse unmanaged legacy schemas, run Alembic to head, and verify metadata drift.
+Production and staging use three reviewed SQL files. A MySQL root/administrator executes all
+three in fail-fast batch mode from the repository root on the database server; production
+does not install or run Alembic:
 
 ```bash
-cd backend
-python -m scripts.provision_mysql       # first deployment only; requires admin variables
-python -m scripts.deploy_mysql          # clean database
-python -m scripts.deploy_mysql --confirm-backup  # managed database that needs an upgrade
-python -m scripts.verify_mysql
+sudo mysql < database/mysql/01-provision.sql
+sudo mysql < database/mysql/02-schema.sql
+sudo mysql < database/mysql/03-verify.sql
 ```
 
-See [DEPLOYMENT.md](docs/DEPLOYMENT.md) for required secret variables, account grants,
-backup requirements, release order, and rollback guidance. The deployment scripts require
-MySQL 8.4 with strict SQL mode; they never drop, reset, or stamp an unmanaged database.
+Capture the one generated `fyp_user` password directly into the deployment secret store.
+`02-schema.sql` is a non-idempotent empty-database installer: it creates the schema, grants
+CRUD on eleven ordinary state tables, grants only `SELECT`/`INSERT` on `audit_logs`, grants
+only `SELECT`/`UPDATE` on `audit_chain_heads`, and gives the runtime account no access to
+`alembic_version`. `03-verify.sql` is read-only and must also show that the retired
+`fyp_migrator` identity is absent. Only after every result passes review should the
+application start as `fyp_user` through the standard `DB_*` settings.
+
+Do not rerun the empty-schema installer on a non-empty database. Future upgrades require a
+separate, versioned, reviewed DBA SQL script and a verified backup. See
+[DEPLOYMENT.md](docs/DEPLOYMENT.md) for remote account-host customization, exact grants,
+failure recovery, and release safeguards.
 
 OpenAPI: <http://localhost:8000/docs>
 
 Run backend quality checks from `backend/`:
 
 ```bash
-ruff format --check app tests migrations scripts
-ruff check app tests migrations scripts
+ruff format --check app tests migrations
+ruff check app tests migrations
 pytest
 alembic check
 pip-audit -r requirements.txt
 ```
+
+`alembic check` remains a development/CI drift check; it is not a production deployment
+step.
 
 ### Frontend
 

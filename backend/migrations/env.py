@@ -4,11 +4,11 @@ from logging.config import fileConfig
 
 from alembic import context
 from sqlalchemy import create_engine, pool
-from sqlalchemy.engine import Connection
 
 import app.models  # noqa: F401 -- registers every model with Base.metadata
 from app.core.config import settings
 from app.core.database import Base
+from app.core.migration_defaults import mysql_timestamp_defaults_equivalent
 
 config = context.config
 
@@ -16,17 +16,6 @@ if config.config_file_name is not None:
     fileConfig(config.config_file_name)
 
 target_metadata = Base.metadata
-
-
-def _normalize_mysql_timestamp_default(value: str | None) -> str | None:
-    if value is None:
-        return None
-    normalized = "".join(value.strip().lower().split())
-    while normalized.startswith("(") and normalized.endswith(")"):
-        normalized = normalized[1:-1]
-    if normalized in {"now()", "current_timestamp", "current_timestamp()"}:
-        return "current_timestamp"
-    return normalized
 
 
 def _compare_server_default(
@@ -40,9 +29,7 @@ def _compare_server_default(
     if migration_context.dialect.name != "mysql":
         return None
 
-    inspected = _normalize_mysql_timestamp_default(inspected_default)
-    rendered = _normalize_mysql_timestamp_default(rendered_metadata_default)
-    if inspected == rendered:
+    if mysql_timestamp_defaults_equivalent(inspected_default, rendered_metadata_default):
         return False
     return None
 
@@ -62,25 +49,8 @@ def run_migrations_offline() -> None:
         context.run_migrations()
 
 
-def _run_migrations_with_connection(connection: Connection) -> None:
-    context.configure(
-        connection=connection,
-        target_metadata=target_metadata,
-        compare_type=True,
-        compare_server_default=_compare_server_default,
-    )
-
-    with context.begin_transaction():
-        context.run_migrations()
-
-
 def run_migrations_online() -> None:
-    """Run migrations with an injected deployment connection or a short-lived engine."""
-    supplied_connection = config.attributes.get("connection")
-    if supplied_connection is not None:
-        _run_migrations_with_connection(supplied_connection)
-        return
-
+    """Run migrations with a short-lived, non-pooled connection."""
     connectable = create_engine(
         settings.DATABASE_URL,
         poolclass=pool.NullPool,
@@ -89,7 +59,15 @@ def run_migrations_online() -> None:
 
     try:
         with connectable.connect() as connection:
-            _run_migrations_with_connection(connection)
+            context.configure(
+                connection=connection,
+                target_metadata=target_metadata,
+                compare_type=True,
+                compare_server_default=_compare_server_default,
+            )
+
+            with context.begin_transaction():
+                context.run_migrations()
     finally:
         connectable.dispose()
 
