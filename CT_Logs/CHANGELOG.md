@@ -17,6 +17,13 @@ All notable changes to this project are documented in this file.
   commands, database safety boundary, rollback behavior, and audit path in English and Chinese.
 - 已用中英文记录从 Pull Request 到发布的流程、只读 Deploy Key 边界、队员命令、数据库安全
   边界、回滚行为及审计路径。
+- Versioned the guarded release implementation and fixed completed-release permissions so the
+  unprivileged `fypapp` and Nginx identities can execute/read artifacts created after source
+  extraction. The failed preflight remained on the prior healthy release and the corrected
+  retry passed.
+- 已将带保护措施的发布实现纳入版本管理，并修复完整 release 的最终权限，使无特权
+  `fypapp` 与 Nginx 身份可执行／读取源码解压后才生成的文件。首次预检失败期间仍保持旧健康
+  版本运行，修复后的重试已经通过。
 
 ### Development environment / 开发环境
 
