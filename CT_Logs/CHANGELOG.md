@@ -24,6 +24,10 @@ All notable changes to this project are documented in this file.
 - 已将带保护措施的发布实现纳入版本管理，并修复完整 release 的最终权限，使无特权
   `fypapp` 与 Nginx 身份可执行／读取源码解压后才生成的文件。首次预检失败期间仍保持旧健康
   版本运行，修复后的重试已经通过。
+- Treat scheduled skips of an already-quarantined SHA as a healthy no-op while retaining the
+  original deployment failure in the journal and audit log.
+- 已隔离 SHA 的后续定时跳过现在属于健康的无操作；原始部署失败仍保留在 journal 与审计日志
+  中，不再每两分钟制造重复的 systemd 失败。
 
 ### Development environment / 开发环境
 
