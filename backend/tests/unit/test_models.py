@@ -1,4 +1,4 @@
-from sqlalchemy import UniqueConstraint
+from sqlalchemy import CheckConstraint, UniqueConstraint
 from sqlalchemy.orm import configure_mappers
 
 import app.models  # noqa: F401 - importing registers every ORM model
@@ -9,7 +9,7 @@ from app.domain.enums import SessionStatus
 def test_all_models_are_registered_and_mappable() -> None:
     configure_mappers()
 
-    assert len(Base.metadata.tables) == 13
+    assert len(Base.metadata.tables) == 15
 
 
 def test_auth_models_expose_public_ids_and_rotation_history() -> None:
@@ -56,3 +56,59 @@ def test_auth_models_expose_public_ids_and_rotation_history() -> None:
     assert audit_logs.c.created_at.type.fsp == 6
     assert audit_chain_heads.c.id.autoincrement is False
     assert audit_chain_heads.c.updated_at.type.fsp == 6
+    assert audit_chain_heads.c.schema_revision.server_default.arg == "0003_client_key_custody"
+
+
+def test_client_key_custody_models_and_wrapping_invariants() -> None:
+    user_keys = Base.metadata.tables["user_keys"]
+    recovery_keys = Base.metadata.tables["recovery_keys"]
+    profiles = Base.metadata.tables["user_key_protection_profiles"]
+    bundles = Base.metadata.tables["encrypted_private_key_bundles"]
+    wrappings = Base.metadata.tables["file_key_wrappings"]
+
+    assert user_keys.c.key_uuid.nullable is False
+    assert user_keys.c.custody_mode.server_default.arg == "LEGACY_EXTERNAL"
+    assert recovery_keys.c.key_uuid.nullable is False
+    assert profiles.c.kdf_memory_kib.type.unsigned is True
+    assert profiles.c.wrapped_amk.type.length == 64
+    assert bundles.c.encrypted_private_key.nullable is False
+
+    unique_names = {
+        constraint.name
+        for table in (user_keys, recovery_keys, profiles, bundles, wrappings)
+        for constraint in table.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    assert {
+        "uq_user_keys_key_uuid",
+        "uq_user_keys_id_user_id",
+        "uq_recovery_keys_key_uuid",
+        "uq_user_key_protection_profiles_uuid",
+        "uq_encrypted_private_key_bundles_user_key",
+        "uq_file_key_wrappings_file_user_key",
+        "uq_file_key_wrappings_file_recovery_key",
+    } <= unique_names
+
+    check_names = {
+        constraint.name
+        for table in (profiles, bundles, wrappings)
+        for constraint in table.constraints
+        if isinstance(constraint, CheckConstraint)
+    }
+    assert {
+        "ck_user_key_protection_profiles_kdf_bounds",
+        "ck_user_key_protection_profiles_amk_envelope",
+        "ck_encrypted_private_key_bundles_envelope",
+        "ck_file_key_wrappings_recipient_shape",
+    } <= check_names
+
+    wrapping_foreign_keys = {
+        constraint.name: constraint for constraint in wrappings.foreign_key_constraints
+    }
+    owner_fk = wrapping_foreign_keys["fk_file_key_wrappings_user_key_owner"]
+    assert owner_fk.ondelete == "RESTRICT"
+    assert owner_fk.onupdate == "RESTRICT"
+    assert [element.target_fullname for element in owner_fk.elements] == [
+        "user_keys.id",
+        "user_keys.user_id",
+    ]

@@ -49,6 +49,7 @@ def register(
         username=payload.username,
         email=str(payload.email),
         password=payload.password,
+        key_material=payload.key_material.to_domain(),
         context=context,
     )
     response_data = UserRegisterResponse.model_validate(result)

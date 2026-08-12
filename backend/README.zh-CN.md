@@ -6,7 +6,9 @@
 
 ## 当前状态
 
-Auth 纵向功能切片已完成，不再受草案路由依赖项保护。它负责真实的 MySQL 事务、不透明访问凭据和轮换式刷新凭据、会话撤销、登录／注册限流、用户注册时使用的 RSA 密钥，以及通过哈希链串联的审计事件。以下九个端点已在 `/api/v1` 下启用：
+身份认证、客户端包装密钥托管、加密文件、共享、审计、恢复及管理纵向功能切片均已实现。
+它们使用真实 MySQL 事务、公开 UUID 契约、显式 Bearer／RBAC 依赖、加密对象存储及哈希链
+审计事件。`/api/v1` 下的核心 Auth 端点为：
 
 | 方法 | 端点 | 身份认证 |
 |---|---|---|
@@ -20,13 +22,29 @@ Auth 纵向功能切片已完成，不再受草案路由依赖项保护。它负
 | GET | `/auth/sessions` | Bearer 访问令牌 |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer 访问令牌 |
 
-文件、共享、审计查询、恢复和管理端点仍是契约脚手架，并会有意返回 `501 feature_not_implemented`。`/health/live` 和 OpenAPI 仍然可用。只有在对应的授权、持久化、事务、审计、存储和拒绝访问测试全部完成后，才能解除这些路由的保护。
+`/keys`、`/files`、`/audit-logs`、`/recovery` 和 `/admin` 路由也已启用，并由 OpenAPI
+完整描述。`/health/live` 检查进程；`/health/ready` 还会检查数据库连接及精确的
+`0003_client_key_custody` Schema revision。
+
+这些 API 采用客户端密钥托管边界：服务器只保存公钥、加密私钥包、密文及包装密钥，不接收
+加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。当前浏览器前端尚未实现账户
+密钥登记、私钥解锁、文件加解密和 DEK 重包装，因此后端路由完成不等于现有 UI 已具备完整
+客户端密码学能力。
 
 应用层 HTTP 端点仅使用 `GET` 和 `POST`：读取操作使用 `GET`，新增、更新、删除、撤销及其他
 会改变状态的动作使用 `POST`。不得新增 `PUT`、`PATCH` 或 `DELETE` 路由；CORS 方法配置也
 仅允许 `GET` 和 `POST`。
 
-密码策略使用 Unicode NFC 进行规范化，要求密码长度为 15 至 128 个字符，拒绝由账户信息派生的值和常见值，并使用 Argon2id 进行哈希。有效的旧版 bcrypt 哈希会被透明升级；当配置的单工作进程容量已满时，内存密集型操作会快速失败。随附的常见密码列表只是一套小型本地安全基线，并非持续维护的已泄露密码语料库。忘记密码重置、电子邮件验证、多因素认证（MFA）和外部身份登录尚未实现；每项功能都需要可信的带外投递或身份通道。
+登录密码策略使用 Unicode NFC 进行规范化，要求长度为 15 至 128 个字符，拒绝由账户信息
+派生的值和常见值，并使用 Argon2id 进行哈希。有效的旧版 bcrypt 哈希会被透明升级；当配置
+的单工作进程容量已满时，内存密集型操作会快速失败。随附的常见密码列表只是一套小型本地
+安全基线，并非持续维护的已泄露密码语料库。忘记登录密码重置、电子邮件验证、多因素认证
+（MFA）和外部身份登录尚未实现；每项功能都需要可信的带外投递或身份通道。
+
+加密 passphrase 与登录密码相互独立，只在客户端用于派生 KEK。用户通常只需记住该
+passphrase，服务端则保存加密私钥包；但若 passphrase 遗失且没有独立安全保存的可用密钥
+副本，服务器目前无法重置或恢复它。恢复 API 只治理单个文件 DEK 向已登记活跃公钥的重新
+包装，不会恢复 passphrase、AMK 或解密私钥包。
 
 ## 前置要求
 
@@ -34,6 +52,10 @@ Auth 纵向功能切片已完成，不再受草案路由依赖项保护。它负
 - 带 Compose 的 Docker（推荐用于 MySQL 8.4）
 
 后端命令的规范执行目录是 `backend/`。配置始终从仓库根目录的 `.env` 加载，配置中的相对存储路径也会相对于仓库根目录解析，而不是相对于进程工作目录。
+
+`MAX_REQUEST_BODY_BYTES` 限制普通 JSON/form 请求体（默认 1 MiB，配置上限 8 MiB）。加密文件的
+multipart 上传路由独立使用 `MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` 上限，
+因此调整普通请求体上限不会改变允许上传的密文大小。
 
 ## 首次设置
 
@@ -119,12 +141,13 @@ sudo mysql < database/mysql/03-verify.sql
 ```
 
 `01-provision.sql` 只创建固定数据库和带 `REQUIRE SSL` 的 `fyp_user`，并为新账户返回一个
-随机密码；密码必须直接写入 secret store。`02-schema.sql` 只允许用于完全空的目标
-Schema，它创建最终表、唯一应用种子和 `alembic_version` 兼容性 marker，并授予 11 张
-普通状态表 CRUD、`audit_logs` 的 `SELECT`／`INSERT`、`audit_chain_heads` 的
-`SELECT`／`UPDATE`；应用无权访问 `alembic_version`。
-`03-verify.sql` 是只读核验。核验通过后，应用才通过标准 `DB_*` 以 `fyp_user` 启动；
-root 凭据绝不能进入应用 `.env`。
+随机密码；密码必须直接写入 secret store。仅接受空库的 `02-schema.sql` 会安装完整的
+15 张应用表及精确运行时权限：13 张普通状态表拥有 CRUD，`audit_logs` 只有
+`SELECT`／`INSERT`，而 `audit_chain_heads` 的 `UPDATE` 仅限 `last_log_id`、
+`current_hash` 和 `updated_at` 三列，明确排除 `schema_revision`；应用也无权访问
+`alembic_version`。只读的 `03-verify.sql` 必须核验精确 Schema 和权限，并确认不存在旧版
+`fyp_migrator` 账户。全部核验通过后，应用才通过标准 `DB_*` 以 `fyp_user` 启动；root 凭据
+绝不能进入应用 `.env`。
 
 三份 SQL 都以 `localhost` 为账户 host 默认值；远程部署应在仓库外制作三份受保护、经
 评审的副本，并一致替换其中每一个 `localhost` 账户 host 字面量。若执行 02 时任何语句

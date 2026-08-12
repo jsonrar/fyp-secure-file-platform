@@ -1,20 +1,24 @@
 from collections.abc import Generator
-from typing import Annotated, NoReturn
+from typing import Annotated
 
 from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
 from app.domain.auth import ActorContext, RequestContext
-from app.domain.errors import AuthenticationError, FeatureNotImplementedError
+from app.domain.enums import SystemRole
+from app.domain.errors import AuthenticationError, AuthorizationError
+from app.services.admin_service import AdminService
+from app.services.audit_log_service import AuditLogService
+from app.services.audit_query_service import AuditQueryService
 from app.services.auth_service import AuthService
+from app.services.file_service import FileService
+from app.services.file_storage_service import FileStorageService
+from app.services.key_service import KeyService
+from app.services.recovery_service import RecoveryService
+from app.services.sharing_service import SharingService
 
 _bearer_scheme = HTTPBearer(auto_error=False)
-
-
-def reject_unimplemented_api() -> NoReturn:
-    """Fail closed while a draft router has no authenticated implementation."""
-    raise FeatureNotImplementedError()
 
 
 def get_request_context(request: Request) -> RequestContext:
@@ -49,6 +53,50 @@ def get_auth_service(
     )
 
 
+def get_key_service(
+    request: Request,
+    db: Annotated[Session, Depends(get_request_db)],
+) -> KeyService:
+    return KeyService(db=db, settings=request.app.state.settings)
+
+
+def get_file_service(
+    request: Request,
+    db: Annotated[Session, Depends(get_request_db)],
+) -> FileService:
+    settings = request.app.state.settings
+    return FileService(
+        db=db,
+        settings=settings,
+        storage=FileStorageService(settings=settings),
+        audit_service=AuditLogService(db),
+    )
+
+
+def get_sharing_service(
+    db: Annotated[Session, Depends(get_request_db)],
+) -> SharingService:
+    return SharingService(db=db)
+
+
+def get_recovery_service(
+    db: Annotated[Session, Depends(get_request_db)],
+) -> RecoveryService:
+    return RecoveryService(db=db)
+
+
+def get_audit_query_service(
+    db: Annotated[Session, Depends(get_request_db)],
+) -> AuditQueryService:
+    return AuditQueryService(db=db)
+
+
+def get_admin_service(
+    db: Annotated[Session, Depends(get_request_db)],
+) -> AdminService:
+    return AdminService(db=db)
+
+
 def get_current_actor(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
@@ -56,3 +104,19 @@ def get_current_actor(
     if credentials is None or not credentials.credentials:
         raise AuthenticationError()
     return auth_service.authenticate_access_token(credentials.credentials)
+
+
+def require_admin(
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+) -> ActorContext:
+    if actor.role is not SystemRole.ADMIN:
+        raise AuthorizationError()
+    return actor
+
+
+def require_recovery_reviewer(
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+) -> ActorContext:
+    if actor.role not in {SystemRole.ADMIN, SystemRole.RECOVERY_OFFICER}:
+        raise AuthorizationError()
+    return actor

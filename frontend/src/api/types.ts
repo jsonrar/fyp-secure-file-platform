@@ -7,7 +7,7 @@ export interface ApiEnvelope<T> {
 }
 
 export interface FileOut {
-  file_id: number
+  file_id: string
   original_filename: string
   file_size: number
   status: string
@@ -15,7 +15,7 @@ export interface FileOut {
 
 export interface AuditLogOut {
   log_id?: number
-  file_id?: number
+  file_id?: string
   action?: string
   actor_username?: string
   created_at?: string

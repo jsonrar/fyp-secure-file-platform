@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CHAR, CheckConstraint, ForeignKey, text
+from sqlalchemy import CHAR, CheckConstraint, ForeignKey, String, text
 from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
@@ -36,6 +36,12 @@ class AuditChainHead(Base):
         nullable=True,
     )
     current_hash: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    schema_revision: Mapped[str] = mapped_column(
+        String(64),
+        nullable=False,
+        default="0003_client_key_custody",
+        server_default="0003_client_key_custody",
+    )
     updated_at: Mapped[datetime] = mapped_column(
         mysql.DATETIME(fsp=6),
         nullable=False,

@@ -41,16 +41,19 @@ class Settings(BaseSettings):
     AUTH_REGISTRATION_WINDOW_SECONDS: int = Field(default=60 * 60, ge=60)
     AUTH_REGISTRATION_BLOCK_SECONDS: int = Field(default=60 * 60, ge=60)
     USER_RSA_KEY_SIZE: int = Field(default=3072, ge=2048, le=4096)
+    EXPECTED_SCHEMA_REVISION: str = "0003_client_key_custody"
 
     CORS_ORIGINS: list[str] = Field(default_factory=lambda: _LOCAL_CORS_ORIGINS.copy())
     CORS_ALLOW_CREDENTIALS: bool = True
+    MAX_REQUEST_BODY_BYTES: int = Field(default=1024 * 1024, gt=0, le=8 * 1024 * 1024)
     MAX_UPLOAD_SIZE_BYTES: int = Field(default=25 * 1024 * 1024, gt=0)
+    MAX_UPLOAD_REQUEST_OVERHEAD_BYTES: int = Field(default=256 * 1024, ge=128 * 1024)
     LOG_LEVEL: str = "INFO"
 
     DB_HOST: str = "localhost"
     DB_PORT: int = Field(default=3306, ge=1, le=65535)
     DB_USER: str = "fyp_user"
-    DB_PASSWORD: str = Field(default=_DEVELOPMENT_DB_PASSWORD, repr=False)
+    DB_PASSWORD: str = Field(default=_DEVELOPMENT_DB_PASSWORD, min_length=1, repr=False)
     DB_NAME: str = "fyp_secure_file_platform"
     DB_SSL_CA: Path | None = None
     DB_SSL_CERT: Path | None = None
@@ -58,7 +61,6 @@ class Settings(BaseSettings):
 
     ENCRYPTED_FILE_DIR: Path = Path("backend/encrypted_files")
     TEMP_FILE_DIR: Path = Path("backend/temp_files")
-    RECOVERY_PUBLIC_KEY_PATH: Path = Path("recovery_keys/recovery_public.pem")
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
@@ -120,7 +122,6 @@ class Settings(BaseSettings):
     @field_validator(
         "ENCRYPTED_FILE_DIR",
         "TEMP_FILE_DIR",
-        "RECOVERY_PUBLIC_KEY_PATH",
         "DB_SSL_CA",
         "DB_SSL_CERT",
         "DB_SSL_KEY",

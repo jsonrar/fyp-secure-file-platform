@@ -161,6 +161,7 @@ ORDER BY GRANTEE, TABLE_SCHEMA, TABLE_NAME, PRIVILEGE_TYPE;
 WITH
 crud_tables AS (
     SELECT 'auth_login_throttles' AS table_name
+    UNION ALL SELECT 'encrypted_private_key_bundles'
     UNION ALL SELECT 'file_access_grants'
     UNION ALL SELECT 'file_key_wrappings'
     UNION ALL SELECT 'files'
@@ -169,6 +170,7 @@ crud_tables AS (
     UNION ALL SELECT 'recovery_requests'
     UNION ALL SELECT 'session_refresh_tokens'
     UNION ALL SELECT 'user_keys'
+    UNION ALL SELECT 'user_key_protection_profiles'
     UNION ALL SELECT 'user_sessions'
     UNION ALL SELECT 'users'
 ),
@@ -196,9 +198,6 @@ expected_table_grants AS (
     UNION ALL
     SELECT CONCAT(QUOTE('fyp_user'), '@', QUOTE('localhost')),
            'fyp_secure_file_platform', 'audit_chain_heads', 'SELECT', 'NO'
-    UNION ALL
-    SELECT CONCAT(QUOTE('fyp_user'), '@', QUOTE('localhost')),
-           'fyp_secure_file_platform', 'audit_chain_heads', 'UPDATE', 'NO'
 ),
 actual_table_grants AS (
     SELECT
@@ -244,18 +243,71 @@ LEFT JOIN expected_table_grants AS expected
 WHERE expected.grantee IS NULL
 ORDER BY grantee, database_name, table_name, privilege_type, deviation;
 
--- Column-level grants. Expected: no rows.
-SELECT
-    GRANTEE,
-    TABLE_SCHEMA AS database_name,
-    TABLE_NAME AS table_name,
-    COLUMN_NAME AS column_name,
-    PRIVILEGE_TYPE,
-    IS_GRANTABLE
-FROM information_schema.COLUMN_PRIVILEGES
-WHERE SUBSTRING_INDEX(GRANTEE, '@', 1)
-      IN (QUOTE('fyp_user'), QUOTE('fyp_migrator'))
-ORDER BY GRANTEE, TABLE_SCHEMA, TABLE_NAME, COLUMN_NAME, PRIVILEGE_TYPE;
+-- The runtime may advance only the mutable audit-chain-head fields. In
+-- particular it must not be able to change schema_revision. The symmetric
+-- difference below must return no rows.
+WITH
+expected_column_grants AS (
+    SELECT CONCAT(QUOTE('fyp_user'), '@', QUOTE('localhost')) AS grantee,
+           'fyp_secure_file_platform' AS database_name,
+           'audit_chain_heads' AS table_name,
+           'last_log_id' AS column_name,
+           'UPDATE' AS privilege_type,
+           'NO' AS is_grantable
+    UNION ALL
+    SELECT CONCAT(QUOTE('fyp_user'), '@', QUOTE('localhost')),
+           'fyp_secure_file_platform', 'audit_chain_heads',
+           'current_hash', 'UPDATE', 'NO'
+    UNION ALL
+    SELECT CONCAT(QUOTE('fyp_user'), '@', QUOTE('localhost')),
+           'fyp_secure_file_platform', 'audit_chain_heads',
+           'updated_at', 'UPDATE', 'NO'
+),
+actual_column_grants AS (
+    SELECT GRANTEE AS grantee,
+           TABLE_SCHEMA AS database_name,
+           TABLE_NAME AS table_name,
+           COLUMN_NAME AS column_name,
+           PRIVILEGE_TYPE AS privilege_type,
+           IS_GRANTABLE AS is_grantable
+    FROM information_schema.COLUMN_PRIVILEGES
+    WHERE SUBSTRING_INDEX(GRANTEE, '@', 1)
+          IN (QUOTE('fyp_user'), QUOTE('fyp_migrator'))
+)
+SELECT 'MISSING' AS deviation,
+       expected.grantee,
+       expected.database_name,
+       expected.table_name,
+       expected.column_name,
+       expected.privilege_type,
+       expected.is_grantable
+FROM expected_column_grants AS expected
+LEFT JOIN actual_column_grants AS actual
+  ON actual.grantee = expected.grantee
+ AND actual.database_name = expected.database_name
+ AND actual.table_name = expected.table_name
+ AND actual.column_name = expected.column_name
+ AND actual.privilege_type = expected.privilege_type
+ AND actual.is_grantable = expected.is_grantable
+WHERE actual.grantee IS NULL
+UNION ALL
+SELECT 'UNEXPECTED' AS deviation,
+       actual.grantee,
+       actual.database_name,
+       actual.table_name,
+       actual.column_name,
+       actual.privilege_type,
+       actual.is_grantable
+FROM actual_column_grants AS actual
+LEFT JOIN expected_column_grants AS expected
+  ON expected.grantee = actual.grantee
+ AND expected.database_name = actual.database_name
+ AND expected.table_name = actual.table_name
+ AND expected.column_name = actual.column_name
+ AND expected.privilege_type = actual.privilege_type
+ AND expected.is_grantable = actual.is_grantable
+WHERE expected.grantee IS NULL
+ORDER BY grantee, database_name, table_name, column_name, privilege_type, deviation;
 
 -- Stored procedure/function grants. Expected: no rows.
 SELECT
@@ -327,6 +379,7 @@ expected_table_names AS (
     UNION ALL SELECT 'audit_chain_heads'
     UNION ALL SELECT 'audit_logs'
     UNION ALL SELECT 'auth_login_throttles'
+    UNION ALL SELECT 'encrypted_private_key_bundles'
     UNION ALL SELECT 'file_access_grants'
     UNION ALL SELECT 'file_key_wrappings'
     UNION ALL SELECT 'files'
@@ -335,6 +388,7 @@ expected_table_names AS (
     UNION ALL SELECT 'recovery_requests'
     UNION ALL SELECT 'session_refresh_tokens'
     UNION ALL SELECT 'user_keys'
+    UNION ALL SELECT 'user_key_protection_profiles'
     UNION ALL SELECT 'user_sessions'
     UNION ALL SELECT 'users'
 ),
@@ -382,6 +436,20 @@ LEFT JOIN expected_tables AS expected
 WHERE expected.table_name IS NULL
 ORDER BY table_name, deviation;
 
+-- The install starts with the predecessor default and restores final-schema
+-- parity immediately before publishing the singleton as 0003. Expected: OK.
+SELECT
+    CASE
+        WHEN COUNT(*) = 1
+         AND MAX(COLUMN_DEFAULT) = '0003_client_key_custody'
+        THEN 'OK'
+        ELSE 'REVIEW'
+    END AS readiness_marker_default_status
+FROM information_schema.COLUMNS
+WHERE TABLE_SCHEMA = 'fyp_secure_file_platform'
+  AND TABLE_NAME = 'audit_chain_heads'
+  AND COLUMN_NAME = 'schema_revision';
+
 -- Structural totals for the tracked final schema. The non-unique index total
 -- includes MySQL's implicit FK-supporting index on audit_chain_heads.last_log_id.
 -- Expected: status OK.
@@ -413,28 +481,28 @@ SELECT
     CASE
         WHEN (SELECT COUNT(*)
               FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 132
+              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 188
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 14
+                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 16
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'UNIQUE') = 13
+                AND CONSTRAINT_TYPE = 'UNIQUE') = 22
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 19
+                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 25
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'CHECK') = 3
+                AND CONSTRAINT_TYPE = 'CHECK') = 33
          AND (SELECT COUNT(DISTINCT TABLE_NAME, INDEX_NAME)
               FROM information_schema.STATISTICS
               WHERE TABLE_SCHEMA = 'fyp_secure_file_platform'
                 AND INDEX_NAME <> 'PRIMARY'
-                AND NON_UNIQUE = 1) = 46
+                AND NON_UNIQUE = 1) = 60
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_structure_status;
@@ -458,6 +526,35 @@ expected_critical_fks AS (
                      'user_id', 'users', 'id', 'CASCADE', 'CASCADE'
     UNION ALL SELECT 'fk_session_refresh_tokens_session', 'session_refresh_tokens',
                      'session_id', 'user_sessions', 'id', 'CASCADE', 'CASCADE'
+    UNION ALL SELECT 'fk_user_key_protection_profiles_user',
+                     'user_key_protection_profiles', 'user_id', 'users', 'id',
+                     'CASCADE', 'CASCADE'
+    UNION ALL SELECT 'fk_encrypted_private_key_bundles_profile',
+                     'encrypted_private_key_bundles', 'user_id',
+                     'user_key_protection_profiles', 'user_id', 'CASCADE', 'CASCADE'
+    UNION ALL SELECT 'fk_encrypted_private_key_bundles_user_key_owner',
+                     'encrypted_private_key_bundles', 'user_key_id',
+                     'user_keys', 'id', 'CASCADE', 'CASCADE'
+    UNION ALL SELECT 'fk_encrypted_private_key_bundles_user_key_owner',
+                     'encrypted_private_key_bundles', 'user_id',
+                     'user_keys', 'user_id', 'CASCADE', 'CASCADE'
+    UNION ALL SELECT 'fk_file_key_wrappings_user_key_owner',
+                     'file_key_wrappings', 'user_key_id', 'user_keys', 'id',
+                     'RESTRICT', 'RESTRICT'
+    UNION ALL SELECT 'fk_file_key_wrappings_user_key_owner',
+                     'file_key_wrappings', 'recipient_user_id',
+                     'user_keys', 'user_id', 'RESTRICT', 'RESTRICT'
+    UNION ALL SELECT 'fk_file_key_wrappings_recovery_key',
+                     'file_key_wrappings', 'recovery_key_id',
+                     'recovery_keys', 'id', 'RESTRICT', 'RESTRICT'
+    UNION ALL SELECT 'fk_integrity_checks_file', 'integrity_checks',
+                     'file_id', 'files', 'id', 'RESTRICT', 'RESTRICT'
+    UNION ALL SELECT 'fk_recovery_requests_target_key_owner',
+                     'recovery_requests', 'target_user_key_id',
+                     'user_keys', 'id', 'RESTRICT', 'RESTRICT'
+    UNION ALL SELECT 'fk_recovery_requests_target_key_owner',
+                     'recovery_requests', 'requested_by',
+                     'user_keys', 'user_id', 'RESTRICT', 'RESTRICT'
 ),
 actual_critical_fks AS (
     SELECT
@@ -479,7 +576,14 @@ actual_critical_fks AS (
           'fk_audit_logs_target_user',
           'fk_audit_chain_heads_last_log',
           'fk_user_sessions_user',
-          'fk_session_refresh_tokens_session'
+          'fk_session_refresh_tokens_session',
+          'fk_user_key_protection_profiles_user',
+          'fk_encrypted_private_key_bundles_profile',
+          'fk_encrypted_private_key_bundles_user_key_owner',
+          'fk_file_key_wrappings_user_key_owner',
+          'fk_file_key_wrappings_recovery_key',
+          'fk_integrity_checks_file',
+          'fk_recovery_requests_target_key_owner'
       )
 )
 SELECT 'MISSING' AS deviation, expected.*
@@ -518,6 +622,17 @@ expected_critical_checks AS (
                      'access_expires_at<=absolute_expires_at'
     UNION ALL SELECT 'ck_session_refresh_tokens_expiry_after_creation',
                      'session_refresh_tokens', 'expires_at>created_at'
+    UNION ALL SELECT 'ck_file_key_wrappings_recipient_shape',
+                     'file_key_wrappings',
+                     "recipient_type='user'andrecipient_user_idisnotnullanduser_key_idisnotnullandrecovery_key_idisnullorrecipient_type='recovery'andrecipient_user_idisnullanduser_key_idisnullandrecovery_key_idisnotnull"
+    UNION ALL SELECT 'ck_user_key_protection_profiles_amk_envelope',
+                     'user_key_protection_profiles',
+                     "amk_wrapping_algorithm='aes-256-gcm'andoctet_lengthwrapped_amk=32andoctet_lengthamk_nonce=12andoctet_lengthamk_auth_tag=16"
+    UNION ALL SELECT 'ck_encrypted_private_key_bundles_envelope',
+                     'encrypted_private_key_bundles',
+                     'octet_lengthderivation_saltbetween16and32andoctet_lengthnonce=12andoctet_lengthauth_tag=16andoctet_lengthencrypted_private_keybetween1and16384'
+    UNION ALL SELECT 'ck_recovery_requests_maker_checker',
+                     'recovery_requests', 'approved_byisnullorapproved_by<>requested_by'
 ),
 actual_critical_checks AS (
     SELECT
@@ -532,6 +647,15 @@ actual_critical_checks AS (
      AND cc.CONSTRAINT_NAME = tc.CONSTRAINT_NAME
     WHERE tc.CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
       AND tc.CONSTRAINT_TYPE = 'CHECK'
+      AND tc.CONSTRAINT_NAME IN (
+          'ck_audit_chain_heads_singleton',
+          'ck_user_sessions_access_before_absolute',
+          'ck_session_refresh_tokens_expiry_after_creation',
+          'ck_file_key_wrappings_recipient_shape',
+          'ck_user_key_protection_profiles_amk_envelope',
+          'ck_encrypted_private_key_bundles_envelope',
+          'ck_recovery_requests_maker_checker'
+      )
 )
 SELECT 'MISSING' AS deviation, expected.*
 FROM expected_critical_checks AS expected
@@ -562,6 +686,15 @@ expected_critical_indexes AS (
                      'status,access_expires_at'
     UNION ALL SELECT 'user_sessions', 'idx_user_sessions_status_absolute_expires',
                      'status,absolute_expires_at'
+    UNION ALL SELECT 'file_key_wrappings',
+                     'idx_file_key_wrappings_recipient_status_file_key',
+                     'recipient_user_id,status,file_id,user_key_id'
+    UNION ALL SELECT 'encrypted_private_key_bundles',
+                     'idx_encrypted_private_key_bundles_user_key_owner',
+                     'user_key_id,user_id'
+    UNION ALL SELECT 'recovery_requests',
+                     'idx_recovery_requests_target_key_owner',
+                     'target_user_key_id,requested_by'
 ),
 actual_critical_indexes AS (
     SELECT
@@ -575,7 +708,10 @@ actual_critical_indexes AS (
           'idx_audit_logs_resource',
           'idx_user_sessions_user_status',
           'idx_user_sessions_status_access_expires',
-          'idx_user_sessions_status_absolute_expires'
+          'idx_user_sessions_status_absolute_expires',
+          'idx_file_key_wrappings_recipient_status_file_key',
+          'idx_encrypted_private_key_bundles_user_key_owner',
+          'idx_recovery_requests_target_key_owner'
       )
     GROUP BY TABLE_NAME, INDEX_NAME
 )
@@ -602,7 +738,7 @@ SELECT
     GROUP_CONCAT(version_num ORDER BY version_num) AS alembic_revisions,
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(version_num) = '0002_auth_identity_sessions'
+         AND MAX(version_num) = '0003_client_key_custody'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_compatibility_status
@@ -622,6 +758,7 @@ SELECT
         AND last_log_id IS NULL
         AND current_hash =
             '0000000000000000000000000000000000000000000000000000000000000000'
+        AND schema_revision = '0003_client_key_custody'
     ), 0) AS genesis_rows,
     CASE
         WHEN COUNT(*) = 1
@@ -630,6 +767,7 @@ SELECT
              AND last_log_id IS NULL
              AND current_hash =
                  '0000000000000000000000000000000000000000000000000000000000000000'
+             AND schema_revision = '0003_client_key_custody'
          ), 0) = 1
         THEN 'OK'
         ELSE 'REVIEW'

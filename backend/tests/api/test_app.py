@@ -46,12 +46,39 @@ def test_cors_only_allows_get_and_post() -> None:
     assert cors_middleware.kwargs["allow_methods"] == ["GET", "POST"]
 
 
-def test_draft_business_routes_fail_closed() -> None:
+def test_encrypted_upload_body_is_rejected_before_multipart_spooling() -> None:
+    application = create_app(
+        Settings(
+            _env_file=None,
+            APP_ENV="test",
+            APP_DEBUG=False,
+            SECRET_KEY="test-secret-key-that-is-long-enough",
+            MAX_UPLOAD_SIZE_BYTES=1,
+            MAX_UPLOAD_REQUEST_OVERHEAD_BYTES=128 * 1024,
+        )
+    )
+    with TestClient(application) as client:
+        response = client.post(
+            "/api/v1/files/upload",
+            content=b"x" * (128 * 1024 + 2),
+            headers={
+                "Content-Type": "application/octet-stream",
+                "Origin": "http://localhost:5173",
+            },
+        )
+
+    assert response.status_code == 413
+    assert response.json()["data"]["error_code"] == "request_too_large"
+    assert response.headers["cache-control"].startswith("no-store")
+    assert response.headers["access-control-allow-origin"] == "http://localhost:5173"
+
+
+def test_business_routes_require_bearer_authentication() -> None:
     with TestClient(create_app()) as client:
         response = client.get("/api/v1/admin/users")
 
-    assert response.status_code == 501
-    assert response.json()["data"]["error_code"] == "feature_not_implemented"
+    assert response.status_code == 401
+    assert response.json()["data"]["error_code"] == "authentication_required"
     assert "access_token" not in response.text
 
 

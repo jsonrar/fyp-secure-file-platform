@@ -40,14 +40,18 @@ from app.domain.errors import (
     InvalidCredentialsError,
     InvalidCurrentPasswordError,
     InvalidRefreshTokenError,
+    KeyBundleInvalidError,
     PasswordUnchangedError,
     SessionNotFoundError,
     WeakPasswordError,
 )
+from app.domain.keys import ClientKeyRegistration
 from app.models.auth_login_throttle import AuthLoginThrottle
+from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.session_refresh_token import SessionRefreshToken
 from app.models.user import User
 from app.models.user_key import UserKey
+from app.models.user_key_protection_profile import UserKeyProtectionProfile
 from app.models.user_session import UserSession
 from app.repositories.auth_repository import AuthRepository
 from app.services.audit_log_service import AuditLogService
@@ -86,6 +90,7 @@ class AuthService:
         username: str,
         email: str,
         password: str,
+        key_material: ClientKeyRegistration,
         context: RequestContext,
     ) -> RegistrationResult:
         normalized_username = username.strip()
@@ -105,10 +110,20 @@ class AuthService:
 
             now = self._now()
             password_hash = self.passwords.hash(password)
-            private_key_pem, public_key_pem = self.crypto.generate_rsa_key_pair(
-                key_size=self.settings.USER_RSA_KEY_SIZE
-            )
-            public_key_fingerprint = self.crypto.public_key_fingerprint(public_key_pem)
+            if key_material.key_size_bits != self.settings.USER_RSA_KEY_SIZE:
+                raise KeyBundleInvalidError(
+                    "The RSA key size does not match the configured account key size"
+                )
+            try:
+                self.crypto.load_rsa_public_key(
+                    key_material.public_key_pem,
+                    expected_key_size=key_material.key_size_bits,
+                )
+                public_key_fingerprint = self.crypto.public_key_fingerprint(
+                    key_material.public_key_pem
+                )
+            except (TypeError, ValueError) as exc:
+                raise KeyBundleInvalidError() from exc
             user_public_id = self.uuid_factory()
 
             user = User(
@@ -126,14 +141,63 @@ class AuthService:
             self.repository.add_user(user)
             self.repository.flush()
 
-            self.repository.add_user_key(
-                UserKey(
+            user_key = UserKey(
+                key_uuid=str(key_material.key_id),
+                user_id=user.id,
+                public_key_pem=key_material.public_key_pem,
+                algorithm=key_material.algorithm,
+                key_size_bits=key_material.key_size_bits,
+                custody_mode="CLIENT_WRAPPED",
+                fingerprint=public_key_fingerprint,
+                status="ACTIVE",
+                created_at=now,
+            )
+            self.repository.add_user_key(user_key)
+            self.repository.flush()
+
+            protection = key_material.protection
+            self.repository.add_key_protection_profile(
+                UserKeyProtectionProfile(
                     user_id=user.id,
-                    public_key_pem=public_key_pem,
-                    algorithm="RSA-OAEP-SHA256",
-                    fingerprint=public_key_fingerprint,
-                    status="ACTIVE",
+                    profile_uuid=str(protection.profile_id),
+                    format_version=protection.format_version,
+                    kdf_algorithm=protection.kdf_algorithm,
+                    kdf_version=protection.kdf_version,
+                    kdf_salt=protection.kdf_salt,
+                    kdf_memory_kib=protection.kdf_memory_kib,
+                    kdf_iterations=protection.kdf_iterations,
+                    kdf_parallelism=protection.kdf_parallelism,
+                    derived_key_length=protection.derived_key_length,
+                    amk_wrapping_algorithm=protection.amk_wrapping_algorithm,
+                    wrapped_amk=protection.wrapped_amk,
+                    amk_nonce=protection.amk_nonce,
+                    amk_auth_tag=protection.amk_auth_tag,
+                    aad_version=protection.aad_version,
+                    revision=1,
                     created_at=now,
+                    updated_at=now,
+                )
+            )
+
+            private_bundle = key_material.private_key_bundle
+            self.repository.add_private_key_bundle(
+                EncryptedPrivateKeyBundle(
+                    bundle_uuid=str(private_bundle.bundle_id),
+                    user_id=user.id,
+                    user_key_id=user_key.id,
+                    format_version=private_bundle.format_version,
+                    private_key_format=private_bundle.private_key_format,
+                    derivation_algorithm=private_bundle.derivation_algorithm,
+                    derivation_salt=private_bundle.derivation_salt,
+                    encryption_algorithm=private_bundle.encryption_algorithm,
+                    encrypted_private_key=private_bundle.encrypted_private_key,
+                    nonce=private_bundle.nonce,
+                    auth_tag=private_bundle.auth_tag,
+                    aad_version=private_bundle.aad_version,
+                    ciphertext_sha256=private_bundle.ciphertext_sha256,
+                    revision=1,
+                    created_at=now,
+                    updated_at=now,
                 )
             )
             self.audit.append(
@@ -147,8 +211,8 @@ class AuthService:
             )
             result = RegistrationResult(
                 user=self._account_snapshot(user),
-                private_key_pem=private_key_pem,
-                private_key_filename=f"secure-file-{user_public_id}.private.pem",
+                key_id=key_material.key_id,
+                public_key_fingerprint=public_key_fingerprint,
             )
             self.db.commit()
             return result

@@ -20,8 +20,9 @@ def test_migration_history_is_a_single_ordered_chain() -> None:
     scripts = ScriptDirectory.from_config(_alembic_config())
     revisions = list(scripts.walk_revisions())
 
-    assert scripts.get_heads() == ["0002_auth_identity_sessions"]
+    assert scripts.get_heads() == ["0003_client_key_custody"]
     assert [(revision.revision, revision.down_revision) for revision in revisions] == [
+        ("0003_client_key_custody", "0002_auth_identity_sessions"),
         ("0002_auth_identity_sessions", "0001_initial"),
         ("0001_initial", None),
     ]
@@ -54,6 +55,27 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     assert "INSERT INTO audit_chain_heads" in rendered_sql
     assert "SELECT 1, id, current_hash FROM audit_logs" not in rendered_sql
     assert "0002_auth_identity_sessions" in rendered_sql
+    assert "0003_client_key_custody" in rendered_sql
+    assert "CREATE TABLE user_key_protection_profiles" in rendered_sql
+    assert "CREATE TABLE encrypted_private_key_bundles" in rendered_sql
+    assert "LEGACY_EXTERNAL" in rendered_sql
+    assert "ck_file_key_wrappings_recipient_shape" in rendered_sql
+    assert "fk_file_key_wrappings_user_key_owner" in rendered_sql
+    assert "schema_revision" in rendered_sql
+    initial_marker_position = rendered_sql.index(
+        "DEFAULT '0002_auth_identity_sessions' AFTER current_hash"
+    )
+    final_structure_position = rendered_sql.index("CREATE INDEX idx_audit_logs_created_id")
+    final_default_position = rendered_sql.index(
+        "ALTER COLUMN schema_revision SET DEFAULT '0003_client_key_custody'"
+    )
+    completed_marker_position = rendered_sql.index(
+        "SET schema_revision = '0003_client_key_custody' WHERE id = 1"
+    )
+    alembic_marker_position = rendered_sql.index("SET version_num='0003_client_key_custody'")
+    assert initial_marker_position < final_structure_position < final_default_position
+    assert final_default_position < completed_marker_position
+    assert completed_marker_position < alembic_marker_position
 
 
 def test_auth_migration_downgrade_renders_as_mysql_sql() -> None:

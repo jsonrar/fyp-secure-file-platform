@@ -31,9 +31,29 @@ def _permanent_table_blocks(schema_sql: str) -> dict[str, str]:
 def _column_names(table_body: str) -> list[str]:
     columns: list[str] = []
     constraint_keywords = {"primary", "constraint", "foreign", "unique", "check", "on"}
+    column_type_prefixes = (
+        "bigint",
+        "blob",
+        "bool",
+        "char",
+        "datetime",
+        "enum",
+        "integer",
+        "json",
+        "smallint",
+        "text",
+        "tinyint",
+        "varbinary",
+        "varchar",
+    )
     for line in table_body.splitlines():
         match = re.match(r"\s*`?([a-z][a-z0-9_]*)`?\s+", line, flags=re.IGNORECASE)
-        if match is not None and match.group(1).lower() not in constraint_keywords:
+        remainder = line[match.end() :].lstrip().lower() if match is not None else ""
+        if (
+            match is not None
+            and match.group(1).lower() not in constraint_keywords
+            and remainder.startswith(column_type_prefixes)
+        ):
             columns.append(match.group(1))
     return columns
 
@@ -104,10 +124,31 @@ def test_root_schema_sql_is_empty_only_and_marks_completion_last() -> None:
     assert "foreign_key_checks" not in lowered
     assert "fyp_migrator" not in schema_sql
     assert "ON `fyp_secure_file_platform`.*" not in schema_sql
-    assert len(re.findall(r"(?m)^GRANT ", schema_sql)) == 13
+    assert len(re.findall(r"(?m)^GRANT ", schema_sql)) == 15
+    assert (
+        "GRANT SELECT, UPDATE (last_log_id, current_hash, updated_at)\n"
+        "    ON `fyp_secure_file_platform`.`audit_chain_heads`"
+    ) in schema_sql
+    assert (
+        "GRANT SELECT, UPDATE\n    ON `fyp_secure_file_platform`.`audit_chain_heads`"
+        not in schema_sql
+    )
+    assert "UPDATE (schema_revision)" not in schema_sql
+    assert (
+        "schema_revision VARCHAR(64) NOT NULL DEFAULT '0002_auth_identity_sessions'"
+    ) in schema_sql
     assert schema_sql.index("INSERT INTO audit_chain_heads") < schema_sql.index("GRANT SELECT")
     assert schema_sql.index("GRANT SELECT") < schema_sql.index("CREATE TABLE alembic_version")
-    assert schema_sql.rstrip().endswith("VALUES ('0002_auth_identity_sessions');")
+    assert "'0002_auth_identity_sessions'\n);" in schema_sql
+    assert schema_sql.index("VALUES ('0003_client_key_custody');") < schema_sql.index(
+        "ALTER TABLE audit_chain_heads\nALTER COLUMN schema_revision"
+    )
+    assert schema_sql.index(
+        "ALTER TABLE audit_chain_heads\nALTER COLUMN schema_revision"
+    ) < schema_sql.index("UPDATE audit_chain_heads")
+    assert schema_sql.rstrip().endswith(
+        "SET schema_revision = '0003_client_key_custody'\nWHERE id = 1;"
+    )
 
 
 def test_root_verification_sql_is_read_only_and_checks_retired_identity() -> None:
@@ -122,3 +163,9 @@ def test_root_verification_sql_is_read_only_and_checks_retired_identity() -> Non
     assert "mysql.global_grants" in verification_sql
     assert "fyp_migrator" in verification_sql
     assert "expected_table_grants" in verification_sql
+    assert "expected_column_grants" in verification_sql
+    assert "'last_log_id' AS column_name" in verification_sql
+    assert "'current_hash', 'UPDATE', 'NO'" in verification_sql
+    assert "'updated_at', 'UPDATE', 'NO'" in verification_sql
+    assert "readiness_marker_default_status" in verification_sql
+    assert "MAX(COLUMN_DEFAULT) = '0003_client_key_custody'" in verification_sql

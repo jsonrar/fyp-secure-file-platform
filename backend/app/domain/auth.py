@@ -53,8 +53,8 @@ class TokenPair:
 @dataclass(frozen=True, slots=True)
 class RegistrationResult:
     user: AccountSnapshot
-    private_key_pem: str = field(repr=False)
-    private_key_filename: str = field(repr=False)
+    key_id: UUID
+    public_key_fingerprint: str
 
 
 @dataclass(frozen=True, slots=True)

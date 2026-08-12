@@ -17,8 +17,16 @@ class AuditLog(Base):
         Index("idx_audit_logs_target_user_id", "target_user_id"),
         Index("idx_audit_logs_action", "action"),
         Index("idx_audit_logs_resource", "resource_type", "resource_id"),
+        Index(
+            "idx_audit_logs_resource_created_id",
+            "resource_type",
+            "resource_id",
+            "created_at",
+            "id",
+        ),
         Index("idx_audit_logs_result", "result"),
         Index("idx_audit_logs_created_at", "created_at"),
+        Index("idx_audit_logs_created_id", "created_at", "id"),
         {
             "mysql_engine": "InnoDB",
             "mysql_charset": "utf8mb4",

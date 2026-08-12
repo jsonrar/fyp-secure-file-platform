@@ -5,7 +5,7 @@ export const fileApi = {
   listFiles() {
     return http.get<{ files: FileOut[] }>('/files')
   },
-  getFile(fileId: number) {
+  getFile(fileId: string) {
     return http.get<FileOut>(`/files/${fileId}`)
   },
   upload(file: File) {
@@ -15,13 +15,13 @@ export const fileApi = {
       headers: { 'Content-Type': 'multipart/form-data' },
     })
   },
-  download(fileId: number) {
+  download(fileId: string) {
     return http.post(`/files/${fileId}/download`)
   },
-  delete(fileId: number) {
-    return http.delete(`/files/${fileId}`)
+  delete(fileId: string) {
+    return http.post(`/files/${fileId}/delete`)
   },
-  integrityCheck(fileId: number) {
+  integrityCheck(fileId: string) {
     return http.post(`/files/${fileId}/integrity-check`)
   },
 }

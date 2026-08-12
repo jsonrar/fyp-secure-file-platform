@@ -30,8 +30,8 @@ class IntegrityCheck(Base):
         ForeignKey(
             "files.id",
             name="fk_integrity_checks_file",
-            ondelete="CASCADE",
-            onupdate="CASCADE",
+            ondelete="RESTRICT",
+            onupdate="RESTRICT",
         ),
         nullable=False,
     )

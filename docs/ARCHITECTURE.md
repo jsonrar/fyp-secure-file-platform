@@ -1,19 +1,18 @@
 # Backend Architecture
 
-[English](ARCHITECTURE.md) | [简体中文](ARCHITECTURE.zh-CN.md)
+English | [简体中文](ARCHITECTURE.zh-CN.md)
 
-## Decision
+## Decision and Current Shape
 
-The backend is a **modular monolith**. This fits the FYP scope: one deployable FastAPI
-application and one MySQL database, with strict internal boundaries. Microservices would
-add distributed transactions and operational work without improving the security model.
+The backend is a **modular monolith**: one deployable FastAPI application, one MySQL
+database, and a local encrypted-object storage adapter with strict internal boundaries.
+This fits the FYP scope while preserving explicit database, storage, cryptographic, and
+identity seams. Microservices would add distributed transactions without improving the key-
+custody boundary.
 
-The architecture is intentionally pragmatic. Add an abstraction when it protects a real
-boundary (database, storage, cryptography, identity), not merely to add another directory.
-
-Auth is the first completed database-backed vertical slice. File, sharing, audit-query,
-recovery, and admin routers remain fail-closed with `501 feature_not_implemented` while
-their use cases are still scaffolds.
+Authentication, client-wrapped account keys, encrypted files, sharing, audit queries,
+recovery, and administration are implemented vertical slices. The public API contains real
+handlers for all of these modules.
 
 ## Dependency Direction
 
@@ -21,196 +20,257 @@ their use cases are still scaffolds.
 HTTP router / dependency
           |
           v
-Application service (one use-case transaction)
+application service (use-case transaction owner)
           |
-          +----> repository / unit-of-work
-          +----> storage port
-          +----> crypto capability
-          +----> domain policy
+          +----> repository / SQLAlchemy session
+          +----> encrypted-object storage port
+          +----> validation/crypto capability
+          +----> domain policy and audit append
 ```
 
 Rules:
 
-1. Routers validate HTTP input, obtain the authenticated actor, call one application
-   service, and map the result to a response schema. They contain no SQL, filesystem, or
-   cryptographic logic.
-2. Application services are use-case coordinators. They receive dependencies through
-   constructors and never create database sessions or infrastructure adapters internally.
-3. A command use case owns exactly one database transaction. Repositories may `flush`,
-   but never `commit` independently.
-   Abuse-control counters are a deliberate precondition exception: they commit separately
-   so a rejected/rolled-back registration or login cannot erase its own throttle evidence.
-   The protected domain mutation still owns one atomic transaction.
-4. Capability services (crypto, hashing, watermarking, storage) do not import application
-   services. This keeps the dependency graph acyclic.
-5. ORM models are persistence models and never cross the API boundary. Pydantic schemas
-   are transport models and never contain SQLAlchemy behavior.
-6. Configuration and application composition happen at the process boundary
-   (`core/config.py` and `main.py`). No module may depend on the current working directory.
+1. Routers validate HTTP input, resolve an authenticated actor, call an application service,
+   and map results to response DTOs. They contain no SQL, filesystem, or private-key logic.
+2. Services coordinate use cases through constructor-injected dependencies; they do not
+   create database sessions or infrastructure adapters internally.
+3. A command owns one database transaction. Repositories may query, add, and `flush`, but do
+   not `commit`. Authentication throttle evidence is the deliberate precondition exception:
+   it commits separately so a rejected login/registration cannot roll back its own evidence.
+4. ORM models are persistence models and never become public responses. Pydantic schemas are
+   strict transport contracts and do not contain SQLAlchemy behavior.
+5. Configuration and composition happen at `core/config.py` and `main.py`; modules do not
+   depend on the process working directory.
+6. Application HTTP operations use only `GET` and `POST`. Every state-changing action uses
+   `POST` and an explicit command path where useful.
 
 ## Package Responsibilities
 
 ```text
 backend/app/
 |-- api/                 FastAPI routers, dependencies, error/response mapping
-|   `-- v1/              Versioned public API and its composition router
+|   `-- v1/              Auth, keys, files, sharing, audit, recovery, admin
 |-- core/                Configuration, database/session factory, security primitives
-|-- domain/              Trusted contexts, immutable results, enums, public domain errors
+|-- domain/              Trusted contexts, enums, domain inputs/results/errors
 |-- models/              SQLAlchemy persistence models
-|-- repositories/        Persistence operations that never own transaction commits
-|-- schemas/             Pydantic request/response DTOs
-|-- services/            Application use cases and small capability services
-|-- utils/               Pure, dependency-free helpers only
+|-- repositories/        Persistence operations without independent commits
+|-- schemas/             Strict Pydantic transport DTOs
+|-- services/            Use-case coordinators and capability services
+|-- utils/               Pure helpers
 `-- main.py              Application factory and composition root
 
-backend/migrations/      Alembic schema-authoring history for development and CI
-database/mysql/          Reviewed root/admin SQL for production database delivery
+backend/migrations/      Alembic authoring history for development/CI
+database/mysql/          Reviewed administrator SQL for production delivery
 backend/tests/
-|-- unit/                Pure policy, crypto, validation, and service tests
-|-- api/                 FastAPI contract and dependency-override tests
+|-- unit/                Policy, validation, crypto, storage, and service tests
+|-- api/                 HTTP contract/dependency-override tests
 `-- integration/         MySQL, migration, repository, and storage tests
 ```
 
-The Auth vertical slice introduced a concrete `AuthRepository`; SQLAlchemy's request-scoped
-`Session` is its unit of work and `AuthService` is the transaction owner. Storage ports will
-be introduced with the first storage-backed vertical slice. Empty generic base classes are
-deliberately avoided.
+The request-scoped SQLAlchemy `Session` is the unit of work. Each service is responsible for
+commit/rollback and appends its security event through the same session.
 
 ## Identity and Authorization Boundary
 
-The session model uses two independent, high-entropy opaque credentials rather than JWTs:
+The session model uses independent high-entropy opaque credentials, not JWTs:
 
-- The short-lived access token is a bearer credential. Only its SHA-256 hash is stored on
-  the server-side session row. A single API dependency resolves it into a trusted
-  `ActorContext` containing internal and public user/session IDs, role, status, and the
-  validated access-token hash.
-- A refresh token is stored as a separate hashed, generation-numbered record. It is
-  single-use: a successful refresh consumes it and rotates both credentials. Reuse of an
-  already consumed refresh token is treated as replay, revokes that entire session family,
-  and appends an audit event. An absolute session expiry prevents indefinite refresh.
-- Refresh rotation enforces a configurable minimum interval while holding the session lock,
-  bounding how quickly one account can add token generations and global audit events.
-- Logout revokes the current access/refresh family. Logout-all and password change revoke
-  every active family for the account. Active-session limits evict the oldest sessions.
+- Only an access-token SHA-256 hash is stored on the session row. A single dependency resolves
+  it to an `ActorContext` containing trusted internal/public identity and session fields.
+- Refresh tokens have separate hashes and monotonically increasing generations. A successful
+  refresh consumes one generation and rotates both credentials. Replay revokes the entire
+  session family; an absolute expiry prevents immortal sessions.
+- Logout, logout-all, password change, administrative disable, and session limits revoke the
+  appropriate server-side session families.
 
-Passwords are normalized with Unicode NFC, must contain 15 to 128 characters, must not equal
-the normalized username/email or email local part, and use `pwdlib`'s recommended Argon2id
-hasher. Login uses `verify_and_update` so stored hashes can be upgraded when parameters
-change; the verifier accepts legacy bcrypt records and replaces a successful one with
-Argon2id. Unknown or malformed hashes fail as invalid credentials, while unknown users still
-run one valid dummy-hash verification to reduce timing-based account enumeration. The
-bundled common-password blocklist is intentionally small and local. It is a baseline for
-this FYP, not a substitute for a maintained breached-password corpus in production.
+Login passwords use Unicode NFC normalization, a 15-to-128-character policy, local common and
+account-derived checks, and `pwdlib`'s recommended Argon2id hasher. Valid legacy bcrypt hashes
+are upgraded on login. Unknown users still trigger dummy verification. MySQL-backed HMAC
+account/IP buckets coordinate throttling across workers, while each worker separately bounds
+concurrent memory-hard operations.
 
-Memory-hard password operations use a worker-shared bounded semaphore configured from the
-worker's memory budget. Acquisition never waits in the shared synchronous thread pool: an
-exhausted worker returns `429` with `Retry-After` and is not recorded as a password failure.
-This capacity is independent from account/IP failure thresholds;
-multi-worker deployments must multiply the per-process budget and still enforce concurrency
-at the edge.
+Every non-public endpoint requires a trusted actor. Role checks occur at the API/service edge;
+resource checks use internal actor IDs inside the use case. File access always requires both:
 
-Login throttling is persisted in MySQL for normalized account and client-IP buckets;
-registration has an IP bucket. Bucket identifiers are HMAC-SHA-256 values keyed by the
-application secret, so usernames and IP addresses are not stored as plain throttle keys.
-Account and IP thresholds are configured separately to avoid applying a small per-account
-limit to an entire shared network. Login and password reauthentication inspect independent
-failure buckets under sorted row locks before Argon2 runs; completed failures are recorded
-after verification, while the separate worker capacity gate bounds in-flight work.
-Registration rechecks its block after taking the same lock. This makes throttling consistent
-across application workers, although proxy IP trust, retention/cleanup, and distributed
-edge-level abuse protection remain deployment concerns.
+1. an ACTIVE logical grant with the requested capability; and
+2. an ACTIVE user-key wrapping for that user and file, tied to an ACTIVE user public key.
 
-Registration creates the user, RSA public key/fingerprint, and audit event in one
-transaction. The matching private key is never persisted and is returned exactly once in a
-non-cacheable TLS response. A lost registration response therefore requires a future
-key-recovery/rotation workflow; the server cannot reproduce that private key.
+Missing and unauthorized files use the same public not-found behavior. ADMIN-only operations
+are explicit. Recovery review is limited to ADMIN and RECOVERY_OFFICER, and a requester cannot
+review their own request.
 
-Forgotten-password reset, email verification, MFA, and external identity federation are
-not implemented. They require trusted out-of-band delivery, enrollment, or identity-provider
-channels rather than additional unauthenticated database endpoints. `email_verified` is
-currently reserved metadata and is not a login requirement.
+## Client-Side Account-Key Custody
 
-Every non-public endpoint must require that context. Role checks happen at the API edge;
-resource checks happen inside the use case using the actor ID. File access always requires
-both:
+The encryption passphrase never crosses the API boundary and is independent of the login
+password. A trusted client generates its RSA key pair and AMK before registration:
 
-1. an active logical access grant with the required capability; and
-2. an active wrapped file key for the same user and file.
+```text
+passphrase --Argon2id + random salt--> 256-bit KEK
+KEK --AES-256-GCM--> wrapped 256-bit AMK
+AMK --HKDF-SHA256--> private-key encryption key
+private-key encryption key --AES-256-GCM--> encrypted PKCS8-DER RSA private key
+```
 
-The default authorization result is deny. Admin, audit verification, and recovery routes
-must declare explicit roles. Recovery uses maker-checker separation: a requester cannot
-approve their own request.
+Registration atomically stores the account, public RSA key/fingerprint, public KDF/AEAD
+parameters, wrapped AMK, encrypted private-key bundle, and audit event. The backend validates
+RSA type/size and envelope structure but never generates, receives, decrypts, or persists a
+plaintext private key.
 
-## Transaction and Storage Boundary
+`GET /keys/me` returns the encrypted bundle to its owner. A passphrase change does not
+re-encrypt the RSA private-key bundle, but replacing the KDF/wrapped-AMK profile requires more
+than the bearer session and optimistic revision. The client first requests a canonical digest
+for the complete proposal from `POST /keys/me/rewrap/signing-payload`, signs it locally with
+the newest current private key using RSA-PSS-SHA256, and submits that signature to
+`POST /keys/me/rewrap`. Sharing clients obtain a recipient's active public key through a
+public-key-only endpoint.
 
-MySQL transactions cannot atomically commit a local file. Upload therefore uses a staged
-write and compensation:
+The rewrap digest is domain-separated and length-prefixes variable data. It covers actor,
+authorizing-key and profile UUIDs, expected revision, KDF suite/version/salt/cost parameters,
+derived-key length, wrapping suite, wrapped AMK, nonce, tag, and AAD version. The service
+locks the account profile and newest current client key before building/verifying the digest.
+Revision/key changes and signature failure therefore reject the command; a successful update
+and audit append share one transaction. The signing-payload endpoint returns only the 32-byte
+digest and algorithm identifier, never plaintext key material.
 
-1. validate size/type and stream plaintext through encryption to a random staging object;
-2. calculate the encrypted hash and wrap the file key in memory;
-3. begin one DB transaction for file metadata, owner grant, key wrappings, and audit log;
-4. atomically rename the staged object to its final opaque object key;
-5. commit the DB transaction;
-6. on any failure, roll back and remove staged/final objects; a periodic orphan scan covers
-   process crashes between rename and commit.
+Successor-key addition is likewise authorized by possession of the newest current private key, not by
+the bearer session alone. The server constructs a length-prefixed canonical SHA-256 digest
+covering actor, current key, profile/revision, new public key/fingerprint, and encrypted-bundle
+fields; the client signs it with RSA-PSS-SHA256. The service verifies the signature before
+storing the new public key and bundle. Existing keys remain available to decrypt historical
+file wrappings, and an owner-scoped endpoint returns a requested historical encrypted bundle.
+The newest active key is advertised for new sharing.
 
-Database rows store an opaque storage object key, never a host filesystem path. Download
-and encryption work must not block the async event loop; bounded blocking work runs in a
-thread pool. Request size is rejected before reading an unbounded body.
+There is one account-level protection-profile row. All client-wrapped private-key bundles are
+expected to remain under keys derived from that AMK; the server cannot cryptographically
+prove this because it never learns the AMK. The successor-key flow is therefore rotation of
+an RSA key under the existing AMK, not a safe new-AMK reset/versioning mechanism.
 
-## Cryptographic Boundary
+This is a key-custody boundary, not proof against a malicious server. Stored KDF material
+supports offline passphrase guessing after database theft, and clients need fingerprint/
+revision pinning or an external trust anchor to detect malicious key substitution or rollback.
 
-- Each file gets an independent 256-bit AES key and 96-bit GCM nonce.
-- Encrypted objects use a versioned envelope. Stable file identity, crypto version, and
-  owner/file IDs are authenticated as AES-GCM associated data.
-- AES keys exist only in memory long enough to wrap/unwrap and never enter API DTOs,
-  application logs, exceptions, or database plaintext columns.
-- RSA-OAEP uses SHA-256 and loaded keys are checked for type, minimum size, and fingerprint.
-- The FYP's server-side decrypt flow may receive a user's private key transiently. Such
-  endpoints must disable body logging and never persist the key. This is an explicit
-  prototype limitation, not a production custody design.
-- Recovery private-key operations are isolated from normal user endpoints and fully audited.
+## Encrypted-Object and Transaction Boundary
+
+Files are encrypted by the client before upload. Each file uses an independent 256-bit DEK,
+AES-256-GCM nonce/tag, a versioned envelope/AAD contract, an owner-public-key RSA-OAEP-SHA256
+wrapping, and a recovery-public-key wrapping. The API accepts ciphertext plus those envelopes;
+it never accepts file plaintext, a private key, or a plaintext DEK.
+
+MySQL cannot atomically commit a local storage object. Upload therefore uses staging and
+compensation:
+
+1. validate public metadata, algorithm versions, key ownership, recovery key, and RSA
+   ciphertext lengths;
+2. stream bounded ciphertext to a random staging object while computing SHA-256;
+3. build file metadata, owner grant, owner/recovery wrappings, and audit entry in one DB unit
+   of work;
+4. publish the staged object to an opaque final object key, then commit;
+5. before COMMIT is attempted, failures roll back and best-effort delete staged/published
+   objects; after COMMIT is sent, a connection failure has an ambiguous outcome, so the
+   published object is preserved and reconciliation determines whether it is referenced or
+   orphaned.
+
+Database rows store opaque object keys, never host filesystem paths. The storage adapter
+resolves and containment-checks those keys inside its configured root.
+
+Download does not decrypt. It requires grant plus wrapping, verifies the ciphertext hash, and
+streams ciphertext. A separate metadata response gives the authorized client its nonce, tag,
+wrapped DEK, algorithm versions, and optional encrypted manifest. Decryption and GCM
+authentication happen on the client. The backend therefore verifies storage integrity but
+cannot validate client-produced GCM semantics without learning the DEK.
+
+Soft deletion durably marks the file and revokes grants/wrappings before idempotent storage
+cleanup. Integrity checks recompute object hashes and append their result.
+
+## Sharing Boundary
+
+The sender locally unlocks its account private key, unwraps the file DEK, retrieves the
+recipient public key, and creates a new RSA-OAEP-SHA256 DEK wrapping. The service receives only
+the target UUIDs, capabilities, and RSA ciphertext. It validates target/key association and
+atomically creates or reactivates the logical grant, cryptographic wrapping, and audit event.
+Requested capabilities are attenuated against the acting grant: a delegated sharer cannot
+grant `can_download` or `can_share` unless it also holds that capability. The canonical owner
+grant is immutable. Updating or reactivating an existing non-owner grant additionally requires
+either `can_manage` on the acting grant or identity as that grant's current `granted_by`.
+
+Revocation changes grant and active wrappings in the same transaction and cannot revoke the
+canonical owner. It controls future server-mediated access; it cannot erase data that was
+already copied.
+
+## Recovery Boundary
+
+An ADMIN registers recovery **public** keys. New registration rotates which key is active for
+future uploads; existing recovery wrappings are not rewritten, so matching historical private
+keys must remain securely available offline.
+
+A request targets one of the requester's active user public keys and expires after a bounded
+interval (24 hours by default). Creation requires a live `ACTIVE`, `can_download` grant and an
+active user wrapping backed by an active user key, including when the requester is the owner.
+An ADMIN or RECOVERY_OFFICER who is not the requester approves or rejects it. Each execution-
+package read rechecks that same live entitlement before returning the recovery-wrapped DEK,
+recovery public-key identity, and target user public key. An isolated offline/HSM process uses
+the recovery private key to unwrap and immediately rewrap the DEK.
+
+Execution follows the per-file lock order `File -> Grant/UserKey/Wrapping -> Request -> Audit`
+and rechecks the live entitlement before any wrapping mutation. The API receives only the new
+RSA ciphertext, creates or updates the target-key wrapping, and marks the request executed. It
+does not create, reactivate, or elevate the logical grant, so a revoke or permission reduction
+after approval cannot be undone by recovery. A package cached before revocation cannot be
+clawed back; subsequent package reads and execution still fail closed.
+
+No normal or recovery endpoint accepts a recovery private key. The application does not
+decrypt during recovery. This workflow recovers a file wrapping; it does not reset an
+encryption passphrase, decrypt the account private-key bundle, or create a replacement user
+key. The current maker-checker rule separates requester from reviewer, but does not require
+separate officers for approval and execution.
+
+## Metadata and Threat Boundary
+
+The server deliberately retains operational metadata: account identifiers, public keys and
+fingerprints, KDF/envelope parameters, plaintext filename and MIME type, declared plaintext
+and ciphertext sizes, timestamps, ownership/sharing graph, session IP/user-agent fields,
+recovery state, and audit actions. Ciphertext size and traffic timing also leak information.
+The optional encrypted manifest is opaque, but the present filename/MIME columns are not.
+
+Accordingly, “zero knowledge” in this project means that the ordinary API does not learn
+plaintext key material or file contents when a conforming client performs cryptography. It
+does not mean anonymous metadata, defense against traffic analysis, or defense against an
+actively malicious server able to substitute database objects and public keys.
 
 ## Audit Integrity
 
-An audit write is part of the same transaction as the security-sensitive action. Auth now
-appends through a singleton `audit_chain_heads` row locked with `SELECT ... FOR UPDATE`;
-the row records the last log and current hash so concurrent transactions cannot fork the
-chain. The migration seeds genesis only for an empty audit table. Because revision `0001`
-used a different canonical payload and lost datetime
-microseconds, `0002` refuses to upgrade a non-empty legacy audit table; adopting one requires
-a reviewed migration and external checkpoint. New timestamps retain six fractional digits
-and absent metadata is stored canonically as `{}`, so rows can be recomputed from persisted
-values. User references use restrictive foreign keys because cascading an ID update or hard
-deletion would mutate hashed history; account deletion must therefore remain a status-based
-soft delete. A plain database-resident hash chain detects accidental modification but cannot
-stop a database administrator from rewriting and recomputing history; periodic signed/HMAC
-checkpoints outside the audit database are still required for stronger tamper evidence.
+Security-sensitive mutations append to the hash chain in the same transaction. A singleton
+`audit_chain_heads` row is locked with `SELECT ... FOR UPDATE`; it records the final log ID,
+hash, and schema revision so concurrent transactions cannot fork the chain. Canonical
+persisted `DATETIME(6)` values and `{}` metadata permit deterministic recomputation.
+
+Audit reads are actor/file scoped and return allowlisted metadata; ADMIN may verify the full
+chain and head. Restrictive identity foreign keys preserve hashed history, so account removal
+is status-based. A database-local plain hash chain cannot prevent an administrator from
+rewriting and recomputing all history; stronger deployments publish signed/HMAC checkpoints
+outside the database.
 
 ## Schema and Delivery Rules
 
-- ORM metadata plus Alembic migrations are the development/CI schema-authoring authority.
+- ORM metadata and ordered Alembic revisions through `0003_client_key_custody` are the
+  development/CI schema-authoring authority.
 - `database/mysql/02-schema.sql` is the reviewed production empty-database artifact derived
-  from that authority; CI must prove that its tables, columns, indexes, and constraints match.
-- The application never calls `create_all()` and never runs destructive SQL on startup.
-- Production root/administrator delivery is strictly
-  `01-provision.sql -> 02-schema.sql -> 03-verify.sql -> fyp_user`; no production process runs
-  Alembic or holds a persistent DDL-capable migrator identity.
-- `02-schema.sql` is non-idempotent and empty-database-only. A future non-empty deployment
-  requires a separate versioned DBA SQL upgrade, writer drain, serialization, verified
-  backup, and release-specific verification.
-- A clean development/CI database must reach the same schema with `alembic upgrade head`.
-- MySQL-specific integration tests use MySQL 8.4, not SQLite substitutes.
-- Before merge: format check, lint, unit/API tests, development migration upgrade/drift,
-  production SQL execution, and cross-path schema-parity checks must pass.
+  from that authority; parity tests compare tables, columns, indexes, and constraints.
+- The application never calls `create_all()` and never runs DDL at startup. `/health/ready`
+  verifies connectivity and exact expected revision but does not migrate.
+- Production installation remains
+  `01-provision.sql -> 02-schema.sql -> 03-verify.sql -> fyp_user`; the runtime identity has no
+  migration privileges.
+- A non-empty deployment requires a separately reviewed, versioned DBA upgrade with writer
+  drain, serialization, verified backup, and release-specific verification.
+- MySQL-specific integration tests use MySQL 8.4 rather than SQLite substitutes.
 
-## Definition of Ready for a Use Case
+## Definition of Done for a Use Case
 
-A feature is ready to implement only when it has:
+A use case is complete only with:
 
-- request and response schemas with no secret/internal fields;
-- authentication, role, and resource-policy requirements;
-- one named transaction owner and rollback behavior;
-- storage cleanup/compensation behavior where applicable;
-- stable domain error codes and audit events;
-- unit tests plus an API or integration test for the happy path and one denial path.
+- strict request/response schemas and no plaintext secret/internal fields;
+- authentication, role, and resource policy;
+- a named transaction owner and rollback/compensation behavior;
+- stable errors and same-transaction audit events;
+- bounded storage and pagination behavior where applicable; and
+- unit/API/integration coverage for success, denial, conflict, and relevant retry paths.

@@ -141,17 +141,26 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 Never use the mysql client's `--force` option or an interactive `SOURCE` command. The file
 checks MySQL 8.4, strict SQL mode, exact database encoding, and an empty persistent schema
 before permanent DDL. It is deliberately non-idempotent and must run exactly once on a clean
-database. It creates all 13 application tables, the `alembic_version` compatibility marker,
-the audit-chain singleton, indexes, constraints, and these exact table-scoped grants:
+database. It creates all 15 application tables, the `alembic_version` compatibility marker,
+the audit-chain singleton, indexes, constraints, and these exact runtime grants:
 
-- `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the eleven ordinary state tables:
+- `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the thirteen ordinary state tables:
   `auth_login_throttles`, `recovery_keys`, `users`, `files`, `user_keys`, `user_sessions`,
-  `file_access_grants`, `file_key_wrappings`, `integrity_checks`, `recovery_requests`, and
-  `session_refresh_tokens`;
+  `user_key_protection_profiles`, `encrypted_private_key_bundles`, `file_access_grants`,
+  `file_key_wrappings`, `integrity_checks`, `recovery_requests`, and `session_refresh_tokens`;
 - `SELECT` and `INSERT` only on `audit_logs`;
-- `SELECT` and `UPDATE` only on `audit_chain_heads`; and
+- table-level `SELECT` on `audit_chain_heads`, plus column-level `UPDATE` only on
+  `last_log_id`, `current_hash`, and `updated_at`; and
 - no runtime access to `alembic_version`, no schema/global/DDL privilege, no `GRANT OPTION`,
-  and no role, proxy, column, or routine grant.
+  and no other table/column privilege, role, proxy, or routine grant. In particular,
+  `fyp_user` cannot update `audit_chain_heads.schema_revision`.
+
+The chain-head column default and initial row both start on the previous completed revision.
+After the runtime grants and `alembic_version` marker succeed, the script restores the column
+default to the final 0003 schema value and then explicitly publishes
+`0003_client_key_custody` to the singleton in the final statement. Thus readiness cannot
+advertise the new schema for a partially executed install, while the completed schema remains
+equivalent to the ORM and Alembic head.
 
 MySQL DDL is not fully transactional. If any statement fails, keep the application stopped
 and do not rerun the file over the partial schema. Preserve evidence, diagnose the failure,
@@ -191,16 +200,21 @@ Review every result set. Expected results are:
 - there is exactly one `fyp_user` row at the intended host, using
   `caching_sha2_password` with a nonempty hash, a nonempty SSL requirement, and no
   lock/expiry; `fyp_migrator` is absent at every host;
-- neither name has a static or dynamic global privilege, schema privilege, column/routine
-  grant, role/default-role edge, or proxy relationship, and server mandatory roles are empty;
-- the table-grant symmetric difference is empty: exactly the eleven-table CRUD matrix plus
-  audit-log `SELECT`/`INSERT` and chain-head `SELECT`/`UPDATE`, all non-grantable;
+- neither name has a static or dynamic global privilege, schema privilege, unexpected
+  table/column or routine grant, role/default-role edge, or proxy relationship, and server
+  mandatory roles are empty;
+- the table-grant symmetric difference is empty: exactly the thirteen-table CRUD matrix plus
+  audit-log `SELECT`/`INSERT` and chain-head table-level `SELECT`, all non-grantable;
+- the column-grant symmetric difference is empty: exactly non-grantable `UPDATE` on
+  `audit_chain_heads.last_log_id`, `current_hash`, and `updated_at`, never
+  `schema_revision`;
 - the persistent table inventory, structural totals, critical foreign-key actions, check
   clauses, and composite indexes match `02-schema.sql`;
 - `alembic_version` contains exactly the SQL artifact's compatibility marker
-  `0002_auth_identity_sessions`; and
+  `0003_client_key_custody`; and
 - `audit_chain_heads` contains exactly the genesis singleton: `id = 1`,
-  `last_log_id IS NULL`, and a 64-zero current hash.
+  `last_log_id IS NULL`, a 64-zero current hash, and
+  `schema_revision = '0003_client_key_custody'`.
 
 Because account creation and grants are additive, any extra row or privilege is a deployment
 failure even if the expected grants are also present. Every query in `03-verify.sql` is a
@@ -214,6 +228,11 @@ Inject `fyp_user` and its captured password through `DB_USER` and `DB_PASSWORD`,
 normal host/name/TLS settings, and start the application only after verification succeeds.
 Do not make the administrator credential available to the application process. No migrator
 credential should exist in the release or application environment.
+
+After startup, require both `GET /health/live` and `GET /health/ready` to succeed before
+adding the instance to service. Readiness executes a database probe and requires the exact
+configured schema revision `0003_client_key_custody`; it diagnoses drift but never migrates
+or stamps the database.
 
 ## Legacy and failed deployments
 
@@ -238,8 +257,11 @@ means recreating the disposable empty database or restoring the verified backup.
 existing state.
 
 Store backups outside this repository, encrypt them, restrict access, and test restoration.
-Database dumps contain account hashes, security audit evidence, encrypted-file metadata, and
-wrapped keys.
+Database dumps contain login-password hashes, public Argon2id parameters, wrapped AMKs,
+client-encrypted private-key bundles, security audit evidence, plaintext operational file
+metadata, and wrapped file keys. These are not plaintext private keys or DEKs, but the dump
+still enables offline passphrase guessing and reveals the ownership/sharing graph; protect it
+as highly sensitive data.
 
 ## Container note
 

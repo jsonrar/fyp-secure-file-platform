@@ -12,7 +12,7 @@ security-sensitive actions in a tamper-evident audit log.
 
 The project focuses on:
 
-- Server-side AES file encryption
+- Client-side AES-256-GCM file encryption
 - RSA-based file-key wrapping
 - Controlled sharing and revocation
 - Role-based and file-level access control
@@ -22,15 +22,12 @@ The project focuses on:
 
 ## Current Status
 
-The backend authentication vertical slice is implemented with persistent accounts, opaque
-access tokens, rotating one-time refresh tokens, revocable sessions, password changes,
-database-backed throttling, RSA registration keys, and transactionally appended audit
-events. The nine Auth endpoints are documented in
-[API_DESIGN.md](docs/API_DESIGN.md#auth-api).
-
-File, sharing, audit-query, recovery, and admin business APIs remain visible in OpenAPI but
-deliberately return `501 feature_not_implemented`. They will be enabled one vertical slice
-at a time after their authorization, transaction, audit, storage, and denial tests exist.
+The backend Auth, client-wrapped key custody, encrypted-file, sharing, audit-query,
+offline-governed recovery, and admin/RBAC APIs are implemented. The server persists only
+public keys, encrypted private-key bundles, ciphertext, and wrapped file keys; a user's
+vault passphrase, KEK, AMK, plaintext private key, file DEK, and plaintext file never belong
+in an API request or database row. Registration and file/key flows are documented in
+[SECURITY_FLOWS.md](docs/SECURITY_FLOWS.md).
 
 The frontend login page now uses the real Auth endpoint and rejects responses without an
 access token; the former hard-coded credential bypass and demo-token fallback are gone. Its
@@ -99,8 +96,8 @@ fyp-secure-file-platform/
 
 ## Local Setup
 
-Auth endpoints are operational. Other business endpoints remain fail-closed with
-`501 feature_not_implemented`; health and OpenAPI are also available.
+All backend business routers are operational. Health, readiness, and OpenAPI are available;
+protected routes require bearer authentication and the admin/recovery routes enforce RBAC.
 
 ### Backend
 
@@ -146,9 +143,10 @@ sudo mysql < database/mysql/03-verify.sql
 
 Capture the one generated `fyp_user` password directly into the deployment secret store.
 `02-schema.sql` is a non-idempotent empty-database installer: it creates the schema, grants
-CRUD on eleven ordinary state tables, grants only `SELECT`/`INSERT` on `audit_logs`, grants
-only `SELECT`/`UPDATE` on `audit_chain_heads`, and gives the runtime account no access to
-`alembic_version`. `03-verify.sql` is read-only and must also show that the retired
+CRUD on thirteen ordinary state tables, grants only `SELECT`/`INSERT` on `audit_logs`, and
+limits `audit_chain_heads` updates to `last_log_id`, `current_hash`, and `updated_at` so the
+runtime account cannot alter `schema_revision`. It has no access to `alembic_version`.
+`03-verify.sql` is read-only and must also show that the retired
 `fyp_migrator` identity is absent. Only after every result passes review should the
 application start as `fyp_user` through the standard `DB_*` settings.
 

@@ -9,9 +9,11 @@ from sqlalchemy.orm import Session
 
 from app.domain.enums import LoginThrottleScope, SessionStatus
 from app.models.auth_login_throttle import AuthLoginThrottle
+from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.session_refresh_token import SessionRefreshToken
 from app.models.user import User
 from app.models.user_key import UserKey
+from app.models.user_key_protection_profile import UserKeyProtectionProfile
 from app.models.user_session import UserSession
 
 
@@ -46,6 +48,12 @@ class AuthRepository:
 
     def add_user_key(self, user_key: UserKey) -> None:
         self.db.add(user_key)
+
+    def add_key_protection_profile(self, profile: UserKeyProtectionProfile) -> None:
+        self.db.add(profile)
+
+    def add_private_key_bundle(self, bundle: EncryptedPrivateKeyBundle) -> None:
+        self.db.add(bundle)
 
     def add_session(self, user_session: UserSession) -> None:
         self.db.add(user_session)

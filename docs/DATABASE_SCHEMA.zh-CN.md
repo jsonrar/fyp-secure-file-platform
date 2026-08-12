@@ -16,6 +16,9 @@ Alembic；`database/mysql/02-schema.sql` 是由当前 head 派生并经过评审
    恢复 Schema。
 2. `0002_auth_identity_sessions`：公开用户/Session UUID、access-session 演进、一次性
    refresh generation、持久化认证限流、密码修改时间，以及单例审计链头。
+3. `0003_client_key_custody`：公开用户/恢复密钥 UUID 与密钥长度、客户端包装的账户密钥
+   保护配置、加密私钥包、带版本文件信封、乐观 revision、强化的授权/包装归属约束，以及
+   离线 DEK 重包装所需的扩展恢复请求状态。
 
 当前仓库不再保留 `docs/init.sql`。历史版本中的该文件不是当前应用 Schema 的权威来源，
 Compose 也不会挂载任何生产表初始化脚本。后端启动时同样不得调用
@@ -25,7 +28,7 @@ Compose 也不会挂载任何生产表初始化脚本。后端启动时同样不
 
 - `01-provision.sql` 创建固定数据库和唯一运行时账户 `fyp_user`，但不创建应用表；
 - `02-schema.sql` 只在空数据库中创建当前完整 Schema、版本标记、单例初始行，并在表存在
-  后授予 `fyp_user` 精确表级 DML；
+  后授予 `fyp_user` 精确表/列级 DML；
 - `03-verify.sql` 只读核验服务器、账户、所有权限层、完整 Schema、版本标记及单例状态。
 
 生产没有 `fyp_migrator`。Schema 级、全局、DDL、role、proxy 或 `GRANT OPTION` 均不得授予
@@ -50,8 +53,14 @@ alembic revision --autogenerate -m "describe the schema change"
 务必评审自动生成的 revision。Autogenerate 无法理解数据迁移、应用不变量、安全的列回填
 或部署顺序。Revision 必须能安全地向前迁移现有数据，并同步更新及评审
 `02-schema.sql`。Revision
-`0002_auth_identity_sessions` 有意设计为只能向前迁移，因为它的公开 UUID、Session
-generation、限流证据及密码哈希升级无法无损回退至 `0001`；回滚时应恢复备份，或重建
+`0002_auth_identity_sessions` 和 `0003_client_key_custody` 都有意设计为只能向前迁移。
+Revision `0003` 会在 MySQL 隐式提交 DDL 前执行旧数据预检。新增的
+`audit_chain_heads.schema_revision` 先使用前置版本默认值
+`0002_auth_identity_sessions`；只有所有必要结构成功创建后，最后一条迁移语句才发布
+`0003_client_key_custody`，并在该显式行更新前把列默认值恢复为最终 0003。运行时账户只对链头
+的可变哈希列拥有列级 `UPDATE`，不能伪造该
+readiness 标记。迁移还会为已有公钥分配 UUID，并将其标记为 `LEGACY_EXTERNAL`；它不会为
+旧公钥伪造客户端加密私钥包。回滚时应恢复备份，或重建
 一次性开发数据库。
 
 ## 生产交付工作流
@@ -62,7 +71,7 @@ generation、限流证据及密码哈希升级无法无损回退至 `0001`；回
 运行 `alembic upgrade/current/check/stamp`。
 
 三份 SQL 都默认为 `localhost` 账户来源，Provision 账户要求 TLS。远程部署应在仓库外
-制作三份经评审的受保护副本，把 `01` 的账户创建目标、`02` 的表级授权目标及 `03` 的
+制作三份经评审的受保护副本，把 `01` 的账户创建目标、`02` 的表/列级授权目标及 `03` 的
 账户/授权期望一致替换为实际网络允许的最窄来源。
 
 新账户的 MySQL 随机密码只能存入 secret store。发布编排器和操作员必须负责空库预检、
@@ -100,7 +109,7 @@ Alembic 都不会自动安全接管它。
 
 | 领域 | 数据表 | 用途 |
 |---|---|---|
-| 身份 | `users`, `user_sessions`, `session_refresh_tokens`, `user_keys` | 账户、不透明 access session、一次性 refresh generation、公钥历史 |
+| 身份 | `users`, `user_sessions`, `session_refresh_tokens`, `user_keys`, `user_key_protection_profiles`, `encrypted_private_key_bundles` | 账户、不透明 Session、公钥历史、KEK 包装 AMK 配置及客户端加密私钥包 |
 | 滥用控制 | `auth_login_throttles` | 在各 worker 间共享、以 HMAC 为 key 的登录、重新认证及注册 bucket |
 | 文件 | `files`, `file_access_grants`, `file_key_wrappings` | 加密对象 metadata，以及逻辑和密码学访问控制 |
 | 保障 | `integrity_checks`, `audit_logs`, `audit_chain_heads` | 验证历史、安全事件及串行化审计链追加状态 |
@@ -122,23 +131,30 @@ Alembic 都不会自动安全接管它。
    限制；撤销 family 后，其所有凭据均不可再用。
 4. 认证限流 key 是从 secret、scope 及规范化标识符/IP 派生的 HMAC-SHA-256 值。明文
    用户名和 IP 不得用作限流主键。
-5. 注册以原子方式创建账户、公钥/指纹及审计事件；只有响应会收到 RSA 私钥。
+5. 注册以原子方式创建账户、客户端提交的公钥/指纹、KEK 包装 AMK 保护配置、加密私钥包及
+   审计事件。明文 RSA 私钥和加密 passphrase 不会进入 API 或数据库。
 6. 修改密码以原子方式替换 Argon2id 哈希、记录 `password_changed_at`、撤销所有活跃
-   Session family，并追加审计事件。
+   Session family，并追加审计事件；它不会改变相互独立的客户端加密 passphrase 或账户
+   密钥信封。
 7. 创建文件时，以原子方式创建其 metadata、所有者授权、所有者密钥包装、恢复密钥包装
-   （启用时）及上传审计事件。
+   （强制要求活跃恢复密钥）及上传审计事件。存储对象已经是客户端加密密文。
 8. 下载同时要求：同一文件及行为者具有包含下载能力的有效授权，以及有效的用户密钥包装。
 9. `USER` 密钥包装包含 `recipient_user_id` 和 `user_key_id`，但不含
    `recovery_key_id`。`RECOVERY` 包装只包含 `recovery_key_id`。
 10. 撤销操作在同一事务中修改逻辑授权及所有适用的密钥包装。
-11. 恢复状态转换必须符合条件且单调：
-    `PENDING -> APPROVED|REJECTED|CANCELLED`，然后 `APPROVED -> EXECUTED`。
-    请求者不能批准自己的请求。
+11. 恢复状态转换必须符合条件：
+    `PENDING -> APPROVED|REJECTED|CANCELLED`，然后
+    `APPROVED -> EXECUTED|CANCELLED`。只有提交完全相同的结果包装时，执行才幂等。
+    请求者不能批准或拒绝自己的请求。恢复保存离线生成的目标密钥包装，绝不接收恢复私钥。
 12. 审计行只能追加。追加时锁定单例 `audit_chain_heads.id = 1`，因此并发事务无法创建
     两条具有同一前置项的记录；审计追加与其安全敏感用例一同提交或回滚。行为者/目标
     用户外键采用限制型约束，因为这些 ID 已进入哈希；被引用的账户采用基于状态的软删除，
     而非级联硬删除。
-13. 普通查询排除已软删除文件，且不能再向这些文件授予新权限。
+13. 每个 `CLIENT_WRAPPED` 用户密钥都有归属一致的加密私钥包；每个用户保护配置都有唯一公开
+    UUID 及乐观 revision。重新包装 AMK 必须同时携带调用者预期 revision，并提供最新当前
+    客户端私钥对行为者/当前密钥/profile/revision 与完整拟议保护信封的
+    RSA-PSS-SHA256 签名；更新与审计追加必须原子完成。
+14. 普通查询排除已软删除文件，且不能再向这些文件授予新权限。
 
 服务层拥有这些事务。Repository 可以查询、添加及执行 `flush`，但不得自行提交。
 
@@ -148,8 +164,9 @@ Alembic 都不会自动安全接管它。
 - MySQL `DATETIME` 值以 UTC 写入/读取；转换发生在 API 边界。
 - 公开 URL 使用 UUID/不透明标识符，包括账户和 Session 资源。自增 ID 仅作为数据库
   内部 key。
-- 存储对象 key、原始 Session 凭据、token 哈希、密钥材料、限流 HMAC 及文件系统根目录
-  绝不能出现在日志或公开 API Schema 中。
+- 存储对象 key、原始 Session 凭据、token 哈希、明文私钥、AMK、KEK、明文 DEK、
+  passphrase、限流 HMAC 及文件系统根目录绝不能出现在日志或公开 API Schema 中。密文、
+  加密私钥包和接收者专属包装 DEK 只通过其已授权契约有意返回。
 
 ## 集成测试数据库
 
@@ -158,11 +175,12 @@ Model 使用 MySQL 专属的 `UNSIGNED`、`ENUM`、`VARBINARY`、JSON、collatio
 替代品。
 
 最低限度的开发/CI migration 测试从空数据库开始，通过 `alembic upgrade head` 应用
-revision，检查当前 revision 及预期表，再运行 `alembic check` 检测 metadata drift，并
-生成升级和降级的离线 SQL 供评审。
+revision，检查当前 revision 及预期表，再运行 `alembic check` 检测 metadata drift。
+离线升级 SQL 可作为开发/CI 评审辅助；`0003_client_key_custody` 有意不可降级，恢复必须使用
+备份或重建一次性数据库。
 
 生产交付测试必须另建一个干净实例，按 `01-provision.sql -> 02-schema.sql ->
 03-verify.sql` 执行，并比较该实例与 Alembic head 的表、列、索引、外键、CHECK、默认值及
-种子行。它还必须证明 `02-schema.sql` 拒绝非空库、`03-verify.sql` 接受且只接受精确表级
+种子行。它还必须证明 `02-schema.sql` 拒绝非空库、`03-verify.sql` 接受且只接受精确表/列级
 权限，并拒绝任何 Host 的旧 `fyp_migrator`。未来添加旧数据库接管测试时，必须从明确的
 旧版 fixture 开始，不能假装它已经处于 `0001_initial`。

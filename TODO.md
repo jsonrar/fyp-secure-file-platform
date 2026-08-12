@@ -2,267 +2,239 @@
 
 English | [简体中文](TODO.zh-CN.md)
 
-Last reviewed: 2026-08-11
+Last reviewed: 2026-08-12
 
-This backlog is based on the current code, migrations, tests, and project documentation.
-Priorities are ordered as follows:
+Priorities:
 
-- **P0:** blocks a trustworthy demo, migration, or deployment.
-- **P1:** required to complete the FYP scope.
-- **P2:** quality, operations, and production hardening after the core flows work.
+- **P0:** blocks a trustworthy release or demo.
+- **P1:** completes the browser experience for the implemented backend contract.
+- **P2:** CI, operations, and production hardening.
 
 ## Verified Baseline
 
-- Backend Auth is the only completed business vertical slice.
-- The other 18 file, sharing, audit-query, recovery, and admin endpoints remain fail-closed
-  with `501 feature_not_implemented`.
-- Local backend checks pass: Ruff is clean and `pytest` reports `99 passed, 2 skipped`.
-  The skipped tests require a disposable MySQL integration database.
-- The frontend production build passes.
-- Frontend type-checking currently fails because `typescript@7.0.2` and `vue-tsc@3.3.7`
-  are incompatible.
-- The repository has no CI workflow.
+- [x] The backend implements authentication, account-key custody/rotation, encrypted files,
+  sharing/revocation, integrity, audit queries/verification, governed recovery, and admin
+  status controls. Business endpoints are real handlers, not draft responses.
+- [x] Account cryptography follows the client-custody boundary:
+  - the login password and encryption passphrase are independent;
+  - the client generates RSA keys and a random AMK;
+  - Argon2id derives a KEK that AES-256-GCM wraps the AMK;
+  - an AMK/HKDF-derived key AES-256-GCM encrypts the PKCS8-DER private-key bundle; and
+  - the backend never accepts a passphrase, plaintext private key, AMK, plaintext DEK, or
+    plaintext file.
+- [x] File encryption/decryption and share rewrapping are client operations. The backend
+  stores/verifies ciphertext and persists recipient-specific RSA-OAEP-SHA256 DEK wrappings.
+- [x] Recovery-private-key use is outside the web service. The API supplies an execution
+  package and accepts only an offline/HSM-produced target-key-wrapped DEK.
+- [x] Application routes and clients use only `GET` and `POST`; state changes use explicit
+  `POST` action paths, and CORS is restricted to those methods.
+- [x] Alembic head and the application readiness marker are
+  `0003_client_key_custody`. The reviewed empty-database SQL contains 15 application tables
+  and grants ordinary CRUD on 13 state tables, with narrower audit-table grants.
+- [x] English and Simplified Chinese API, architecture, security-flow, schema, deployment,
+  and project-scope documentation describe the current scheme and metadata/threat limits.
+- [x] Current local verification: Ruff passes; backend tests report `185 passed, 2 skipped`;
+  the frontend production build passes; and OpenAPI has 45 operations, all `GET`/`POST`, with
+  bearer security on protected routes and no passphrase or `private_key_pem` fields.
+- [x] Sensitive account-key mutations require possession of the newest current private key:
+  both successor-key addition and protection-profile rewrap use server-defined canonical
+  32-byte digests and client RSA-PSS-SHA256 signatures in addition to bearer authentication.
+- [ ] The required disposable MySQL 8.4 integration/release gate still needs to run in CI;
+  the two skipped tests require `AUTH_TEST_DATABASE_URL` and must not be treated as passing
+  when skipped.
+- [ ] The frontend still needs the complete client-cryptography and session UX described
+  below. Backend completion does not make the existing browser UI production-ready.
+- [ ] The repository still needs a CI workflow and reproducible frontend type/lint/test gates.
 
 ## P0 — Release and Demo Blockers
 
-### Database and Release Safety
+### MySQL 8.4 and Release Verification
 
-- [ ] Complete MySQL 8.4 development/CI validation for Alembic revision
-  `0002_auth_identity_sessions` and the derived production SQL artifact.
-  - Determine whether `0002` has been applied outside disposable development databases;
-    add a corrective revision instead of rewriting applied history when necessary.
-  - [x] The migration now creates `user_sessions(user_id, status)` before dropping the old
-    foreign-key-supporting index; prove that ordering with a real `0001 -> 0002` upgrade.
-  - Test both an empty database upgraded to `head` and a real `0001 -> 0002` upgrade.
-  - Verify and document recovery from partially committed MySQL DDL.
+- [ ] Exercise the complete development migration path on disposable MySQL 8.4:
+  - empty database through `alembic upgrade head`;
+  - an explicit `0001 -> 0002 -> 0003` upgrade fixture;
+  - `alembic current` and `alembic check`; and
+  - revision-0003 preflight refusal for incompatible legacy rows.
+- [ ] Exercise the production path on a separate empty MySQL 8.4 instance:
+  `01-provision.sql -> 02-schema.sql -> 03-verify.sql`.
+  - Inspect every verification result rather than only the client exit code.
+  - Prove exact 15-table structure, indexes/checks/foreign keys, the 13-table CRUD matrix,
+    narrow audit grants, no migrator/elevated grants, and both revision-0003 markers.
+  - Prove non-empty-schema refusal, remote-host substitution, and stale-migrator detection.
+- [ ] Prove ORM/Alembic/production-SQL schema parity in automation.
+- [ ] Document and rehearse partial-DDL recovery, writer drain, serialized upgrades, bounded
+  metadata-lock waits, and verified restore from backup.
+- [ ] Decide the fate of every unmanaged legacy database: recreate disposable instances or
+  use a separately reviewed adoption/DBA upgrade. Never bypass guards with blind stamping or
+  by rerunning the empty-database installer.
 
-- [x] Replace the MySQL Python deployment runners and dedicated deployment variables with
-  directly reviewable SQL.
-  - A root/administrator runs `database/mysql/01-provision.sql -> 02-schema.sql ->
-    03-verify.sql`; production does not install or run Alembic.
-  - `01` creates one TLS-required runtime identity. `02` grants CRUD on eleven ordinary
-    state tables, only `SELECT`/`INSERT` on `audit_logs`, only `SELECT`/`UPDATE` on
-    `audit_chain_heads`, and no access to `alembic_version`.
-  - All three SQL files default to `localhost`. Remote releases use protected copies with
-    every account-host literal and verification expectation changed consistently.
-  - The former `fyp_migrator` identity is retired from the production design; verification
-    fails if any host row or grant for that name remains.
-  - Deployment documentation assigns writer drain, serialization, backup/recovery, bounded
-    waits, legacy-schema preflight, and partial-DDL failure handling to orchestration and
-    operators now that the custom runner has been removed.
+### Browser Session and Client Cryptography
 
-- [ ] Add a required MySQL 8.4 CI and release gate.
-  - Exercise `database/mysql/01-provision.sql -> 02-schema.sql -> 03-verify.sql` against a
-    disposable database and inspect every verification result.
-  - Separately run the development/CI Alembic path, including `alembic current`,
-    `alembic check`, and `0001 -> 0002`, then prove its schema matches `02-schema.sql`.
-  - Test comprehensive privilege verification, remote-host substitution, the empty-schema
-    refusal, stale-migrator detection, and partial-failure recovery.
-  - Prove the release platform replaces the deleted runner's writer drain, serialization,
-    bounded retry/lock waits, unmanaged-schema refusal, and verified-backup controls.
-  - Run the currently skipped MySQL integration tests instead of treating a skip as a
-    release pass.
+- [ ] Implement the complete browser session lifecycle:
+  - adopt an explicit access/refresh storage threat model;
+  - restore with `/auth/me`, serialize refresh rotation, and avoid `401` retry loops;
+  - call server logout and clear revoked/expired state; and
+  - add logout-all, password change, session listing/revocation, and role-aware navigation.
+- [ ] Replace the old registration UX with client-side account-key enrollment:
+  - collect a separate strong encryption passphrase without sending it to the server;
+  - generate the configured RSA key pair and random AMK locally;
+  - produce the Argon2id/KEK-wrapped AMK and AMK/HKDF-encrypted PKCS#8 bundle;
+  - self-test passphrase unlock, public/private correspondence, and envelope round trip before
+    registration; and
+  - clearly explain that a forgotten passphrase cannot be reset by the server.
+- [ ] Implement key-unlock and passphrase-change UX using `GET /keys/me`,
+  `POST /keys/me/rewrap/signing-payload`, local newest-current-private-key
+  RSA-PSS-SHA256 signing, and `POST /keys/me/rewrap`, including optimistic-revision/current-
+  key conflicts, exact proposal reuse between both calls, and safe in-memory cleanup.
+- [ ] Implement successor-key rotation with `POST /keys/add/signing-payload`, local
+  RSA-PSS-SHA256 signing, `POST /keys/add`, and historical-bundle retrieval through
+  `GET /keys/me/{key_id}`. Do not present this as an AMK/passphrase reset.
+- [ ] Prevent passphrases, plaintext private keys, AMKs, DEKs, token values, and decrypted
+  content from entering logs, analytics, crash reports, URLs, persistent browser storage, or
+  service-worker caches.
 
-- [ ] Decide the fate of the unmanaged legacy database.
-  - Recreate it when it contains no required data.
-  - Otherwise back it up and build a reviewed one-time adoption path: Alembic only for local
-    development, or a versioned DBA SQL procedure for staging/production.
-  - Never use `alembic stamp` or rerun the empty-schema installer merely to bypass a guard.
+### Frontend Contract and Tooling
 
-### Frontend Authentication
+- [ ] Align all frontend API types and views with the implemented UUID-based backend:
+  - common response/error envelope and stable error codes;
+  - canonical Base64 crypto envelopes and optimistic revisions;
+  - multipart ciphertext upload and streamed ciphertext download;
+  - target user/key UUID sharing contracts; and
+  - bounded pagination for files, audit, recovery, and admin views.
+- [ ] Generate or contract-test TypeScript types from OpenAPI to prevent drift.
+- [ ] Pin compatible dependency versions, use `npm ci`, restore a passing typecheck, and add
+  frontend lint/unit/component/browser-E2E gates.
 
-- [x] Remove all demo authentication behavior from `frontend/src/pages/LoginPage.vue`.
-  - Removed the hard-coded `admin / 12345678` bypass.
-  - Removed `demo-admin-token` and the fallback `demo-token`.
-  - A missing or malformed token response now fails login.
+## P1 — Browser Completion for Implemented Backend Flows
 
-- [ ] Implement the complete browser session lifecycle.
-  - Type and store the access/refresh pair according to an explicit browser-storage threat
-    model.
-  - Restore identity with `/auth/me`, rotate refresh tokens once, and serialize concurrent
-    refresh attempts.
-  - Handle `401` responses without retry loops, call the server on logout, and clear local
-    state on revoked or expired sessions.
-  - Add UI support for logout-all, password change, and session listing/revocation.
-  - Enforce role-aware navigation so `/admin` is not considered available merely because
-    any token exists.
+### Encrypted Files
 
-- [ ] Make registration private-key delivery safe and usable.
-  - Force a one-time `.pem` download and require the user to acknowledge safe storage.
-  - Do not put the private key in `localStorage`, logs, analytics, or error reports.
-  - Clearly explain that a lost response/key cannot currently be reproduced.
-
-### Contracts and Frontend Tooling
-
-- [ ] Align frontend and backend contracts before enabling any draft route.
-  - Use public UUIDs consistently; remove frontend `number` file/request IDs and sequential
-    `target_user_id` API fields.
-  - Reconcile sharing's `target_username` frontend payload with the backend request model.
-  - Type the common API envelope, stable error codes, pagination, and binary downloads.
-  - Mark private-key inputs as secrets, forbid unexpected fields, and apply request-body
-    redaction at application, proxy, and tracing layers.
-  - Prefer generated or contract-tested TypeScript types from OpenAPI to prevent drift.
-
-- [ ] Stabilize the frontend dependency and quality toolchain.
-  - Replace `"latest"` specifications with reviewed compatible versions and use `npm ci`
-    for reproducible automation.
-  - Resolve the TypeScript/`vue-tsc` incompatibility and add a passing `typecheck` script.
-  - Review the current deprecated icon-package warning and moderate npm audit finding
-    without automatically applying `npm audit fix --force`.
-  - Add `lint` and `test` scripts so build success is not the only frontend gate.
-
-## P1 — Complete the Core FYP Vertical Slices
-
-Enable one router at a time. Keep all other draft routers fail-closed until their acceptance
-criteria and denial tests pass.
-
-### File Upload and Encrypted Storage
-
-- [ ] Implement authenticated file upload end to end.
-  - Add repository and storage-adapter boundaries instead of putting SQL, filesystem, or
-    cryptography in the router.
-  - Reject oversized requests before unbounded reads and validate safe filename/type
-    metadata.
-  - Stream into a versioned AES-256-GCM envelope with a fresh key and nonce per file,
-    authenticated metadata (AAD), and no plaintext temporary object.
-  - Provision the active recovery public key and define fail-closed behavior when it is
-    unavailable.
-  - In one use-case transaction, create metadata, owner grant, owner/recovery key wrappings,
-    and the audit event.
-  - Use staged storage, atomic rename, rollback cleanup, and crash-orphan reconciliation.
-  - Add happy-path, size/type rejection, encryption failure, storage failure, rollback, and
-    authorization tests.
-
-### File Listing, Download, and Deletion
-
-- [ ] Implement list and metadata endpoints with stable ordering and pagination or a hard
-  result bound.
-- [ ] Enforce both an active access grant and matching active key wrapping on every download.
-- [ ] Implement transient private-key handling on a dedicated no-body-logging path, stream
-  the download with safe `Content-Disposition`, and prevent response caching.
-- [ ] Make the frontend save the returned blob rather than only reporting that a request was
-  sent.
-- [ ] Define status-based deletion, encrypted-object cleanup, owner/shared-user behavior,
-  idempotency, and audit events; do not hard-delete rows referenced by audit history.
+- [x] Backend: bounded multipart ciphertext upload, safe metadata validation, active owner and
+  recovery key validation, staged publish/compensation, metadata/grant/wrapping transaction,
+  and audit append.
+- [x] Backend: authorized file pagination and metadata with the caller-specific wrapped DEK.
+- [x] Backend: ciphertext-only download with storage-hash verification, safe disposition, and
+  no-store headers; no private key is submitted to the server.
+- [x] Backend: owner soft deletion, grant/wrapping revocation, idempotent object cleanup, and
+  explicit integrity-check results.
+- [ ] Frontend: encrypt with fresh AES-256-GCM DEK/nonce and stable versioned AAD, wrap the DEK
+  to owner and recovery public keys, upload ciphertext, and display actionable failures.
+- [ ] Frontend: unlock the correct current/historical private-key bundle, unwrap the DEK,
+  authenticate/decrypt locally, and save the result without persistent plaintext staging.
+- [ ] Frontend: implement real list/detail/delete/integrity UX instead of placeholder data.
 
 ### Sharing and Revocation
 
-- [ ] Implement owner/`SHARE` authorization and lookup by a public account identifier.
-- [ ] Require an active target public key, unwrap only transiently, and create the target
-  grant plus wrapped key atomically.
-- [ ] Make repeated share/revoke commands safe, forbid revoking the canonical owner, and
-  revoke both the grant and key wrapping in one transaction.
-- [ ] Implement shared-user listing and frontend revoke controls.
-- [ ] Audit successful and denied mutations and test cross-user, missing-key, inactive-user,
-  duplicate, self-share, and already-revoked cases.
+- [x] Backend: SHARE/REVOKE authorization requires both active grant and wrapping; target
+  public-key association and RSA ciphertext length are validated.
+- [x] Backend: share creates/reactivates the target grant and wrapping atomically; revoke
+  revokes both, is retry-safe, and forbids revoking the canonical owner.
+- [x] Backend: delegated share capabilities are attenuated to the acting grant; the canonical
+  owner grant is immutable, and only a manager or the existing grantor may update/reactivate
+  an existing non-owner grant.
+- [x] Backend: shared-user listing returns public UUIDs and bounded capability fields.
+- [ ] Frontend: fetch the recipient active public key, locally unwrap/rewrap the DEK, submit
+  sharing capabilities, list recipients, and expose confirmation-based revoke controls.
+- [ ] Add security telemetry for denied sharing/revocation attempts without leaking whether
+  an inaccessible file, user, or key exists.
 
-### Integrity and Audit
+### Audit and Recovery
 
-- [ ] Persist and verify SHA-256 over the encrypted object, not plaintext.
-- [ ] Record authorized integrity checks and avoid exposing storage paths or unnecessary
-  internal hashes.
-- [ ] Implement authorized, paginated audit queries with public identifiers and safe
-  metadata.
-- [ ] Recompute the complete audit chain using the canonical persisted payload, compare it
-  with `audit_chain_heads`, and report the first invalid position safely.
-- [ ] Add multi-connection MySQL tests proving concurrent audit writes cannot fork the chain.
-
-### Recovery
-
-- [ ] Define recovery-key provisioning, rotation, deactivation, storage, and demo custody.
-- [ ] Enforce maker-checker separation, expiry, permitted state transitions, and idempotent
-  execution in service code and database constraints where practical.
-- [ ] Constrain each key-wrapping row so its recipient type and nullable user/recovery key
-  references form exactly one valid recipient.
-- [ ] Isolate recovery private-key use, disable body logging, and audit request, approval,
-  rejection, expiry, and execution.
-- [ ] Add tests for self-approval, expired requests, repeated approval/execution, wrong roles,
-  invalid keys, and rollback.
+- [x] Backend: ciphertext SHA-256 integrity history, actor/file-scoped redacted audit queries,
+  and ADMIN full-chain/head verification using the canonical persisted payload.
+- [x] Backend: ADMIN recovery-public-key registration/rotation/revocation; 24-hour conditional
+  recovery requests; requester/reviewer separation; approve/reject/cancel; execution package;
+  and idempotent identical-result execution.
+- [x] Backend: recovery create/package/execute require a live downloadable grant and active user
+  wrapping (including for owners); execution changes only the target wrapping and never creates,
+  revives, or elevates a revoked/reduced grant. Packages cached before revocation cannot be
+  clawed back and remain an operational custody boundary.
+- [ ] Frontend/admin UX: typed recovery request and reviewer flows, isolated execution-package
+  transfer, status/expiry display, and safe error handling.
+- [ ] Operations: provision and back up recovery private keys in offline/HSM custody, retain
+  historical keys for old file wrappings, authenticate operators, and rehearse recovery.
 
 ### Admin and RBAC
 
-- [ ] Implement explicit role dependencies for admin and recovery-approval routes.
-- [ ] Implement bounded user/file views using public identifiers and redacted fields.
-- [ ] Use status-based account disablement so audit-history foreign keys remain intact.
-- [ ] Replace the frontend's recovery-count placeholder with typed admin/recovery workflows
-  and enforce the same role policy in navigation and routes.
+- [x] Backend: explicit ADMIN and RECOVERY_OFFICER dependencies, bounded user/file views,
+  account enable/disable commands, session revocation on disable, and audit events.
+- [ ] Frontend: enforce the same role policy in navigation and replace placeholder admin cards
+  with typed user, file, audit, and recovery views.
 
 ## P2 — Quality, Operations, and Hardening
 
-### Automated Testing and CI Depth
+### Testing and CI
 
-- [ ] Parameterize fail-closed tests across all 18 draft endpoints until each is deliberately
-  enabled.
-- [ ] Add service/repository tests for file, access-control, sharing, integrity, recovery,
-  and watermark behavior.
-- [ ] Add real multi-connection MySQL concurrency tests for throttle row locks, refresh-token
-  replay, session limits, sharing races, and audit-chain serialization.
-- [ ] Add frontend unit/component tests and browser E2E tests for registration, login,
-  refresh, upload, download, share, revoke, recovery, and role denial.
-- [ ] Add measurable backend/frontend coverage reporting and reviewed thresholds.
+- [ ] Add a CI workflow for backend format/lint/tests, OpenAPI method policy, migration drift,
+  production SQL verification/parity, and frontend build/type/lint/test.
+- [ ] Add real multi-connection MySQL tests for throttle locks, refresh replay, session limits,
+  key-addition races, sharing/recovery races, and audit-chain serialization.
+- [ ] Add failure-injection coverage for storage publish/cleanup, transaction rollback, invalid
+  envelopes/signatures, optimistic revision conflicts, and recovery idempotency.
+- [ ] Add frontend unit/component and browser E2E tests for enrollment, login/refresh, unlock,
+  upload/download, key rotation, share/revoke, recovery, and role denial.
+- [ ] Add coverage reporting with reviewed thresholds; skipped integration tests are not a
+  release pass.
 
-### Frontend UX and Accessibility
+### Operations and Data Protection
 
-- [ ] Remove the display-only AES-128/AES-192/3DES selector; the supported behavior is
-  AES-256-GCM.
-- [ ] Remove or finish placeholder/inert UI such as `FileTable.vue`, the file filter button,
-  synthetic encrypted sizes/dates, and incomplete admin cards.
-- [ ] Centralize API-envelope/error handling and show stable, user-safe messages.
-- [ ] Add semantic forms, field validation, accessible labels, keyboard/focus handling for
-  dialogs, confirmation for destructive actions, and reliable loading/empty/error states.
-
-### Deployment and Data Protection
-
-- [ ] Add `/health/ready` to check MySQL connectivity and the expected schema compatibility
-  marker before receiving traffic.
-- [ ] Make release orchestration drain/stop application writers before any versioned DBA
-  schema upgrade, and set finite MySQL metadata-lock timeouts plus an overall deployment
-  deadline.
-- [ ] Automate encrypted backups/snapshots, record the backup identifier used for a release,
-  define retention and RPO/RTO, and run restore drills.
-- [ ] Define deployment for the backend, frontend, TLS termination, persistent encrypted-file
-  storage, secret injection, and storage backup/restore; the current Compose file deploys
-  only MySQL.
-- [ ] Add structured redacted logging, metrics, alerts, and runbooks for authentication
-  abuse, storage failures, schema-delivery failures, and audit-chain verification.
-
-### Security Operations
-
-- [ ] Reject an empty production `DB_PASSWORD` and source high-entropy credentials from a
+- [x] `/health/live` and `/health/ready` exist; readiness checks database connectivity and the
+  exact `0003_client_key_custody` application schema marker without migrating.
+- [ ] Add edge rate limits and a trusted proxy boundary before accepting forwarded IPs.
+- [ ] Add cleanup/reconciliation jobs for expired sessions/refresh tokens/throttle buckets,
+  stale staged objects, orphaned ciphertext, and expired recovery requests.
+- [ ] Automate encrypted database/object backups, retention, restore drills, and RPO/RTO;
+  remember that database theft enables offline passphrase guessing and exposes metadata.
+- [ ] Define production deployment for API, frontend, TLS termination, persistent ciphertext
+  storage, secrets, recovery custody, and storage backup/restore; Compose remains local MySQL.
+- [ ] Add structured redacted logs, metrics, alerts, and runbooks for authentication abuse,
+  storage faults, schema drift, recovery operations, and audit-chain verification.
+- [ ] Reject empty production database credentials and source high-entropy secrets from a
   secret manager.
-- [x] Restrict production runtime database privileges: no access to `alembic_version`, only
-  `SELECT`/`INSERT` on `audit_logs`, and only `SELECT`/`UPDATE` on `audit_chain_heads`; keep
-  production schema changes root/administrator-executed and independently reviewed.
 - [ ] Publish signed/HMAC audit checkpoints outside the application database.
-- [ ] Configure a trusted proxy boundary and edge rate limits before trusting forwarded IPs.
-- [ ] Add cleanup/retention jobs for expired sessions, refresh credentials, throttle buckets,
-  stale staging files, and orphaned encrypted objects.
-- [ ] Complete a threat model and security review covering token storage, private-key
-  handling, upload abuse, filename/content handling, cryptographic envelopes, recovery, and
-  log redaction.
 
-## Definition of Done for Every Vertical Slice
+### Security Review
 
-- [ ] Typed request/response contracts expose no secrets or sequential database IDs.
-- [ ] Authentication, role checks, resource policy, and denial behavior are explicit.
-- [ ] One application service owns the transaction and rollback behavior.
-- [ ] Storage compensation and idempotency are defined where applicable.
-- [ ] The security-sensitive mutation and its audit event commit together.
-- [ ] Stable domain error codes are documented and safely mapped to HTTP.
-- [ ] Unit tests plus API/MySQL tests cover happy, denial, conflict, rollback, and concurrency
-  paths as applicable.
-- [ ] The frontend handles the real contract without demo fallbacks.
-- [ ] English and Simplified Chinese documentation are updated together.
+- [ ] Benchmark Argon2id parameters on supported clients and document minimum passphrase UX.
+- [ ] Specify exact cross-platform AAD and HKDF byte encodings with conformance vectors.
+- [ ] Add client fingerprint/revision pinning or an independent trust anchor for detecting
+  malicious public-key/bundle rollback and substitution.
+- [ ] Decide whether filenames/MIME types should move into the encrypted manifest; current
+  metadata, sizes, timestamps, sharing graph, and traffic patterns remain visible.
+- [ ] Complete a formal threat model and external review covering browser token/key custody,
+  offline guessing, malicious-client envelopes, upload abuse, recovery operations, metadata
+  leakage, storage reconciliation, and log redaction.
+
+## Definition of Done
+
+- [x] Backend transport contracts use public UUIDs and exclude plaintext secret/internal IDs.
+- [x] Backend authentication, roles, resource policy, uniform denials, transaction ownership,
+  storage compensation, conditional/idempotent commands, audit coupling, and stable domain
+  errors are implemented for the planned routes.
+- [x] Protection rewrap and successor-key addition require canonical current-private-key
+  authorization; a stolen bearer session alone cannot perform either key mutation.
+- [x] English and Simplified Chinese design/security/schema/deployment documentation are
+  synchronized with the client-side encryption boundary.
+- [ ] Required MySQL 8.4 integration, concurrency, production-SQL, and parity tests pass in CI.
+- [ ] The frontend implements the real cryptographic/API contracts without demo fallbacks and
+  passes type, lint, unit, component, build, and browser E2E gates.
+- [ ] Release operations, monitoring, backup/restore, offline recovery custody, and security
+  review are documented and rehearsed.
 
 ## Explicitly Deferred Beyond the Current FYP Scope
 
-Do not expand the core backlog with these unless the project scope changes:
+Client-side file encryption/decryption, client-held private-key operations, and recipient DEK
+rewrapping are **in the current scope** and implemented at the backend contract boundary.
+The following remain deferred unless scope changes:
 
-- Full end-to-end encryption and production KMS/HSM integration
-- Google Drive-style collaboration or real-time multi-user editing
-- Encrypted full-text search and large-scale cloud-storage optimization
-- Guaranteed support for very large files such as 1 GB+
-- Forced deletion of plaintext copies already downloaded by a recipient
-- Fully non-removable watermarking
-- Password reset, email verification, MFA, and external identity federation without a
-  trusted out-of-band channel
+- metadata-hiding/anonymity and defense against an actively malicious server without an
+  independent client trust anchor;
+- safe new-AMK reset/version migration after a forgotten encryption passphrase;
+- production KMS/HSM implementation and automated clean-room recovery infrastructure;
+- Google Drive-style collaboration, real-time editing, encrypted full-text search, and
+  large-scale cloud-storage optimization;
+- guaranteed support for very large files such as 1 GB+;
+- forced deletion of data already copied by a recipient or DRM/non-removable watermarking;
+  and
+- password reset, email verification, MFA, and external federation without trusted external
+  channels.

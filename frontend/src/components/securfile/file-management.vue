@@ -7,7 +7,7 @@ import type { FileOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 
 interface EncryptedFile {
-  id: number
+  id: string
   name: string
   originalSize: string
   encryptedSize: string
@@ -25,7 +25,7 @@ const searchQuery = ref('')
 const files = ref<EncryptedFile[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
-const shareFileId = ref<number | null>(null)
+const shareFileId = ref<string | null>(null)
 const actionMessage = ref('')
 
 const mapFile = (file: FileOut): EncryptedFile => ({
@@ -58,7 +58,7 @@ const filteredFiles = computed(() =>
   files.value.filter((file) => file.name.toLowerCase().includes(searchQuery.value.toLowerCase())),
 )
 
-const handleDelete = async (id: number) => {
+const handleDelete = async (id: string) => {
   actionMessage.value = ''
   try {
     await fileApi.delete(id)
@@ -69,7 +69,7 @@ const handleDelete = async (id: number) => {
   }
 }
 
-const handleDownload = async (id: number) => {
+const handleDownload = async (id: string) => {
   actionMessage.value = ''
   try {
     await fileApi.download(id)
@@ -79,7 +79,7 @@ const handleDownload = async (id: number) => {
   }
 }
 
-const handleIntegrityCheck = async (id: number) => {
+const handleIntegrityCheck = async (id: string) => {
   actionMessage.value = ''
   try {
     const res = await fileApi.integrityCheck(id)
@@ -94,7 +94,7 @@ const handleIntegrityCheck = async (id: number) => {
   }
 }
 
-const openShare = (id: number) => {
+const openShare = (id: string) => {
   shareFileId.value = id
 }
 

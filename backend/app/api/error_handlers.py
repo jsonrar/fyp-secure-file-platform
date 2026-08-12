@@ -12,9 +12,11 @@ from app.domain.errors import (
     AuthenticationRateLimitedError,
     AuthorizationError,
     ConflictError,
-    FeatureNotImplementedError,
+    FileTooLargeError,
     InputError,
+    IntegrityVerificationError,
     ResourceNotFoundError,
+    StorageUnavailableError,
 )
 
 logger = logging.getLogger(__name__)
@@ -25,8 +27,10 @@ _STATUS_BY_ERROR_TYPE: dict[type[AppError], int] = {
     AuthorizationError: 403,
     ResourceNotFoundError: 404,
     ConflictError: 409,
+    FileTooLargeError: 413,
     InputError: 422,
-    FeatureNotImplementedError: 501,
+    StorageUnavailableError: 503,
+    IntegrityVerificationError: 409,
 }
 
 
@@ -34,15 +38,22 @@ def _response_headers(request: Request, error_value: AppError | None = None) -> 
     headers: dict[str, str] = {}
     app_settings = getattr(request.app.state, "settings", None)
     api_prefix = getattr(app_settings, "API_PREFIX", "/api/v1").rstrip("/")
-    auth_prefix = f"{api_prefix}/auth"
+    sensitive_prefixes = tuple(
+        f"{api_prefix}/{segment}"
+        for segment in ("auth", "keys", "files", "audit-logs", "recovery", "admin")
+    )
     route = request.scope.get("route")
     route_tags = getattr(route, "tags", ())
-    is_auth_route = "Auth" in route_tags
-    if (
-        is_auth_route
-        or request.url.path == auth_prefix
-        or request.url.path.startswith(f"{auth_prefix}/")
-    ):
+    is_sensitive_route = bool(
+        {"Auth", "Keys", "Files", "Sharing", "Recovery", "Audit Logs", "Admin"}.intersection(
+            route_tags
+        )
+    )
+    is_sensitive_path = any(
+        request.url.path == prefix or request.url.path.startswith(f"{prefix}/")
+        for prefix in sensitive_prefixes
+    )
+    if is_sensitive_route or is_sensitive_path:
         headers.update(AUTH_NO_STORE_HEADERS)
     if error_value is not None:
         headers.update(error_value.headers)

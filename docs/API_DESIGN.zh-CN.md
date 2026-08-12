@@ -2,38 +2,30 @@
 
 [English](API_DESIGN.md) | 简体中文
 
-## 当前状态
+## 当前状态与方法策略
 
-认证（Auth）是首个已实现的业务路由。其九个端点使用真实的持久化、事务、
-服务端会话、限流、审计事件，以及 API/服务测试。
-
-文件、共享、审计查询、恢复和管理员路由仍是契约占位实现。它们会出现在
-OpenAPI 中，但在各路由具备真实的授权、持久化、事务所有权、审计行为、
-适用时的存储处理及测试之前，均受 `501 feature_not_implemented` 保护。
-这些路由不得返回演示令牌、硬编码用户或虚构的成功响应。
-
-基础路径：
+后端在以下基础路径下提供已实现的认证、账户密钥托管、加密文件、共享、审计、恢复和管理路由：
 
 ```text
 /api/v1
 ```
 
-应用层 HTTP 方法仅允许 `GET` 和 `POST`。`GET` 仅用于只读操作；新增、更新、删除、撤销及其他
-所有会改变状态的命令均使用 `POST`，并在适当时采用显式动作路径。应用路由、客户端、示例和
-OpenAPI 契约不得使用 `PUT`、`PATCH` 或 `DELETE`，CORS 也只允许 `GET` 和 `POST` 方法。
-此限制不适用于 SQL 语句、数据库权限或外键动作。
-浏览器或服务器所需的自动协议层行为（例如 CORS 预检处理）属于基础设施行为，不属于应用 API
-操作。
+这些路由具有真实的授权、持久化、事务、适用时的存储处理及审计事件。
 
-未进行版本化的运维端点：
+应用层 HTTP 方法仅允许 `GET` 和 `POST`。`GET` 只用于读取；新增、更新、删除、撤销、验证
+命令及其他状态变更都使用 `POST`，通常采用显式动作路径。应用路由、客户端、示例、OpenAPI
+及 CORS 均不得定义 `PUT`、`PATCH` 或 `DELETE` 业务操作。
+
+未版本化的运维端点：
 
 | 方法 | 端点 | 说明 |
 |---|---|---|
-| GET | /health/live | 进程存活检查；不检查依赖项 |
+| GET | `/health/live` | 进程存活检查，不检查依赖 |
+| GET | `/health/ready` | 数据库连通性及精确应用 Schema revision 标记检查 |
 
-## 响应与错误契约
+## 响应、认证与错误契约
 
-应用响应统一使用一个信封结构，而 `data` 内的公共 DTO 仍保持强类型：
+JSON 应用响应使用统一信封，其中 `data` 是路由专用 DTO。失败示例：
 
 ```json
 {
@@ -49,106 +41,168 @@ OpenAPI 契约不得使用 `PUT`、`PATCH` 或 `DELETE`，CORS 也只允许 `GET
 }
 ```
 
-`error_code` 对客户端保持稳定；`message` 可安全展示给用户。内部异常文本、
-请求体、凭据、密钥、数据库细节和文件系统路径绝不会返回。验证错误会指出
-字段位置，但不会回显被拒绝的输入。
+`error_code` 对客户端稳定，`message` 可安全展示。校验错误指出字段位置，但不回显被拒值。内部
+异常、数据库细节、文件系统路径、凭据、passphrase、明文私钥及明文 DEK 均不会返回。
 
-受保护路由通过 `Authorization: Bearer <token>` 接收不透明会话令牌。
-认证失败响应包含 `WWW-Authenticate: Bearer`。每个 Auth 响应（包括验证错误
-和领域错误）都包含 `Cache-Control: no-store, no-cache` 和
-`Pragma: no-cache`；访问令牌、刷新令牌和注册时返回的私钥不得被缓存或记录
-到日志中。
+受保护路由使用 `Authorization: Bearer <opaque-access-token>`；认证失败返回
+`WWW-Authenticate: Bearer`。含敏感材料的响应使用 `Cache-Control: no-store, no-cache` 与
+`Pragma: no-cache`。自增数据库 ID 不跨越 API 边界；公开资源使用 UUID。
 
-## Auth API
+## 认证 API
 
-| 方法 | 端点 | 认证 | 成功状态码 | 说明 |
+| 方法 | 端点 | 认证 | 成功 | 说明 |
 |---|---|---|---:|---|
-| POST | `/auth/register` | 公开 | 201 | 创建一个 USER 账户，并仅返回一次其 RSA 私钥 |
-| POST | `/auth/login` | 公开 | 200 | 验证 `username`/`password` 并签发一对访问/刷新凭据 |
-| POST | `/auth/refresh` | JSON 请求体中的刷新令牌 | 200 | 消耗并轮换一次性刷新凭据 |
-| GET | `/auth/me` | Bearer | 200 | 使用公共 UUID 返回当前账户 |
+| POST | `/auth/register` | 公开 | 201 | 创建 USER 并保存客户端生成的加密密钥材料 |
+| POST | `/auth/login` | 公开 | 200 | 验证登录密码并签发访问/刷新凭据对 |
+| POST | `/auth/refresh` | JSON 内刷新凭据 | 200 | 消费并轮换一次性刷新凭据 |
+| GET | `/auth/me` | Bearer | 200 | 返回当前账户 |
 | POST | `/auth/logout` | Bearer | 200 | 撤销当前会话族 |
-| POST | `/auth/logout-all` | Bearer | 200 | 撤销该账户的所有活跃会话族 |
-| POST | `/auth/change-password` | Bearer | 200 | 验证当前密码、修改密码并撤销所有会话 |
-| GET | `/auth/sessions` | Bearer | 200 | 列出最新的服务端会话，最多 100 个 |
-| POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | 通过公共 UUID 撤销一个属于该账户的会话 |
+| POST | `/auth/logout-all` | Bearer | 200 | 撤销账户所有活跃会话族 |
+| POST | `/auth/change-password` | Bearer | 200 | 修改登录密码并撤销所有会话 |
+| GET | `/auth/sessions` | Bearer | 200 | 最多列出最近 100 个服务端会话 |
+| POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | 按公开 UUID 撤销本账户会话 |
 
-登录沿用 JSON 请求契约 `{ "username": "...", "password": "..." }`。
-成功响应中的 `data` 对象为扁平结构，包含 `user`、`access_token`、
-`refresh_token`、`token_type`、`access_expires_at`、`refresh_expires_at`
-和 `session_id`。用户及会话的顺序数据库 ID 绝不会跨越 API 边界。
+注册请求包含 `username`、`email`、`password` 和 `key_material`。`key_material` 包含客户端
+生成的 RSA-OAEP-SHA256 公钥、使用 Argon2id 与 AES-256-GCM 的 KEK 包装 AMK 配置，以及
+使用 AMK/HKDF 派生密钥与 AES-256-GCM 加密的 PKCS8-DER 私钥包。成功响应返回 `user`、
+`key_id` 和 `public_key_fingerprint`，不返回私钥。
 
-访问凭据和刷新凭据是彼此独立的不透明随机值。服务器只存储它们的 SHA-256
-哈希。刷新凭据只能用于一次轮换；重放已消耗的凭据会撤销其完整会话族。
-访问凭据的有效期较短，刷新凭据的有效期较长，且两者均受会话绝对到期时间
-限制。
+登录密码与加密 passphrase 相互独立；API 从不接收加密 passphrase。登录与修改密码输入先做
+Unicode NFC 规范化；新密码须为 15 至 128 个字符，并通过本地常见密码及账户派生检查，再用
+Argon2id 哈希。
 
-注册输入和新密码输入会进行 Unicode NFC 规范化。新密码必须包含 15 至 128
-个字符，并在使用 Argon2id 哈希前通过本地常见密码及账户派生密码检查。
-本地列表不是完整或持续维护的已泄露密码服务。
+登录成功数据包含 `user`、`access_token`、`refresh_token`、`token_type`、
+`access_expires_at`、`refresh_expires_at` 和 `session_id`。访问与刷新值是独立不透明凭据，
+服务器只保存其哈希。刷新凭据重放会撤销完整会话族。
 
-稳定的 Auth 错误包括 `invalid_credentials`、`authentication_required`、
-`invalid_refresh_token`、`account_identifier_unavailable`、
-`password_unchanged`、`weak_password`、`invalid_current_password`、
-`session_not_found` 和 `auth_rate_limited`。429 响应提供 `Retry-After`；
-认证错误绝不会区分未知、已禁用、已过期或已撤销的主体。
+忘记登录密码重置、邮箱验证、MFA 及外部身份提供商登录尚未实现，因为每项都需要外部信任通道。
 
-忘记密码重置、电子邮件验证、MFA 和外部身份提供商登录尚未实现。它们分别
-需要可信的带外传递、注册或联合身份通道。账户元数据中存在
-`email_verified`，并不表示验证流程已经存在。
+## 账户密钥 API
 
-## 尚未实现的业务 API
+| 方法 | 端点 | 认证 | 说明 |
+|---|---|---|---|
+| GET | `/keys/me` | Bearer | 返回调用者公钥、KEK 包装 AMK 配置及加密私钥包 |
+| GET | `/keys/me/{key_id}` | Bearer | 返回属于调用者的当前或历史加密密钥包 |
+| POST | `/keys/me/rewrap/signing-payload` | Bearer | 为完整的拟议保护配置重包装构建规范摘要 |
+| POST | `/keys/me/rewrap` | Bearer + 当前密钥签名 | 使用乐观 revision 和当前私钥持有证明替换包装 AMK/KDF 配置 |
+| POST | `/keys/add/signing-payload` | Bearer | 构建必须由当前客户端密钥授权的规范摘要 |
+| POST | `/keys/add` | Bearer | 使用当前密钥的 RSA-PSS-SHA256 授权添加后继公钥/加密私钥 |
+| GET | `/keys/users/{user_id}/active` | Bearer | 只返回用户用于共享的活跃加密公钥 |
 
-以下各节中的每个端点目前均返回 `501 feature_not_implemented`。
+保护配置重包装采用两次调用的持有证明流程。客户端在本地解开 AMK 和最新当前私钥，准备
+`authorizing_key_id`、`expected_revision` 及完整拟议保护配置，把这些未签名字段提交至
+`POST /keys/me/rewrap/signing-payload`，取得规范 Base64 编码的 32-byte SHA-256 摘要，再在
+本地使用 RSA-PSS-SHA256 签名。随后把完全相同的字段、`authorization_algorithm` 和签名提交
+至 `POST /keys/me/rewrap`。
+
+摘要绑定行为者 UUID、最新当前密钥 UUID、保护配置 UUID、预期 revision、全部 KDF 参数和
+完整的新包装 AMK AEAD 信封。服务在锁内重新检查 profile revision/当前密钥，验证签名后才
+原子更新保护配置及审计链。仅有 Bearer Session 或 expected revision 并不足够。两个端点均
+不接收新旧 passphrase，也不替换加密私钥包；过期 revision、旧 authorizing key、被修改的
+拟议字段及无效签名都会失败关闭。
+
+私钥包、包装 AMK、nonce、tag、盐和密文字段使用规范 Base64。请求 Schema 对 KDF、AEAD、
+密钥长度及信封版本使用封闭枚举或范围，并拒绝未知字段。
+
+添加后继密钥是另一个两次调用的客户端流程。客户端先提交未签名的 addition 字段（包含当前密钥/保护配置
+UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload；再使用当前私钥在本地
+以 RSA-PSS-SHA256 签名，并把相同字段连同签名提交至 `POST /keys/add`。服务器使用最新当前
+客户端公钥验证签名，然后原子保存后继公钥及其客户端加密私钥包。旧密钥和其文件包装继续保留，
+因此仍可取得历史 bundle。注册与后继密钥的长度必须匹配配置的 `USER_RSA_KEY_SIZE`（默认
+3072）。
 
 ## 文件 API
 
-| 方法 | 端点 | 说明 |
-|---|---|---|
-| POST | /files/upload | 上传并加密文件 |
-| GET | /files | 列出当前用户可访问的文件 |
-| GET | /files/{file_id} | 获取文件元数据 |
-| POST | /files/{file_id}/download | 权限检查通过后下载并解密文件 |
-| POST | /files/{file_id}/delete | 删除或禁用文件 |
-| POST | /files/{file_id}/integrity-check | 验证加密文件哈希 |
+| 方法 | 端点 | 认证 | 说明 |
+|---|---|---|---|
+| POST | `/files/upload` | Bearer | 保存客户端加密密文及带版本密码学信封 |
+| GET | `/files` | Bearer | 分页列出同时具备活跃授权和用户包装的文件 |
+| GET | `/files/{file_id}` | Bearer | 返回已授权元数据和调用者专属包装 DEK |
+| POST | `/files/{file_id}/download` | Bearer | 校验并流式返回存储密文，不在服务端解密 |
+| POST | `/files/{file_id}/delete` | Bearer 所有者 | 软删除文件、撤销访问/包装并删除对象 |
+| POST | `/files/{file_id}/integrity-check` | Bearer | 重新计算并记录密文存储完整性 |
+
+上传使用 `multipart/form-data`：
+
+- `file`：AES-256-GCM 密文。16-byte GCM tag 单独传输，因此密文字节数必须等于声明明文大小。
+- `metadata`：JSON 字符串，包含文件 UUID、明文文件名/大小/MIME、信封/AAD 版本、Base64
+  nonce/tag、所有者密钥 UUID 及 RSA-OAEP-SHA256 包装 DEK、恢复密钥 UUID 及恢复包装 DEK，
+  以及可选的 Base64 加密 manifest。
+
+当前强制要求活跃恢复密钥及匹配恢复包装。服务器从不接收文件明文或私钥。
+`GET /files/{file_id}` 提供已授权客户端所需的解密信封；下载以 no-store 标头流式返回
+`application/octet-stream` 密文。
+
+文件列表分页参数为 `page` 和 `page_size`（`1..100`）。未经授权与不存在的文件资源有意采用
+不可区分响应。
 
 ## 共享 API
 
-| 方法 | 端点 | 说明 |
-|---|---|---|
-| POST | /files/{file_id}/share | 与另一用户共享文件 |
-| GET | /files/{file_id}/shared-users | 列出可访问该文件的用户 |
-| POST | /files/{file_id}/revoke | 撤销某位用户的访问权限 |
+| 方法 | 端点 | 认证 | 说明 |
+|---|---|---|---|
+| POST | `/files/{file_id}/share` | Bearer + SHARE | 创建/重新激活经过授权且能力衰减的目标授权及客户端准备的 DEK 包装 |
+| GET | `/files/{file_id}/shared-users` | Bearer + SHARE | 列出活跃被授权用户及其能力 |
+| POST | `/files/{file_id}/revoke` | Bearer + REVOKE | 撤销非所有者用户的授权及活跃包装 |
+
+共享请求包含 `target_user_id`、`target_key_id`、由目标公钥包装的 DEK、`can_download` 和
+`can_share`。客户端在本地进行解包/重包装。服务器校验目标与密钥关联及 RSA 密文长度，但从不
+接收私钥或明文 DEK。委托能力必须衰减：只有行为者自身授权具备对应能力时，请求中的能力才可
+设为 `true`。规范所有者授权不可变。已有非所有者授权只能由具备 `can_manage` 的行为者，或该
+授权当前记录的 `granted_by` 行为者更新/重新激活；其他委托分享者不能覆盖它。撤销无法删除
+接收者已经复制的数据。
 
 ## 审计 API
 
-| 方法 | 端点 | 说明 |
-|---|---|---|
-| GET | /audit-logs | 列出审计日志 |
-| GET | /audit-logs/file/{file_id} | 列出某文件的日志 |
-| POST | /audit-logs/verify-chain | 验证审计哈希链 |
+| 方法 | 端点 | 认证 | 说明 |
+|---|---|---|---|
+| GET | `/audit-logs` | Bearer | 返回范围受限、已脱敏的日志页；ADMIN 可看管理范围 |
+| GET | `/audit-logs/file/{file_id}` | Bearer + 文件访问 | 返回一个文件的范围化日志 |
+| POST | `/audit-logs/verify-chain` | ADMIN | 重新计算完整链并验证单例链头 |
+
+列表使用 `limit`（`1..100`）与 `offset`；返回的 metadata 经过白名单过滤。链验证逻辑上只读，
+但依照仓库应用方法策略，有意使用 `POST` 作为安全命令。
 
 ## 恢复 API
 
-| 方法 | 端点 | 说明 |
-|---|---|---|
-| POST | /recovery/request | 创建恢复请求 |
-| POST | /recovery/{request_id}/approve | 批准恢复请求 |
-| POST | /recovery/{request_id}/execute | 执行恢复操作 |
-| GET | /recovery/requests | 列出恢复请求 |
+| 方法 | 端点 | 认证 | 说明 |
+|---|---|---|---|
+| GET | `/recovery/public-key` | Bearer | 返回新上传使用的活跃恢复公钥 |
+| POST | `/recovery/public-key/register` | ADMIN | 登记/轮换由离线流程保管的恢复公钥 |
+| POST | `/recovery/public-key/{key_id}/revoke` | ADMIN | 撤销恢复公钥的新用途 |
+| POST | `/recovery/request` | Bearer | 在可下载授权及用户包装仍实时有效时创建限时请求 |
+| POST | `/recovery/{request_id}/approve` | ADMIN 或 RECOVERY_OFFICER | 批准非本人请求 |
+| POST | `/recovery/{request_id}/reject` | ADMIN 或 RECOVERY_OFFICER | 附理由拒绝非本人请求 |
+| POST | `/recovery/{request_id}/cancel` | 请求所有者 | 取消自己的待审或已批准请求 |
+| GET | `/recovery/{request_id}/execution-package` | ADMIN 或 RECOVERY_OFFICER | 返回隔离离线解包/重包装所需公开数据 |
+| POST | `/recovery/{request_id}/execute` | ADMIN 或 RECOVERY_OFFICER | 保存离线生成、由目标密钥包装的 DEK |
+| GET | `/recovery/requests` | Bearer | 分页列出自己的请求；复核角色可列出全部 |
 
-## 管理员 API
+恢复端点不接收私钥或 passphrase。执行 package 包含恢复包装 DEK 和公钥身份；离线/HSM 流程
+解开 DEK，只返回由请求人公钥包装的 DEK。创建请求、每次读取 execution package 及执行均要求
+请求人仍具备 `ACTIVE` 且 `can_download` 的授权，以及由活跃用户密钥支持的 `ACTIVE` 用户包装；
+规范所有者也适用同一规则。执行会在改变任何包装前锁定并重新校验该 entitlement，再校验 UUID
+和 RSA 密文结构，并有条件地将请求转为 `EXECUTED`。它绝不创建、重新激活、提权或以其他方式
+修复已撤销/降权的授权。撤销前已取得并缓存的 package 无法追回，但后续 package 读取及服务端
+执行都会默认拒绝。恢复不会重置加密 passphrase，也不会解密账户私钥包。
 
-| 方法 | 端点 | 说明 |
-|---|---|---|
-| GET | /admin/users | 列出用户（仅限管理员） |
-| GET | /admin/files | 列出文件记录（仅限管理员） |
+## 管理 API
+
+| 方法 | 端点 | 认证 | 说明 |
+|---|---|---|---|
+| GET | `/admin/users` | ADMIN | 分页列出用户记录 |
+| GET | `/admin/files` | ADMIN | 分页列出文件元数据记录 |
+| POST | `/admin/users/{user_id}/disable` | ADMIN | 软禁用账户并撤销活跃会话 |
+| POST | `/admin/users/{user_id}/enable` | ADMIN | 重新启用已禁用账户 |
+
+管理列表使用 `limit`（`1..100`）及 `offset`。状态变更是条件式且有审计；审计链引用的身份不做
+硬删除。
 
 ## 契约规则
 
-- 路由器声明请求和响应模型；ORM 对象和基础设施字典绝不会直接成为响应。
-- 公共资源使用不透明标识符。顺序数据库 ID 仅供内部使用。
-- 集合端点在实现前必须定义稳定排序，并提供分页或明确的结果数量硬上限。
-  Auth 会话历史采用 100 行硬上限。
-- 可能被重试的命令（上传完成、共享、撤销、执行恢复）需要幂等性或条件状态策略。
-- 认证失败不会泄露账户、文件、会话或密钥是否存在。
+- 路由声明严格请求/响应模型；ORM 对象不跨越 API 边界。
+- 公开资源使用 UUID；自增数据库 ID 只供内部使用。
+- 集合端点具有稳定排序和有界分页。
+- 可重试的状态变更按场景使用 UUID 唯一性、乐观 revision、条件状态迁移或幂等终态处理。
+- 认证与资源失败避免暴露不可访问的账户、文件、会话或密钥是否存在。
+- 密文及包装密钥按设计需要传输；明文私钥、AMK、KEK、DEK、passphrase、令牌哈希、存储对象
+  key 及文件系统路径不得传输。

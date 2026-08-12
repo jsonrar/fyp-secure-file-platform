@@ -73,6 +73,12 @@ class User(Base):
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
     keys = relationship("UserKey", back_populates="user", cascade="all, delete-orphan")
+    key_protection_profile = relationship(
+        "UserKeyProtectionProfile",
+        back_populates="user",
+        uselist=False,
+        cascade="all, delete-orphan",
+    )
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
     owned_files = relationship("File", back_populates="owner", foreign_keys="File.owner_id")
 
@@ -91,6 +97,7 @@ class User(Base):
         "FileKeyWrapping",
         back_populates="recipient_user",
         foreign_keys="FileKeyWrapping.recipient_user_id",
+        overlaps="file_key_wrappings,user_key",
     )
 
     audit_logs = relationship(
@@ -119,4 +126,9 @@ class User(Base):
         "RecoveryRequest",
         back_populates="approver",
         foreign_keys="RecoveryRequest.approved_by",
+    )
+    executed_recovery_requests = relationship(
+        "RecoveryRequest",
+        back_populates="executor",
+        foreign_keys="RecoveryRequest.executed_by",
     )

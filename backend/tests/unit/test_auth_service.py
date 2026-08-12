@@ -24,9 +24,16 @@ from app.domain.errors import (
     InvalidCurrentPasswordError,
     InvalidRefreshTokenError,
 )
+from app.domain.keys import (
+    ClientKeyRegistration,
+    EncryptedPrivateKeyBundleInput,
+    KeyProtectionProfileInput,
+)
+from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.session_refresh_token import SessionRefreshToken
 from app.models.user import User
 from app.models.user_key import UserKey
+from app.models.user_key_protection_profile import UserKeyProtectionProfile
 from app.models.user_session import UserSession
 from app.services.auth_service import AuthService
 
@@ -35,6 +42,9 @@ NOW_DB = NOW.replace(tzinfo=None)
 USER_PUBLIC_ID = UUID("11111111-1111-4111-8111-111111111111")
 SESSION_PUBLIC_ID = UUID("22222222-2222-4222-8222-222222222222")
 NEXT_PUBLIC_ID = UUID("33333333-3333-4333-8333-333333333333")
+KEY_ID = UUID("44444444-4444-4444-8444-444444444444")
+PROFILE_ID = UUID("55555555-5555-4555-8555-555555555555")
+BUNDLE_ID = UUID("66666666-6666-4666-8666-666666666666")
 CONTEXT = RequestContext(ip_address="203.0.113.10", user_agent="auth-service-test")
 
 
@@ -62,9 +72,10 @@ class FakeAuditService:
 
 
 class FakeCryptoService:
-    def generate_rsa_key_pair(self, *, key_size: int) -> tuple[str, str]:
-        assert key_size == 2048
-        return "PRIVATE KEY", "PUBLIC KEY"
+    def load_rsa_public_key(self, public_key_pem: str, *, expected_key_size: int):
+        assert public_key_pem == "PUBLIC KEY"
+        assert expected_key_size == 2048
+        return object()
 
     def public_key_fingerprint(self, public_key_pem: str) -> str:
         assert public_key_pem == "PUBLIC KEY"
@@ -136,6 +147,8 @@ class FakeAuthRepository:
 
         self.added_users: list[User] = []
         self.added_user_keys: list[UserKey] = []
+        self.added_key_protection_profiles: list[UserKeyProtectionProfile] = []
+        self.added_private_key_bundles: list[EncryptedPrivateKeyBundle] = []
         self.added_sessions: list[UserSession] = []
         self.added_refresh_tokens: list[SessionRefreshToken] = []
         self.revocations: list[tuple[UserSession, datetime, str]] = []
@@ -152,6 +165,12 @@ class FakeAuthRepository:
     def add_user_key(self, user_key: UserKey) -> None:
         self.added_user_keys.append(user_key)
 
+    def add_key_protection_profile(self, profile: UserKeyProtectionProfile) -> None:
+        self.added_key_protection_profiles.append(profile)
+
+    def add_private_key_bundle(self, bundle: EncryptedPrivateKeyBundle) -> None:
+        self.added_private_key_bundles.append(bundle)
+
     def add_session(self, user_session: UserSession) -> None:
         self.added_sessions.append(user_session)
 
@@ -165,6 +184,9 @@ class FakeAuthRepository:
         for index, user_session in enumerate(self.added_sessions, start=10):
             if user_session.id is None:
                 user_session.id = index
+        for index, user_key in enumerate(self.added_user_keys, start=20):
+            if user_key.id is None:
+                user_key.id = index
 
     def get_blocked_until(
         self,
@@ -365,30 +387,81 @@ def _actor(session: UserSession | None = None) -> ActorContext:
     )
 
 
-def test_register_returns_one_time_key_and_commits_complete_account() -> None:
+def _key_material() -> ClientKeyRegistration:
+    encrypted_private_key = b"client-encrypted-pkcs8" * 20
+    return ClientKeyRegistration(
+        key_id=KEY_ID,
+        public_key_pem="PUBLIC KEY",
+        algorithm="RSA-OAEP-SHA256",
+        key_size_bits=2048,
+        protection=KeyProtectionProfileInput(
+            profile_id=PROFILE_ID,
+            format_version=1,
+            kdf_algorithm="ARGON2ID",
+            kdf_version=19,
+            kdf_salt=b"s" * 16,
+            kdf_memory_kib=65_536,
+            kdf_iterations=3,
+            kdf_parallelism=4,
+            derived_key_length=32,
+            amk_wrapping_algorithm="AES-256-GCM",
+            wrapped_amk=b"w" * 32,
+            amk_nonce=b"n" * 12,
+            amk_auth_tag=b"t" * 16,
+            aad_version=1,
+        ),
+        private_key_bundle=EncryptedPrivateKeyBundleInput(
+            bundle_id=BUNDLE_ID,
+            format_version=1,
+            private_key_format="PKCS8-DER",
+            derivation_algorithm="HKDF-SHA256",
+            derivation_salt=b"d" * 16,
+            encryption_algorithm="AES-256-GCM",
+            encrypted_private_key=encrypted_private_key,
+            nonce=b"i" * 12,
+            auth_tag=b"a" * 16,
+            aad_version=1,
+            ciphertext_sha256=__import__("hashlib").sha256(encrypted_private_key).hexdigest(),
+        ),
+    )
+
+
+def test_register_persists_only_client_wrapped_key_material() -> None:
     harness = _harness()
 
     result = harness.service.register(
         username=" alice ",
         email="Alice@Example.COM ",
         password="A unique and lengthy passphrase!",
+        key_material=_key_material(),
         context=CONTEXT,
     )
 
     user = harness.repository.added_users[0]
     user_key = harness.repository.added_user_keys[0]
     assert result.user.id == USER_PUBLIC_ID
-    assert result.private_key_pem == "PRIVATE KEY"
-    assert result.private_key_filename == f"secure-file-{USER_PUBLIC_ID}.private.pem"
+    assert result.key_id == KEY_ID
+    assert result.public_key_fingerprint == "f" * 64
     assert user.username == "alice"
     assert user.email == "alice@example.com"
     assert user.password_hash == "hash::A unique and lengthy passphrase!"
     assert user_key.user_id == user.id
+    assert user_key.key_uuid == str(KEY_ID)
     assert user_key.public_key_pem == "PUBLIC KEY"
     assert user_key.fingerprint == "f" * 64
-    persisted_state = repr([vars(user), vars(user_key)])
-    assert "PRIVATE KEY" not in persisted_state
-    assert "PRIVATE KEY" not in repr(harness.audit.events)
+    assert user_key.custody_mode == "CLIENT_WRAPPED"
+    assert harness.repository.added_key_protection_profiles[0].wrapped_amk == b"w" * 32
+    assert (
+        harness.repository.added_private_key_bundles[0].encrypted_private_key
+        == b"client-encrypted-pkcs8" * 20
+    )
+    assert "A unique and lengthy passphrase!" not in repr(
+        [
+            vars(user_key),
+            vars(harness.repository.added_key_protection_profiles[0]),
+            vars(harness.repository.added_private_key_bundles[0]),
+        ]
+    )
     assert harness.audit.events[-1]["action"] == "AUTH_REGISTERED"
     assert {scope for scope, _ in harness.repository.throttles} == {
         LoginThrottleScope.REGISTRATION_IP
@@ -407,6 +480,7 @@ def test_register_rolls_back_when_atomic_audit_write_fails() -> None:
             username="alice",
             email="alice@example.com",
             password="A unique and lengthy passphrase!",
+            key_material=_key_material(),
             context=CONTEXT,
         )
 
@@ -797,6 +871,7 @@ def test_registration_rechecks_block_after_lock_before_expensive_work() -> None:
             username="alice",
             email="alice@example.com",
             password="A unique and lengthy passphrase!",
+            key_material=_key_material(),
             context=CONTEXT,
         )
 

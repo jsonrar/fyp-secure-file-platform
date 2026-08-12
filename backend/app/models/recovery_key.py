@@ -1,9 +1,20 @@
 from __future__ import annotations
 
 from datetime import datetime
+from uuid import uuid4
 
-from sqlalchemy import CHAR, DateTime, Enum, Index, String, Text, UniqueConstraint, text
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import (
+    CHAR,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    Index,
+    String,
+    Text,
+    UniqueConstraint,
+    text,
+)
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -12,7 +23,17 @@ from app.core.database import Base
 class RecoveryKey(Base):
     __tablename__ = "recovery_keys"
     __table_args__ = (
+        UniqueConstraint("key_uuid", name="uq_recovery_keys_key_uuid"),
         UniqueConstraint("fingerprint", name="uq_recovery_keys_fingerprint"),
+        CheckConstraint(
+            "key_size_bits IN (2048, 3072, 4096)",
+            name="ck_recovery_keys_supported_size",
+        ),
+        CheckConstraint(
+            "(status = 'ACTIVE' AND revoked_at IS NULL) OR "
+            "(status = 'REVOKED' AND revoked_at IS NOT NULL)",
+            name="ck_recovery_keys_status_revoked_at",
+        ),
         Index("idx_recovery_keys_status", "status"),
         Index("idx_recovery_keys_created_at", "created_at"),
         {
@@ -22,11 +43,20 @@ class RecoveryKey(Base):
         },
     )
 
-    id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        mysql.BIGINT(unsigned=True), primary_key=True, autoincrement=True
+    )
+    key_uuid: Mapped[str] = mapped_column(CHAR(36), nullable=False, default=lambda: str(uuid4()))
 
     public_key_pem: Mapped[str] = mapped_column(Text, nullable=False)
     algorithm: Mapped[str] = mapped_column(
         String(50), nullable=False, default="RSA-OAEP-SHA256", server_default="RSA-OAEP-SHA256"
+    )
+    key_size_bits: Mapped[int] = mapped_column(
+        mysql.SMALLINT(unsigned=True),
+        nullable=False,
+        default=3072,
+        server_default="3072",
     )
     fingerprint: Mapped[str] = mapped_column(CHAR(64), nullable=False)
 

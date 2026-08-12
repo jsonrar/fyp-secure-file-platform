@@ -2,41 +2,34 @@
 
 English | [简体中文](API_DESIGN.zh-CN.md)
 
-## Current Status
+## Current Status and Method Policy
 
-Auth is the first implemented business router. Its nine endpoints use real persistence,
-transactions, server-side sessions, throttling, audit events, and API/service tests.
-
-File, sharing, audit-query, recovery, and admin routes remain contract placeholders. They
-are visible in OpenAPI but guarded with `501 feature_not_implemented` until each router has
-real authorization, persistence, transaction ownership, audit behavior, storage handling
-where applicable, and tests. They must not return demo tokens, hard-coded users, or
-synthetic success responses.
-
-Base path:
+The backend exposes implemented authentication, account-key custody, encrypted-file,
+sharing, audit, recovery, and administration routes under:
 
 ```text
 /api/v1
 ```
 
-Application HTTP methods are restricted to `GET` and `POST`. `GET` is read-only; creation,
-updates, deletion, revocation, and every other state-changing command use `POST`. Command
-routes use explicit action paths when useful. Application routes, clients, examples, and
-OpenAPI contracts must not use `PUT`, `PATCH`, or `DELETE`, and CORS allows only `GET` and
-`POST` methods. This restriction does not apply to SQL statements, database privileges, or
-foreign-key actions. Automatic protocol-level behavior required by browsers or servers,
-such as CORS preflight handling, is infrastructure behavior rather than an application API
-operation.
+These routes use real authorization, persistence, transactions, storage where applicable,
+and audit events.
 
-Unversioned operational endpoints:
+Application HTTP methods are restricted to `GET` and `POST`. `GET` is read-only. Creation,
+updates, deletion, revocation, verification commands, and all other state changes use
+`POST`, normally with an explicit action path. Application routes, clients, examples,
+OpenAPI, and CORS must not define `PUT`, `PATCH`, or `DELETE` business operations.
+
+Unversioned operational endpoints are:
 
 | Method | Endpoint | Description |
 |---|---|---|
-| GET | /health/live | Process liveness; does not check dependencies |
+| GET | `/health/live` | Process liveness; does not check dependencies |
+| GET | `/health/ready` | Database connectivity and exact application schema-revision marker |
 
-## Response and Error Contract
+## Response, Authentication, and Error Contract
 
-Application responses use one envelope while the public DTO inside `data` remains typed:
+JSON application responses use a common envelope whose `data` member has a route-specific
+DTO. A failure example is:
 
 ```json
 {
@@ -52,110 +45,193 @@ Application responses use one envelope while the public DTO inside `data` remain
 }
 ```
 
-`error_code` is stable for clients; `message` is safe for users. Internal exception text,
-request bodies, credentials, keys, database details, and filesystem paths are never returned.
-Validation errors identify field locations without echoing rejected input.
+`error_code` is stable for clients and `message` is safe for users. Validation errors expose
+field locations without echoing rejected values. Internal exceptions, database details,
+filesystem paths, credentials, passphrases, plaintext private keys, and plaintext DEKs are
+never returned.
 
-Protected routes accept the opaque session token using `Authorization: Bearer <token>`.
-Authentication failures include `WWW-Authenticate: Bearer`. Every Auth response, including
-validation and domain errors, includes `Cache-Control: no-store, no-cache` and
-`Pragma: no-cache`; access tokens, refresh tokens, and the registration private key must not
-be cached or logged.
+Protected routes use `Authorization: Bearer <opaque-access-token>` and return
+`WWW-Authenticate: Bearer` on authentication failure. Secret-bearing responses use
+`Cache-Control: no-store, no-cache` and `Pragma: no-cache`. Sequential database IDs do not
+cross the API boundary; public resources use UUIDs.
 
 ## Auth API
 
 | Method | Endpoint | Auth | Success | Description |
 |---|---|---|---:|---|
-| POST | `/auth/register` | Public | 201 | Create a USER account and return its RSA private key once |
-| POST | `/auth/login` | Public | 200 | Verify `username`/`password` and issue an access/refresh pair |
-| POST | `/auth/refresh` | Refresh token in JSON body | 200 | Consume and rotate the one-time refresh credential |
-| GET | `/auth/me` | Bearer | 200 | Return the current account using its public UUID |
+| POST | `/auth/register` | Public | 201 | Create USER account and persist client-created encrypted key material |
+| POST | `/auth/login` | Public | 200 | Verify login password and issue access/refresh pair |
+| POST | `/auth/refresh` | Refresh token in JSON | 200 | Consume and rotate the one-time refresh credential |
+| GET | `/auth/me` | Bearer | 200 | Return the current account |
 | POST | `/auth/logout` | Bearer | 200 | Revoke the current session family |
-| POST | `/auth/logout-all` | Bearer | 200 | Revoke every active session family for the account |
-| POST | `/auth/change-password` | Bearer | 200 | Verify current password, change it, and revoke every session |
-| GET | `/auth/sessions` | Bearer | 200 | List up to the 100 newest server-side sessions |
-| POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | Revoke one account-owned session by public UUID |
+| POST | `/auth/logout-all` | Bearer | 200 | Revoke all active session families for the account |
+| POST | `/auth/change-password` | Bearer | 200 | Change login password and revoke every session |
+| GET | `/auth/sessions` | Bearer | 200 | List at most the 100 newest server-side sessions |
+| POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | Revoke an account-owned session by public UUID |
 
-Login keeps the JSON request contract `{ "username": "...", "password": "..." }`.
-Its successful `data` object is flat and contains `user`, `access_token`, `refresh_token`,
-`token_type`, `access_expires_at`, `refresh_expires_at`, and `session_id`. Sequential user
-and session database IDs never cross the API boundary.
+Registration requires `username`, `email`, `password`, and `key_material`. `key_material`
+contains a client-generated RSA-OAEP-SHA256 public key, a KEK-wrapped AMK profile using
+Argon2id plus AES-256-GCM, and an AMK/HKDF-derived AES-256-GCM encrypted PKCS8-DER private-key
+bundle. The successful response returns `user`, `key_id`, and `public_key_fingerprint`; it
+does not return a private key.
 
-Access and refresh credentials are independent opaque random values. The server stores only
-their SHA-256 hashes. A refresh credential is valid for one rotation; replaying a consumed
-credential revokes its complete session family. Access expiry is short-lived, refresh expiry
-is longer, and both remain bounded by the session's absolute expiry.
+The login password and encryption passphrase are independent. The API never accepts the
+encryption passphrase. Login and password-change inputs are Unicode NFC-normalized; new
+passwords must contain 15 to 128 characters and pass local common/account-derived checks
+before Argon2id hashing.
 
-Registration and new-password inputs are Unicode NFC-normalized. New passwords must contain
-15 to 128 characters and pass the local common/account-derived password checks before Argon2id
-hashing. The local list is not a complete or maintained breached-password service.
+Successful login data contains `user`, `access_token`, `refresh_token`, `token_type`,
+`access_expires_at`, `refresh_expires_at`, and `session_id`. Access and refresh values are
+independent opaque credentials; the server stores only their hashes. Refresh replay revokes
+the complete session family.
 
-Stable Auth errors include `invalid_credentials`, `authentication_required`,
-`invalid_refresh_token`, `account_identifier_unavailable`, `password_unchanged`,
-`weak_password`, `invalid_current_password`, `session_not_found`, and
-`auth_rate_limited`. The 429 response supplies `Retry-After`; authentication errors never
-distinguish unknown, disabled, expired, or revoked principals.
+Forgotten-login-password reset, email verification, MFA, and external identity-provider
+login are not implemented because each requires an external trust channel.
 
-Forgotten-password reset, email verification, MFA, and external identity-provider login are
-not implemented. Each requires a trusted out-of-band delivery, enrollment, or federation
-channel. The presence of `email_verified` in account metadata is not a claim that a
-verification flow exists.
+## Account-Key API
 
-## Unimplemented Business APIs
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/keys/me` | Bearer | Return caller's public key, KEK-wrapped AMK profile, and encrypted private-key bundle |
+| GET | `/keys/me/{key_id}` | Bearer | Return an owned current or historical encrypted key bundle |
+| POST | `/keys/me/rewrap/signing-payload` | Bearer | Build the canonical digest covering a complete proposed protection rewrap |
+| POST | `/keys/me/rewrap` | Bearer + current-key signature | Replace the wrapped-AMK/KDF profile using optimistic revision and proof of current private-key possession |
+| POST | `/keys/add/signing-payload` | Bearer | Build the canonical digest that the current client key must authorize |
+| POST | `/keys/add` | Bearer | Add a successor public/encrypted-private key using RSA-PSS-SHA256 current-key authorization |
+| GET | `/keys/users/{user_id}/active` | Bearer | Return only a user's active public encryption key for sharing |
 
-Every endpoint in the following sections currently returns
-`501 feature_not_implemented`.
+Protection rewrap is a two-call proof-of-possession workflow. After unlocking the AMK and the
+newest current private key locally, the client prepares `authorizing_key_id`,
+`expected_revision`, and the complete proposed protection profile. It submits those unsigned
+fields to `POST /keys/me/rewrap/signing-payload`, receives a canonical Base64-encoded 32-byte
+SHA-256 digest, and signs it locally with RSA-PSS-SHA256. It then sends the exact same fields,
+`authorization_algorithm`, and signature to `POST /keys/me/rewrap`.
+
+The digest binds the actor UUID, newest current key UUID, protection-profile UUID, expected
+revision, every KDF parameter, and the complete new wrapped-AMK AEAD envelope. The service
+locks and rechecks the profile revision/current key and verifies the signature before updating
+the profile and audit chain atomically. A bearer session or expected revision alone is
+insufficient. Neither endpoint accepts either passphrase, and the encrypted private-key
+bundle is not replaced. Stale revisions, stale authorizing keys, modified proposed fields,
+and invalid signatures fail closed.
+
+Private-bundle, wrapped-AMK, nonce, tag, salt, and ciphertext fields use canonical Base64.
+KDF algorithms, AEAD suites, key sizes, and envelope versions are closed enums/bounds in the
+request schema; unknown fields are rejected.
+
+Adding a successor key is a separate two-call client workflow. The client first submits the unsigned
+addition fields, including current key/profile UUIDs and expected profile revision, to obtain
+a deterministic 32-byte authorization payload. It signs that payload locally with the
+current private key using RSA-PSS-SHA256, then submits the same fields plus signature to
+`POST /keys/add`. The server verifies the signature with the newest current client public
+key and atomically stores the successor public key and its client-encrypted private bundle.
+Previous keys and their file wrappings are retained, so historical bundles remain retrievable.
+The configured account key size (`USER_RSA_KEY_SIZE`, 3072 by default) must match registration
+and successor-key inputs.
 
 ## File API
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /files/upload | Upload and encrypt a file |
-| GET | /files | List files accessible by the current user |
-| GET | /files/{file_id} | Get file metadata |
-| POST | /files/{file_id}/download | Download and decrypt file after permission check |
-| POST | /files/{file_id}/delete | Delete or disable a file |
-| POST | /files/{file_id}/integrity-check | Verify encrypted file hash |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/files/upload` | Bearer | Store client-encrypted ciphertext and its versioned crypto envelope |
+| GET | `/files` | Bearer | Page through files with an active grant and active user wrapping |
+| GET | `/files/{file_id}` | Bearer | Get authorized metadata and caller-specific wrapped DEK |
+| POST | `/files/{file_id}/download` | Bearer | Verify and stream stored ciphertext; never decrypt server-side |
+| POST | `/files/{file_id}/delete` | Bearer owner | Soft-delete file, revoke access/wrappings, and remove object |
+| POST | `/files/{file_id}/integrity-check` | Bearer | Recompute and record ciphertext-storage integrity |
+
+Upload is `multipart/form-data` with:
+
+- `file`: the AES-256-GCM ciphertext. The 16-byte GCM tag is supplied separately, so the
+  ciphertext byte count must equal declared plaintext size.
+- `metadata`: a JSON string containing file UUID, plaintext filename/size/MIME type,
+  envelope/AAD versions, Base64 nonce/tag, owner key UUID and RSA-OAEP-SHA256-wrapped DEK,
+  recovery key UUID and recovery-wrapped DEK, plus an optional Base64 encrypted manifest.
+
+An active recovery key and matching recovery wrapping are currently required. The server
+never accepts plaintext file data or a private key. `GET /files/{file_id}` provides the
+authorized client's decryption envelope; download streams `application/octet-stream`
+ciphertext with no-store headers.
+
+File-list pagination uses `page` and `page_size` (`1..100`). Unauthorized and nonexistent
+file resources are intentionally indistinguishable.
 
 ## Sharing API
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /files/{file_id}/share | Share file with another user |
-| GET | /files/{file_id}/shared-users | List users who can access file |
-| POST | /files/{file_id}/revoke | Revoke a user's access |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| POST | `/files/{file_id}/share` | Bearer + SHARE | Create/reactivate an authorized, capability-attenuated target grant and client-prepared DEK wrapping |
+| GET | `/files/{file_id}/shared-users` | Bearer + SHARE | List active grantees and their capabilities |
+| POST | `/files/{file_id}/revoke` | Bearer + REVOKE | Revoke a non-owner user's grant and active wrappings |
+
+The share request contains `target_user_id`, `target_key_id`, the target-public-key-wrapped
+DEK, `can_download`, and `can_share`. The client performs unwrap/rewrap locally. The server
+validates the target/key association and RSA ciphertext size, but never receives a private
+key or plaintext DEK. Delegated capabilities are attenuated: neither requested capability may
+be `true` unless the acting grant has the corresponding capability. The canonical owner grant
+is immutable. An existing non-owner grant may be updated or reactivated only by an actor with
+`can_manage`, or by the actor currently recorded as its `granted_by`; another delegated sharer
+cannot overwrite it. Revocation cannot erase data already copied by the recipient.
 
 ## Audit API
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /audit-logs | List audit logs |
-| GET | /audit-logs/file/{file_id} | List logs for a file |
-| POST | /audit-logs/verify-chain | Verify audit hash chain |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/audit-logs` | Bearer | Return a scoped, redacted log page; ADMIN sees the administrative scope |
+| GET | `/audit-logs/file/{file_id}` | Bearer + file access | Return scoped logs for one file |
+| POST | `/audit-logs/verify-chain` | ADMIN | Recompute the complete chain and verify its singleton head |
+
+List endpoints use `limit` (`1..100`) and `offset`; returned metadata is allowlisted.
+Verification is a read-only security command but intentionally uses `POST` under the
+repository's application-method policy.
 
 ## Recovery API
 
-| Method | Endpoint | Description |
-|---|---|---|
-| POST | /recovery/request | Create recovery request |
-| POST | /recovery/{request_id}/approve | Approve recovery request |
-| POST | /recovery/{request_id}/execute | Execute recovery action |
-| GET | /recovery/requests | List recovery requests |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/recovery/public-key` | Bearer | Return the active recovery public key used by new uploads |
+| POST | `/recovery/public-key/register` | ADMIN | Register/rotate an offline-custody recovery public key |
+| POST | `/recovery/public-key/{key_id}/revoke` | ADMIN | Revoke a recovery public key for new use |
+| POST | `/recovery/request` | Bearer | Create a time-bounded request while a live downloadable grant and user wrapping still exist |
+| POST | `/recovery/{request_id}/approve` | ADMIN or RECOVERY_OFFICER | Approve a non-self request |
+| POST | `/recovery/{request_id}/reject` | ADMIN or RECOVERY_OFFICER | Reject a non-self request with reason |
+| POST | `/recovery/{request_id}/cancel` | Request owner | Cancel own pending or approved request |
+| GET | `/recovery/{request_id}/execution-package` | ADMIN or RECOVERY_OFFICER | Return public data for isolated offline unwrap/rewrap |
+| POST | `/recovery/{request_id}/execute` | ADMIN or RECOVERY_OFFICER | Store the offline-produced target-key-wrapped DEK |
+| GET | `/recovery/requests` | Bearer | Page own requests; reviewer roles can page all requests |
+
+No recovery endpoint accepts a private key or passphrase. The execution package includes
+the recovery-wrapped DEK and public-key identities. An offline/HSM process unwraps the DEK
+and returns only the requester-public-key-wrapped DEK. Request creation, every execution-package
+read, and execution require the requester to still have an `ACTIVE`, `can_download` grant plus
+an `ACTIVE` user wrapping backed by an active user key; owners are subject to the same rule.
+Execution locks and rechecks that entitlement before changing any wrapping, validates UUIDs and
+RSA ciphertext shape, and conditionally moves the request to `EXECUTED`. It never creates,
+reactivates, elevates, or otherwise repairs a revoked or reduced grant. A package obtained and
+cached before revocation cannot be clawed back, although later package reads and server-side
+execution fail closed. Recovery does not reset the encryption passphrase or decrypt the
+account's private-key bundle.
 
 ## Admin API
 
-| Method | Endpoint | Description |
-|---|---|---|
-| GET | /admin/users | List users (admin only) |
-| GET | /admin/files | List file records (admin only) |
+| Method | Endpoint | Auth | Description |
+|---|---|---|---|
+| GET | `/admin/users` | ADMIN | Page user records |
+| GET | `/admin/files` | ADMIN | Page file metadata records |
+| POST | `/admin/users/{user_id}/disable` | ADMIN | Soft-disable an account and revoke active sessions |
+| POST | `/admin/users/{user_id}/enable` | ADMIN | Re-enable a disabled account |
+
+Admin list endpoints use `limit` (`1..100`) and `offset`. Status changes are conditional and
+audited; hard deletion is not used for identities referenced by the audit chain.
 
 ## Contract Rules
 
-- Routers declare request and response models; ORM objects and infrastructure dictionaries
-  never become responses directly.
-- Public resources use opaque identifiers. Sequential database IDs are internal.
-- Collection endpoints define stable ordering plus either pagination or an explicit hard
-  result bound before implementation. Auth session history uses a 100-row hard bound.
-- Commands that may be retried (upload finalisation, share, revoke, recovery execution) need
-  an idempotency or conditional-state strategy.
-- Authentication failures do not reveal whether an account, file, session, or key exists.
+- Routers declare strict request and response models; ORM objects never cross the boundary.
+- Public resources use UUIDs; auto-increment database IDs remain internal.
+- Collection endpoints have stable ordering and bounded pagination.
+- Retriable state changes use UUID uniqueness, optimistic revisions, conditional transitions,
+  or idempotent terminal-state handling as appropriate.
+- Authentication and resource failures avoid revealing whether an inaccessible account,
+  file, session, or key exists.
+- Ciphertext and wrapped keys are intentionally transported. Plaintext private keys, AMKs,
+  KEKs, DEKs, passphrases, token hashes, storage object keys, and filesystem paths are not.

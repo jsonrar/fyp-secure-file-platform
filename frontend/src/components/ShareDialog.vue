@@ -3,7 +3,7 @@ import { ref } from 'vue'
 import { shareApi } from '@/api/share_api'
 
 const props = defineProps<{
-  fileId: number
+  fileId: string
 }>()
 
 const emit = defineEmits<{

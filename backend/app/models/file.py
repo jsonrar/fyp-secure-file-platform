@@ -2,8 +2,20 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import CHAR, DateTime, Enum, ForeignKey, Index, String, UniqueConstraint, func, text
-from sqlalchemy.dialects.mysql import BIGINT, VARBINARY
+from sqlalchemy import (
+    CHAR,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    LargeBinary,
+    String,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -14,7 +26,35 @@ class File(Base):
     __table_args__ = (
         UniqueConstraint("file_uuid", name="uq_files_file_uuid"),
         UniqueConstraint("stored_filename", name="uq_files_stored_filename"),
+        UniqueConstraint("storage_object_key", name="uq_files_storage_object_key"),
+        CheckConstraint(
+            "envelope_version >= 1 AND aad_version >= 1 AND revision >= 1",
+            name="ck_files_versions",
+        ),
+        CheckConstraint(
+            "file_size_bytes >= 0 AND (encrypted_size_bytes IS NULL OR encrypted_size_bytes >= 0)",
+            name="ck_files_nonnegative_sizes",
+        ),
+        CheckConstraint(
+            "encryption_algorithm = 'AES-256-GCM' "
+            "AND OCTET_LENGTH(iv) = 12 AND OCTET_LENGTH(auth_tag) = 16",
+            name="ck_files_encryption_envelope",
+        ),
+        CheckConstraint(
+            "encrypted_sha256 REGEXP '^[0-9a-f]{64}$'",
+            name="ck_files_encrypted_sha256",
+        ),
+        CheckConstraint(
+            "encrypted_manifest IS NULL OR OCTET_LENGTH(encrypted_manifest) <= 65535",
+            name="ck_files_encrypted_manifest_size",
+        ),
+        CheckConstraint(
+            "(status = 'DELETED' AND deleted_at IS NOT NULL) OR "
+            "(status IN ('ACTIVE', 'CORRUPTED') AND deleted_at IS NULL)",
+            name="ck_files_status_deleted_at",
+        ),
         Index("idx_files_owner_id", "owner_id"),
+        Index("idx_files_owner_status_created", "owner_id", "status", "created_at", "id"),
         Index("idx_files_status", "status"),
         Index("idx_files_created_at", "created_at"),
         {
@@ -24,11 +64,13 @@ class File(Base):
         },
     )
 
-    id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        mysql.BIGINT(unsigned=True), primary_key=True, autoincrement=True
+    )
 
     file_uuid: Mapped[str] = mapped_column(CHAR(36), nullable=False)
     owner_id: Mapped[int] = mapped_column(
-        BIGINT(unsigned=True),
+        mysql.BIGINT(unsigned=True),
         ForeignKey(
             "users.id",
             name="fk_files_owner",
@@ -44,17 +86,27 @@ class File(Base):
 
     mime_type: Mapped[str | None] = mapped_column(String(150), nullable=True)
 
-    file_size_bytes: Mapped[int] = mapped_column(BIGINT(unsigned=True), nullable=False)
-    encrypted_size_bytes: Mapped[int | None] = mapped_column(BIGINT(unsigned=True), nullable=True)
+    file_size_bytes: Mapped[int] = mapped_column(mysql.BIGINT(unsigned=True), nullable=False)
+    encrypted_size_bytes: Mapped[int | None] = mapped_column(
+        mysql.BIGINT(unsigned=True), nullable=True
+    )
+
+    envelope_version: Mapped[int] = mapped_column(
+        mysql.SMALLINT(unsigned=True), nullable=False, default=1, server_default="1"
+    )
+    aad_version: Mapped[int] = mapped_column(
+        mysql.SMALLINT(unsigned=True), nullable=False, default=1, server_default="1"
+    )
 
     encryption_algorithm: Mapped[str] = mapped_column(
         String(50), nullable=False, default="AES-256-GCM", server_default="AES-256-GCM"
     )
 
-    iv: Mapped[bytes] = mapped_column(VARBINARY(32), nullable=False)
-    auth_tag: Mapped[bytes] = mapped_column(VARBINARY(32), nullable=False)
+    iv: Mapped[bytes] = mapped_column(mysql.VARBINARY(32), nullable=False)
+    auth_tag: Mapped[bytes] = mapped_column(mysql.VARBINARY(32), nullable=False)
 
     encrypted_sha256: Mapped[str] = mapped_column(CHAR(64), nullable=False)
+    encrypted_manifest: Mapped[bytes | None] = mapped_column(LargeBinary, nullable=True)
 
     status: Mapped[str] = mapped_column(
         Enum("ACTIVE", "DELETED", "CORRUPTED", name="file_status_enum"),
@@ -73,6 +125,9 @@ class File(Base):
         onupdate=func.now(),
     )
     deleted_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revision: Mapped[int] = mapped_column(
+        mysql.INTEGER(unsigned=True), nullable=False, default=1, server_default="1"
+    )
 
     owner = relationship("User", back_populates="owned_files", foreign_keys=[owner_id])
     key_wrappings = relationship(

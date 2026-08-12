@@ -85,6 +85,71 @@ class SessionNotFoundError(ResourceNotFoundError):
     public_message = "The requested session was not found"
 
 
+class FileResourceNotFoundError(ResourceNotFoundError):
+    code = "file_not_found"
+    public_message = "The requested file was not found"
+
+
+class UserKeyNotFoundError(ResourceNotFoundError):
+    code = "user_key_not_found"
+    public_message = "The requested encryption key was not found"
+
+
+class KeyProtectionProfileNotFoundError(ResourceNotFoundError):
+    code = "key_protection_profile_not_found"
+    public_message = "The account key-protection profile was not found"
+
+
+class RecoveryRequestNotFoundError(ResourceNotFoundError):
+    code = "recovery_request_not_found"
+    public_message = "The requested recovery request was not found"
+
+
+class KeyBundleRevisionConflictError(ConflictError):
+    code = "key_bundle_revision_conflict"
+    public_message = "The encrypted key bundle has changed; reload it and try again"
+
+
+class KeyBundleInvalidError(InputError):
+    code = "invalid_key_bundle"
+    public_message = "The encrypted key bundle is invalid"
+
+
+class FileEnvelopeInvalidError(InputError):
+    code = "invalid_file_envelope"
+    public_message = "The encrypted file envelope is invalid"
+
+
+class FileTooLargeError(InputError):
+    code = "file_too_large"
+    public_message = "The encrypted file exceeds the upload size limit"
+
+
+class FileStateConflictError(ConflictError):
+    code = "file_state_conflict"
+    public_message = "The file is not in a state that permits this action"
+
+
+class ShareStateConflictError(ConflictError):
+    code = "share_state_conflict"
+    public_message = "The sharing state conflicts with this request"
+
+
+class RecoveryStateConflictError(ConflictError):
+    code = "recovery_state_conflict"
+    public_message = "The recovery request is not in a state that permits this action"
+
+
+class StorageUnavailableError(AppError):
+    code = "storage_unavailable"
+    public_message = "Encrypted file storage is temporarily unavailable"
+
+
+class IntegrityVerificationError(AppError):
+    code = "integrity_verification_failed"
+    public_message = "The encrypted file could not be verified"
+
+
 class AuthenticationRateLimitedError(AppError):
     code = "auth_rate_limited"
     public_message = "Too many authentication attempts; please try again later"
@@ -101,8 +166,3 @@ class AuthenticationRateLimitedError(AppError):
         if retry_after_seconds is not None:
             response_headers["Retry-After"] = str(max(0, retry_after_seconds))
         super().__init__(message, details=details, headers=response_headers)
-
-
-class FeatureNotImplementedError(AppError):
-    code = "feature_not_implemented"
-    public_message = "This API feature has not been implemented yet"

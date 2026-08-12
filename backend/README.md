@@ -6,10 +6,10 @@ FastAPI modular-monolith backend for the secure file encryption and sharing plat
 
 ## Current Status
 
-The Auth vertical slice is implemented and no longer guarded by the draft-route dependency.
-It owns real MySQL transactions, opaque access and rotating refresh credentials, session
-revocation, login/registration throttling, user RSA registration keys, and chained audit
-events. These nine endpoints are active under `/api/v1`:
+The Auth, client-wrapped key custody, encrypted-file, sharing, audit, recovery, and admin
+vertical slices are implemented. They use real MySQL transactions, public UUID contracts,
+explicit bearer/RBAC dependencies, encrypted object storage, and chained audit events.
+The core Auth endpoints under `/api/v1` are:
 
 | Method | Endpoint | Authentication |
 |---|---|---|
@@ -23,10 +23,9 @@ events. These nine endpoints are active under `/api/v1`:
 | GET | `/auth/sessions` | Bearer access token |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer access token |
 
-File, sharing, audit-query, recovery, and admin endpoints remain contract scaffolds and
-deliberately return `501 feature_not_implemented`. `/health/live` and OpenAPI remain
-available. Unguard those routers only after their authorization, persistence, transaction,
-audit, storage, and denial tests are complete.
+The `/keys`, `/files`, `/audit-logs`, `/recovery`, and `/admin` routers are also active and
+fully described by OpenAPI. `/health/live` checks the process; `/health/ready` additionally
+checks database access and schema revision `0003_client_key_custody`.
 
 Application HTTP endpoints use only `GET` for reads and `POST` for creation, updates,
 deletion, revocation, and other state-changing actions. Do not add `PUT`, `PATCH`, or
@@ -48,6 +47,11 @@ each needs a trusted out-of-band delivery or identity channel.
 The canonical command directory for backend commands is `backend/`. Configuration always
 loads the repository-root `.env`, and configured relative storage paths are resolved from
 the repository root rather than the process working directory.
+
+`MAX_REQUEST_BODY_BYTES` limits ordinary JSON/form request bodies (1 MiB by default, with an
+8 MiB configuration ceiling). The encrypted multipart upload route uses its separate
+`MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` cap, so increasing the ordinary
+body limit does not change the permitted ciphertext size.
 
 ## First Setup
 
@@ -137,9 +141,10 @@ sudo mysql < database/mysql/03-verify.sql
 ```
 
 Capture the one generated `fyp_user` password in the deployment secret store. The empty-only
-`02-schema.sql` installs the complete schema and exact table-level runtime grants: CRUD on
-eleven ordinary state tables, `SELECT`/`INSERT` on `audit_logs`, and `SELECT`/`UPDATE` on
-`audit_chain_heads`; `alembic_version` is not exposed to the application. The read-only
+`02-schema.sql` installs the complete schema and exact runtime grants: CRUD on thirteen
+ordinary state tables, `SELECT`/`INSERT` on `audit_logs`, and column-limited `UPDATE` on
+`audit_chain_heads` that excludes `schema_revision`; `alembic_version` is not exposed to the
+application. The read-only
 `03-verify.sql` must report the exact expected schema and grants and no legacy
 `fyp_migrator` account. Start the application only after verification, using `fyp_user`
 through the standard `DB_*` settings. Account provisioning, remote-host customization,

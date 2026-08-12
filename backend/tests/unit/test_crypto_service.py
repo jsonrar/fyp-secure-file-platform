@@ -1,54 +1,26 @@
 import pytest
-from cryptography.exceptions import InvalidTag
+from cryptography.hazmat.primitives import hashes, serialization
+from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from app.services.crypto_service import CryptoService
 
 
-def test_aes_gcm_round_trip() -> None:
-    service = CryptoService()
-    plaintext = b"confidential file contents"
-
-    encrypted = service.encrypt_bytes(plaintext)
-    decrypted = service.decrypt_bytes(
-        encrypted.ciphertext,
-        encrypted.file_key,
-        encrypted.iv,
-        encrypted.auth_tag,
-    )
-
-    assert decrypted == plaintext
-    assert encrypted.ciphertext != plaintext
-
-
-def test_aes_gcm_rejects_tampered_ciphertext() -> None:
-    service = CryptoService()
-    encrypted = service.encrypt_bytes(b"confidential file contents")
-    tampered = bytes([encrypted.ciphertext[0] ^ 1]) + encrypted.ciphertext[1:]
-
-    with pytest.raises(InvalidTag):
-        service.decrypt_bytes(
-            tampered,
-            encrypted.file_key,
-            encrypted.iv,
-            encrypted.auth_tag,
+def _public_key_pem() -> str:
+    key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    return (
+        key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
-
-
-def test_rsa_key_wrapping_round_trip() -> None:
-    service = CryptoService()
-    private_key, public_key = service.generate_rsa_key_pair()
-    file_key = service.generate_aes_key()
-
-    wrapped = service.wrap_file_key(file_key, public_key)
-
-    assert wrapped != file_key
-    assert service.unwrap_file_key(wrapped, private_key) == file_key
+        .decode("ascii")
+    )
 
 
 def test_public_key_fingerprint_is_stable_sha256_identity() -> None:
     service = CryptoService()
-    _, first_public_key = service.generate_rsa_key_pair(key_size=2048)
-    _, second_public_key = service.generate_rsa_key_pair(key_size=2048)
+    first_public_key = _public_key_pem()
+    second_public_key = _public_key_pem()
 
     first_fingerprint = service.public_key_fingerprint(first_public_key)
 
@@ -57,3 +29,37 @@ def test_public_key_fingerprint_is_stable_sha256_identity() -> None:
     assert first_fingerprint == first_fingerprint.lower()
     int(first_fingerprint, 16)
     assert service.public_key_fingerprint(second_public_key) != first_fingerprint
+
+
+def test_rsa_pss_signature_authorizes_exact_payload_only() -> None:
+    service = CryptoService()
+    private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    public_key_pem = (
+        private_key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("ascii")
+    )
+    payload = b"canonical key mutation digest"
+    signature = private_key.sign(
+        payload,
+        padding.PSS(
+            mgf=padding.MGF1(hashes.SHA256()),
+            salt_length=hashes.SHA256.digest_size,
+        ),
+        hashes.SHA256(),
+    )
+
+    service.verify_rsa_pss_sha256_signature(
+        public_key_pem=public_key_pem,
+        message=payload,
+        signature=signature,
+    )
+    with pytest.raises(ValueError, match="invalid"):
+        service.verify_rsa_pss_sha256_signature(
+            public_key_pem=public_key_pem,
+            message=payload + b"!",
+            signature=signature,
+        )

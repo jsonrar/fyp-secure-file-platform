@@ -8,6 +8,7 @@ from uuid import UUID
 from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
 from app.domain.enums import SessionStatus, SystemRole, UserStatus
+from app.schemas.key_schema import ClientKeyRegistrationIn
 
 
 class _AuthRequest(BaseModel):
@@ -52,6 +53,7 @@ class UserRegisterRequest(_AuthRequest):
     username: str = Field(min_length=3, max_length=100)
     email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=15, max_length=128, repr=False)
+    key_material: ClientKeyRegistrationIn = Field(repr=False)
 
     _strip_username = field_validator("username", mode="before")(_normalize_username)
     _check_username = field_validator("username")(_validate_username)
@@ -65,8 +67,8 @@ class UserRegisterRequest(_AuthRequest):
 
 class UserRegisterResponse(_AuthResponse):
     user: AuthUserResponse
-    private_key_pem: str = Field(repr=False)
-    private_key_filename: str = Field(repr=False)
+    key_id: UUID
+    public_key_fingerprint: str
 
 
 class UserLoginRequest(_AuthRequest):

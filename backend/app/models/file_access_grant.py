@@ -2,8 +2,18 @@ from __future__ import annotations
 
 from datetime import datetime
 
-from sqlalchemy import Boolean, DateTime, Enum, ForeignKey, Index, UniqueConstraint, text
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import (
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    ForeignKey,
+    Index,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.dialects import mysql
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -13,8 +23,20 @@ class FileAccessGrant(Base):
     __tablename__ = "file_access_grants"
     __table_args__ = (
         UniqueConstraint("file_id", "user_id", name="uq_file_access_grants_file_user"),
+        CheckConstraint(
+            "(status = 'ACTIVE' AND revoked_at IS NULL) OR "
+            "(status = 'REVOKED' AND revoked_at IS NOT NULL)",
+            name="ck_file_access_grants_status_revoked_at",
+        ),
+        CheckConstraint("revision >= 1", name="ck_file_access_grants_revision"),
         Index("idx_file_access_grants_file_id", "file_id"),
         Index("idx_file_access_grants_user_id", "user_id"),
+        Index(
+            "idx_file_access_grants_user_status_file",
+            "user_id",
+            "status",
+            "file_id",
+        ),
         Index("idx_file_access_grants_granted_by", "granted_by"),
         Index("idx_file_access_grants_status", "status"),
         Index("idx_file_access_grants_created_at", "created_at"),
@@ -25,10 +47,12 @@ class FileAccessGrant(Base):
         },
     )
 
-    id: Mapped[int] = mapped_column(BIGINT(unsigned=True), primary_key=True, autoincrement=True)
+    id: Mapped[int] = mapped_column(
+        mysql.BIGINT(unsigned=True), primary_key=True, autoincrement=True
+    )
 
     file_id: Mapped[int] = mapped_column(
-        BIGINT(unsigned=True),
+        mysql.BIGINT(unsigned=True),
         ForeignKey(
             "files.id",
             name="fk_file_access_grants_file",
@@ -38,7 +62,7 @@ class FileAccessGrant(Base):
         nullable=False,
     )
     user_id: Mapped[int] = mapped_column(
-        BIGINT(unsigned=True),
+        mysql.BIGINT(unsigned=True),
         ForeignKey(
             "users.id",
             name="fk_file_access_grants_user",
@@ -48,7 +72,7 @@ class FileAccessGrant(Base):
         nullable=False,
     )
     granted_by: Mapped[int] = mapped_column(
-        BIGINT(unsigned=True),
+        mysql.BIGINT(unsigned=True),
         ForeignKey(
             "users.id",
             name="fk_file_access_grants_granted_by",
@@ -81,7 +105,16 @@ class FileAccessGrant(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, nullable=False, server_default=text("now()")
     )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        nullable=False,
+        server_default=text("now()"),
+        onupdate=func.now(),
+    )
     revoked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    revision: Mapped[int] = mapped_column(
+        mysql.INTEGER(unsigned=True), nullable=False, default=1, server_default="1"
+    )
 
     file = relationship("File", back_populates="access_grants")
     user = relationship("User", back_populates="access_grants", foreign_keys=[user_id])

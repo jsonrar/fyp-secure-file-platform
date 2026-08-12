@@ -1,7 +1,10 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlalchemy import Connection, Engine, func, inspect, select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
@@ -10,10 +13,17 @@ from app.core.config import Settings
 from app.domain.auth import RequestContext
 from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import AuthenticationError
+from app.domain.keys import (
+    ClientKeyRegistration,
+    EncryptedPrivateKeyBundleInput,
+    KeyProtectionProfileInput,
+)
 from app.models.audit_chain_head import AuditChainHead
 from app.models.audit_log import AuditLog
+from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.user import User
 from app.models.user_key import UserKey
+from app.models.user_key_protection_profile import UserKeyProtectionProfile
 from app.models.user_session import UserSession
 from app.services.audit_log_service import AuditLogService
 from app.services.auth_service import AuthService
@@ -40,13 +50,60 @@ TEMPORARY_AUTH_DDL = (
     """
     CREATE TEMPORARY TABLE user_keys (
         id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        key_uuid CHAR(36) NOT NULL UNIQUE,
         user_id BIGINT UNSIGNED NOT NULL,
         public_key_pem TEXT NOT NULL,
         algorithm VARCHAR(50) NOT NULL,
+        key_size_bits SMALLINT UNSIGNED NOT NULL,
+        custody_mode ENUM('LEGACY_EXTERNAL', 'CLIENT_WRAPPED') NOT NULL,
         fingerprint CHAR(64) NOT NULL UNIQUE,
         status ENUM('ACTIVE', 'REVOKED') NOT NULL DEFAULT 'ACTIVE',
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         revoked_at DATETIME NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TEMPORARY TABLE user_key_protection_profiles (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        user_id BIGINT UNSIGNED NOT NULL UNIQUE,
+        profile_uuid CHAR(36) NOT NULL UNIQUE,
+        format_version SMALLINT UNSIGNED NOT NULL,
+        kdf_algorithm VARCHAR(32) NOT NULL,
+        kdf_version SMALLINT UNSIGNED NOT NULL,
+        kdf_salt VARBINARY(64) NOT NULL,
+        kdf_memory_kib INTEGER UNSIGNED NOT NULL,
+        kdf_iterations INTEGER UNSIGNED NOT NULL,
+        kdf_parallelism INTEGER UNSIGNED NOT NULL,
+        derived_key_length SMALLINT UNSIGNED NOT NULL,
+        amk_wrapping_algorithm VARCHAR(50) NOT NULL,
+        wrapped_amk VARBINARY(128) NOT NULL,
+        amk_nonce VARBINARY(32) NOT NULL,
+        amk_auth_tag VARBINARY(32) NOT NULL,
+        aad_version SMALLINT UNSIGNED NOT NULL,
+        revision INTEGER UNSIGNED NOT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TEMPORARY TABLE encrypted_private_key_bundles (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        bundle_uuid CHAR(36) NOT NULL UNIQUE,
+        user_id BIGINT UNSIGNED NOT NULL,
+        user_key_id BIGINT UNSIGNED NOT NULL UNIQUE,
+        format_version SMALLINT UNSIGNED NOT NULL,
+        private_key_format VARCHAR(32) NOT NULL,
+        derivation_algorithm VARCHAR(32) NOT NULL,
+        derivation_salt VARBINARY(64) NOT NULL,
+        encryption_algorithm VARCHAR(50) NOT NULL,
+        encrypted_private_key BLOB NOT NULL,
+        nonce VARBINARY(32) NOT NULL,
+        auth_tag VARBINARY(32) NOT NULL,
+        aad_version SMALLINT UNSIGNED NOT NULL,
+        ciphertext_sha256 CHAR(64) NOT NULL,
+        revision INTEGER UNSIGNED NOT NULL,
+        created_at DATETIME NOT NULL,
+        updated_at DATETIME NOT NULL
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
@@ -116,6 +173,7 @@ TEMPORARY_AUTH_DDL = (
         id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
         last_log_id BIGINT UNSIGNED NULL,
         current_hash CHAR(64) NOT NULL,
+        schema_revision VARCHAR(64) NOT NULL DEFAULT '0003_client_key_custody',
         updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
@@ -126,7 +184,9 @@ def _create_temporary_auth_schema(connection: Connection) -> None:
     for statement in TEMPORARY_AUTH_DDL:
         connection.exec_driver_sql(statement)
     connection.exec_driver_sql(
-        "INSERT INTO audit_chain_heads (id, last_log_id, current_hash) VALUES (1, NULL, %s)",
+        "INSERT INTO audit_chain_heads "
+        "(id, last_log_id, current_hash, schema_revision) "
+        "VALUES (1, NULL, %s, '0003_client_key_custody')",
         ("0" * 64,),
     )
     connection.commit()
@@ -145,6 +205,45 @@ def _permanent_auth_row_counts(connection: Connection) -> dict[str, int] | None:
         }
 
 
+def _client_key_material(public_key_pem: str) -> ClientKeyRegistration:
+    encrypted_private_key = b"integration-client-encrypted-pkcs8" * 20
+    return ClientKeyRegistration(
+        key_id=UUID("11111111-1111-4111-8111-111111111111"),
+        public_key_pem=public_key_pem,
+        algorithm="RSA-OAEP-SHA256",
+        key_size_bits=2048,
+        protection=KeyProtectionProfileInput(
+            profile_id=UUID("22222222-2222-4222-8222-222222222222"),
+            format_version=1,
+            kdf_algorithm="ARGON2ID",
+            kdf_version=19,
+            kdf_salt=b"s" * 16,
+            kdf_memory_kib=65_536,
+            kdf_iterations=3,
+            kdf_parallelism=4,
+            derived_key_length=32,
+            amk_wrapping_algorithm="AES-256-GCM",
+            wrapped_amk=b"w" * 32,
+            amk_nonce=b"n" * 12,
+            amk_auth_tag=b"t" * 16,
+            aad_version=1,
+        ),
+        private_key_bundle=EncryptedPrivateKeyBundleInput(
+            bundle_id=UUID("33333333-3333-4333-8333-333333333333"),
+            format_version=1,
+            private_key_format="PKCS8-DER",
+            derivation_algorithm="HKDF-SHA256",
+            derivation_salt=b"d" * 16,
+            encryption_algorithm="AES-256-GCM",
+            encrypted_private_key=encrypted_private_key,
+            nonce=b"i" * 12,
+            auth_tag=b"a" * 16,
+            aad_version=1,
+            ciphertext_sha256=hashlib.sha256(encrypted_private_key).hexdigest(),
+        ),
+    )
+
+
 def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine) -> None:
     inspector = inspect(auth_mysql_engine)
     table_names = set(inspector.get_table_names())
@@ -158,12 +257,22 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
         "auth_login_throttles",
         "audit_chain_heads",
         "audit_logs",
+        "user_key_protection_profiles",
+        "encrypted_private_key_bundles",
+        "files",
+        "file_key_wrappings",
+        "recovery_keys",
+        "recovery_requests",
     } <= table_names
 
     with auth_mysql_engine.connect() as connection:
         revision = connection.scalar(text("SELECT version_num FROM alembic_version"))
+        readiness_revision = connection.scalar(
+            text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
+        )
 
-    assert revision == "0002_auth_identity_sessions"
+    assert revision == "0003_client_key_custody"
+    assert readiness_revision == "0003_client_key_custody"
     assert {
         "session_uuid",
         "access_token_hash",
@@ -171,6 +280,25 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
         "absolute_expires_at",
         "revoked_reason",
     } <= {column["name"] for column in inspector.get_columns("user_sessions")}
+    assert {"key_uuid", "key_size_bits", "custody_mode"} <= {
+        column["name"] for column in inspector.get_columns("user_keys")
+    }
+    assert {"envelope_version", "aad_version", "encrypted_manifest", "revision"} <= {
+        column["name"] for column in inspector.get_columns("files")
+    }
+    assert {"updated_at", "revision"} <= {
+        column["name"] for column in inspector.get_columns("file_key_wrappings")
+    }
+    assert {"key_uuid", "key_size_bits"} <= {
+        column["name"] for column in inspector.get_columns("recovery_keys")
+    }
+    assert {
+        "executed_by",
+        "target_user_key_id",
+        "result_wrapping_id",
+        "expires_at",
+        "revision",
+    } <= {column["name"] for column in inspector.get_columns("recovery_requests")}
 
 
 def test_mysql_collation_prevents_case_variant_duplicate_email(
@@ -226,17 +354,31 @@ def test_real_auth_flow_uses_only_connection_local_temporary_tables(
     )
     original_password = "An original high entropy passphrase!"
     replacement_password = "A replacement high entropy passphrase!"
+    public_key_pem = (
+        rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        .public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("ascii")
+    )
 
     try:
         registered = service.register(
             username="integration-user",
             email="integration-user@example.com",
             password=original_password,
+            key_material=_client_key_material(public_key_pem),
             context=context,
         )
-        assert registered.private_key_pem.startswith("-----BEGIN PRIVATE KEY-----")
+        assert registered.public_key_fingerprint == service.crypto.public_key_fingerprint(
+            public_key_pem
+        )
         assert session.scalar(select(func.count()).select_from(User)) == 1
         assert session.scalar(select(func.count()).select_from(UserKey)) == 1
+        assert session.scalar(select(func.count()).select_from(UserKeyProtectionProfile)) == 1
+        assert session.scalar(select(func.count()).select_from(EncryptedPrivateKeyBundle)) == 1
 
         logged_in = service.login(
             username="integration-user",

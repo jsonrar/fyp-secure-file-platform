@@ -50,7 +50,7 @@ Alembic revision 仍用于开发与 CI 中编写、评审及验证 Schema；生�
 副本中一致替换每一个 `localhost` 账户 Host：
 
 - `01-provision.sql` 中的账户创建目标；
-- `02-schema.sql` 中的表级授权目标；
+- `02-schema.sql` 中的表级及列级授权目标；
 - `03-verify.sql` 中的账户与授权期望。
 
 使用部署网络允许的最窄固定主机或模式。不要提交环境专用副本，也不要无条件使用 `%`；
@@ -83,14 +83,14 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 必须在不会记录会话输出的受控终端中立即把该明文保存到 secret store；MySQL 之后无法还原
 它。禁止截图、复制到聊天或工单，或写入持久化应用 `.env`。
 
-该文件不创建应用表，也不授予尚不存在表上的运行时权限。表和精确表级授权由下一步统一
+该文件不创建应用表，也不授予尚不存在表上的运行时权限。表和精确表/列级授权由下一步统一
 创建，避免给 `fyp_user` Schema 级 DML 或任何 DDL 权限。
 
 脚本使用 `CREATE USER IF NOT EXISTS`：重复执行不会修改已有账户的密码、认证插件或 TLS
 策略。已有同名账户必须评审 `SHOW WARNINGS` 及最终核验结果；不要把重复运行 Provision
 当作凭据轮换或权限修复。凭据轮换和额外账户清理都必须作为单独、经过协调的运维变更。
 
-## 2. 管理员创建空库 Schema 与表级授权
+## 2. 管理员创建空库 Schema 与最小授权
 
 `02-schema.sql` 是当前生产 Schema 的完整快照，只能用于不含任何应用表和迁移 metadata 的
 空数据库。它不是已有数据库的升级脚本。执行前确认目标名称无误，并确认没有需要保留的
@@ -112,10 +112,18 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 
 该文件负责：
 
-- 在外键依赖允许的顺序中创建当前 head 的全部表、索引、约束和 Schema 版本标记；
+- 在外键依赖允许的顺序中创建当前 head 的 15 张应用表、索引、约束和 Schema 版本标记；
 - 创建单例 `audit_chain_heads.id = 1` 初始行；
-- 在表已经存在后，只向 `fyp_user` 授予应用所需的精确表级 DML；
+- 在表已经存在后，只向 `fyp_user` 授予 13 张普通状态表所需的精确 CRUD、
+  `audit_logs` 的 `SELECT`/`INSERT`、`audit_chain_heads` 的表级 `SELECT`，以及仅限
+  `last_log_id`、`current_hash`、`updated_at` 三列的 `UPDATE`；运行时账户不能更新
+  `schema_revision`；
 - 不授予 Schema 级、全局、DDL、`GRANT OPTION`、role 或 proxy 权限。
+
+chain-head 列默认值和初始行都先使用最后一个已完成 revision。运行时授权和
+`alembic_version` 标记成功后，脚本先把列默认值恢复为最终 0003 Schema 值，再由最后一条语句
+显式发布 singleton 的 `0003_client_key_custody`。因此部分完成的安装不能通过 readiness，完整
+安装后的 Schema 又与 ORM 和 Alembic head 等价。
 
 空库保护失败、任何对象已存在或任何 DDL 报错时，必须立即停止。MySQL DDL 可能部分提交；
 失败后不得加入 `IF NOT EXISTS`、不得覆盖或盲目重跑脚本。应保持应用停止、保留现场供诊断，
@@ -149,12 +157,16 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
   排序规则正确；
 - `fyp_user` 只有一个预期 Host 行，凭据、认证插件、锁定/过期状态和 TLS 要求符合预期；
 - 不存在任何 Host 的旧 `fyp_migrator` 账户；
-- `fyp_user` 没有全局或 Schema 级权限，只有 `02-schema.sql` 定义的精确表级权限，且
+- `fyp_user` 没有全局或 Schema 级权限，只有 `02-schema.sql` 定义的精确表/列级权限，且
   `IS_GRANTABLE=NO`；
-- 列级、routine、role、default-role 和 proxy 结果为空，服务器没有会向应用账户附加权限的
-  mandatory role；
+- 表级权限差集为空；列级权限差集也为空，且只包含
+  `audit_chain_heads.last_log_id/current_hash/updated_at` 的 `UPDATE`，绝不包含
+  `schema_revision`；routine、role、default-role 和 proxy 结果为空，服务器没有会向应用
+  账户附加权限的 mandatory role；
 - 应用表集合、关键 Schema metadata、版本标记及约束符合当前快照；
-- `audit_chain_heads` 恰好包含一个 `id = 1` 的单例行。
+- `alembic_version` 恰好为 `0003_client_key_custody`；
+- `audit_chain_heads` 恰好包含一个 `id = 1`、空 `last_log_id`、64 个零哈希且
+  `schema_revision = '0003_client_key_custody'` 的单例行。
 
 任何 `REVIEW`、缺失项、多余账户或多余权限都必须阻止应用启动。核验 SQL 只读取状态，不会
 自动修复账户、权限或 Schema。
@@ -169,6 +181,10 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 核验完全通过后，只向应用进程注入 `fyp_user` 的标准 `DB_*` 和 TLS secret，再启动新版本。
 应用不得持有 root/管理员凭据，也不得获得 DDL 或账户管理权限。
 
+启动后，实例加入服务前必须同时通过 `GET /health/live` 与 `GET /health/ready`。
+Readiness 会探测数据库并要求精确 Schema revision `0003_client_key_custody`；它只诊断漂移，
+不会执行 migration 或 stamp。
+
 ## 后续非空生产数据库升级
 
 不得在非空生产数据库上重跑 `02-schema.sql`，也不得运行 Alembic。每次 Schema 变化必须提供
@@ -182,6 +198,11 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 
 Alembic revision 可继续在开发/CI 中表达同一变化，但生产 DBA SQL 必须单独评审，且 CI 必须
 证明它产生的最终 Schema 与当前 Alembic head/ORM metadata 等价。
+
+备份必须在仓库外加密保存、限制访问并定期演练恢复。数据库 dump 包含登录密码哈希、公开
+Argon2id 参数、已包装 AMK、客户端加密私钥包、安全审计证据、明文运营文件 metadata 及包装
+文件密钥。它们不是明文私钥或 DEK，但仍能用于离线猜测 passphrase，并暴露所有权/共享关系，
+因此必须作为高度敏感数据保护。
 
 ## Compose、本地开发与历史 `init.sql`
 

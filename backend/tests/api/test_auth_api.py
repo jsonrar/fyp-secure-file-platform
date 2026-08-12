@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import base64
+import hashlib
 from collections.abc import Generator
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -33,6 +35,7 @@ from app.main import create_app
 NOW = datetime(2026, 8, 4, 4, 0, tzinfo=UTC)
 USER_PUBLIC_ID = UUID("11111111-1111-4111-8111-111111111111")
 SESSION_PUBLIC_ID = UUID("22222222-2222-4222-8222-222222222222")
+KEY_ID = UUID("33333333-3333-4333-8333-333333333333")
 
 
 def _account() -> AccountSnapshot:
@@ -75,6 +78,7 @@ class FakeAuthService:
         username: str,
         email: str,
         password: str,
+        key_material: Any,
         context: RequestContext,
     ) -> RegistrationResult:
         self._record(
@@ -82,12 +86,13 @@ class FakeAuthService:
             username=username,
             email=email,
             password=password,
+            key_material=key_material,
             context=context,
         )
         return RegistrationResult(
             user=_account(),
-            private_key_pem="PRIVATE KEY RETURNED ONCE",
-            private_key_filename="alice-private-key.pem",
+            key_id=KEY_ID,
+            public_key_fingerprint="f" * 64,
         )
 
     def login(
@@ -206,6 +211,51 @@ def _auth_headers() -> dict[str, str]:
     return {"Authorization": "Bearer access-secret", "User-Agent": "auth-contract-test"}
 
 
+def _b64(value: bytes) -> str:
+    return base64.b64encode(value).decode("ascii")
+
+
+def _key_material_json() -> dict[str, Any]:
+    ciphertext = b"client-encrypted-pkcs8" * 20
+    return {
+        "key_id": str(KEY_ID),
+        "public_key_pem": "-----BEGIN PUBLIC KEY-----\n"
+        + "A" * 200
+        + "\n-----END PUBLIC KEY-----\n",
+        "algorithm": "RSA-OAEP-SHA256",
+        "key_size_bits": 3072,
+        "protection": {
+            "profile_id": "44444444-4444-4444-8444-444444444444",
+            "format_version": 1,
+            "kdf_algorithm": "ARGON2ID",
+            "kdf_version": 19,
+            "kdf_salt": _b64(b"s" * 16),
+            "kdf_memory_kib": 65_536,
+            "kdf_iterations": 3,
+            "kdf_parallelism": 4,
+            "derived_key_length": 32,
+            "amk_wrapping_algorithm": "AES-256-GCM",
+            "wrapped_amk": _b64(b"w" * 32),
+            "amk_nonce": _b64(b"n" * 12),
+            "amk_auth_tag": _b64(b"t" * 16),
+            "aad_version": 1,
+        },
+        "private_key_bundle": {
+            "bundle_id": "55555555-5555-4555-8555-555555555555",
+            "format_version": 1,
+            "private_key_format": "PKCS8-DER",
+            "derivation_algorithm": "HKDF-SHA256",
+            "derivation_salt": _b64(b"d" * 16),
+            "encryption_algorithm": "AES-256-GCM",
+            "encrypted_private_key": _b64(ciphertext),
+            "nonce": _b64(b"i" * 12),
+            "auth_tag": _b64(b"a" * 16),
+            "aad_version": 1,
+            "ciphertext_sha256": hashlib.sha256(ciphertext).hexdigest(),
+        },
+    }
+
+
 def test_register_contract_normalizes_input_and_disables_caching(
     auth_api: tuple[TestClient, FakeAuthService],
 ) -> None:
@@ -218,6 +268,7 @@ def test_register_contract_normalizes_input_and_disables_caching(
             "username": "  alice  ",
             "email": "Alice@Example.COM",
             "password": "A strong registration passphrase!",
+            "key_material": _key_material_json(),
         },
     )
 
@@ -225,7 +276,8 @@ def test_register_contract_normalizes_input_and_disables_caching(
     assert response.headers["cache-control"] == "no-store, no-cache, must-revalidate"
     assert response.headers["pragma"] == "no-cache"
     assert response.json()["data"]["user"]["id"] == str(USER_PUBLIC_ID)
-    assert response.json()["data"]["private_key_pem"] == "PRIVATE KEY RETURNED ONCE"
+    assert response.json()["data"]["key_id"] == str(KEY_ID)
+    assert "private_key_pem" not in response.text
     method, values = service.calls[-1]
     assert method == "register"
     assert values["username"] == "alice"
@@ -243,7 +295,12 @@ def test_register_duplicate_identifier_uses_stable_conflict_response(
 
     response = client.post(
         "/api/v1/auth/register",
-        json={"username": "alice", "email": "alice@example.com", "password": password},
+        json={
+            "username": "alice",
+            "email": "alice@example.com",
+            "password": password,
+            "key_material": _key_material_json(),
+        },
     )
 
     assert response.status_code == 409

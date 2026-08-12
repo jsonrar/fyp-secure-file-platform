@@ -1,9 +1,12 @@
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.responses import JSONResponse
+from sqlalchemy import text
 
+from app.api.body_limit import RequestBodyLimitMiddleware
 from app.api.error_handlers import register_exception_handlers
 from app.api.v1.router import api_router
 from app.core.config import Settings, settings
@@ -48,6 +51,15 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     )
 
     application.add_middleware(
+        RequestBodyLimitMiddleware,
+        max_body_bytes=active_settings.MAX_REQUEST_BODY_BYTES,
+        max_upload_bytes=(
+            active_settings.MAX_UPLOAD_SIZE_BYTES
+            + active_settings.MAX_UPLOAD_REQUEST_OVERHEAD_BYTES
+        ),
+        upload_path=f"{active_settings.API_PREFIX}/files/upload",
+    )
+    application.add_middleware(
         CORSMiddleware,
         allow_origins=active_settings.CORS_ORIGINS,
         allow_credentials=active_settings.CORS_ALLOW_CREDENTIALS,
@@ -69,6 +81,26 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
     @application.get("/health/live", tags=["Health"])
     def liveness():
         return {"status": "ok"}
+
+    @application.get("/health/ready", tags=["Health"])
+    def readiness():
+        try:
+            with application.state.db_engine.connect() as connection:
+                connection.execute(text("SELECT 1"))
+                revision = connection.scalar(
+                    text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
+                )
+        except Exception:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"status": "not_ready", "reason": "database_unavailable"},
+            )
+        if revision != active_settings.EXPECTED_SCHEMA_REVISION:
+            return JSONResponse(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                content={"status": "not_ready", "reason": "schema_incompatible"},
+            )
+        return {"status": "ready"}
 
     return application
 

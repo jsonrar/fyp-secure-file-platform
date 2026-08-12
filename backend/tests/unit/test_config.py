@@ -77,6 +77,11 @@ def test_production_rejects_development_security_defaults() -> None:
         Settings(_env_file=None, APP_ENV="production", APP_DEBUG=False)
 
 
+def test_database_password_cannot_be_empty() -> None:
+    with pytest.raises(ValidationError, match="at least 1 character"):
+        Settings(_env_file=None, DB_PASSWORD="")
+
+
 def test_settings_repr_redacts_secrets() -> None:
     configured = Settings(
         _env_file=None,
@@ -124,3 +129,20 @@ def test_account_and_ip_login_limits_are_configured_independently() -> None:
             AUTH_REAUTH_ACCOUNT_MAX_FAILURES=20,
             AUTH_REAUTH_IP_MAX_FAILURES=20,
         )
+
+
+def test_request_body_limit_is_positive_bounded_and_independent_from_upload_limit() -> None:
+    configured = Settings(
+        _env_file=None,
+        MAX_REQUEST_BODY_BYTES=2 * 1024 * 1024,
+        MAX_UPLOAD_SIZE_BYTES=1,
+        MAX_UPLOAD_REQUEST_OVERHEAD_BYTES=128 * 1024,
+    )
+
+    assert configured.MAX_REQUEST_BODY_BYTES == 2 * 1024 * 1024
+
+    with pytest.raises(ValidationError, match="greater than 0"):
+        Settings(_env_file=None, MAX_REQUEST_BODY_BYTES=0)
+
+    with pytest.raises(ValidationError, match="less than or equal to 8388608"):
+        Settings(_env_file=None, MAX_REQUEST_BODY_BYTES=8 * 1024 * 1024 + 1)
