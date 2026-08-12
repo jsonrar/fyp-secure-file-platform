@@ -81,6 +81,7 @@ fyp-secure-file-platform/
 |       `-- 03-verify.sql
 |-- deployment/
 |   `-- server/
+|       |-- mcs21-deploy
 |       |-- mcs21-auto-deploy
 |       |-- mcs21-auto-deploy.service
 |       `-- mcs21-auto-deploy.timer

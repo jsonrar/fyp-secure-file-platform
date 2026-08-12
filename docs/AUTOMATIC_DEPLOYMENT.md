@@ -62,12 +62,15 @@ sudo mcs21-deploy all
 The versioned reference files are under `deployment/server/`. On the staging VPS they are
 installed as:
 
+- `mcs21-deploy` -> `/usr/local/sbin/mcs21-deploy`, the guarded manual/automatic release
+  implementation;
 - `mcs21-auto-deploy` -> `/usr/local/sbin/mcs21-auto-deploy`, owned by root and not writable
   by deploy operators;
 - `mcs21-auto-deploy.service` and `mcs21-auto-deploy.timer` -> `/etc/systemd/system/`.
 
 The server additionally provides its environment-specific mirror, Deploy Key, release command,
-secrets, backup storage, and sudo policy. Those values must not be copied into Git.
+secrets, backup storage, and sudo policy. Environment-specific values must not be copied into
+Git.
 
 The timer is enabled with:
 

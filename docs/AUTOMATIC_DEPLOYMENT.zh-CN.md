@@ -56,11 +56,12 @@ sudo mcs21-deploy all
 
 仓库中的版本化参考文件位于 `deployment/server/`。预发布 VPS 上的安装位置为：
 
+- `mcs21-deploy` -> `/usr/local/sbin/mcs21-deploy`，是手动与自动发布共用的保护流程实现；
 - `mcs21-auto-deploy` -> `/usr/local/sbin/mcs21-auto-deploy`，由 root 持有，部署队员不可修改；
 - `mcs21-auto-deploy.service` 和 `mcs21-auto-deploy.timer` -> `/etc/systemd/system/`。
 
-服务器还单独保存环境专用的 Git mirror、Deploy Key、发布主命令、Secret、备份与 sudo policy；
-这些内容不得复制进 Git。
+服务器还单独保存环境专用的 Git mirror、Deploy Key、Secret、备份与 sudo policy；这些
+环境专用内容不得复制进 Git。
 
 启用 timer：
 
