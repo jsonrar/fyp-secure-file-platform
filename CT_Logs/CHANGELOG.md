@@ -6,6 +6,18 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased] / [未发布]
 
+### Deployment operations / 部署运维
+
+- Added the versioned server-pull automatic deployment command and systemd units for the
+  MCS21 staging VPS. The timer deploys an exact `main` commit through the guarded release
+  command and quarantines a failed SHA instead of retrying it continuously.
+- 已加入 MCS21 预发布 VPS 的服务器拉取自动部署命令与 systemd 单元。Timer 会通过带保护措施
+  的发布入口部署准确的 `main` commit，并隔离失败 SHA，避免持续重复部署坏版本。
+- Documented the pull-request-to-release workflow, read-only Deploy Key boundary, operator
+  commands, database safety boundary, rollback behavior, and audit path in English and Chinese.
+- 已用中英文记录从 Pull Request 到发布的流程、只读 Deploy Key 边界、队员命令、数据库安全
+  边界、回滚行为及审计路径。
+
 ### Development environment / 开发环境
 
 - Created the `CT-1.0` development branch for upcoming cryptography work.

@@ -72,6 +72,11 @@ fyp-secure-file-platform/
 |       |-- 01-provision.sql
 |       |-- 02-schema.sql
 |       `-- 03-verify.sql
+|-- deployment/
+|   `-- server/
+|       |-- mcs21-auto-deploy
+|       |-- mcs21-auto-deploy.service
+|       `-- mcs21-auto-deploy.timer
 |-- frontend/
 |   |-- src/
 |   `-- package.json
@@ -80,6 +85,7 @@ fyp-secure-file-platform/
 |   |-- API_DESIGN.md
 |   |-- DATABASE_SCHEMA.md
 |   |-- DEPLOYMENT.md
+|   |-- AUTOMATIC_DEPLOYMENT.md
 |   |-- SECURITY_FLOWS.md
 |   `-- PROJECT_SCOPE.md
 |-- .env.example
@@ -138,6 +144,10 @@ sudo mysql < database/mysql/03-verify.sql
 `fyp_migrator`，须先确认其归属与用途，再显式撤权或删除。备份、串行化、失败恢复、
 Compose 差异及未来非空数据库升级规则详见
 [DEPLOYMENT.zh-CN.md](docs/DEPLOYMENT.zh-CN.md)。
+
+预发布 VPS 会在经过评审的 Pull Request 合并进 `main` 后自动部署对应 commit。服务器拉取
+流程、队员操作命令、失败 SHA 隔离和凭据边界详见
+[AUTOMATIC_DEPLOYMENT.zh-CN.md](docs/AUTOMATIC_DEPLOYMENT.zh-CN.md)。
 
 OpenAPI：<http://localhost:8000/docs>
 
