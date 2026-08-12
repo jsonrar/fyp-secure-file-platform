@@ -31,7 +31,9 @@ described in [DEPLOYMENT.md](DEPLOYMENT.md).
 
 When deployment of a `main` commit fails, that SHA is quarantined. The timer will not repeatedly
 retry the same broken commit; it tries again when `main` changes, or after an administrator
-investigates and explicitly clears the quarantine.
+investigates and explicitly clears the quarantine. Scheduled checks that encounter the same
+quarantined SHA exit successfully after reporting the skip, so the original failure remains
+visible without generating a new systemd failure every two minutes.
 
 ## Operations
 

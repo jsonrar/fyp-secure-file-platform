@@ -84,7 +84,10 @@ fi
 if [[ "$action" != force && -f "$failed_sha_file" && "$(<"$failed_sha_file")" == "$target_sha" ]]; then
     printf 'Automatic deployment skipped quarantined commit %s. Use sudo mcs21-auto-deploy retry after investigation.\n' \
         "$target_sha" >&2
-    exit 1
+    # The original failed attempt is retained in the journal and deployment audit log. A
+    # scheduled check that deliberately skips the same quarantined SHA is healthy: return
+    # success so systemd does not emit a fresh service failure every two minutes.
+    exit 0
 fi
 
 if ! flock -n "$deploy_lock" -c true; then

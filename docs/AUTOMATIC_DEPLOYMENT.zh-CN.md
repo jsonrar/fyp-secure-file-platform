@@ -26,7 +26,9 @@ MCS21 预发布 VPS 会在新提交合并到 GitHub `main` 后自动部署。由
 [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md) 单独提供并评审 DBA SQL 发布。
 
 如果某个 `main` commit 部署失败，该 SHA 会进入隔离状态。Timer 不会反复部署同一个坏版本；
-只有 `main` 出现新 commit，或管理员完成排查后显式清除隔离，才会再次尝试。
+只有 `main` 出现新 commit，或管理员完成排查后显式清除隔离，才会再次尝试。定时检查再次
+遇到同一隔离 SHA 时，会记录跳过并以成功状态退出：原始失败证据仍保留，但 systemd 不会
+每两分钟重复产生一条新失败。
 
 ## 日常运维命令
 
