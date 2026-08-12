@@ -8,6 +8,11 @@ All notable changes to this project are documented in this file.
 
 ### Deployment operations / 部署运维
 
+- Fixed MySQL 8.4 verification false positives caused by the server rendering
+  `OCTET_LENGTH` as `LENGTH` and adding character-set introducers and escaped quotes to stored
+  CHECK clauses. The comparison still verifies the complete security-critical expressions.
+- 修复 MySQL 8.4 对 CHECK 子句使用 `LENGTH` 同义形式、字符集前缀及转义引号而导致的核验
+  误报；比较仍覆盖完整的安全关键约束表达式。
 - Added the versioned server-pull automatic deployment command and systemd units for the
   MCS21 staging VPS. The timer deploys an exact `main` commit through the guarded release
   command and quarantines a failed SHA instead of retrying it continuously.
