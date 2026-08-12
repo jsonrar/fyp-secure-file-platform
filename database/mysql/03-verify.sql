@@ -611,8 +611,11 @@ LEFT JOIN expected_critical_fks AS expected
 WHERE expected.constraint_name IS NULL
 ORDER BY constraint_name, deviation;
 
--- Security-critical CHECK definitions, normalized only for identifier quoting,
--- whitespace, and outer parentheses. Expected: no deviation rows.
+-- Security-critical CHECK definitions. MySQL 8.4 persists OCTET_LENGTH as its
+-- LENGTH synonym and may add character-set introducers plus escaped quotes to
+-- string literals in information_schema.CHECK_CONSTRAINTS. Normalize only
+-- those server-rendering differences, identifier quoting, whitespace, and
+-- outer parentheses. Expected: no deviation rows.
 WITH
 expected_critical_checks AS (
     SELECT 'ck_audit_chain_heads_singleton' AS constraint_name,
@@ -627,10 +630,10 @@ expected_critical_checks AS (
                      "recipient_type='user'andrecipient_user_idisnotnullanduser_key_idisnotnullandrecovery_key_idisnullorrecipient_type='recovery'andrecipient_user_idisnullanduser_key_idisnullandrecovery_key_idisnotnull"
     UNION ALL SELECT 'ck_user_key_protection_profiles_amk_envelope',
                      'user_key_protection_profiles',
-                     "amk_wrapping_algorithm='aes-256-gcm'andoctet_lengthwrapped_amk=32andoctet_lengthamk_nonce=12andoctet_lengthamk_auth_tag=16"
+                     "amk_wrapping_algorithm='aes-256-gcm'andlengthwrapped_amk=32andlengthamk_nonce=12andlengthamk_auth_tag=16"
     UNION ALL SELECT 'ck_encrypted_private_key_bundles_envelope',
                      'encrypted_private_key_bundles',
-                     'octet_lengthderivation_saltbetween16and32andoctet_lengthnonce=12andoctet_lengthauth_tag=16andoctet_lengthencrypted_private_keybetween1and16384'
+                     'lengthderivation_saltbetween16and32andlengthnonce=12andlengthauth_tag=16andlengthencrypted_private_keybetween1and16384'
     UNION ALL SELECT 'ck_recovery_requests_maker_checker',
                      'recovery_requests', 'approved_byisnullorapproved_by<>requested_by'
 ),
@@ -638,8 +641,10 @@ actual_critical_checks AS (
     SELECT
         tc.CONSTRAINT_NAME AS constraint_name,
         tc.TABLE_NAME AS table_name,
-        LOWER(REPLACE(REPLACE(REPLACE(REPLACE(
-            cc.CHECK_CLAUSE, '`', ''), ' ', ''), '(', ''), ')', ''))
+        REPLACE(REPLACE(REPLACE(
+            LOWER(REPLACE(REPLACE(REPLACE(REPLACE(
+                cc.CHECK_CLAUSE, '`', ''), ' ', ''), '(', ''), ')', '')),
+            '_utf8mb4', ''), '_latin1', ''), CHAR(92), '')
             AS normalized_clause
     FROM information_schema.TABLE_CONSTRAINTS AS tc
     JOIN information_schema.CHECK_CONSTRAINTS AS cc

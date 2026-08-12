@@ -169,3 +169,7 @@ def test_root_verification_sql_is_read_only_and_checks_retired_identity() -> Non
     assert "'updated_at', 'UPDATE', 'NO'" in verification_sql
     assert "readiness_marker_default_status" in verification_sql
     assert "MAX(COLUMN_DEFAULT) = '0003_client_key_custody'" in verification_sql
+    assert "'_utf8mb4', ''" in verification_sql
+    assert "'_latin1', ''" in verification_sql
+    assert "CHAR(92), ''" in verification_sql
+    assert "lengthderivation_saltbetween16and32" in verification_sql
