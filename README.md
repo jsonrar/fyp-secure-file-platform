@@ -79,6 +79,11 @@ fyp-secure-file-platform/
 |       |-- 01-provision.sql
 |       |-- 02-schema.sql
 |       `-- 03-verify.sql
+|-- deployment/
+|   `-- server/
+|       |-- mcs21-auto-deploy
+|       |-- mcs21-auto-deploy.service
+|       `-- mcs21-auto-deploy.timer
 |-- frontend/
 |   |-- src/
 |   `-- package.json
@@ -87,6 +92,7 @@ fyp-secure-file-platform/
 |   |-- API_DESIGN.md
 |   |-- DATABASE_SCHEMA.md
 |   |-- DEPLOYMENT.md
+|   |-- AUTOMATIC_DEPLOYMENT.md
 |   |-- SECURITY_FLOWS.md
 |   `-- PROJECT_SCOPE.md
 |-- .env.example
@@ -154,6 +160,10 @@ Do not rerun the empty-schema installer on a non-empty database. Future upgrades
 separate, versioned, reviewed DBA SQL script and a verified backup. See
 [DEPLOYMENT.md](docs/DEPLOYMENT.md) for remote account-host customization, exact grants,
 failure recovery, and release safeguards.
+
+The staging VPS automatically deploys an exact commit after a reviewed pull request is merged
+into `main`. See [AUTOMATIC_DEPLOYMENT.md](docs/AUTOMATIC_DEPLOYMENT.md) for the server-pull
+workflow, operator commands, failure quarantine, and credential boundary.
 
 OpenAPI: <http://localhost:8000/docs>
 
