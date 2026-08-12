@@ -38,6 +38,17 @@ browser refresh, expiry, and revoked-session handling still require production h
 
 The prioritized implementation backlog is tracked in [TODO.md](TODO.md).
 
+## HTTP Method Policy
+
+Application APIs use only `GET` and `POST`. `GET` is reserved for read-only operations;
+creation, updates, deletion, revocation, and all other state-changing actions use `POST`.
+Action endpoints use explicit paths where appropriate, such as
+`POST /api/v1/files/{file_id}/delete` and
+`POST /api/v1/auth/sessions/{session_id}/revoke`. Application routes and clients must not
+use `PUT`, `PATCH`, or `DELETE`, and CORS allows only `GET` and `POST` methods.
+Automatic protocol-level handling required by browsers or servers (such as CORS preflight)
+is infrastructure behavior rather than an application API operation.
+
 ## Recommended Stack
 
 | Layer | Technology |

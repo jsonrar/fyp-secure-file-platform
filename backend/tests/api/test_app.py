@@ -1,3 +1,4 @@
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.testclient import TestClient
 
 from app.core.config import Settings
@@ -18,6 +19,31 @@ def test_openapi_schema_can_be_generated() -> None:
 
     assert response.status_code == 200
     assert "/api/v1/auth/login" in response.json()["paths"]
+
+
+def test_openapi_business_routes_only_declare_get_and_post() -> None:
+    with TestClient(create_app()) as client:
+        schema = client.get("/openapi.json").json()
+
+    declared_methods = {
+        method.upper()
+        for path_item in schema["paths"].values()
+        for method in path_item
+        if method != "parameters"
+    }
+
+    assert declared_methods <= {"GET", "POST"}
+    assert schema["paths"]["/api/v1/auth/sessions/{session_id}/revoke"].keys() >= {"post"}
+    assert schema["paths"]["/api/v1/files/{file_id}/delete"].keys() >= {"post"}
+
+
+def test_cors_only_allows_get_and_post() -> None:
+    application = create_app()
+    cors_middleware = next(
+        middleware for middleware in application.user_middleware if middleware.cls is CORSMiddleware
+    )
+
+    assert cors_middleware.kwargs["allow_methods"] == ["GET", "POST"]
 
 
 def test_draft_business_routes_fail_closed() -> None:

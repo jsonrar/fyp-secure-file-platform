@@ -27,7 +27,7 @@ def download_file(file_id: UUID) -> None:
     reject_unimplemented_api()
 
 
-@router.delete("/{file_id}")
+@router.post("/{file_id}/delete")
 def delete_file(file_id: UUID) -> None:
     reject_unimplemented_api()
 

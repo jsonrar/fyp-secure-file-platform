@@ -18,6 +18,13 @@ OpenAPI 中，但在各路由具备真实的授权、持久化、事务所有权
 /api/v1
 ```
 
+应用层 HTTP 方法仅允许 `GET` 和 `POST`。`GET` 仅用于只读操作；新增、更新、删除、撤销及其他
+所有会改变状态的命令均使用 `POST`，并在适当时采用显式动作路径。应用路由、客户端、示例和
+OpenAPI 契约不得使用 `PUT`、`PATCH` 或 `DELETE`，CORS 也只允许 `GET` 和 `POST` 方法。
+此限制不适用于 SQL 语句、数据库权限或外键动作。
+浏览器或服务器所需的自动协议层行为（例如 CORS 预检处理）属于基础设施行为，不属于应用 API
+操作。
+
 未进行版本化的运维端点：
 
 | 方法 | 端点 | 说明 |
@@ -64,7 +71,7 @@ OpenAPI 中，但在各路由具备真实的授权、持久化、事务所有权
 | POST | `/auth/logout-all` | Bearer | 200 | 撤销该账户的所有活跃会话族 |
 | POST | `/auth/change-password` | Bearer | 200 | 验证当前密码、修改密码并撤销所有会话 |
 | GET | `/auth/sessions` | Bearer | 200 | 列出最新的服务端会话，最多 100 个 |
-| DELETE | `/auth/sessions/{session_id}` | Bearer | 200 | 通过公共 UUID 撤销一个属于该账户的会话 |
+| POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | 通过公共 UUID 撤销一个属于该账户的会话 |
 
 登录沿用 JSON 请求契约 `{ "username": "...", "password": "..." }`。
 成功响应中的 `data` 对象为扁平结构，包含 `user`、`access_token`、
@@ -102,7 +109,7 @@ OpenAPI 中，但在各路由具备真实的授权、持久化、事务所有权
 | GET | /files | 列出当前用户可访问的文件 |
 | GET | /files/{file_id} | 获取文件元数据 |
 | POST | /files/{file_id}/download | 权限检查通过后下载并解密文件 |
-| DELETE | /files/{file_id} | 删除或禁用文件 |
+| POST | /files/{file_id}/delete | 删除或禁用文件 |
 | POST | /files/{file_id}/integrity-check | 验证加密文件哈希 |
 
 ## 共享 API

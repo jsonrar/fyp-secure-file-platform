@@ -185,8 +185,8 @@ def list_sessions(
     )
 
 
-@router.delete(
-    "/sessions/{session_id}",
+@router.post(
+    "/sessions/{session_id}/revoke",
     response_model=ApiSuccessResponse[AuthSessionRevokeResponse],
 )
 def revoke_session(

@@ -21,12 +21,16 @@ events. These nine endpoints are active under `/api/v1`:
 | POST | `/auth/logout-all` | Bearer access token |
 | POST | `/auth/change-password` | Bearer access token |
 | GET | `/auth/sessions` | Bearer access token |
-| DELETE | `/auth/sessions/{session_id}` | Bearer access token |
+| POST | `/auth/sessions/{session_id}/revoke` | Bearer access token |
 
 File, sharing, audit-query, recovery, and admin endpoints remain contract scaffolds and
 deliberately return `501 feature_not_implemented`. `/health/live` and OpenAPI remain
 available. Unguard those routers only after their authorization, persistence, transaction,
 audit, storage, and denial tests are complete.
+
+Application HTTP endpoints use only `GET` for reads and `POST` for creation, updates,
+deletion, revocation, and other state-changing actions. Do not add `PUT`, `PATCH`, or
+`DELETE` routes. CORS method configuration is restricted to `GET` and `POST`.
 
 The password policy normalizes with Unicode NFC, requires 15 to 128 characters, rejects
 account-derived/common values, and hashes with Argon2id. Valid legacy bcrypt hashes are

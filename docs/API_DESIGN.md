@@ -19,6 +19,15 @@ Base path:
 /api/v1
 ```
 
+Application HTTP methods are restricted to `GET` and `POST`. `GET` is read-only; creation,
+updates, deletion, revocation, and every other state-changing command use `POST`. Command
+routes use explicit action paths when useful. Application routes, clients, examples, and
+OpenAPI contracts must not use `PUT`, `PATCH`, or `DELETE`, and CORS allows only `GET` and
+`POST` methods. This restriction does not apply to SQL statements, database privileges, or
+foreign-key actions. Automatic protocol-level behavior required by browsers or servers,
+such as CORS preflight handling, is infrastructure behavior rather than an application API
+operation.
+
 Unversioned operational endpoints:
 
 | Method | Endpoint | Description |
@@ -65,7 +74,7 @@ be cached or logged.
 | POST | `/auth/logout-all` | Bearer | 200 | Revoke every active session family for the account |
 | POST | `/auth/change-password` | Bearer | 200 | Verify current password, change it, and revoke every session |
 | GET | `/auth/sessions` | Bearer | 200 | List up to the 100 newest server-side sessions |
-| DELETE | `/auth/sessions/{session_id}` | Bearer | 200 | Revoke one account-owned session by public UUID |
+| POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | Revoke one account-owned session by public UUID |
 
 Login keeps the JSON request contract `{ "username": "...", "password": "..." }`.
 Its successful `data` object is flat and contains `user`, `access_token`, `refresh_token`,
@@ -105,7 +114,7 @@ Every endpoint in the following sections currently returns
 | GET | /files | List files accessible by the current user |
 | GET | /files/{file_id} | Get file metadata |
 | POST | /files/{file_id}/download | Download and decrypt file after permission check |
-| DELETE | /files/{file_id} | Delete or disable a file |
+| POST | /files/{file_id}/delete | Delete or disable a file |
 | POST | /files/{file_id}/integrity-check | Verify encrypted file hash |
 
 ## Sharing API

@@ -30,6 +30,15 @@
 
 项目按优先级排列的实施待办事项记录在 [TODO.zh-CN.md](TODO.zh-CN.md)。
 
+## HTTP 方法策略
+
+应用 API 只使用 `GET` 和 `POST`。`GET` 仅用于只读操作；新增、更新、删除、撤销及其他所有
+会改变状态的动作均使用 `POST`。动作端点应在适当时采用显式路径，例如
+`POST /api/v1/files/{file_id}/delete` 和
+`POST /api/v1/auth/sessions/{session_id}/revoke`。应用路由和客户端不得使用 `PUT`、`PATCH`
+或 `DELETE`，CORS 也只允许 `GET` 和 `POST` 方法。
+浏览器或服务器所需的自动协议层处理（例如 CORS 预检）属于基础设施行为，不属于应用 API 操作。
+
 ## 推荐技术栈
 
 | 层级 | 技术 |

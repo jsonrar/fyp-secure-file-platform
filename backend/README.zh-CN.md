@@ -18,9 +18,13 @@ Auth 纵向功能切片已完成，不再受草案路由依赖项保护。它负
 | POST | `/auth/logout-all` | Bearer 访问令牌 |
 | POST | `/auth/change-password` | Bearer 访问令牌 |
 | GET | `/auth/sessions` | Bearer 访问令牌 |
-| DELETE | `/auth/sessions/{session_id}` | Bearer 访问令牌 |
+| POST | `/auth/sessions/{session_id}/revoke` | Bearer 访问令牌 |
 
 文件、共享、审计查询、恢复和管理端点仍是契约脚手架，并会有意返回 `501 feature_not_implemented`。`/health/live` 和 OpenAPI 仍然可用。只有在对应的授权、持久化、事务、审计、存储和拒绝访问测试全部完成后，才能解除这些路由的保护。
+
+应用层 HTTP 端点仅使用 `GET` 和 `POST`：读取操作使用 `GET`，新增、更新、删除、撤销及其他
+会改变状态的动作使用 `POST`。不得新增 `PUT`、`PATCH` 或 `DELETE` 路由；CORS 方法配置也
+仅允许 `GET` 和 `POST`。
 
 密码策略使用 Unicode NFC 进行规范化，要求密码长度为 15 至 128 个字符，拒绝由账户信息派生的值和常见值，并使用 Argon2id 进行哈希。有效的旧版 bcrypt 哈希会被透明升级；当配置的单工作进程容量已满时，内存密集型操作会快速失败。随附的常见密码列表只是一套小型本地安全基线，并非持续维护的已泄露密码语料库。忘记密码重置、电子邮件验证、多因素认证（MFA）和外部身份登录尚未实现；每项功能都需要可信的带外投递或身份通道。
 

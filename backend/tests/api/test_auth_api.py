@@ -453,8 +453,8 @@ def test_revoke_session_uses_public_session_id(
 ) -> None:
     client, service = auth_api
 
-    response = client.delete(
-        f"/api/v1/auth/sessions/{SESSION_PUBLIC_ID}",
+    response = client.post(
+        f"/api/v1/auth/sessions/{SESSION_PUBLIC_ID}/revoke",
         headers=_auth_headers(),
     )
 
