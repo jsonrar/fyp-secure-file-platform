@@ -22,7 +22,7 @@ const auth = useAuthStore()
 
 const navLinks = [
   { to: '/upload', label: 'Product', match: ['/upload', '/files', '/audit-logs'] },
-  { to: '/community', label: 'Education', match: ['/community'] },
+  { to: '/education', label: 'Education', match: ['/education'] },
   { to: '/team', label: 'Development Team', match: ['/team'] },
 ]
 

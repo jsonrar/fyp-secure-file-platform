@@ -45,19 +45,41 @@ async function login() {
         <h1 class="text-2xl font-bold text-foreground">Sign In</h1>
       </div>
 
-      <label class="text-sm text-foreground mb-2 block">Username</label>
-      <input v-model="username" placeholder="Username" class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4" />
+      <form @submit.prevent="login">
+        <label class="text-sm text-foreground mb-2 block">
+          Username <span class="text-destructive">*</span>
+        </label>
+        <input
+          v-model="username"
+          placeholder="Username"
+          required
+          class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+        />
 
-      <label class="text-sm text-foreground mb-2 block">Password</label>
-      <input v-model="password" placeholder="Password" type="password" class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-6" />
+        <div class="mb-2 flex items-center justify-between">
+          <label class="text-sm text-foreground">
+            Password <span class="text-destructive">*</span>
+          </label>
+          <RouterLink to="/forgot-password" class="text-xs text-primary hover:underline">
+            Forgot password?
+          </RouterLink>
+        </div>
+        <input
+          v-model="password"
+          placeholder="Password"
+          type="password"
+          required
+          class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-6"
+        />
 
-      <button
-        class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        :disabled="isSubmitting"
-        @click="login"
-      >
-        {{ isSubmitting ? 'Signing in...' : 'Login' }}
-      </button>
+        <button
+          type="submit"
+          class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          :disabled="isSubmitting"
+        >
+          {{ isSubmitting ? 'Signing in...' : 'Login' }}
+        </button>
+      </form>
 
       <p v-if="errorMessage" class="text-sm text-destructive mt-3">{{ errorMessage }}</p>
 

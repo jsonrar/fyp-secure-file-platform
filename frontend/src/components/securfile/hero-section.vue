@@ -112,7 +112,7 @@ onBeforeUnmount(() => {
               Encrypt Your Files
               <ArrowRight class="h-4 w-4" />
             </RouterLink>
-            <RouterLink to="/community" class="inline-flex h-11 items-center rounded-md border border-border px-8 text-foreground transition-colors hover:bg-secondary">
+            <RouterLink to="/education" class="inline-flex h-11 items-center rounded-md border border-border px-8 text-foreground transition-colors hover:bg-secondary">
               Learn More
             </RouterLink>
           </div>

@@ -7,6 +7,7 @@ import { authApi } from '@/api/auth_api'
 const username = ref('')
 const email = ref('')
 const password = ref('')
+const confirmPassword = ref('')
 const privateKey = ref('')
 const errorMessage = ref('')
 const isSubmitting = ref(false)
@@ -15,6 +16,11 @@ async function register() {
   isSubmitting.value = true
   errorMessage.value = ''
   try {
+    if (password.value !== confirmPassword.value) {
+      errorMessage.value = 'Passwords do not match'
+      return
+    }
+
     const res = await authApi.register({
       username: username.value,
       email: email.value,
@@ -39,22 +45,58 @@ async function register() {
         <h1 class="text-2xl font-bold text-foreground">Create Account</h1>
       </div>
 
-      <label class="text-sm text-foreground mb-2 block">Username</label>
-      <input v-model="username" placeholder="Username" class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4" />
+      <form @submit.prevent="register">
+        <label class="text-sm text-foreground mb-2 block">
+          Username <span class="text-destructive">*</span>
+        </label>
+        <input
+          v-model="username"
+          placeholder="Username"
+          required
+          class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+        />
 
-      <label class="text-sm text-foreground mb-2 block">Email</label>
-      <input v-model="email" placeholder="Email" type="email" class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4" />
+        <label class="text-sm text-foreground mb-2 block">
+          Email <span class="text-destructive">*</span>
+        </label>
+        <input
+          v-model="email"
+          placeholder="Email"
+          type="email"
+          required
+          class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+        />
 
-      <label class="text-sm text-foreground mb-2 block">Password</label>
-      <input v-model="password" placeholder="Password" type="password" class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-6" />
+        <label class="text-sm text-foreground mb-2 block">
+          Password <span class="text-destructive">*</span>
+        </label>
+        <input
+          v-model="password"
+          placeholder="Password"
+          type="password"
+          required
+          class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+        />
 
-      <button
-        class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-        :disabled="isSubmitting"
-        @click="register"
-      >
-        {{ isSubmitting ? 'Creating account...' : 'Register' }}
-      </button>
+        <label class="text-sm text-foreground mb-2 block">
+          Confirm Password <span class="text-destructive">*</span>
+        </label>
+        <input
+          v-model="confirmPassword"
+          placeholder="Confirm password"
+          type="password"
+          required
+          class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-6"
+        />
+
+        <button
+          type="submit"
+          class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+          :disabled="isSubmitting"
+        >
+          {{ isSubmitting ? 'Creating account...' : 'Register' }}
+        </button>
+      </form>
 
       <p v-if="errorMessage" class="text-sm text-destructive mt-3">{{ errorMessage }}</p>
 

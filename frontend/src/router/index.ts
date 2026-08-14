@@ -3,6 +3,7 @@ import { useAuthStore } from '@/stores/auth_store'
 import DashboardPage from '@/pages/DashboardPage.vue'
 import LoginPage from '@/pages/LoginPage.vue'
 import RegisterPage from '@/pages/RegisterPage.vue'
+import ForgotPasswordPage from '@/pages/ForgotPasswordPage.vue'
 import UploadPage from '@/pages/UploadPage.vue'
 import FileListPage from '@/pages/FileListPage.vue'
 import AuditLogPage from '@/pages/AuditLogPage.vue'
@@ -19,11 +20,12 @@ const router = createRouter({
     { path: '/', component: DashboardPage },
     { path: '/login', component: LoginPage, meta: { guestOnly: true } },
     { path: '/register', component: RegisterPage, meta: { guestOnly: true } },
+    { path: '/forgot-password', component: ForgotPasswordPage, meta: { guestOnly: true } },
     { path: '/upload', component: UploadPage, meta: { requiresAuth: true } },
     { path: '/files', component: FileListPage, meta: { requiresAuth: true } },
     { path: '/audit-logs', component: AuditLogPage, meta: { requiresAuth: true } },
     { path: '/admin', component: AdminPage, meta: { requiresAuth: true } },
-    { path: '/community', component: CommunityPage },
+    { path: '/education', component: CommunityPage },
     { path: '/team', component: TeamPage },
   ],
 })
