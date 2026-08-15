@@ -80,6 +80,21 @@ class InvalidCurrentPasswordError(InputError):
     public_message = "The current password is invalid"
 
 
+class VerificationCodeInvalidError(InputError):
+    code = "invalid_verification_code"
+    public_message = "The verification code is incorrect or has expired"
+
+
+class VerificationCodeRequiredError(InputError):
+    code = "verification_code_required"
+    public_message = "Request and enter an email verification code first"
+
+
+class EmailDeliveryFailedError(AppError):
+    code = "email_delivery_failed"
+    public_message = "The verification email could not be sent; please try again later"
+
+
 class SessionNotFoundError(ResourceNotFoundError):
     code = "session_not_found"
     public_message = "The requested session was not found"

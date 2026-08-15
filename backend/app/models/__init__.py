@@ -1,6 +1,7 @@
 from app.models.audit_chain_head import AuditChainHead
 from app.models.audit_log import AuditLog
 from app.models.auth_login_throttle import AuthLoginThrottle
+from app.models.email_verification_code import EmailVerificationCode
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
@@ -18,6 +19,7 @@ __all__ = [
     "AuditChainHead",
     "AuditLog",
     "AuthLoginThrottle",
+    "EmailVerificationCode",
     "EncryptedPrivateKeyBundle",
     "File",
     "FileAccessGrant",

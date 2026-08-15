@@ -12,7 +12,9 @@
 
 | 方法 | 端点 | 身份认证 |
 |---|---|---|
+| POST | `/auth/verification-codes/send` | 公开 |
 | POST | `/auth/register` | 公开 |
+| POST | `/auth/password-reset` | 公开 |
 | POST | `/auth/login` | 公开 |
 | POST | `/auth/refresh` | 刷新凭据 |
 | GET | `/auth/me` | Bearer 访问令牌 |
@@ -24,12 +26,18 @@
 
 `/keys`、`/files`、`/audit-logs`、`/recovery` 和 `/admin` 路由也已启用，并由 OpenAPI
 完整描述。`/health/live` 检查进程；`/health/ready` 还会检查数据库连接及精确的
-`0003_client_key_custody` Schema revision。
+`0004_email_verification_codes` Schema revision。
 
 这些 API 采用客户端密钥托管边界：服务器只保存公钥、加密私钥包、密文及包装密钥，不接收
-加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。当前浏览器前端尚未实现账户
-密钥登记、私钥解锁、文件加解密和 DEK 重包装，因此后端路由完成不等于现有 UI 已具备完整
+加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。浏览器前端已实现账户密钥登记
+（本地生成密钥对、Argon2id 派生 KEK、包装 AMK 并加密私钥，提交前自测信封可重新打开）；
+私钥解锁、文件加解密和 DEK 重包装仍未实现，因此后端路由完成仍不等于现有 UI 已具备完整
 客户端密码学能力。
+
+注册与忘记登录密码重置均由发往所声明邮箱的一次性验证码把关，注册同时将账户邮箱标记为已验证。
+验证码只以带密钥摘要形式存储，会过期、只能用一次、有尝试次数上界，并按邮箱与 IP 双重限流；
+发送端点对已注册与未注册地址返回完全相同的响应。重置绝不触碰账户密钥信封，因此不会让账户
+失去对已加密文件的访问能力，也因此无法找回遗忘的加密 passphrase。MFA 与外部身份登录尚未实现。
 
 应用层 HTTP 端点仅使用 `GET` 和 `POST`：读取操作使用 `GET`，新增、更新、删除、撤销及其他
 会改变状态的动作使用 `POST`。不得新增 `PUT`、`PATCH` 或 `DELETE` 路由；CORS 方法配置也

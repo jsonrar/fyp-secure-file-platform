@@ -124,7 +124,7 @@ def test_root_schema_sql_is_empty_only_and_marks_completion_last() -> None:
     assert "foreign_key_checks" not in lowered
     assert "fyp_migrator" not in schema_sql
     assert "ON `fyp_secure_file_platform`.*" not in schema_sql
-    assert len(re.findall(r"(?m)^GRANT ", schema_sql)) == 15
+    assert len(re.findall(r"(?m)^GRANT ", schema_sql)) == 16
     assert (
         "GRANT SELECT, UPDATE (last_log_id, current_hash, updated_at)\n"
         "    ON `fyp_secure_file_platform`.`audit_chain_heads`"
@@ -140,14 +140,14 @@ def test_root_schema_sql_is_empty_only_and_marks_completion_last() -> None:
     assert schema_sql.index("INSERT INTO audit_chain_heads") < schema_sql.index("GRANT SELECT")
     assert schema_sql.index("GRANT SELECT") < schema_sql.index("CREATE TABLE alembic_version")
     assert "'0002_auth_identity_sessions'\n);" in schema_sql
-    assert schema_sql.index("VALUES ('0003_client_key_custody');") < schema_sql.index(
+    assert schema_sql.index("VALUES ('0004_email_verification_codes');") < schema_sql.index(
         "ALTER TABLE audit_chain_heads\nALTER COLUMN schema_revision"
     )
     assert schema_sql.index(
         "ALTER TABLE audit_chain_heads\nALTER COLUMN schema_revision"
     ) < schema_sql.index("UPDATE audit_chain_heads")
     assert schema_sql.rstrip().endswith(
-        "SET schema_revision = '0003_client_key_custody'\nWHERE id = 1;"
+        "SET schema_revision = '0004_email_verification_codes'\nWHERE id = 1;"
     )
 
 
@@ -168,7 +168,7 @@ def test_root_verification_sql_is_read_only_and_checks_retired_identity() -> Non
     assert "'current_hash', 'UPDATE', 'NO'" in verification_sql
     assert "'updated_at', 'UPDATE', 'NO'" in verification_sql
     assert "readiness_marker_default_status" in verification_sql
-    assert "MAX(COLUMN_DEFAULT) = '0003_client_key_custody'" in verification_sql
+    assert "MAX(COLUMN_DEFAULT) = '0004_email_verification_codes'" in verification_sql
     assert "'_utf8mb4', ''" in verification_sql
     assert "'_latin1', ''" in verification_sql
     assert "CHAR(92), ''" in verification_sql

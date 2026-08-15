@@ -6,8 +6,14 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
-from app.api.dependencies import get_auth_service, get_current_actor, get_request_context
+from app.api.dependencies import (
+    get_auth_service,
+    get_current_actor,
+    get_request_context,
+    get_settings,
+)
 from app.api.responses import AUTH_NO_STORE_HEADERS, ApiSuccessResponse, ok
+from app.core.config import Settings
 from app.domain.auth import ActorContext, RequestContext
 from app.schemas.auth_schema import (
     AuthMeResponse,
@@ -19,6 +25,10 @@ from app.schemas.auth_schema import (
     AuthUserResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
+    PasswordResetRequest,
+    PasswordResetResponse,
+    SendVerificationCodeRequest,
+    SendVerificationCodeResponse,
     UserLoginRequest,
     UserLoginResponse,
     UserLogoutAllResponse,
@@ -33,6 +43,35 @@ router = APIRouter()
 AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]
 ActorDependency = Annotated[ActorContext, Depends(get_current_actor)]
 RequestContextDependency = Annotated[RequestContext, Depends(get_request_context)]
+SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+
+@router.post(
+    "/verification-codes/send",
+    response_model=ApiSuccessResponse[SendVerificationCodeResponse],
+)
+def send_verification_code(
+    payload: SendVerificationCodeRequest,
+    auth_service: AuthServiceDependency,
+    settings: SettingsDependency,
+    context: RequestContextDependency,
+) -> JSONResponse:
+    auth_service.send_verification_code(
+        purpose=payload.purpose,
+        email=str(payload.email),
+        context=context,
+    )
+    response_data = SendVerificationCodeResponse(
+        expires_in_seconds=settings.VERIFICATION_CODE_TTL_SECONDS,
+        resend_available_in_seconds=settings.VERIFICATION_RESEND_INTERVAL_SECONDS,
+    )
+    # The same response is returned whether or not the address has an account,
+    # so this endpoint cannot be used to enumerate registered users.
+    return ok(
+        message="If the address is eligible, a verification code has been sent",
+        data=response_data,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
 
 
 @router.post(
@@ -49,6 +88,7 @@ def register(
         username=payload.username,
         email=str(payload.email),
         password=payload.password,
+        verification_code=payload.verification_code,
         key_material=payload.key_material.to_domain(),
         context=context,
     )
@@ -165,6 +205,30 @@ def change_password(
     response_data = ChangePasswordResponse(revoked_sessions=revoked_sessions)
     return ok(
         message="Password changed; please log in again",
+        data=response_data,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post(
+    "/password-reset",
+    response_model=ApiSuccessResponse[PasswordResetResponse],
+)
+def reset_password(
+    payload: PasswordResetRequest,
+    auth_service: AuthServiceDependency,
+    context: RequestContextDependency,
+) -> JSONResponse:
+    revoked_sessions = auth_service.reset_password(
+        username=payload.username,
+        email=str(payload.email),
+        verification_code=payload.verification_code,
+        new_password=payload.new_password,
+        context=context,
+    )
+    response_data = PasswordResetResponse(revoked_sessions=revoked_sessions)
+    return ok(
+        message="Password reset successfully; please log in with the new password",
         data=response_data,
         headers=AUTH_NO_STORE_HEADERS,
     )

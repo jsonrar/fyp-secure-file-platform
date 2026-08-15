@@ -32,7 +32,13 @@ from app.domain.auth import (
     SessionSnapshot,
     TokenPair,
 )
-from app.domain.enums import LoginThrottleScope, SessionStatus, SystemRole, UserStatus
+from app.domain.enums import (
+    LoginThrottleScope,
+    SessionStatus,
+    SystemRole,
+    UserStatus,
+    VerificationPurpose,
+)
 from app.domain.errors import (
     AccountIdentifierUnavailableError,
     AuthenticationError,
@@ -43,6 +49,7 @@ from app.domain.errors import (
     KeyBundleInvalidError,
     PasswordUnchangedError,
     SessionNotFoundError,
+    VerificationCodeInvalidError,
     WeakPasswordError,
 )
 from app.domain.keys import ClientKeyRegistration
@@ -56,6 +63,7 @@ from app.models.user_session import UserSession
 from app.repositories.auth_repository import AuthRepository
 from app.services.audit_log_service import AuditLogService
 from app.services.crypto_service import CryptoService
+from app.services.verification_service import VerificationService
 
 
 class AuthService:
@@ -69,6 +77,7 @@ class AuthService:
         repository: AuthRepository | None = None,
         audit_service: AuditLogService | None = None,
         crypto_service: CryptoService | None = None,
+        verification_service: VerificationService | None = None,
         passwords: PasswordManager | None = None,
         clock: Callable[[], datetime] = utc_now,
         token_factory: Callable[[], str] = generate_session_token,
@@ -83,6 +92,27 @@ class AuthService:
         self.passwords = passwords or password_manager
         self.token_factory = token_factory
         self.uuid_factory = uuid_factory
+        self.verification = verification_service or VerificationService(
+            db=db,
+            settings=settings,
+            repository=self.repository,
+            audit_service=self.audit,
+            clock=clock,
+        )
+
+    def send_verification_code(
+        self,
+        *,
+        purpose: VerificationPurpose,
+        email: str,
+        context: RequestContext,
+    ) -> None:
+        try:
+            self.verification.issue(purpose=purpose, email=email, context=context)
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
 
     def register(
         self,
@@ -90,6 +120,7 @@ class AuthService:
         username: str,
         email: str,
         password: str,
+        verification_code: str,
         key_material: ClientKeyRegistration,
         context: RequestContext,
     ) -> RegistrationResult:
@@ -107,6 +138,13 @@ class AuthService:
         try:
             if self.repository.identifier_exists(normalized_username, normalized_email):
                 raise AccountIdentifierUnavailableError()
+
+            self.verification.consume(
+                purpose=VerificationPurpose.REGISTRATION,
+                email=normalized_email,
+                code=verification_code,
+                context=context,
+            )
 
             now = self._now()
             password_hash = self.passwords.hash(password)
@@ -133,7 +171,8 @@ class AuthService:
                 password_hash=password_hash,
                 role=SystemRole.USER,
                 status=UserStatus.ACTIVE,
-                email_verified=False,
+                # The address was proven by the code consumed above.
+                email_verified=True,
                 created_at=now,
                 updated_at=now,
                 password_changed_at=now,
@@ -224,6 +263,86 @@ class AuthService:
         except PasswordOperationCapacityError as exc:
             self.db.rollback()
             raise AuthenticationRateLimitedError(retry_after_seconds=1) from exc
+        except Exception:
+            self.db.rollback()
+            raise
+
+    def reset_password(
+        self,
+        *,
+        username: str,
+        email: str,
+        verification_code: str,
+        new_password: str,
+        context: RequestContext,
+    ) -> int:
+        """Set a new login password after an emailed challenge.
+
+        This never touches the client-held encryption passphrase or the stored
+        key envelopes, so the account keeps access to its encrypted files.
+        """
+        normalized_username = username.strip()
+        normalized_email = email.strip().lower()
+        policy_error = password_policy_error(
+            new_password,
+            context_values=(normalized_username, normalized_email),
+        )
+        if policy_error:
+            raise WeakPasswordError(policy_error)
+
+        try:
+            now = self._now()
+            user = self.repository.get_user_by_username(normalized_username)
+            identity_matches = (
+                user is not None
+                and user.email == normalized_email
+                and user.status == UserStatus.ACTIVE
+            )
+
+            # Consume the challenge before deciding, so a mismatched
+            # username/email pair costs an attempt instead of leaking that the
+            # code itself was valid.
+            self.verification.consume(
+                purpose=VerificationPurpose.PASSWORD_RESET,
+                email=normalized_email,
+                code=verification_code,
+                context=context,
+            )
+            if not identity_matches:
+                self.db.commit()
+                raise VerificationCodeInvalidError()
+
+            replacement_hash = self.passwords.hash(new_password)
+            locked_user = self.repository.lock_user(user.id)
+            if locked_user is None or locked_user.status != UserStatus.ACTIVE:
+                raise VerificationCodeInvalidError()
+
+            locked_user.password_hash = replacement_hash
+            locked_user.password_changed_at = now
+            locked_user.updated_at = now
+            revoked = self.repository.revoke_all_session_families(
+                locked_user.id,
+                now=now,
+                reason="password_reset",
+            )
+            self.audit.append(
+                action="AUTH_PASSWORD_RESET",
+                result="SUCCESS",
+                actor_user_id=locked_user.id,
+                target_user_id=locked_user.id,
+                resource_id=str(locked_user.user_uuid),
+                context_ip_address=self._safe_ip(context),
+                context_user_agent=self._safe_user_agent(context),
+                metadata={"revoked_sessions": revoked},
+            )
+            self.db.commit()
+            return revoked
+        except (AuthenticationRateLimitedError, VerificationCodeInvalidError):
+            # A consumed-code or throttle transaction may already be committed.
+            self.db.rollback()
+            raise
+        except PasswordOperationCapacityError as exc:
+            self._reject_password_capacity_exhaustion(cause=exc)
         except Exception:
             self.db.rollback()
             raise

@@ -3,12 +3,18 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import delete, or_, select
+from sqlalchemy import delete, or_, select, update
 from sqlalchemy.dialects.mysql import insert as mysql_insert
 from sqlalchemy.orm import Session
 
-from app.domain.enums import LoginThrottleScope, SessionStatus
+from app.domain.enums import (
+    LoginThrottleScope,
+    SessionStatus,
+    VerificationCodeStatus,
+    VerificationPurpose,
+)
 from app.models.auth_login_throttle import AuthLoginThrottle
+from app.models.email_verification_code import EmailVerificationCode
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.session_refresh_token import SessionRefreshToken
 from app.models.user import User
@@ -253,6 +259,67 @@ class AuthRepository:
         if throttle is None:  # pragma: no cover - database invariant
             raise RuntimeError("Authentication throttle row could not be locked")
         return throttle
+
+    def add_verification_code(self, code: EmailVerificationCode) -> None:
+        self.db.add(code)
+
+    def get_user_by_email(self, email: str) -> User | None:
+        return self.db.scalar(select(User).where(User.email == email).limit(1))
+
+    def get_last_verification_code_issued_at(
+        self,
+        *,
+        email: str,
+        purpose: VerificationPurpose,
+    ) -> datetime | None:
+        return self.db.scalar(
+            select(EmailVerificationCode.created_at)
+            .where(
+                EmailVerificationCode.email == email,
+                EmailVerificationCode.purpose == purpose,
+            )
+            .order_by(EmailVerificationCode.created_at.desc())
+            .limit(1)
+        )
+
+    def invalidate_pending_verification_codes(
+        self,
+        *,
+        email: str,
+        purpose: VerificationPurpose,
+    ) -> int:
+        result = self.db.execute(
+            update(EmailVerificationCode)
+            .where(
+                EmailVerificationCode.email == email,
+                EmailVerificationCode.purpose == purpose,
+                EmailVerificationCode.status == VerificationCodeStatus.PENDING,
+            )
+            .values(status=VerificationCodeStatus.INVALIDATED)
+        )
+        return int(result.rowcount or 0)
+
+    def lock_active_verification_code(
+        self,
+        *,
+        email: str,
+        purpose: VerificationPurpose,
+        now: datetime,
+    ) -> EmailVerificationCode | None:
+        """Lock the newest unconsumed challenge so a concurrent submit cannot reuse it."""
+        return self.db.scalar(
+            select(EmailVerificationCode)
+            .where(
+                EmailVerificationCode.email == email,
+                EmailVerificationCode.purpose == purpose,
+                EmailVerificationCode.status == VerificationCodeStatus.PENDING,
+                EmailVerificationCode.expires_at > now,
+            )
+            .order_by(EmailVerificationCode.created_at.desc(), EmailVerificationCode.id.desc())
+            .limit(1)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
 
     def clear_throttle(self, scope: LoginThrottleScope, key_hash: str) -> None:
         self.db.execute(

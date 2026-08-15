@@ -16,13 +16,21 @@ from app.core.security import (
     normalize_password,
 )
 from app.domain.auth import ActorContext, RequestContext
-from app.domain.enums import LoginThrottleScope, SessionStatus, SystemRole, UserStatus
+from app.domain.enums import (
+    LoginThrottleScope,
+    SessionStatus,
+    SystemRole,
+    UserStatus,
+    VerificationPurpose,
+)
 from app.domain.errors import (
     AuthenticationError,
     AuthenticationRateLimitedError,
     InvalidCredentialsError,
     InvalidCurrentPasswordError,
     InvalidRefreshTokenError,
+    VerificationCodeInvalidError,
+    WeakPasswordError,
 )
 from app.domain.keys import (
     ClientKeyRegistration,
@@ -288,6 +296,24 @@ class FakeAuthRepository:
         return self.locked_session
 
 
+class FakeVerificationService:
+    """Stands in for the emailed-challenge check so register/reset stay unit-testable."""
+
+    def __init__(self) -> None:
+        self.issued: list[dict[str, object]] = []
+        self.consumed: list[dict[str, object]] = []
+        self.consume_error: Exception | None = None
+
+    def issue(self, *, purpose, email, context) -> None:
+        self.issued.append({"purpose": purpose, "email": email, "context": context})
+
+    def consume(self, *, purpose, email, code, context):
+        self.consumed.append({"purpose": purpose, "email": email, "code": code, "context": context})
+        if self.consume_error is not None:
+            raise self.consume_error
+        return SimpleNamespace(purpose=purpose, email=email)
+
+
 @dataclass
 class Harness:
     service: AuthService
@@ -295,6 +321,7 @@ class Harness:
     repository: FakeAuthRepository
     audit: FakeAuditService
     passwords: FakePasswordManager
+    verification: FakeVerificationService
 
 
 def _settings() -> Settings:
@@ -313,12 +340,14 @@ def _harness() -> Harness:
     audit = FakeAuditService()
     passwords = FakePasswordManager()
     passwords.db = db
+    verification = FakeVerificationService()
     service = AuthService(
         db=db,  # type: ignore[arg-type]
         settings=_settings(),
         repository=repository,  # type: ignore[arg-type]
         audit_service=audit,  # type: ignore[arg-type]
         crypto_service=FakeCryptoService(),  # type: ignore[arg-type]
+        verification_service=verification,  # type: ignore[arg-type]
         passwords=passwords,  # type: ignore[arg-type]
         clock=lambda: NOW,
         token_factory=SequenceFactory(
@@ -331,7 +360,7 @@ def _harness() -> Harness:
         ),
         uuid_factory=SequenceFactory([USER_PUBLIC_ID, SESSION_PUBLIC_ID, NEXT_PUBLIC_ID]),
     )
-    return Harness(service, db, repository, audit, passwords)
+    return Harness(service, db, repository, audit, passwords, verification)
 
 
 def _user(
@@ -433,6 +462,7 @@ def test_register_persists_only_client_wrapped_key_material() -> None:
         username=" alice ",
         email="Alice@Example.COM ",
         password="A unique and lengthy passphrase!",
+        verification_code="123456",
         key_material=_key_material(),
         context=CONTEXT,
     )
@@ -480,6 +510,7 @@ def test_register_rolls_back_when_atomic_audit_write_fails() -> None:
             username="alice",
             email="alice@example.com",
             password="A unique and lengthy passphrase!",
+            verification_code="123456",
             key_material=_key_material(),
             context=CONTEXT,
         )
@@ -871,9 +902,114 @@ def test_registration_rechecks_block_after_lock_before_expensive_work() -> None:
             username="alice",
             email="alice@example.com",
             password="A unique and lengthy passphrase!",
+            verification_code="123456",
             key_material=_key_material(),
             context=CONTEXT,
         )
 
     assert harness.repository.added_users == []
     assert harness.audit.events == []
+
+
+def test_register_consumes_a_registration_code_and_marks_the_email_verified() -> None:
+    harness = _harness()
+
+    harness.service.register(
+        username="alice",
+        email="Alice@Example.COM",
+        password="A unique and lengthy passphrase!",
+        verification_code="123456",
+        key_material=_key_material(),
+        context=CONTEXT,
+    )
+
+    assert harness.verification.consumed == [
+        {
+            "purpose": VerificationPurpose.REGISTRATION,
+            "email": "alice@example.com",
+            "code": "123456",
+            "context": CONTEXT,
+        }
+    ]
+    assert harness.repository.added_users[0].email_verified is True
+
+
+def test_register_without_a_valid_code_creates_no_account() -> None:
+    harness = _harness()
+    harness.verification.consume_error = VerificationCodeInvalidError()
+
+    with pytest.raises(VerificationCodeInvalidError):
+        harness.service.register(
+            username="alice",
+            email="alice@example.com",
+            password="A unique and lengthy passphrase!",
+            verification_code="000000",
+            key_material=_key_material(),
+            context=CONTEXT,
+        )
+
+    assert harness.repository.added_users == []
+    assert harness.repository.added_user_keys == []
+    assert harness.audit.events == []
+    assert harness.db.rollbacks == 1
+
+
+def test_reset_password_rehashes_and_revokes_every_session() -> None:
+    harness = _harness()
+    user = _user()
+    harness.repository.user_by_username = user
+    harness.repository.locked_user = user
+    harness.repository.revoke_all_count = 4
+
+    revoked = harness.service.reset_password(
+        username=" alice ",
+        email="Alice@Example.COM",
+        verification_code="123456",
+        new_password="A brand new lengthy passphrase!",
+        context=CONTEXT,
+    )
+
+    assert revoked == 4
+    assert user.password_hash == "hash::A brand new lengthy passphrase!"
+    assert user.password_changed_at == NOW_DB
+    assert harness.verification.consumed[0]["purpose"] == VerificationPurpose.PASSWORD_RESET
+    assert harness.audit.events[-1]["action"] == "AUTH_PASSWORD_RESET"
+    assert harness.audit.events[-1]["result"] == "SUCCESS"
+
+
+def test_reset_password_rejects_a_username_and_email_that_do_not_match() -> None:
+    harness = _harness()
+    user = _user()
+    harness.repository.user_by_username = user
+    harness.repository.locked_user = user
+    original_hash = user.password_hash
+
+    with pytest.raises(VerificationCodeInvalidError):
+        harness.service.reset_password(
+            username="alice",
+            email="someone-else@example.com",
+            verification_code="123456",
+            new_password="A brand new lengthy passphrase!",
+            context=CONTEXT,
+        )
+
+    # The code is still consumed so a mismatch cannot be used to test codes for free.
+    assert harness.verification.consumed[0]["email"] == "someone-else@example.com"
+    assert user.password_hash == original_hash
+    assert harness.audit.events == []
+
+
+def test_reset_password_rejects_a_weak_new_password_before_touching_the_code() -> None:
+    harness = _harness()
+    harness.repository.user_by_username = _user()
+
+    with pytest.raises(WeakPasswordError):
+        harness.service.reset_password(
+            username="alice",
+            email="alice@example.com",
+            verification_code="123456",
+            new_password="short",
+            context=CONTEXT,
+        )
+
+    assert harness.verification.consumed == []

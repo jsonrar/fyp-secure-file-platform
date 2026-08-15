@@ -158,7 +158,7 @@ the audit-chain singleton, indexes, constraints, and these exact runtime grants:
 The chain-head column default and initial row both start on the previous completed revision.
 After the runtime grants and `alembic_version` marker succeed, the script restores the column
 default to the final 0003 schema value and then explicitly publishes
-`0003_client_key_custody` to the singleton in the final statement. Thus readiness cannot
+`0004_email_verification_codes` to the singleton in the final statement. Thus readiness cannot
 advertise the new schema for a partially executed install, while the completed schema remains
 equivalent to the ORM and Alembic head.
 
@@ -211,10 +211,10 @@ Review every result set. Expected results are:
 - the persistent table inventory, structural totals, critical foreign-key actions, check
   clauses, and composite indexes match `02-schema.sql`;
 - `alembic_version` contains exactly the SQL artifact's compatibility marker
-  `0003_client_key_custody`; and
+  `0004_email_verification_codes`; and
 - `audit_chain_heads` contains exactly the genesis singleton: `id = 1`,
   `last_log_id IS NULL`, a 64-zero current hash, and
-  `schema_revision = '0003_client_key_custody'`.
+  `schema_revision = '0004_email_verification_codes'`.
 
 Because account creation and grants are additive, any extra row or privilege is a deployment
 failure even if the expected grants are also present. Every query in `03-verify.sql` is a
@@ -231,7 +231,7 @@ credential should exist in the release or application environment.
 
 After startup, require both `GET /health/live` and `GET /health/ready` to succeed before
 adding the instance to service. Readiness executes a database probe and requires the exact
-configured schema revision `0003_client_key_custody`; it diagnoses drift but never migrates
+configured schema revision `0004_email_verification_codes`; it diagnoses drift but never migrates
 or stamps the database.
 
 ## Legacy and failed deployments

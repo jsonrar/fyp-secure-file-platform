@@ -12,6 +12,7 @@ from app.domain.errors import (
     AuthenticationRateLimitedError,
     AuthorizationError,
     ConflictError,
+    EmailDeliveryFailedError,
     FileTooLargeError,
     InputError,
     IntegrityVerificationError,
@@ -30,6 +31,7 @@ _STATUS_BY_ERROR_TYPE: dict[type[AppError], int] = {
     FileTooLargeError: 413,
     InputError: 422,
     StorageUnavailableError: 503,
+    EmailDeliveryFailedError: 503,
     IntegrityVerificationError: 409,
 }
 
