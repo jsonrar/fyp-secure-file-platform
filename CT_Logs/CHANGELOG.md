@@ -8,6 +8,16 @@ All notable changes to this project are documented in this file.
 
 ### Deployment operations / 部署运维
 
+- Distinguished a valid live audit chain (`LIVE_DATA`) from a fresh genesis state (`OK`) in
+  the read-only MySQL deployment verifier. Live deployment still requires the singleton head
+  to target the newest audit row with a matching hash and the exact Schema revision;
+  `REVIEW`, `MISSING`, and `UNEXPECTED` continue to block releases. This fixes the false
+  quarantine of frontend commit `acd0c9733eeb` without deleting audit evidence or bypassing
+  the database gate.
+- 在 MySQL 只读部署核验中区分有效在线审计链（`LIVE_DATA`）与全新初始状态（`OK`）。在线
+  部署仍要求单例链头指向最新审计记录、哈希一致并保留准确的 Schema revision；
+  `REVIEW`、`MISSING` 与 `UNEXPECTED` 仍会阻止发布。该修复解除前端提交
+  `acd0c9733eeb` 的误隔离，不会删除审计证据，也不会绕过数据库门禁。
 - Fixed MySQL 8.4 verification false positives caused by the server rendering
   `OCTET_LENGTH` as `LENGTH` and adding character-set introducers and escaped quotes to stored
   CHECK clauses. The comparison still verifies the complete security-critical expressions.
