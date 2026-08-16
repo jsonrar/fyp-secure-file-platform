@@ -25,6 +25,12 @@ MCS21 预发布 VPS 会在新提交合并到 GitHub `main` 后自动部署。由
 没有 MySQL 管理员或迁移凭据。因此，Schema 变化必须按照
 [DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md) 单独提供并评审 DBA SQL 发布。
 
+核验器会区分全新审计链（`OK`）与已经包含应用事件、但状态一致的在线审计链
+（`LIVE_DATA`）。在线状态只有在单例链头保留准确的发布 Schema 标记、指向最新审计记录，
+且哈希与该记录一致时才会通过；`REVIEW`、`MISSING` 和 `UNEXPECTED` 仍会阻止部署。这样
+代码发布不会把正常保留的审计证据误判为 Schema 漂移，同时不会削弱数据库、账户、授权与
+结构核验。
+
 如果某个 `main` commit 部署失败，该 SHA 会进入隔离状态。Timer 不会反复部署同一个坏版本；
 只有 `main` 出现新 commit，或管理员完成排查后显式清除隔离，才会再次尝试。定时检查再次
 遇到同一隔离 SHA 时，会记录跳过并以成功状态退出：原始失败证据仍保留，但 systemd 不会

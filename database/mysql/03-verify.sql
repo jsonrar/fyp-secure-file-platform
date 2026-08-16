@@ -749,32 +749,61 @@ SELECT
     END AS schema_compatibility_status
 FROM `fyp_secure_file_platform`.alembic_version;
 
--- Expected before first application start: no audit event rows.
+-- A fresh installation has no audit rows. An already-running deployment may
+-- legitimately contain rows; the chain-head query below must still prove that
+-- the singleton points at the newest row with the same hash.
 SELECT
     COUNT(*) AS audit_log_rows,
-    CASE WHEN COUNT(*) = 0 THEN 'OK' ELSE 'REVIEW' END AS audit_log_status
+    CASE WHEN COUNT(*) = 0 THEN 'OK' ELSE 'LIVE_DATA' END AS audit_log_status
 FROM `fyp_secure_file_platform`.audit_logs;
 
--- Expected: exactly the fresh-install audit-chain genesis singleton.
+-- Expected: either the fresh-install genesis singleton, or one live singleton
+-- whose last_log_id is the newest audit row and whose hash matches that row.
 SELECT
-    COUNT(*) AS audit_chain_head_rows,
+    COUNT(head.id) AS audit_chain_head_rows,
     COALESCE(SUM(
-        id = 1
-        AND last_log_id IS NULL
-        AND current_hash =
+        head.id = 1
+        AND audit_state.audit_log_rows = 0
+        AND head.last_log_id IS NULL
+        AND head.current_hash =
             '0000000000000000000000000000000000000000000000000000000000000000'
-        AND schema_revision = '0003_client_key_custody'
+        AND head.schema_revision = '0003_client_key_custody'
     ), 0) AS genesis_rows,
+    COALESCE(SUM(
+        head.id = 1
+        AND audit_state.audit_log_rows > 0
+        AND head.last_log_id = audit_state.max_log_id
+        AND last_log.current_hash = head.current_hash
+        AND head.schema_revision = '0003_client_key_custody'
+    ), 0) AS live_rows,
     CASE
-        WHEN COUNT(*) = 1
+        WHEN COUNT(head.id) = 1
          AND COALESCE(SUM(
-             id = 1
-             AND last_log_id IS NULL
-             AND current_hash =
+             head.id = 1
+             AND audit_state.audit_log_rows = 0
+             AND head.last_log_id IS NULL
+             AND head.current_hash =
                  '0000000000000000000000000000000000000000000000000000000000000000'
-             AND schema_revision = '0003_client_key_custody'
+             AND head.schema_revision = '0003_client_key_custody'
          ), 0) = 1
         THEN 'OK'
+        WHEN COUNT(head.id) = 1
+         AND COALESCE(SUM(
+             head.id = 1
+             AND audit_state.audit_log_rows > 0
+             AND head.last_log_id = audit_state.max_log_id
+             AND last_log.current_hash = head.current_hash
+             AND head.schema_revision = '0003_client_key_custody'
+         ), 0) = 1
+        THEN 'LIVE_DATA'
         ELSE 'REVIEW'
     END AS audit_singleton_status
-FROM `fyp_secure_file_platform`.audit_chain_heads;
+FROM `fyp_secure_file_platform`.audit_chain_heads AS head
+LEFT JOIN `fyp_secure_file_platform`.audit_logs AS last_log
+  ON last_log.id = head.last_log_id
+CROSS JOIN (
+    SELECT
+        COUNT(*) AS audit_log_rows,
+        MAX(id) AS max_log_id
+    FROM `fyp_secure_file_platform`.audit_logs
+) AS audit_state;
