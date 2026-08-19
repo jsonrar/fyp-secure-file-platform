@@ -251,7 +251,7 @@ outside the database.
 
 ## Schema and Delivery Rules
 
-- ORM metadata and ordered Alembic revisions through `0003_client_key_custody` are the
+- ORM metadata and ordered Alembic revisions through `0004_email_verification_codes` are the
   development/CI schema-authoring authority.
 - `database/mysql/02-schema.sql` is the reviewed production empty-database artifact derived
   from that authority; parity tests compare tables, columns, indexes, and constraints.

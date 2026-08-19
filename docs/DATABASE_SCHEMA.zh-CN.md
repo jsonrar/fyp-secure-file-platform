@@ -19,6 +19,9 @@ Alembic；`database/mysql/02-schema.sql` 是由当前 head 派生并经过评审
 3. `0003_client_key_custody`：公开用户/恢复密钥 UUID 与密钥长度、客户端包装的账户密钥
    保护配置、加密私钥包、带版本文件信封、乐观 revision、强化的授权/包装归属约束，以及
    离线 DEK 重包装所需的扩展恢复请求状态。
+4. `0004_email_verification_codes`：用于注册与重置密码的 `email_verification_codes`
+   挑战表，以及新增的四个 `auth_login_throttles` scope——按邮箱与 IP 分别限制验证码的
+   发送与校验。
 
 当前仓库不再保留 `docs/init.sql`。历史版本中的该文件不是当前应用 Schema 的权威来源，
 Compose 也不会挂载任何生产表初始化脚本。后端启动时同样不得调用
@@ -62,6 +65,11 @@ Revision `0003` 会在 MySQL 隐式提交 DDL 前执行旧数据预检。新增�
 readiness 标记。迁移还会为已有公钥分配 UUID，并将其标记为 `LEGACY_EXTERNAL`；它不会为
 旧公钥伪造客户端加密私钥包。回滚时应恢复备份，或重建
 一次性开发数据库。
+
+Revision `0004_email_verification_codes` 可逆，因为它只新增了一张存放短时效挑战的表并扩展了
+一个枚举。其 downgrade 先删表，再收窄枚举、最后下调 readiness marker：MySQL 拒绝删除外键
+依赖的索引，因此必须先删表；把 marker 放在最后则可避免降级中途失败时，marker 指向一个 Schema
+已不再匹配的 revision。降级会丢弃待用挑战及四个验证 scope 下的限流行。
 
 ## 生产交付工作流
 
@@ -110,7 +118,8 @@ Alembic 都不会自动安全接管它。
 | 领域 | 数据表 | 用途 |
 |---|---|---|
 | 身份 | `users`, `user_sessions`, `session_refresh_tokens`, `user_keys`, `user_key_protection_profiles`, `encrypted_private_key_bundles` | 账户、不透明 Session、公钥历史、KEK 包装 AMK 配置及客户端加密私钥包 |
-| 滥用控制 | `auth_login_throttles` | 在各 worker 间共享、以 HMAC 为 key 的登录、重新认证及注册 bucket |
+| 身份证明 | `email_verification_codes` | 注册/重置密码的一次性挑战，仅以带密钥摘要形式存储 |
+| 滥用控制 | `auth_login_throttles` | 在各 worker 间共享、以 HMAC 为 key 的登录、重新认证、注册及验证码发送/校验 bucket |
 | 文件 | `files`, `file_access_grants`, `file_key_wrappings` | 加密对象 metadata，以及逻辑和密码学访问控制 |
 | 保障 | `integrity_checks`, `audit_logs`, `audit_chain_heads` | 验证历史、安全事件及串行化审计链追加状态 |
 | 恢复 | `recovery_keys`, `recovery_requests` | 恢复公钥及经办-复核工作流 |
@@ -136,25 +145,33 @@ Alembic 都不会自动安全接管它。
 6. 修改密码以原子方式替换 Argon2id 哈希、记录 `password_changed_at`、撤销所有活跃
    Session family，并追加审计事件；它不会改变相互独立的客户端加密 passphrase 或账户
    密钥信封。
-7. 创建文件时，以原子方式创建其 metadata、所有者授权、所有者密钥包装、恢复密钥包装
-   （强制要求活跃恢复密钥）及上传审计事件。存储对象已经是客户端加密密文。
-8. 下载同时要求：同一文件及行为者具有包含下载能力的有效授权，以及有效的用户密钥包装。
-9. `USER` 密钥包装包含 `recipient_user_id` 和 `user_key_id`，但不含
-   `recovery_key_id`。`RECOVERY` 包装只包含 `recovery_key_id`。
-10. 撤销操作在同一事务中修改逻辑授权及所有适用的密钥包装。
-11. 恢复状态转换必须符合条件：
+7. `email_verification_codes` 行只保存以 secret、purpose 与地址为密钥的 HMAC-SHA-256
+   摘要，绝不保存邮件中的验证码。签发新验证码会作废该地址同用途下其他待用验证码。每行
+   至多被 `CONSUMED` 一次，且 `consumed_at` 非空当且仅当状态为 `CONSUMED`。
+8. 被拒绝的验证码尝试必须先独立提交，再让调用方事务回滚。否则每个验证码的尝试计数与
+   验证码限流 bucket 会随回滚一起消失，使一个仍然有效的验证码可被无限次猜测。
+9. 重置密码以原子方式替换 Argon2id 哈希、记录 `password_changed_at`、撤销所有 Session
+   family、销毁该挑战并追加审计事件。与修改密码一样，它不会改动密钥保护配置或加密私钥包，
+   因此账户仍能访问其已加密文件。
+10. 创建文件时，以原子方式创建其 metadata、所有者授权、所有者密钥包装、恢复密钥包装
+    （强制要求活跃恢复密钥）及上传审计事件。存储对象已经是客户端加密密文。
+11. 下载同时要求：同一文件及行为者具有包含下载能力的有效授权，以及有效的用户密钥包装。
+12. `USER` 密钥包装包含 `recipient_user_id` 和 `user_key_id`，但不含
+    `recovery_key_id`。`RECOVERY` 包装只包含 `recovery_key_id`。
+13. 撤销操作在同一事务中修改逻辑授权及所有适用的密钥包装。
+14. 恢复状态转换必须符合条件：
     `PENDING -> APPROVED|REJECTED|CANCELLED`，然后
     `APPROVED -> EXECUTED|CANCELLED`。只有提交完全相同的结果包装时，执行才幂等。
     请求者不能批准或拒绝自己的请求。恢复保存离线生成的目标密钥包装，绝不接收恢复私钥。
-12. 审计行只能追加。追加时锁定单例 `audit_chain_heads.id = 1`，因此并发事务无法创建
+15. 审计行只能追加。追加时锁定单例 `audit_chain_heads.id = 1`，因此并发事务无法创建
     两条具有同一前置项的记录；审计追加与其安全敏感用例一同提交或回滚。行为者/目标
     用户外键采用限制型约束，因为这些 ID 已进入哈希；被引用的账户采用基于状态的软删除，
     而非级联硬删除。
-13. 每个 `CLIENT_WRAPPED` 用户密钥都有归属一致的加密私钥包；每个用户保护配置都有唯一公开
+16. 每个 `CLIENT_WRAPPED` 用户密钥都有归属一致的加密私钥包；每个用户保护配置都有唯一公开
     UUID 及乐观 revision。重新包装 AMK 必须同时携带调用者预期 revision，并提供最新当前
     客户端私钥对行为者/当前密钥/profile/revision 与完整拟议保护信封的
     RSA-PSS-SHA256 签名；更新与审计追加必须原子完成。
-14. 普通查询排除已软删除文件，且不能再向这些文件授予新权限。
+17. 普通查询排除已软删除文件，且不能再向这些文件授予新权限。
 
 服务层拥有这些事务。Repository 可以查询、添加及执行 `flush`，但不得自行提交。
 

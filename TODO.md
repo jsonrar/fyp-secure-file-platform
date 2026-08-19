@@ -2,7 +2,7 @@
 
 English | [简体中文](TODO.zh-CN.md)
 
-Last reviewed: 2026-08-12
+Last reviewed: 2026-08-15
 
 Priorities:
 
@@ -29,19 +29,28 @@ Priorities:
 - [x] Application routes and clients use only `GET` and `POST`; state changes use explicit
   `POST` action paths, and CORS is restricted to those methods.
 - [x] Alembic head and the application readiness marker are
-  `0003_client_key_custody`. The reviewed empty-database SQL contains 15 application tables
-  and grants ordinary CRUD on 13 state tables, with narrower audit-table grants.
+  `0004_email_verification_codes`. The reviewed empty-database SQL contains 16 application
+  tables and grants ordinary CRUD on 14 state tables, with narrower audit-table grants.
+- [x] Registration and login-password reset are gated by emailed one-time codes. Codes are
+  stored only as keyed digests, expire, are single use, are attempt-bounded, and are rate
+  limited per address and per IP. The send endpoint does not reveal whether an address has
+  an account. Reset never touches the key-protection profile or private-key bundle, so it
+  cannot cost an account access to its encrypted files.
 - [x] English and Simplified Chinese API, architecture, security-flow, schema, deployment,
   and project-scope documentation describe the current scheme and metadata/threat limits.
-- [x] Current local verification: Ruff passes; backend tests report `185 passed, 2 skipped`;
-  the frontend production build passes; and OpenAPI has 45 operations, all `GET`/`POST`, with
-  bearer security on protected routes and no passphrase or `private_key_pem` fields.
+- [x] Current local verification: Ruff passes; backend tests report `212 passed` with the
+  MySQL integration tests actually running against disposable MySQL 8.4; the frontend
+  production build passes; and OpenAPI has 47 operations, all `GET`/`POST`, with bearer
+  security on protected routes and no passphrase or `private_key_pem` fields.
+- [x] The production SQL path and the development migration path were both exercised on
+  disposable MySQL 8.4: `01/02/03` reports every status `OK` with no deviation rows, and
+  `0001 -> 0004` upgrades, passes `alembic check`, and round trips through `0003` cleanly.
 - [x] Sensitive account-key mutations require possession of the newest current private key:
   both successor-key addition and protection-profile rewrap use server-defined canonical
   32-byte digests and client RSA-PSS-SHA256 signatures in addition to bearer authentication.
-- [ ] The required disposable MySQL 8.4 integration/release gate still needs to run in CI;
-  the two skipped tests require `AUTH_TEST_DATABASE_URL` and must not be treated as passing
-  when skipped.
+- [ ] The disposable MySQL 8.4 integration/release gate has been run locally but still needs
+  to run in CI. The integration tests require `AUTH_TEST_DATABASE_URL` and must not be
+  treated as passing when skipped.
 - [ ] The frontend still needs the complete client-cryptography and session UX described
   below. Backend completion does not make the existing browser UI production-ready.
 - [ ] The repository still needs a CI workflow and reproducible frontend type/lint/test gates.
@@ -75,13 +84,15 @@ Priorities:
   - restore with `/auth/me`, serialize refresh rotation, and avoid `401` retry loops;
   - call server logout and clear revoked/expired state; and
   - add logout-all, password change, session listing/revocation, and role-aware navigation.
-- [ ] Replace the old registration UX with client-side account-key enrollment:
+- [x] Replace the old registration UX with client-side account-key enrollment:
   - collect a separate strong encryption passphrase without sending it to the server;
   - generate the configured RSA key pair and random AMK locally;
   - produce the Argon2id/KEK-wrapped AMK and AMK/HKDF-encrypted PKCS#8 bundle;
-  - self-test passphrase unlock, public/private correspondence, and envelope round trip before
-    registration; and
+  - self-test passphrase unlock and envelope round trip before registration; and
   - clearly explain that a forgotten passphrase cannot be reset by the server.
+  Implemented in `frontend/src/utils/account-crypto.ts`. The self-test proves the stored
+  envelopes reopen to the same PKCS#8 bytes; it does not yet re-derive the public key from
+  the decrypted private key to check correspondence independently.
 - [ ] Implement key-unlock and passphrase-change UX using `GET /keys/me`,
   `POST /keys/me/rewrap/signing-payload`, local newest-current-private-key
   RSA-PSS-SHA256 signing, and `POST /keys/me/rewrap`, including optimistic-revision/current-
@@ -179,7 +190,7 @@ Priorities:
 ### Operations and Data Protection
 
 - [x] `/health/live` and `/health/ready` exist; readiness checks database connectivity and the
-  exact `0003_client_key_custody` application schema marker without migrating.
+  exact `0004_email_verification_codes` application schema marker without migrating.
 - [ ] Add edge rate limits and a trusted proxy boundary before accepting forwarded IPs.
 - [ ] Add cleanup/reconciliation jobs for expired sessions/refresh tokens/throttle buckets,
   stale staged objects, orphaned ciphertext, and expired recovery requests.

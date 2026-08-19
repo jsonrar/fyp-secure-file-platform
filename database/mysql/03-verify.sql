@@ -161,6 +161,7 @@ ORDER BY GRANTEE, TABLE_SCHEMA, TABLE_NAME, PRIVILEGE_TYPE;
 WITH
 crud_tables AS (
     SELECT 'auth_login_throttles' AS table_name
+    UNION ALL SELECT 'email_verification_codes'
     UNION ALL SELECT 'encrypted_private_key_bundles'
     UNION ALL SELECT 'file_access_grants'
     UNION ALL SELECT 'file_key_wrappings'
@@ -379,6 +380,7 @@ expected_table_names AS (
     UNION ALL SELECT 'audit_chain_heads'
     UNION ALL SELECT 'audit_logs'
     UNION ALL SELECT 'auth_login_throttles'
+    UNION ALL SELECT 'email_verification_codes'
     UNION ALL SELECT 'encrypted_private_key_bundles'
     UNION ALL SELECT 'file_access_grants'
     UNION ALL SELECT 'file_key_wrappings'
@@ -437,11 +439,11 @@ WHERE expected.table_name IS NULL
 ORDER BY table_name, deviation;
 
 -- The install starts with the predecessor default and restores final-schema
--- parity immediately before publishing the singleton as 0003. Expected: OK.
+-- parity immediately before publishing the singleton as 0004. Expected: OK.
 SELECT
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(COLUMN_DEFAULT) = '0003_client_key_custody'
+         AND MAX(COLUMN_DEFAULT) = '0004_email_verification_codes'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS readiness_marker_default_status
@@ -481,28 +483,28 @@ SELECT
     CASE
         WHEN (SELECT COUNT(*)
               FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 188
+              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 201
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 16
+                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 17
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'UNIQUE') = 22
+                AND CONSTRAINT_TYPE = 'UNIQUE') = 23
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 25
+                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 26
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'CHECK') = 33
+                AND CONSTRAINT_TYPE = 'CHECK') = 36
          AND (SELECT COUNT(DISTINCT TABLE_NAME, INDEX_NAME)
               FROM information_schema.STATISTICS
               WHERE TABLE_SCHEMA = 'fyp_secure_file_platform'
                 AND INDEX_NAME <> 'PRIMARY'
-                AND NON_UNIQUE = 1) = 60
+                AND NON_UNIQUE = 1) = 64
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_structure_status;
@@ -526,6 +528,8 @@ expected_critical_fks AS (
                      'user_id', 'users', 'id', 'CASCADE', 'CASCADE'
     UNION ALL SELECT 'fk_session_refresh_tokens_session', 'session_refresh_tokens',
                      'session_id', 'user_sessions', 'id', 'CASCADE', 'CASCADE'
+    UNION ALL SELECT 'fk_email_verification_codes_user', 'email_verification_codes',
+                     'user_id', 'users', 'id', 'CASCADE', 'CASCADE'
     UNION ALL SELECT 'fk_user_key_protection_profiles_user',
                      'user_key_protection_profiles', 'user_id', 'users', 'id',
                      'CASCADE', 'CASCADE'
@@ -577,6 +581,7 @@ actual_critical_fks AS (
           'fk_audit_chain_heads_last_log',
           'fk_user_sessions_user',
           'fk_session_refresh_tokens_session',
+          'fk_email_verification_codes_user',
           'fk_user_key_protection_profiles_user',
           'fk_encrypted_private_key_bundles_profile',
           'fk_encrypted_private_key_bundles_user_key_owner',
@@ -625,6 +630,14 @@ expected_critical_checks AS (
                      'access_expires_at<=absolute_expires_at'
     UNION ALL SELECT 'ck_session_refresh_tokens_expiry_after_creation',
                      'session_refresh_tokens', 'expires_at>created_at'
+    UNION ALL SELECT 'ck_email_verification_codes_expiry_after_creation',
+                     'email_verification_codes', 'expires_at>created_at'
+    UNION ALL SELECT 'ck_email_verification_codes_attempts',
+                     'email_verification_codes',
+                     'max_attempts>=1andattempt_count<=max_attempts'
+    UNION ALL SELECT 'ck_email_verification_codes_consumed_at',
+                     'email_verification_codes',
+                     "status='consumed'andconsumed_atisnotnullorstatus<>'consumed'andconsumed_atisnull"
     UNION ALL SELECT 'ck_file_key_wrappings_recipient_shape',
                      'file_key_wrappings',
                      "recipient_type='user'andrecipient_user_idisnotnullanduser_key_idisnotnullandrecovery_key_idisnullorrecipient_type='recovery'andrecipient_user_idisnullanduser_key_idisnullandrecovery_key_idisnotnull"
@@ -656,6 +669,9 @@ actual_critical_checks AS (
           'ck_audit_chain_heads_singleton',
           'ck_user_sessions_access_before_absolute',
           'ck_session_refresh_tokens_expiry_after_creation',
+          'ck_email_verification_codes_expiry_after_creation',
+          'ck_email_verification_codes_attempts',
+          'ck_email_verification_codes_consumed_at',
           'ck_file_key_wrappings_recipient_shape',
           'ck_user_key_protection_profiles_amk_envelope',
           'ck_encrypted_private_key_bundles_envelope',
@@ -743,7 +759,7 @@ SELECT
     GROUP_CONCAT(version_num ORDER BY version_num) AS alembic_revisions,
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(version_num) = '0003_client_key_custody'
+         AND MAX(version_num) = '0004_email_verification_codes'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_compatibility_status
@@ -767,7 +783,7 @@ SELECT
         AND head.last_log_id IS NULL
         AND head.current_hash =
             '0000000000000000000000000000000000000000000000000000000000000000'
-        AND head.schema_revision = '0003_client_key_custody'
+        AND head.schema_revision = '0004_email_verification_codes'
     ), 0) AS genesis_rows,
     COALESCE(SUM(
         head.id = 1
@@ -784,7 +800,7 @@ SELECT
              AND head.last_log_id IS NULL
              AND head.current_hash =
                  '0000000000000000000000000000000000000000000000000000000000000000'
-             AND head.schema_revision = '0003_client_key_custody'
+             AND head.schema_revision = '0004_email_verification_codes'
          ), 0) = 1
         THEN 'OK'
         WHEN COUNT(head.id) = 1

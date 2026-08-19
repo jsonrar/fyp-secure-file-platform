@@ -1,17 +1,31 @@
+import hashlib
 from datetime import UTC, datetime, timedelta
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import pytest
+from cryptography.hazmat.primitives import serialization
+from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlalchemy import Connection, Engine, func, inspect, select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.domain.auth import RequestContext
-from app.domain.enums import SystemRole, UserStatus
+from app.domain.enums import (
+    SystemRole,
+    UserStatus,
+    VerificationCodeStatus,
+    VerificationPurpose,
+)
 from app.domain.errors import AuthenticationError
+from app.domain.keys import (
+    ClientKeyRegistration,
+    EncryptedPrivateKeyBundleInput,
+    KeyProtectionProfileInput,
+)
 from app.models.audit_chain_head import AuditChainHead
 from app.models.audit_log import AuditLog
+from app.models.email_verification_code import EmailVerificationCode
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.user import User
 from app.models.user_key import UserKey
@@ -19,6 +33,7 @@ from app.models.user_key_protection_profile import UserKeyProtectionProfile
 from app.models.user_session import UserSession
 from app.services.audit_log_service import AuditLogService
 from app.services.auth_service import AuthService
+from app.services.email_service import OutboundEmail
 
 pytestmark = pytest.mark.integration
 
@@ -131,13 +146,35 @@ TEMPORARY_AUTH_DDL = (
     """,
     """
     CREATE TEMPORARY TABLE auth_login_throttles (
-        scope ENUM('ACCOUNT', 'IP', 'REAUTH_ACCOUNT', 'REAUTH_IP', 'REGISTRATION_IP') NOT NULL,
+        scope ENUM(
+            'ACCOUNT', 'IP', 'REAUTH_ACCOUNT', 'REAUTH_IP', 'REGISTRATION_IP',
+            'VERIFICATION_SEND_EMAIL', 'VERIFICATION_SEND_IP',
+            'VERIFICATION_CHECK_EMAIL', 'VERIFICATION_CHECK_IP'
+        ) NOT NULL,
         key_hash CHAR(64) NOT NULL,
         failed_count INT UNSIGNED NOT NULL DEFAULT 0,
         window_started_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         blocked_until DATETIME NULL,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         PRIMARY KEY (scope, key_hash)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+    """,
+    """
+    CREATE TEMPORARY TABLE email_verification_codes (
+        id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT PRIMARY KEY,
+        code_uuid CHAR(36) NOT NULL UNIQUE,
+        purpose ENUM('REGISTRATION', 'PASSWORD_RESET') NOT NULL,
+        email VARCHAR(255) COLLATE utf8mb4_unicode_ci NOT NULL,
+        user_id BIGINT UNSIGNED NULL,
+        code_hash CHAR(64) NOT NULL,
+        status ENUM('PENDING', 'CONSUMED', 'INVALIDATED') NOT NULL DEFAULT 'PENDING',
+        attempt_count INT UNSIGNED NOT NULL DEFAULT 0,
+        max_attempts INT UNSIGNED NOT NULL DEFAULT 5,
+        ip_address VARCHAR(45) NULL,
+        created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        expires_at DATETIME NOT NULL,
+        consumed_at DATETIME NULL,
+        INDEX idx_test_verification_lookup (email, purpose, status, expires_at)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
@@ -165,7 +202,7 @@ TEMPORARY_AUTH_DDL = (
         id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
         last_log_id BIGINT UNSIGNED NULL,
         current_hash CHAR(64) NOT NULL,
-        schema_revision VARCHAR(64) NOT NULL DEFAULT '0003_client_key_custody',
+        schema_revision VARCHAR(64) NOT NULL DEFAULT '0004_email_verification_codes',
         updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
@@ -178,7 +215,7 @@ def _create_temporary_auth_schema(connection: Connection) -> None:
     connection.exec_driver_sql(
         "INSERT INTO audit_chain_heads "
         "(id, last_log_id, current_hash, schema_revision) "
-        "VALUES (1, NULL, %s, '0003_client_key_custody')",
+        "VALUES (1, NULL, %s, '0004_email_verification_codes')",
         ("0" * 64,),
     )
     connection.commit()
@@ -195,6 +232,55 @@ def _permanent_auth_row_counts(connection: Connection) -> dict[str, int] | None:
             table_name: int(verifier.scalar(text(f"SELECT COUNT(*) FROM `{table_name}`")) or 0)
             for table_name in table_names
         }
+
+
+class _CollectingEmailService:
+    """Captures outbound mail so the integration run never touches the network."""
+
+    def __init__(self) -> None:
+        self.sent: list[OutboundEmail] = []
+
+    def send(self, message: OutboundEmail) -> None:
+        self.sent.append(message)
+
+
+def _client_key_material(public_key_pem: str) -> ClientKeyRegistration:
+    encrypted_private_key = b"integration-client-encrypted-pkcs8" * 20
+    return ClientKeyRegistration(
+        key_id=UUID("11111111-1111-4111-8111-111111111111"),
+        public_key_pem=public_key_pem,
+        algorithm="RSA-OAEP-SHA256",
+        key_size_bits=2048,
+        protection=KeyProtectionProfileInput(
+            profile_id=UUID("22222222-2222-4222-8222-222222222222"),
+            format_version=1,
+            kdf_algorithm="ARGON2ID",
+            kdf_version=19,
+            kdf_salt=b"s" * 16,
+            kdf_memory_kib=65_536,
+            kdf_iterations=3,
+            kdf_parallelism=4,
+            derived_key_length=32,
+            amk_wrapping_algorithm="AES-256-GCM",
+            wrapped_amk=b"w" * 32,
+            amk_nonce=b"n" * 12,
+            amk_auth_tag=b"t" * 16,
+            aad_version=1,
+        ),
+        private_key_bundle=EncryptedPrivateKeyBundleInput(
+            bundle_id=UUID("33333333-3333-4333-8333-333333333333"),
+            format_version=1,
+            private_key_format="PKCS8-DER",
+            derivation_algorithm="HKDF-SHA256",
+            derivation_salt=b"d" * 16,
+            encryption_algorithm="AES-256-GCM",
+            encrypted_private_key=encrypted_private_key,
+            nonce=b"i" * 12,
+            auth_tag=b"a" * 16,
+            aad_version=1,
+            ciphertext_sha256=hashlib.sha256(encrypted_private_key).hexdigest(),
+        ),
+    )
 
 
 def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine) -> None:
@@ -224,8 +310,8 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
             text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
         )
 
-    assert revision == "0003_client_key_custody"
-    assert readiness_revision == "0003_client_key_custody"
+    assert revision == "0004_email_verification_codes"
+    assert readiness_revision == "0004_email_verification_codes"
     assert {
         "session_uuid",
         "access_token_hash",
@@ -252,6 +338,37 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
         "expires_at",
         "revision",
     } <= {column["name"] for column in inspector.get_columns("recovery_requests")}
+
+
+def test_mysql_collation_prevents_case_variant_duplicate_email(
+    auth_mysql_session: Session,
+) -> None:
+    first = User(
+        user_uuid=str(uuid4()),
+        username=f"first-{uuid4().hex}",
+        email="CaseSensitiveProbe@Example.com",
+        password_hash="not-a-real-password-hash",
+        role=SystemRole.USER,
+        status=UserStatus.ACTIVE,
+        email_verified=False,
+    )
+    second = User(
+        user_uuid=str(uuid4()),
+        username=f"second-{uuid4().hex}",
+        email="casesensitiveprobe@example.COM",
+        password_hash="not-a-real-password-hash",
+        role=SystemRole.USER,
+        status=UserStatus.ACTIVE,
+        email_verified=False,
+    )
+    auth_mysql_session.add(first)
+    auth_mysql_session.flush()
+    auth_mysql_session.add(second)
+
+    with pytest.raises(IntegrityError):
+        auth_mysql_session.flush()
+
+    auth_mysql_session.rollback()
 
 
 def test_mysql_collation_prevents_case_variant_duplicate_username(
@@ -310,21 +427,45 @@ def test_real_auth_flow_uses_only_connection_local_temporary_tables(
     )
     original_password = "An original high entropy passphrase!"
     replacement_password = "A replacement high entropy passphrase!"
+    public_key_pem = (
+        rsa.generate_private_key(public_exponent=65537, key_size=2048)
+        .public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("ascii")
+    )
 
     try:
-        registered = service.register(
-            username="integration-user",
-            password=original_password,
+        # Registration now requires a code that was really issued and stored,
+        # so exercise the emailed-challenge round trip against MySQL too.
+        service.verification.email = _CollectingEmailService()
+        service.verification.code_factory = lambda _length: "246810"
+        service.send_verification_code(
+            purpose=VerificationPurpose.REGISTRATION,
+            email="integration-user@example.com",
             context=context,
         )
-        stored_user = session.scalar(select(User))
-        stored_user_key = session.scalar(select(UserKey))
-        assert stored_user is not None
-        assert stored_user_key is not None
-        assert stored_user.email == f"{stored_user.user_uuid}@demo.invalid"
-        assert stored_user_key.key_uuid == str(registered.key_id)
+        issued = session.scalars(select(EmailVerificationCode)).all()
+        assert len(issued) == 1
+        assert issued[0].status == VerificationCodeStatus.PENDING
+        assert "246810" not in issued[0].code_hash
+
+        registered = service.register(
+            username="integration-user",
+            email="integration-user@example.com",
+            password=original_password,
+            verification_code="246810",
+            key_material=_client_key_material(public_key_pem),
+            context=context,
+        )
+        session.expire_all()
+        consumed = session.scalars(select(EmailVerificationCode)).all()
+        assert consumed[0].status == VerificationCodeStatus.CONSUMED
+        assert consumed[0].consumed_at is not None
         assert registered.public_key_fingerprint == service.crypto.public_key_fingerprint(
-            stored_user_key.public_key_pem
+            public_key_pem
         )
         assert session.scalar(select(func.count()).select_from(User)) == 1
         assert session.scalar(select(func.count()).select_from(UserKey)) == 1
@@ -365,7 +506,8 @@ def test_real_auth_flow_uses_only_connection_local_temporary_tables(
         assert stored_session is not None
         assert stored_session.status.value == "REVOKED"
         assert stored_session.revoked_reason == "password_changed"
-        assert session.scalar(select(func.count()).select_from(AuditLog)) == 4
+        # Verification send, registration, login, refresh, password change.
+        assert session.scalar(select(func.count()).select_from(AuditLog)) == 5
 
         # Force a database round trip: DATETIME without fsp=6 used to truncate
         # the hashed timestamp and made an otherwise intact chain unverifiable.
@@ -394,7 +536,18 @@ def test_real_auth_flow_uses_only_connection_local_temporary_tables(
             )
             expected_previous_hash = audit_log.current_hash
 
-        assert audit_logs[0].metadata_json == {}
+        assert [audit_log.action for audit_log in audit_logs] == [
+            "AUTH_VERIFICATION_CODE_SENT",
+            "AUTH_REGISTERED",
+            "AUTH_LOGIN_SUCCEEDED",
+            "AUTH_SESSION_REFRESHED",
+            "AUTH_PASSWORD_CHANGED",
+        ]
+        # An event without metadata must round trip as an empty object, not SQL NULL.
+        registered_event = next(
+            audit_log for audit_log in audit_logs if audit_log.action == "AUTH_REGISTERED"
+        )
+        assert registered_event.metadata_json == {}
         chain_head = session.get(AuditChainHead, 1)
         assert chain_head is not None
         assert chain_head.last_log_id == audit_logs[-1].id

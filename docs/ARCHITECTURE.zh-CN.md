@@ -204,7 +204,7 @@ package 无法追回；后续 package 读取和执行仍会默认拒绝。
 
 ## Schema 与交付规则
 
-- ORM metadata 及截至 `0003_client_key_custody` 的有序 Alembic revision 是开发/CI Schema
+- ORM metadata 及截至 `0004_email_verification_codes` 的有序 Alembic revision 是开发/CI Schema
   编写权威。
 - `database/mysql/02-schema.sql` 是由该权威派生、经评审的生产空库工件；奇偶校验测试比较表、
   列、索引及约束。

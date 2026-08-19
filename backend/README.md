@@ -13,7 +13,9 @@ The core Auth endpoints under `/api/v1` are:
 
 | Method | Endpoint | Authentication |
 |---|---|---|
+| POST | `/auth/verification-codes/send` | Public |
 | POST | `/auth/register` | Public |
+| POST | `/auth/password-reset` | Public |
 | POST | `/auth/login` | Public |
 | POST | `/auth/refresh` | Refresh credential |
 | GET | `/auth/me` | Bearer access token |
@@ -25,16 +27,24 @@ The core Auth endpoints under `/api/v1` are:
 
 The `/keys`, `/files`, `/audit-logs`, `/recovery`, and `/admin` routers are also active and
 fully described by OpenAPI. `/health/live` checks the process; `/health/ready` additionally
-checks database access and schema revision `0003_client_key_custody`.
+checks database access and schema revision `0004_email_verification_codes`.
 
-Registration accepts only `username` and `password`. The backend generates the account RSA
-key pair and all envelope metadata, then stores the public key plus an encrypted PKCS#8 private
-key bundle. The plaintext private key and password-derived keys exist only during the request
-and are never persisted or returned. Changing the login password atomically rewraps the account
-master key. The legacy database email columns are populated with an internal non-deliverable
-placeholder for schema compatibility; email is not part of the public account contract.
+Registration requires `username`, `email`, `password`, `verification_code`, and
+`key_material`. The client generates the account RSA key pair and both envelopes locally and
+uploads only the public key and the sealed material, so the backend never receives an
+encryption passphrase, AMK, or plaintext private key. Registration and login-password reset
+are gated by a one-time code emailed to the address being claimed, which also marks the
+account's email verified. Reset never touches the stored key envelopes, so it cannot cost an
+account access to its encrypted files.
 
-### Server-managed account-key envelope (format 2)
+### Server-managed account-key envelope (format 2, currently unused)
+
+> **Not on the registration path.** `CryptoService.generate_account_key` and the format below
+> remain in the tree from the server-managed registration experiment, but registration now
+> takes client-generated `key_material` (see above) because `docs/SECURITY_FLOWS.md` requires
+> the backend never to hold a plaintext private key. The helper and its unit tests are kept
+> for the team to review rather than deleted; nothing calls it.
+
 
 The format is byte-exact so another backend client can reproduce it. Passwords are normalized
 with Unicode NFC and encoded as UTF-8 before Argon2id. Integers are unsigned 32-bit big-endian
@@ -60,9 +70,15 @@ The password policy normalizes with Unicode NFC, requires 15 to 128 characters, 
 account-derived/common values, and hashes with Argon2id. Valid legacy bcrypt hashes are
 transparently upgraded; memory-hard operations fail fast when the configured per-worker
 capacity is full. The included common-password list is a small local safety baseline, not a
-maintained breached-password corpus. Forgotten-
-password reset, email verification, MFA, and external identity login are not implemented;
-each needs a trusted out-of-band delivery or identity channel.
+maintained breached-password corpus.
+
+Registration and forgotten-login-password reset are gated by a one-time code emailed to the
+address being claimed, which also marks the account's email verified. Codes are stored only
+as keyed digests, expire, are single use, are attempt-bounded, and are rate limited per
+address and per IP; the send endpoint answers identically for registered and unregistered
+addresses. Reset never touches the account's key envelopes, so it cannot cost an account
+access to its encrypted files, and it correspondingly cannot recover a forgotten encryption
+passphrase. MFA and external identity login are not implemented.
 
 ## Prerequisites
 

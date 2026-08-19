@@ -47,7 +47,59 @@ Argon2id only raises the cost of offline guessing. A database compromise exposes
 Argon2 parameters, wrapped AMK, encrypted private-key bundle, and their non-secret metadata,
 so a weak passphrase remains vulnerable to offline guessing.
 
+## Emailed Verification Codes
+
+Registration and login-password reset both require a one-time code delivered to the address
+being claimed. `POST /auth/verification-codes/send` issues one for a `REGISTRATION` or
+`PASSWORD_RESET` purpose.
+
+The code itself is never stored. The row keeps an HMAC-SHA-256 digest keyed by the server
+secret, the purpose, and the normalized address, so reading the database does not reveal a
+pending challenge and a digest cannot be replayed against a different purpose or address.
+Codes expire (10 minutes by default), are single use, and are invalidated once the per-code
+attempt limit is reached. Issuing a new code invalidates the address's other pending codes
+for the same purpose.
+
+The send endpoint returns an identical response whether or not the address has an account,
+and consumes its rate-limit allowance either way, so it cannot be used to enumerate
+registered users. A code is emailed only when the address is genuinely eligible: an
+unregistered address for `PASSWORD_RESET`, or an already-registered address for
+`REGISTRATION`, silently produces no mail and no row. Sending and checking are separately
+throttled per address and per IP through the shared `auth_login_throttles` table, and a
+resend inside the cooldown is refused with `Retry-After`.
+
+A rejected attempt commits its own attempt counter and throttle updates before the caller's
+transaction rolls back. Without that, the rollback that discards the failed registration or
+reset would also discard the evidence of the guess, leaving a live code open to unlimited
+guessing.
+
+Delivery goes through a configured provider (`resend` over HTTPS, generic `smtp`, or a
+development-only `console` sink that logs instead of sending and is rejected outside
+development/test). Email is an unauthenticated channel: possession of the mailbox is the only
+factor these codes prove.
+
+## Login-Password Reset
+
+`POST /auth/password-reset` takes the username, address, code, and new password. The code is
+consumed before the username/address pair is judged, so a mismatched pair spends an attempt
+rather than revealing that the code was valid; every failure returns the same generic
+response. Success writes a new Argon2id hash, records `password_changed_at`, and revokes
+every session family.
+
+Reset deliberately touches nothing cryptographic. The key-protection profile and encrypted
+private-key bundle are untouched, because the encryption passphrase is a separate secret the
+server never holds. This is why the reset is safe to offer over email at all: an attacker who
+takes over the mailbox gains the account's server-side session, but not the AMK, the private
+key, or any file plaintext.
+
+The same property sets the limit of this recovery channel. A forgotten **encryption
+passphrase** cannot be reset by email or by any other server-side action, because the server
+holds no material that can open the AMK envelope. That loss remains unrecoverable by design.
+
 ## Registration and Account-Key Custody
+
+Registration additionally consumes a `REGISTRATION` code for the submitted address, and the
+stored account is therefore created with `email_verified` already true.
 
 Before registration, the trusted client:
 

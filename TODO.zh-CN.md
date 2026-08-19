@@ -2,7 +2,7 @@
 
 [English](TODO.md) | 简体中文
 
-最后审查日期：2026-08-12
+最后审查日期：2026-08-15
 
 优先级：
 
@@ -26,17 +26,24 @@
   由目标密钥包装的 DEK。
 - [x] 应用路由与客户端只使用 `GET` 和 `POST`；状态变更采用显式 `POST` 动作路径，CORS
   也仅允许这两种方法。
-- [x] Alembic head 与应用 readiness marker 均为 `0003_client_key_custody`。经评审的空库
-  SQL 包含 15 张应用表，对 13 张普通状态表授予 CRUD，对审计表使用更窄权限。
+- [x] Alembic head 与应用 readiness marker 均为 `0004_email_verification_codes`。经评审的
+  空库 SQL 包含 16 张应用表，对 14 张普通状态表授予 CRUD，对审计表使用更窄权限。
+- [x] 注册与重置登录密码均由一次性邮箱验证码把关。验证码只以带密钥摘要形式存储，会过期、
+  只能用一次、有尝试次数上界，并按邮箱与 IP 双重限流；发送端点不会泄露某地址是否已注册。
+  重置绝不触碰密钥保护配置与私钥包，因此不会让账户失去对已加密文件的访问能力。
 - [x] 中英文 API、架构、安全流程、Schema、部署及项目范围文档均描述当前方案及元数据/
   威胁边界。
-- [x] 当前本地验证：Ruff 通过；后端测试为 `185 passed, 2 skipped`；前端生产 build 通过；
-  OpenAPI 共 45 个 operation，全部使用 `GET`/`POST`，受保护路由均声明 Bearer security，
-  且没有 passphrase 或 `private_key_pem` 字段。
+- [x] 当前本地验证：Ruff 通过；后端测试为 `212 passed`，且 MySQL 集成测试在一次性
+  MySQL 8.4 上真实执行；前端生产 build 通过；OpenAPI 共 47 个 operation，全部使用
+  `GET`/`POST`，受保护路由均声明 Bearer security，且没有 passphrase 或
+  `private_key_pem` 字段。
+- [x] 生产 SQL 路径与开发迁移路径均已在一次性 MySQL 8.4 上验证：`01/02/03` 全部状态为
+  `OK` 且无偏差行；`0001 -> 0004` 升级通过、`alembic check` 一致，并可干净地经 `0003`
+  往返。
 - [x] 敏感账户密钥变更要求持有最新当前私钥：后继密钥添加和保护配置重包装除 Bearer 认证外，
   都使用服务器定义的规范 32-byte 摘要和客户端 RSA-PSS-SHA256 签名。
-- [ ] 必需的一次性 MySQL 8.4 集成/发布门禁仍须在 CI 中实际运行；依赖 MySQL 的测试被跳过
-  时不得视为通过；当前两项 skipped 测试需要 `AUTH_TEST_DATABASE_URL`。
+- [ ] 一次性 MySQL 8.4 集成/发布门禁已在本地实际运行，但仍须接入 CI；集成测试需要
+  `AUTH_TEST_DATABASE_URL`，被跳过时不得视为通过。
 - [ ] 前端仍须实现下文的完整客户端密码学和会话 UX；后端完成不代表现有浏览器 UI 已可生产。
 - [ ] 仓库仍需要 CI 工作流及可复现的前端 type/lint/test 门禁。
 
@@ -67,12 +74,14 @@
   - 使用 `/auth/me` 恢复、串行化 refresh 轮换并避免 `401` 循环；
   - 服务端登出并清除撤销/过期状态；
   - 增加全部登出、密码修改、会话列表/撤销和按角色导航。
-- [ ] 用客户端账户密钥登记替换旧注册 UX：
+- [x] 用客户端账户密钥登记替换旧注册 UX：
   - 收集独立强加密 passphrase，且不发送给服务器；
   - 在本地生成配置长度 RSA 密钥对及随机 AMK；
   - 生成 Argon2id/KEK 包装 AMK 及 AMK/HKDF 加密 PKCS#8 bundle；
-  - 注册前自测 passphrase 解锁、公私钥对应及信封往返；
+  - 注册前自测 passphrase 解锁及信封往返；
   - 明确说明服务器无法重置遗忘的 passphrase。
+  已在 `frontend/src/utils/account-crypto.ts` 实现。自测验证两个信封可重新打开并还原出同一
+  份 PKCS#8 字节；尚未从解密后的私钥独立推导公钥以校验公私钥对应关系。
 - [ ] 使用 `GET /keys/me`、`POST /keys/me/rewrap/signing-payload`、最新当前私钥的本地
   RSA-PSS-SHA256 签名及 `POST /keys/me/rewrap` 实现解锁和修改 passphrase UX，包括乐观
   revision/当前密钥冲突、两次调用严格复用同一拟议字段及安全内存清理。
@@ -155,7 +164,7 @@
 ### 运维与数据保护
 
 - [x] 已有 `/health/live` 与 `/health/ready`；readiness 检查数据库连通性及精确
-  `0003_client_key_custody` 应用 Schema marker，不执行 migration。
+  `0004_email_verification_codes` 应用 Schema marker，不执行 migration。
 - [ ] 信任 forwarded IP 前增加边缘限流及可信代理边界。
 - [ ] 为过期会话/refresh/限流桶、陈旧暂存对象、孤儿密文和过期恢复请求增加清理/对账任务。
 - [ ] 自动化加密数据库/对象备份、保留、恢复演练及 RPO/RTO；数据库泄露可用于离线猜测

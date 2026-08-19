@@ -5,6 +5,7 @@ from fastapi import Depends, Request
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
+from app.core.config import Settings
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole
 from app.domain.errors import AuthenticationError, AuthorizationError
@@ -28,6 +29,10 @@ def get_request_context(request: Request) -> RequestContext:
         ip_address=client_host[:45] if client_host else None,
         user_agent=user_agent[:1024] if user_agent else None,
     )
+
+
+def get_settings(request: Request) -> Settings:
+    return request.app.state.settings
 
 
 def get_request_db(request: Request) -> Generator[Session, None, None]:

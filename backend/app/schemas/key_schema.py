@@ -18,6 +18,7 @@ from pydantic import (
 
 from app.domain.keys import (
     ClientKeyAddition,
+    ClientKeyRegistration,
     EncryptedPrivateKeyBundleInput,
     KeyProtectionProfileInput,
 )
@@ -129,6 +130,33 @@ class EncryptedPrivateKeyBundleIn(_StrictModel):
             auth_tag=decode_base64(self.auth_tag, field_name="auth_tag"),
             aad_version=self.aad_version,
             ciphertext_sha256=self.ciphertext_sha256,
+        )
+
+
+class ClientKeyRegistrationIn(_StrictModel):
+    key_id: UUID
+    public_key_pem: str = Field(min_length=200, max_length=8000)
+    algorithm: Literal["RSA-OAEP-SHA256"] = "RSA-OAEP-SHA256"
+    key_size_bits: Literal[2048, 3072, 4096] = 3072
+    protection: KeyProtectionProfileIn
+    private_key_bundle: EncryptedPrivateKeyBundleIn
+
+    @field_validator("public_key_pem")
+    @classmethod
+    def reject_padded_public_key(cls, value: str) -> str:
+        normalized = value.strip()
+        if "PRIVATE KEY" in normalized:
+            raise ValueError("public_key_pem must contain only a public key")
+        return f"{normalized}\n"
+
+    def to_domain(self) -> ClientKeyRegistration:
+        return ClientKeyRegistration(
+            key_id=self.key_id,
+            public_key_pem=self.public_key_pem,
+            algorithm=self.algorithm,
+            key_size_bits=self.key_size_bits,
+            protection=self.protection.to_domain(),
+            private_key_bundle=self.private_key_bundle.to_domain(),
         )
 
 

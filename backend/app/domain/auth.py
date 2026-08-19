@@ -19,8 +19,10 @@ class RequestContext:
 class AccountSnapshot:
     id: UUID
     username: str
+    email: str
     role: SystemRole
     status: UserStatus
+    email_verified: bool
     created_at: datetime
     last_login_at: datetime | None = None
 

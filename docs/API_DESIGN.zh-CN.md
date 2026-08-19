@@ -52,7 +52,9 @@ JSON 应用响应使用统一信封，其中 `data` 是路由专用 DTO。失败
 
 | 方法 | 端点 | 认证 | 成功 | 说明 |
 |---|---|---|---:|---|
+| POST | `/auth/verification-codes/send` | 公开 | 200 | 为注册或重置密码发送一次性邮箱验证码 |
 | POST | `/auth/register` | 公开 | 201 | 创建 USER 并保存客户端生成的加密密钥材料 |
+| POST | `/auth/password-reset` | 公开 | 200 | 校验邮箱验证码后设置新的登录密码 |
 | POST | `/auth/login` | 公开 | 200 | 验证登录密码并签发访问/刷新凭据对 |
 | POST | `/auth/refresh` | JSON 内刷新凭据 | 200 | 消费并轮换一次性刷新凭据 |
 | GET | `/auth/me` | Bearer | 200 | 返回当前账户 |
@@ -62,10 +64,25 @@ JSON 应用响应使用统一信封，其中 `data` 是路由专用 DTO。失败
 | GET | `/auth/sessions` | Bearer | 200 | 最多列出最近 100 个服务端会话 |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | 按公开 UUID 撤销本账户会话 |
 
-注册请求包含 `username`、`email`、`password` 和 `key_material`。`key_material` 包含客户端
-生成的 RSA-OAEP-SHA256 公钥、使用 Argon2id 与 AES-256-GCM 的 KEK 包装 AMK 配置，以及
-使用 AMK/HKDF 派生密钥与 AES-256-GCM 加密的 PKCS8-DER 私钥包。成功响应返回 `user`、
+`POST /auth/verification-codes/send` 接收 `email` 与 `purpose`（`REGISTRATION` 或
+`PASSWORD_RESET`）。无论该地址是否已注册，一律返回 `200` 及 `code_sent`、
+`expires_in_seconds`、`resend_available_in_seconds`，因此该端点无法用于枚举已注册用户；
+只有地址确实符合该用途时才会真正发信。发送按邮箱与 IP 双重限流，冷却期内重发返回 `429`
+并带 `Retry-After`。
+
+注册请求包含 `username`、`email`、`password`、`verification_code` 和 `key_material`。
+`key_material` 包含客户端生成的 RSA-OAEP-SHA256 公钥、使用 Argon2id 与 AES-256-GCM 的 KEK
+包装 AMK 配置，以及使用 AMK/HKDF 派生密钥与 AES-256-GCM 加密的 PKCS8-DER 私钥包。缺少验证码
+时返回 `422`；验证码错误或过期时 `error_code` 为 `invalid_verification_code`。消费验证码即
+证明该地址受控，因此新账户直接以 `email_verified` 为真写入。成功响应返回 `user`、
 `key_id` 和 `public_key_fingerprint`，不返回私钥。
+
+`POST /auth/password-reset` 接收 `username`、`email`、`verification_code` 和
+`new_password`。验证码先于用户名/邮箱一致性判断被消费，因此不匹配的组合会消耗一次尝试，而不会
+泄露验证码本身是否有效；所有失败都返回同一个 `invalid_verification_code` 响应。重置成功会写入
+新的 Argon2id 密码哈希、撤销全部会话族，并返回 `revoked_sessions`。它不会改动账户的密钥保护
+配置或加密私钥包：`key_envelopes_unchanged` 恒为 `true`——加密 passphrase 与登录密码
+彼此独立，因此重置登录密码绝不会让账户失去对已加密文件的访问能力。
 
 登录密码与加密 passphrase 相互独立；API 从不接收加密 passphrase。登录与修改密码输入先做
 Unicode NFC 规范化；新密码须为 15 至 128 个字符，并通过本地常见密码及账户派生检查，再用
@@ -75,7 +92,10 @@ Argon2id 哈希。
 `access_expires_at`、`refresh_expires_at` 和 `session_id`。访问与刷新值是独立不透明凭据，
 服务器只保存其哈希。刷新凭据重放会撤销完整会话族。
 
-忘记登录密码重置、邮箱验证、MFA 及外部身份提供商登录尚未实现，因为每项都需要外部信任通道。
+邮箱验证与忘记登录密码重置已基于上述一次性邮箱验证码实现；MFA 与外部身份提供商登录仍未实现。
+
+邮箱验证码只是登录密码的找回通道，永远无法找回遗忘的加密 passphrase：服务器不持有任何能打开
+AMK 信封的材料，该项丢失在设计上即不可恢复。
 
 ## 账户密钥 API
 

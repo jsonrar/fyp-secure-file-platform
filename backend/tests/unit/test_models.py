@@ -9,7 +9,7 @@ from app.domain.enums import SessionStatus
 def test_all_models_are_registered_and_mappable() -> None:
     configure_mappers()
 
-    assert len(Base.metadata.tables) == 15
+    assert len(Base.metadata.tables) == 16
 
 
 def test_auth_models_expose_public_ids_and_rotation_history() -> None:
@@ -56,7 +56,7 @@ def test_auth_models_expose_public_ids_and_rotation_history() -> None:
     assert audit_logs.c.created_at.type.fsp == 6
     assert audit_chain_heads.c.id.autoincrement is False
     assert audit_chain_heads.c.updated_at.type.fsp == 6
-    assert audit_chain_heads.c.schema_revision.server_default.arg == "0003_client_key_custody"
+    assert audit_chain_heads.c.schema_revision.server_default.arg == "0004_email_verification_codes"
 
 
 def test_client_key_custody_models_and_wrapping_invariants() -> None:
