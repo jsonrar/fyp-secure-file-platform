@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from dataclasses import dataclass, replace
+from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from typing import Any
@@ -16,17 +16,25 @@ from app.core.security import (
     normalize_password,
 )
 from app.domain.auth import ActorContext, RequestContext
-from app.domain.enums import LoginThrottleScope, SessionStatus, SystemRole, UserStatus
+from app.domain.enums import (
+    LoginThrottleScope,
+    SessionStatus,
+    SystemRole,
+    UserStatus,
+    VerificationPurpose,
+)
 from app.domain.errors import (
     AuthenticationError,
     AuthenticationRateLimitedError,
     InvalidCredentialsError,
     InvalidCurrentPasswordError,
     InvalidRefreshTokenError,
+    VerificationCodeInvalidError,
+    WeakPasswordError,
 )
 from app.domain.keys import (
+    ClientKeyRegistration,
     EncryptedPrivateKeyBundleInput,
-    GeneratedAccountKey,
     KeyProtectionProfileInput,
 )
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
@@ -72,32 +80,14 @@ class FakeAuditService:
 
 
 class FakeCryptoService:
-    def __init__(self) -> None:
-        self.generated_calls: list[dict[str, Any]] = []
-        self.rewrap_calls: list[dict[str, Any]] = []
-
-    def generate_account_key(self, **values: Any) -> GeneratedAccountKey:
-        self.generated_calls.append(values)
-        assert values["password"] == "A unique and lengthy passphrase!"
-        assert values["key_id"] == KEY_ID
-        assert values["profile_id"] == PROFILE_ID
-        assert values["bundle_id"] == BUNDLE_ID
-        assert values["key_size"] == 2048
-        return _generated_key()
+    def load_rsa_public_key(self, public_key_pem: str, *, expected_key_size: int):
+        assert public_key_pem == "PUBLIC KEY"
+        assert expected_key_size == 2048
+        return object()
 
     def public_key_fingerprint(self, public_key_pem: str) -> str:
         assert public_key_pem == "PUBLIC KEY"
         return "f" * 64
-
-    def rewrap_key_protection_profile(self, **values: Any) -> KeyProtectionProfileInput:
-        self.rewrap_calls.append(values)
-        return replace(
-            values["protection"],
-            kdf_salt=b"r" * 16,
-            wrapped_amk=b"x" * 32,
-            amk_nonce=b"m" * 12,
-            amk_auth_tag=b"g" * 16,
-        )
 
 
 class FakePasswordManager:
@@ -169,13 +159,12 @@ class FakeAuthRepository:
         self.added_private_key_bundles: list[EncryptedPrivateKeyBundle] = []
         self.added_sessions: list[UserSession] = []
         self.added_refresh_tokens: list[SessionRefreshToken] = []
-        self.key_protection_profile: UserKeyProtectionProfile | None = None
         self.revocations: list[tuple[UserSession, datetime, str]] = []
         self.expirations: list[tuple[UserSession, datetime]] = []
         self.clear_throttle_calls: list[tuple[LoginThrottleScope, str]] = []
         self.throttles: dict[tuple[LoginThrottleScope, str], SimpleNamespace] = {}
 
-    def username_exists(self, username: str) -> bool:
+    def identifier_exists(self, username: str, email: str) -> bool:
         return self.identifier_taken
 
     def add_user(self, user: User) -> None:
@@ -220,9 +209,6 @@ class FakeAuthRepository:
 
     def lock_user(self, user_id: int) -> User | None:
         return self.locked_user
-
-    def lock_key_protection_profile(self, user_id: int) -> UserKeyProtectionProfile | None:
-        return self.key_protection_profile
 
     def get_user(self, user_id: int) -> User | None:
         return self.user
@@ -310,6 +296,24 @@ class FakeAuthRepository:
         return self.locked_session
 
 
+class FakeVerificationService:
+    """Stands in for the emailed-challenge check so register/reset stay unit-testable."""
+
+    def __init__(self) -> None:
+        self.issued: list[dict[str, object]] = []
+        self.consumed: list[dict[str, object]] = []
+        self.consume_error: Exception | None = None
+
+    def issue(self, *, purpose, email, context) -> None:
+        self.issued.append({"purpose": purpose, "email": email, "context": context})
+
+    def consume(self, *, purpose, email, code, context):
+        self.consumed.append({"purpose": purpose, "email": email, "code": code, "context": context})
+        if self.consume_error is not None:
+            raise self.consume_error
+        return SimpleNamespace(purpose=purpose, email=email)
+
+
 @dataclass
 class Harness:
     service: AuthService
@@ -317,7 +321,7 @@ class Harness:
     repository: FakeAuthRepository
     audit: FakeAuditService
     passwords: FakePasswordManager
-    crypto: FakeCryptoService
+    verification: FakeVerificationService
 
 
 def _settings() -> Settings:
@@ -336,13 +340,14 @@ def _harness() -> Harness:
     audit = FakeAuditService()
     passwords = FakePasswordManager()
     passwords.db = db
-    crypto = FakeCryptoService()
+    verification = FakeVerificationService()
     service = AuthService(
         db=db,  # type: ignore[arg-type]
         settings=_settings(),
         repository=repository,  # type: ignore[arg-type]
         audit_service=audit,  # type: ignore[arg-type]
-        crypto_service=crypto,  # type: ignore[arg-type]
+        crypto_service=FakeCryptoService(),  # type: ignore[arg-type]
+        verification_service=verification,  # type: ignore[arg-type]
         passwords=passwords,  # type: ignore[arg-type]
         clock=lambda: NOW,
         token_factory=SequenceFactory(
@@ -353,11 +358,9 @@ def _harness() -> Harness:
                 "refresh-token-material-b" * 2,
             ]
         ),
-        uuid_factory=SequenceFactory(
-            [USER_PUBLIC_ID, KEY_ID, PROFILE_ID, BUNDLE_ID, SESSION_PUBLIC_ID, NEXT_PUBLIC_ID]
-        ),
+        uuid_factory=SequenceFactory([USER_PUBLIC_ID, SESSION_PUBLIC_ID, NEXT_PUBLIC_ID]),
     )
-    return Harness(service, db, repository, audit, passwords, crypto)
+    return Harness(service, db, repository, audit, passwords, verification)
 
 
 def _user(
@@ -413,16 +416,16 @@ def _actor(session: UserSession | None = None) -> ActorContext:
     )
 
 
-def _generated_key() -> GeneratedAccountKey:
+def _key_material() -> ClientKeyRegistration:
     encrypted_private_key = b"client-encrypted-pkcs8" * 20
-    return GeneratedAccountKey(
+    return ClientKeyRegistration(
         key_id=KEY_ID,
         public_key_pem="PUBLIC KEY",
         algorithm="RSA-OAEP-SHA256",
         key_size_bits=2048,
         protection=KeyProtectionProfileInput(
             profile_id=PROFILE_ID,
-            format_version=2,
+            format_version=1,
             kdf_algorithm="ARGON2ID",
             kdf_version=19,
             kdf_salt=b"s" * 16,
@@ -438,7 +441,7 @@ def _generated_key() -> GeneratedAccountKey:
         ),
         private_key_bundle=EncryptedPrivateKeyBundleInput(
             bundle_id=BUNDLE_ID,
-            format_version=2,
+            format_version=1,
             private_key_format="PKCS8-DER",
             derivation_algorithm="HKDF-SHA256",
             derivation_salt=b"d" * 16,
@@ -452,35 +455,15 @@ def _generated_key() -> GeneratedAccountKey:
     )
 
 
-def _server_managed_protection_profile() -> UserKeyProtectionProfile:
-    return UserKeyProtectionProfile(
-        user_id=7,
-        profile_uuid=str(PROFILE_ID),
-        format_version=2,
-        kdf_algorithm="ARGON2ID",
-        kdf_version=19,
-        kdf_salt=b"s" * 16,
-        kdf_memory_kib=65_536,
-        kdf_iterations=3,
-        kdf_parallelism=4,
-        derived_key_length=32,
-        amk_wrapping_algorithm="AES-256-GCM",
-        wrapped_amk=b"w" * 32,
-        amk_nonce=b"n" * 12,
-        amk_auth_tag=b"t" * 16,
-        aad_version=1,
-        revision=1,
-        created_at=NOW_DB - timedelta(days=30),
-        updated_at=NOW_DB - timedelta(days=30),
-    )
-
-
-def test_register_generates_and_persists_encrypted_key_material() -> None:
+def test_register_persists_only_client_wrapped_key_material() -> None:
     harness = _harness()
 
     result = harness.service.register(
         username=" alice ",
+        email="Alice@Example.COM ",
         password="A unique and lengthy passphrase!",
+        verification_code="123456",
+        key_material=_key_material(),
         context=CONTEXT,
     )
 
@@ -490,7 +473,7 @@ def test_register_generates_and_persists_encrypted_key_material() -> None:
     assert result.key_id == KEY_ID
     assert result.public_key_fingerprint == "f" * 64
     assert user.username == "alice"
-    assert user.email == f"{USER_PUBLIC_ID}@demo.invalid"
+    assert user.email == "alice@example.com"
     assert user.password_hash == "hash::A unique and lengthy passphrase!"
     assert user_key.user_id == user.id
     assert user_key.key_uuid == str(KEY_ID)
@@ -510,7 +493,6 @@ def test_register_generates_and_persists_encrypted_key_material() -> None:
         ]
     )
     assert harness.audit.events[-1]["action"] == "AUTH_REGISTERED"
-    assert len(harness.crypto.generated_calls) == 1
     assert {scope for scope, _ in harness.repository.throttles} == {
         LoginThrottleScope.REGISTRATION_IP
     }
@@ -526,10 +508,14 @@ def test_register_rolls_back_when_atomic_audit_write_fails() -> None:
     with pytest.raises(RuntimeError, match="audit unavailable"):
         harness.service.register(
             username="alice",
+            email="alice@example.com",
             password="A unique and lengthy passphrase!",
+            verification_code="123456",
+            key_material=_key_material(),
             context=CONTEXT,
         )
 
+    # The registration throttle survives; the account/key/audit transaction does not.
     # The registration throttle survives; the account/key/audit transaction does not.
     assert harness.db.commits == 1
     assert harness.db.rollbacks == 1
@@ -757,36 +743,6 @@ def test_change_password_rehashes_and_revokes_all_sessions() -> None:
     assert harness.db.commits == 2
 
 
-def test_change_password_rewraps_server_managed_key_protection() -> None:
-    harness = _harness()
-    user = _user()
-    protection = _server_managed_protection_profile()
-    harness.repository.user = user
-    harness.repository.locked_user = user
-    harness.repository.key_protection_profile = protection
-
-    harness.service.change_password(
-        actor=_actor(),
-        current_password="Current secure passphrase!",
-        new_password="A completely new secure phrase!",
-        context=CONTEXT,
-    )
-
-    assert len(harness.crypto.rewrap_calls) == 1
-    assert harness.crypto.rewrap_calls[0]["current_password"] == ("Current secure passphrase!")
-    assert harness.crypto.rewrap_calls[0]["new_password"] == ("A completely new secure phrase!")
-    assert protection.kdf_salt == b"r" * 16
-    assert protection.wrapped_amk == b"x" * 32
-    assert protection.amk_nonce == b"m" * 12
-    assert protection.amk_auth_tag == b"g" * 16
-    assert protection.revision == 2
-    assert protection.updated_at == NOW_DB
-    assert harness.audit.events[-1]["metadata"] == {
-        "revoked_sessions": 0,
-        "key_protection_rewrapped": True,
-    }
-
-
 def test_invalid_current_password_is_throttled_and_audited() -> None:
     harness = _harness()
     harness.repository.user = _user()
@@ -944,9 +900,116 @@ def test_registration_rechecks_block_after_lock_before_expensive_work() -> None:
     with pytest.raises(AuthenticationRateLimitedError):
         harness.service.register(
             username="alice",
+            email="alice@example.com",
             password="A unique and lengthy passphrase!",
+            verification_code="123456",
+            key_material=_key_material(),
             context=CONTEXT,
         )
 
     assert harness.repository.added_users == []
     assert harness.audit.events == []
+
+
+def test_register_consumes_a_registration_code_and_marks_the_email_verified() -> None:
+    harness = _harness()
+
+    harness.service.register(
+        username="alice",
+        email="Alice@Example.COM",
+        password="A unique and lengthy passphrase!",
+        verification_code="123456",
+        key_material=_key_material(),
+        context=CONTEXT,
+    )
+
+    assert harness.verification.consumed == [
+        {
+            "purpose": VerificationPurpose.REGISTRATION,
+            "email": "alice@example.com",
+            "code": "123456",
+            "context": CONTEXT,
+        }
+    ]
+    assert harness.repository.added_users[0].email_verified is True
+
+
+def test_register_without_a_valid_code_creates_no_account() -> None:
+    harness = _harness()
+    harness.verification.consume_error = VerificationCodeInvalidError()
+
+    with pytest.raises(VerificationCodeInvalidError):
+        harness.service.register(
+            username="alice",
+            email="alice@example.com",
+            password="A unique and lengthy passphrase!",
+            verification_code="000000",
+            key_material=_key_material(),
+            context=CONTEXT,
+        )
+
+    assert harness.repository.added_users == []
+    assert harness.repository.added_user_keys == []
+    assert harness.audit.events == []
+    assert harness.db.rollbacks == 1
+
+
+def test_reset_password_rehashes_and_revokes_every_session() -> None:
+    harness = _harness()
+    user = _user()
+    harness.repository.user_by_username = user
+    harness.repository.locked_user = user
+    harness.repository.revoke_all_count = 4
+
+    revoked = harness.service.reset_password(
+        username=" alice ",
+        email="Alice@Example.COM",
+        verification_code="123456",
+        new_password="A brand new lengthy passphrase!",
+        context=CONTEXT,
+    )
+
+    assert revoked == 4
+    assert user.password_hash == "hash::A brand new lengthy passphrase!"
+    assert user.password_changed_at == NOW_DB
+    assert harness.verification.consumed[0]["purpose"] == VerificationPurpose.PASSWORD_RESET
+    assert harness.audit.events[-1]["action"] == "AUTH_PASSWORD_RESET"
+    assert harness.audit.events[-1]["result"] == "SUCCESS"
+
+
+def test_reset_password_rejects_a_username_and_email_that_do_not_match() -> None:
+    harness = _harness()
+    user = _user()
+    harness.repository.user_by_username = user
+    harness.repository.locked_user = user
+    original_hash = user.password_hash
+
+    with pytest.raises(VerificationCodeInvalidError):
+        harness.service.reset_password(
+            username="alice",
+            email="someone-else@example.com",
+            verification_code="123456",
+            new_password="A brand new lengthy passphrase!",
+            context=CONTEXT,
+        )
+
+    # The code is still consumed so a mismatch cannot be used to test codes for free.
+    assert harness.verification.consumed[0]["email"] == "someone-else@example.com"
+    assert user.password_hash == original_hash
+    assert harness.audit.events == []
+
+
+def test_reset_password_rejects_a_weak_new_password_before_touching_the_code() -> None:
+    harness = _harness()
+    harness.repository.user_by_username = _user()
+
+    with pytest.raises(WeakPasswordError):
+        harness.service.reset_password(
+            username="alice",
+            email="alice@example.com",
+            verification_code="123456",
+            new_password="short",
+            context=CONTEXT,
+        )
+
+    assert harness.verification.consumed == []

@@ -100,7 +100,7 @@ fyp-secure-file-platform/
 
 所有后端业务路由均已可用。存活检查、readiness 和 OpenAPI 也已启用；受保护路由要求
 Bearer 身份认证，管理及恢复路由执行 RBAC。Readiness 会检查数据库连接及精确的
-`0003_client_key_custody` Schema revision。
+`0004_email_verification_codes` Schema revision。
 
 `MAX_REQUEST_BODY_BYTES` 限制普通 JSON／form 请求体（默认 1 MiB，配置上限 8 MiB）。加密
 multipart 上传另受 `MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` 独立上限

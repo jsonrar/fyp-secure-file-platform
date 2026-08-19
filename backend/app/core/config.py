@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from functools import lru_cache
 from pathlib import Path
+from typing import Literal
 
 from pydantic import Field, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
@@ -41,7 +42,35 @@ class Settings(BaseSettings):
     AUTH_REGISTRATION_WINDOW_SECONDS: int = Field(default=60 * 60, ge=60)
     AUTH_REGISTRATION_BLOCK_SECONDS: int = Field(default=60 * 60, ge=60)
     USER_RSA_KEY_SIZE: int = Field(default=3072, ge=2048, le=4096)
-    EXPECTED_SCHEMA_REVISION: str = "0003_client_key_custody"
+    EXPECTED_SCHEMA_REVISION: str = "0004_email_verification_codes"
+
+    # Emailed verification challenges for registration and password reset.
+    VERIFICATION_CODE_LENGTH: int = Field(default=6, ge=6, le=10)
+    VERIFICATION_CODE_TTL_SECONDS: int = Field(default=10 * 60, ge=60, le=3600)
+    VERIFICATION_CODE_MAX_ATTEMPTS: int = Field(default=5, ge=1, le=20)
+    VERIFICATION_RESEND_INTERVAL_SECONDS: int = Field(default=60, ge=15, le=600)
+    VERIFICATION_SEND_EMAIL_MAX_PER_WINDOW: int = Field(default=5, ge=1, le=50)
+    VERIFICATION_SEND_IP_MAX_PER_WINDOW: int = Field(default=20, ge=1, le=500)
+    VERIFICATION_CHECK_EMAIL_MAX_FAILURES: int = Field(default=10, ge=1, le=100)
+    VERIFICATION_CHECK_IP_MAX_FAILURES: int = Field(default=50, ge=1, le=1000)
+    VERIFICATION_THROTTLE_WINDOW_SECONDS: int = Field(default=60 * 60, ge=60)
+    VERIFICATION_THROTTLE_BLOCK_SECONDS: int = Field(default=15 * 60, ge=60)
+
+    # Outbound email. "console" logs the message instead of delivering it and is
+    # the only provider that may run without credentials.
+    EMAIL_PROVIDER: Literal["console", "resend", "smtp"] = "console"
+    EMAIL_FROM_ADDRESS: str = "no-reply@localhost"
+    EMAIL_FROM_NAME: str = "SecureView"
+    EMAIL_REPLY_TO: str | None = None
+    EMAIL_TIMEOUT_SECONDS: int = Field(default=10, ge=1, le=60)
+    RESEND_API_KEY: str = Field(default="", repr=False)
+    RESEND_API_URL: str = "https://api.resend.com/emails"
+    SMTP_HOST: str = ""
+    SMTP_PORT: int = Field(default=587, ge=1, le=65535)
+    SMTP_USERNAME: str = ""
+    SMTP_PASSWORD: str = Field(default="", repr=False)
+    SMTP_USE_TLS: bool = True
+    SMTP_USE_SSL: bool = False
 
     CORS_ORIGINS: list[str] = Field(default_factory=lambda: _LOCAL_CORS_ORIGINS.copy())
     CORS_ALLOW_CREDENTIALS: bool = True
@@ -173,6 +202,33 @@ class Settings(BaseSettings):
                 raise ValueError(
                     f"Unsafe settings for APP_ENV={self.APP_ENV!r}: " + "; ".join(errors)
                 )
+
+        if self.VERIFICATION_CHECK_EMAIL_MAX_FAILURES >= self.VERIFICATION_CHECK_IP_MAX_FAILURES:
+            raise ValueError(
+                "VERIFICATION_CHECK_IP_MAX_FAILURES must be greater than the per-email limit"
+            )
+        if self.VERIFICATION_SEND_EMAIL_MAX_PER_WINDOW >= self.VERIFICATION_SEND_IP_MAX_PER_WINDOW:
+            raise ValueError(
+                "VERIFICATION_SEND_IP_MAX_PER_WINDOW must be greater than the per-email limit"
+            )
+        if self.VERIFICATION_RESEND_INTERVAL_SECONDS >= self.VERIFICATION_CODE_TTL_SECONDS:
+            raise ValueError(
+                "VERIFICATION_RESEND_INTERVAL_SECONDS must be shorter than the code lifetime"
+            )
+
+        email_provider_errors: list[str] = []
+        if self.EMAIL_PROVIDER == "resend" and not self.RESEND_API_KEY:
+            email_provider_errors.append("RESEND_API_KEY is required for EMAIL_PROVIDER=resend")
+        if self.EMAIL_PROVIDER == "smtp" and not self.SMTP_HOST:
+            email_provider_errors.append("SMTP_HOST is required for EMAIL_PROVIDER=smtp")
+        if self.EMAIL_PROVIDER == "smtp" and self.SMTP_USE_TLS and self.SMTP_USE_SSL:
+            email_provider_errors.append("SMTP_USE_TLS and SMTP_USE_SSL are mutually exclusive")
+        if self.APP_ENV not in {"development", "test"} and self.EMAIL_PROVIDER == "console":
+            email_provider_errors.append(
+                "EMAIL_PROVIDER=console never delivers mail and is development-only"
+            )
+        if email_provider_errors:
+            raise ValueError("Invalid email settings: " + "; ".join(email_provider_errors))
 
         if bool(self.DB_SSL_CERT) != bool(self.DB_SSL_KEY):
             raise ValueError("DB_SSL_CERT and DB_SSL_KEY must either both be set or both be absent")

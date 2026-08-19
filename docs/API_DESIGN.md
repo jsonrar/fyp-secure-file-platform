@@ -59,7 +59,9 @@ cross the API boundary; public resources use UUIDs.
 
 | Method | Endpoint | Auth | Success | Description |
 |---|---|---|---:|---|
+| POST | `/auth/verification-codes/send` | Public | 200 | Email a one-time code for registration or password reset |
 | POST | `/auth/register` | Public | 201 | Create USER account and persist client-created encrypted key material |
+| POST | `/auth/password-reset` | Public | 200 | Set a new login password after an emailed code |
 | POST | `/auth/login` | Public | 200 | Verify login password and issue access/refresh pair |
 | POST | `/auth/refresh` | Refresh token in JSON | 200 | Consume and rotate the one-time refresh credential |
 | GET | `/auth/me` | Bearer | 200 | Return the current account |
@@ -69,11 +71,31 @@ cross the API boundary; public resources use UUIDs.
 | GET | `/auth/sessions` | Bearer | 200 | List at most the 100 newest server-side sessions |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | Revoke an account-owned session by public UUID |
 
-Registration requires `username`, `email`, `password`, and `key_material`. `key_material`
-contains a client-generated RSA-OAEP-SHA256 public key, a KEK-wrapped AMK profile using
-Argon2id plus AES-256-GCM, and an AMK/HKDF-derived AES-256-GCM encrypted PKCS8-DER private-key
-bundle. The successful response returns `user`, `key_id`, and `public_key_fingerprint`; it
-does not return a private key.
+`POST /auth/verification-codes/send` takes `email` and a `purpose` of `REGISTRATION` or
+`PASSWORD_RESET`. It always answers `200` with `code_sent`, `expires_in_seconds`, and
+`resend_available_in_seconds`, whether or not the address has an account, so the endpoint
+cannot be used to enumerate registered users. A code is emailed only when the address is
+actually eligible for the requested purpose. Sends are rate limited per address and per IP,
+and a resend inside the cooldown returns `429` with `Retry-After`.
+
+Registration requires `username`, `email`, `password`, `verification_code`, and
+`key_material`. `key_material` contains a client-generated RSA-OAEP-SHA256 public key, a
+KEK-wrapped AMK profile using Argon2id plus AES-256-GCM, and an AMK/HKDF-derived AES-256-GCM
+encrypted PKCS8-DER private-key bundle. A registration that omits the code fails validation
+with `422`, and an incorrect or expired code fails with `error_code`
+`invalid_verification_code`. Consuming the code proves control of the address, so the created
+account is stored with `email_verified` already true. The successful response returns `user`,
+`key_id`, and `public_key_fingerprint`; it does not return a private key.
+
+`POST /auth/password-reset` takes `username`, `email`, `verification_code`, and
+`new_password`. The code is consumed before the username/email pair is judged, so a mismatched
+pair costs an attempt instead of revealing that the code itself was valid; every failure
+returns the same `invalid_verification_code` response. A successful reset writes a new
+Argon2id password hash, revokes every session family, and returns `revoked_sessions`. It does
+not touch the account's key-protection profile or encrypted private-key bundle:
+`key_envelopes_unchanged` is always `true`, because the encryption passphrase is
+independent of the login password and the reset therefore never costs the account access to
+its encrypted files.
 
 The login password and encryption passphrase are independent. The API never accepts the
 encryption passphrase. Login and password-change inputs are Unicode NFC-normalized; new
@@ -85,8 +107,12 @@ Successful login data contains `user`, `access_token`, `refresh_token`, `token_t
 independent opaque credentials; the server stores only their hashes. Refresh replay revokes
 the complete session family.
 
-Forgotten-login-password reset, email verification, MFA, and external identity-provider
-login are not implemented because each requires an external trust channel.
+Email verification and forgotten-login-password reset are implemented on top of the emailed
+one-time code above. MFA and external identity-provider login remain unimplemented.
+
+Emailed codes are a recovery channel for the login password only. They can never restore a
+forgotten encryption passphrase: the server holds no material that can open the AMK envelope,
+so that loss stays unrecoverable by design.
 
 ## Account-Key API
 

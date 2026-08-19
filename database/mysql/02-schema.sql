@@ -19,7 +19,7 @@
 -- verified pre-deployment backup, then restart from 01-provision.sql.
 --
 -- The DDL below is the flattened final state represented by revisions
--- 0001_initial through 0003_client_key_custody. Production deployment does not
+-- 0001_initial through 0004_email_verification_codes. Production deployment does not
 -- run Alembic. The alembic_version row is retained only as a compatibility
 -- marker for development tooling and must be updated together with reviewed
 -- future root-executed SQL release scripts.
@@ -81,7 +81,11 @@ CREATE TABLE auth_login_throttles (
         'IP',
         'REAUTH_ACCOUNT',
         'REAUTH_IP',
-        'REGISTRATION_IP'
+        'REGISTRATION_IP',
+        'VERIFICATION_SEND_EMAIL',
+        'VERIFICATION_SEND_IP',
+        'VERIFICATION_CHECK_EMAIL',
+        'VERIFICATION_CHECK_IP'
     ) NOT NULL,
     key_hash CHAR(64) NOT NULL,
     failed_count INTEGER UNSIGNED NOT NULL DEFAULT '0',
@@ -729,8 +733,51 @@ CREATE TABLE session_refresh_tokens (
 CREATE INDEX idx_session_refresh_tokens_expires_at
     ON session_refresh_tokens (expires_at);
 
+-- Revision 0004. Stores only a keyed digest of each emailed challenge, never
+-- the code itself, so a database reader cannot replay a pending challenge.
+CREATE TABLE email_verification_codes (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    code_uuid CHAR(36) NOT NULL,
+    purpose ENUM('REGISTRATION', 'PASSWORD_RESET') NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    user_id BIGINT UNSIGNED,
+    code_hash CHAR(64) NOT NULL,
+    status ENUM('PENDING', 'CONSUMED', 'INVALIDATED') NOT NULL DEFAULT 'PENDING',
+    attempt_count INTEGER UNSIGNED NOT NULL DEFAULT '0',
+    max_attempts INTEGER UNSIGNED NOT NULL DEFAULT '5',
+    ip_address VARCHAR(45),
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    expires_at DATETIME NOT NULL,
+    consumed_at DATETIME,
+    PRIMARY KEY (id),
+    CONSTRAINT uq_email_verification_codes_code_uuid UNIQUE (code_uuid),
+    CONSTRAINT ck_email_verification_codes_expiry_after_creation
+        CHECK (expires_at > created_at),
+    CONSTRAINT ck_email_verification_codes_attempts
+        CHECK (max_attempts >= 1 AND attempt_count <= max_attempts),
+    CONSTRAINT ck_email_verification_codes_consumed_at
+        CHECK (
+            (status = 'CONSUMED' AND consumed_at IS NOT NULL)
+            OR (status <> 'CONSUMED' AND consumed_at IS NULL)
+        ),
+    CONSTRAINT fk_email_verification_codes_user
+        FOREIGN KEY (user_id) REFERENCES users (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_email_verification_codes_lookup
+    ON email_verification_codes (email, purpose, status, expires_at);
+CREATE INDEX idx_email_verification_codes_user_id
+    ON email_verification_codes (user_id);
+CREATE INDEX idx_email_verification_codes_expires_at
+    ON email_verification_codes (expires_at);
+CREATE INDEX idx_email_verification_codes_created_at
+    ON email_verification_codes (created_at);
+
 -- Seed the only application bootstrap row with the last completed revision.
--- The final statement publishes 0003 only after every table, grant, and
+-- The final statement publishes 0004 only after every table, grant, and
 -- compatibility marker below has succeeded.
 INSERT INTO audit_chain_heads (
     id,
@@ -787,6 +834,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE
 GRANT SELECT, INSERT, UPDATE, DELETE
     ON `fyp_secure_file_platform`.`session_refresh_tokens`
     TO 'fyp_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE
+    ON `fyp_secure_file_platform`.`email_verification_codes`
+    TO 'fyp_user'@'localhost';
 GRANT SELECT, INSERT
     ON `fyp_secure_file_platform`.`audit_logs`
     TO 'fyp_user'@'localhost';
@@ -805,15 +855,15 @@ CREATE TABLE alembic_version (
   COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO alembic_version (version_num)
-VALUES ('0003_client_key_custody');
+VALUES ('0004_email_verification_codes');
 
 -- Restore final-schema default parity only after every prior install statement
 -- has succeeded. The row still advertises 0002 until the final UPDATE below.
 ALTER TABLE audit_chain_heads
-ALTER COLUMN schema_revision SET DEFAULT '0003_client_key_custody';
+ALTER COLUMN schema_revision SET DEFAULT '0004_email_verification_codes';
 
 -- This must be the final statement: readiness reads this marker rather than
 -- alembic_version because the runtime identity intentionally cannot read it.
 UPDATE audit_chain_heads
-SET schema_revision = '0003_client_key_custody'
+SET schema_revision = '0004_email_verification_codes'
 WHERE id = 1;

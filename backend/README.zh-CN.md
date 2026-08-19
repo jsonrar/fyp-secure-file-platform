@@ -6,13 +6,15 @@
 
 ## 当前状态
 
-身份认证、密码包装密钥托管、加密文件、共享、审计、恢复及管理纵向功能切片均已实现。
+身份认证、客户端包装密钥托管、加密文件、共享、审计、恢复及管理纵向功能切片均已实现。
 它们使用真实 MySQL 事务、公开 UUID 契约、显式 Bearer／RBAC 依赖、加密对象存储及哈希链
 审计事件。`/api/v1` 下的核心 Auth 端点为：
 
 | 方法 | 端点 | 身份认证 |
 |---|---|---|
+| POST | `/auth/verification-codes/send` | 公开 |
 | POST | `/auth/register` | 公开 |
+| POST | `/auth/password-reset` | 公开 |
 | POST | `/auth/login` | 公开 |
 | POST | `/auth/refresh` | 刷新凭据 |
 | GET | `/auth/me` | Bearer 访问令牌 |
@@ -24,28 +26,18 @@
 
 `/keys`、`/files`、`/audit-logs`、`/recovery` 和 `/admin` 路由也已启用，并由 OpenAPI
 完整描述。`/health/live` 检查进程；`/health/ready` 还会检查数据库连接及精确的
-`0003_client_key_custody` Schema revision。
+`0004_email_verification_codes` Schema revision。
 
-注册请求只包含 `username` 和 `password`。后端生成账户 RSA 密钥对及全部信封元数据，并保存
-公钥与加密后的 PKCS#8 私钥包；明文私钥和密码派生密钥只在请求期间短暂存在，不会持久化或
-返回。修改登录密码时，后端会在同一事务中重新包装账户主密钥。数据库中旧的 email 列暂时
-写入不可投递的内部占位值以兼容现有 Schema；email 不再属于公开账户契约。
+这些 API 采用客户端密钥托管边界：服务器只保存公钥、加密私钥包、密文及包装密钥，不接收
+加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。浏览器前端已实现账户密钥登记
+（本地生成密钥对、Argon2id 派生 KEK、包装 AMK 并加密私钥，提交前自测信封可重新打开）；
+私钥解锁、文件加解密和 DEK 重包装仍未实现，因此后端路由完成仍不等于现有 UI 已具备完整
+客户端密码学能力。
 
-### 服务端托管账户密钥信封（格式 2）
-
-下面是可供其他后端客户端复现的精确字节协议：密码先使用 Unicode NFC 规范化，再编码为
-UTF-8 后交给 Argon2id。整数使用无符号 32 位大端编码，UUID 使用 RFC 4122／网络字节序的原始
-16 字节，公钥指纹是将 API 中的十六进制 SHA-256 值解码得到的原始 32 字节。`||` 表示拼接；
-每个域字符串末尾都有一个 `0x00` 字节。
-
-- AMK 包装 AAD：`FYP-KEY-PROTECTION || 0x00 || format_version || aad_version || profile_uuid`
-- 私钥 HKDF info：`FYP-PRIVATE-KEY-DERIVATION || 0x00 || format_version || profile_uuid || key_uuid || bundle_uuid`
-- 私钥 AAD：`FYP-PRIVATE-KEY-BUNDLE || 0x00 || format_version || aad_version || profile_uuid || key_uuid || bundle_uuid || public_key_fingerprint`
-
-私钥 HKDF 使用 SHA-256，以 32 字节 AMK 为输入密钥材料、`derivation_salt` 为 salt、上面的值
-为 `info`，输出 32 字节。AES-GCM 认证标签与密文分开保存。格式 2 的保护层绑定登录密码，
-只能通过 `POST /auth/change-password` 重新包装；客户端签名的 `/keys/me/rewrap` 流程仅保留给
-旧的格式 1 保护配置。
+注册与忘记登录密码重置均由发往所声明邮箱的一次性验证码把关，注册同时将账户邮箱标记为已验证。
+验证码只以带密钥摘要形式存储，会过期、只能用一次、有尝试次数上界，并按邮箱与 IP 双重限流；
+发送端点对已注册与未注册地址返回完全相同的响应。重置绝不触碰账户密钥信封，因此不会让账户
+失去对已加密文件的访问能力，也因此无法找回遗忘的加密 passphrase。MFA 与外部身份登录尚未实现。
 
 应用层 HTTP 端点仅使用 `GET` 和 `POST`：读取操作使用 `GET`，新增、更新、删除、撤销及其他
 会改变状态的动作使用 `POST`。不得新增 `PUT`、`PATCH` 或 `DELETE` 路由；CORS 方法配置也
@@ -57,9 +49,10 @@ UTF-8 后交给 Argon2id。整数使用无符号 32 位大端编码，UUID 使�
 安全基线，并非持续维护的已泄露密码语料库。忘记登录密码重置、电子邮件验证、多因素认证
 （MFA）和外部身份登录尚未实现；每项功能都需要可信的带外投递或身份通道。
 
-登录密码同时用于派生私钥保护 KEK；服务端只保存密码哈希、公开 KDF 参数、包装后的 AMK
-及加密私钥包。忘记密码恢复仍未实现。恢复 API 只治理单个文件 DEK 向已登记活跃公钥的
-重新包装，不会绕过账户密码直接解密用户私钥包。
+加密 passphrase 与登录密码相互独立，只在客户端用于派生 KEK。用户通常只需记住该
+passphrase，服务端则保存加密私钥包；但若 passphrase 遗失且没有独立安全保存的可用密钥
+副本，服务器目前无法重置或恢复它。恢复 API 只治理单个文件 DEK 向已登记活跃公钥的重新
+包装，不会恢复 passphrase、AMK 或解密私钥包。
 
 ## 前置要求
 

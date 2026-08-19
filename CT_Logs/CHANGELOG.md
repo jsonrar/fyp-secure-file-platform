@@ -6,6 +6,45 @@ All notable changes to this project are documented in this file.
 
 ## [Unreleased] / [未发布]
 
+### Email verification and password reset / 邮箱验证与密码重置
+
+- Reverted the registration path to client-held key custody after `c45e54d` had moved account-key generation onto the server and dropped `email` from the registration contract. The backend again accepts client-generated `key_material` and never sees a passphrase, AMK, or plaintext private key, as `docs/SECURITY_FLOWS.md` requires. `CryptoService.generate_account_key`, `derive_argon2id_key`, and their unit tests are kept in the tree, unused and marked as such, so the team can review the direction rather than lose the work.
+- 在 `c45e54d` 把账户密钥生成移到服务端并从注册契约中移除 `email` 之后，已将注册路径恢复为客户端密钥托管。后端重新接收客户端生成的 `key_material`，并且不再接触 passphrase、AMK 或明文私钥，符合 `docs/SECURITY_FLOWS.md` 的要求。`CryptoService.generate_account_key`、`derive_argon2id_key` 及其单元测试予以保留（当前未被调用并已标注），供团队评审方向，而非直接删除队友的成果。
+- Added the `email_verification_codes` table as Alembic revision `0004_email_verification_codes`, together with the matching production `02-schema.sql` DDL, runtime CRUD grant, and `03-verify.sql` expectations. A row stores only an HMAC-SHA-256 digest keyed by the server secret, purpose, and normalized address, never the emailed code, and CHECK constraints hold the expiry, attempt-bound, and `CONSUMED`/`consumed_at` invariants.
+- 已新增 `email_verification_codes` 表（Alembic revision `0004_email_verification_codes`）， 并同步生产 `02-schema.sql` DDL、运行时 CRUD 授权及 `03-verify.sql` 核验期望。数据行只保存 以服务端 secret、用途与规范化地址为密钥的 HMAC-SHA-256 摘要，绝不保存邮件中的验证码； CHECK 约束固定了过期时间、尝试次数上界及 `CONSUMED`/`consumed_at` 不变量。
+- Widened the shared `auth_login_throttles` scope enum with four verification buckets so code sending and code checking are rate limited per address and per IP without a second rate-limit mechanism.
+- 已扩展共享的 `auth_login_throttles` scope 枚举，新增四个验证码 bucket，使验证码的发送与 校验按邮箱和 IP 分别限流，无需引入第二套限流机制。
+- Added `POST /auth/verification-codes/send`, which answers identically whether or not the address has an account and consumes its rate-limit allowance either way, so it cannot be used to enumerate registered users.
+- 已新增 `POST /auth/verification-codes/send`；无论地址是否已注册都返回相同响应并同样消耗 限流额度，因此无法被用来枚举已注册用户。
+- `POST /auth/register` now requires `verification_code` and stores the account with `email_verified` already true. Added `POST /auth/password-reset`, which consumes the code before judging the username/email pair, writes a new Argon2id hash, and revokes every session family. Reset leaves the key-protection profile and encrypted private-key bundle untouched, so an account never loses access to its encrypted files by resetting a forgotten login password.
+- `POST /auth/register` 现在要求 `verification_code`，并直接以 `email_verified` 为真写入 账户。已新增 `POST /auth/password-reset`：先消费验证码再判断用户名/邮箱是否匹配，写入新的 Argon2id 哈希并撤销全部 Session family。重置不会改动密钥保护配置与加密私钥包，因此账户 不会因为重置遗忘的登录密码而失去对已加密文件的访问能力。
+- Fixed a defect found during end-to-end verification: a rejected code attempt was recorded in the caller's transaction, so the rollback that discarded the failed registration or reset also discarded the attempt counter and throttle updates, leaving a live code open to unlimited guessing. A rejected attempt now commits on its own before raising.
+- 已修复端到端验证中发现的缺陷：被拒绝的验证码尝试原本记录在调用方事务中，导致丢弃失败注册或 重置的那次回滚同时丢弃了尝试计数与限流更新，使仍然有效的验证码可被无限次猜测。现在被拒绝的 尝试会先独立提交再抛出异常。
+- Added outbound email delivery with selectable `resend` (HTTPS API), generic `smtp`, and development-only `console` providers, using only the Python standard library so the backend gains no new dependency. Production settings reject `console`, which never delivers mail.
+- 已新增出站邮件投递，支持 `resend`（HTTPS API）、通用 `smtp` 及仅供开发的 `console` 三种 provider，且只使用 Python 标准库，后端不新增任何依赖。生产配置会拒绝从不真正发信的 `console`。
+
+### Browser account-key enrolment / 浏览器账户密钥注册
+
+- Replaced the registration page with the client-custody enrolment flow: the browser generates the RSA-3072 key pair and a random AMK, derives the KEK with Argon2id, wraps the AMK, encrypts the PKCS8-DER private key under an AMK/HKDF-derived key, and self-tests that both envelopes reopen before any account is created. The passphrase and plaintext private key never leave the browser; the private key is shown once for the user to save.
+- 已将注册页替换为客户端托管的密钥注册流程：浏览器生成 RSA-3072 密钥对与随机 AMK，用 Argon2id 派生 KEK 并包装 AMK，再用 AMK/HKDF 派生密钥加密 PKCS8-DER 私钥，并在创建账户前 自测两个信封均可重新打开。Passphrase 与明文私钥绝不离开浏览器；私钥只展示一次供用户保存。
+- The registration form now collects an encryption passphrase separate from the login password, as required by `docs/SECURITY_FLOWS.md`, and states that losing it makes the encrypted files unrecoverable.
+- 注册表单现在按 `docs/SECURITY_FLOWS.md` 的要求收集独立于登录密码的加密 passphrase，并明确 说明遗失后已加密文件不可恢复。
+- Completed the previously non-functional reset-password page with code sending, a resend cooldown, and a success state that reports how many sessions were signed out.
+- 已补全此前无法使用的重置密码页：支持发送验证码、重发冷却，并在成功后提示被登出的会话数量。
+- Registration and login failures now surface the API's `message` and field-level validation detail instead of the bare "Request failed with status code 422" that axios produces by default. The 422 seen during testing was the frontend omitting the required `key_material` field, submitting a password below the 15-character minimum, and submitting an address without a top-level domain; it was never a database fault.
+- 注册与登录失败现在会展示 API 返回的 `message` 及字段级校验详情，而不是 axios 默认产生的 "Request failed with status code 422"。测试中出现的 422 源于前端漏发必填的 `key_material` 字段、密码短于 15 个字符下限，以及邮箱缺少顶级域，与数据库无关。
+
+### Verification / 验证
+
+- Verified the complete production SQL path on disposable MySQL 8.4: `01-provision.sql -> 02-schema.sql -> 03-verify.sql` installs 16 application tables and reports every status `OK` with no deviation rows.
+- 已在一次性 MySQL 8.4 上验证完整生产 SQL 路径：`01-provision.sql -> 02-schema.sql -> 03-verify.sql` 安装 16 张应用表，所有状态均为 `OK`，无偏差行。
+- Verified the development migration path on a separate empty MySQL 8.4 database: `0001 -> 0004` upgrade, `alembic check` parity, and a clean `0004 -> 0003 -> 0004` round trip. The first downgrade attempt failed because MySQL refuses to drop an index a foreign key depends on; the revision now drops the table first, which removes both.
+- 已在另一个空 MySQL 8.4 数据库上验证开发迁移路径：`0001 -> 0004` 升级、`alembic check` 一致性，以及干净的 `0004 -> 0003 -> 0004` 往返。首次降级失败是因为 MySQL 拒绝删除外键 依赖的索引；该 revision 现在先删表，索引与外键随之一并移除。
+- Backend verification: Ruff passes and the test suite reports `212 passed` with the MySQL integration tests actually running rather than skipped.
+- 后端验证：Ruff 通过，测试套件 `212 passed`，且 MySQL 集成测试为真实执行而非跳过。
+- Verified the full flow end to end over HTTP against MySQL, and again through a real browser: send code, reject a wrong code, register, reject a replayed code, log in, reset the password, and confirm the old password fails while the new one works and the key envelopes are unchanged.
+- 已通过 HTTP 对 MySQL 完成端到端验证，并在真实浏览器中再次验证：发送验证码、拒绝错误验证码、 注册、拒绝重放验证码、登录、重置密码，并确认旧密码失效、新密码可用且密钥信封未被改动。
+
 ### Deployment operations / 部署运维
 
 - Distinguished a valid live audit chain (`LIVE_DATA`) from a fresh genesis state (`OK`) in the read-only MySQL deployment verifier. Live deployment still requires the singleton head to target the newest audit row with a matching hash and the exact Schema revision; `REVIEW`, `MISSING`, and `UNEXPECTED` continue to block releases. This fixes the false quarantine of frontend commit `acd0c9733eeb` without deleting audit evidence or bypassing the database gate.
@@ -35,7 +74,7 @@ All notable changes to this project are documented in this file.
 - No application or cryptographic implementation code was changed in this update.
 - 本次更新未修改应用程序代码或密码学实现代码。
 
-update:2026/8/12 14:48
+update:2026/8/15 02:40
 
 -------------------------------------------------------------------------------------------------------------
 ## CT-1.1

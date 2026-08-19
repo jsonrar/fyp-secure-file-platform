@@ -31,6 +31,9 @@ The current ordered history is:
    account-key protection profiles, encrypted private-key bundles, versioned file envelopes,
    optimistic revisions, strengthened grant/wrapping ownership constraints, and the expanded
    recovery-request state needed for offline DEK rewrapping.
+4. `0004_email_verification_codes`: the `email_verification_codes` challenge table for
+   registration and password reset, and four additional `auth_login_throttles` scopes that
+   rate limit code sending and code checking per address and per IP.
 
 The historical `docs/init.sql` development bootstrap has been deleted. A database previously
 created from it is not automatically managed. The backend must not call
@@ -67,6 +70,13 @@ and column-level `UPDATE` only for the chain head's mutable hash fields, so it c
 this readiness marker. The migration assigns UUIDs to existing public keys and marks them
 `LEGACY_EXTERNAL`; it does not fabricate client-encrypted private-key bundles for those keys.
 Restore a backup for rollback, or rebuild a disposable development database.
+
+Revision `0004_email_verification_codes` is reversible, because it only adds a table whose
+rows are short-lived challenges and widens an enum. Its downgrade drops the table before
+narrowing the enum and lowering the readiness marker: MySQL refuses to drop an index that a
+foreign key depends on, so the table must go first, and ordering the marker last keeps a
+failed downgrade from advertising a revision the schema no longer matches. Downgrading
+discards pending challenges and any throttle rows in the four verification scopes.
 
 For a new staging or production database, follow [DEPLOYMENT.md](DEPLOYMENT.md): the same
 root/administrator runs `01-provision.sql`, `02-schema.sql`, and the read-only
@@ -114,7 +124,8 @@ this repository silently deletes, stamps, or adopts it.
 | Area | Tables | Purpose |
 |---|---|---|
 | Identity | `users`, `user_sessions`, `session_refresh_tokens`, `user_keys`, `user_key_protection_profiles`, `encrypted_private_key_bundles` | Accounts, opaque sessions, public-key history, KEK-wrapped AMK profiles, and client-encrypted private-key bundles |
-| Abuse control | `auth_login_throttles` | HMAC-keyed login, reauthentication, and registration buckets shared across workers |
+| Identity proof | `email_verification_codes` | One-time registration/password-reset challenges stored only as keyed digests |
+| Abuse control | `auth_login_throttles` | HMAC-keyed login, reauthentication, registration, and verification send/check buckets shared across workers |
 | Files | `files`, `file_access_grants`, `file_key_wrappings` | Encrypted-object metadata plus logical and cryptographic access |
 | Assurance | `integrity_checks`, `audit_logs`, `audit_chain_heads` | Verification history, security events, and serialized audit-chain append state |
 | Recovery | `recovery_keys`, `recovery_requests` | Recovery public keys and maker-checker workflow |
@@ -142,30 +153,41 @@ cannot express them cleanly:
 6. Password change atomically replaces the Argon2id hash, records `password_changed_at`,
    revokes every active session family, and appends its audit event. It does not alter the
    independent client-side encryption passphrase or account-key envelopes.
-7. Creating a file atomically creates its metadata, owner grant, owner key wrapping,
-   mandatory active recovery-key wrapping, and upload audit event. The stored object is
-   already client-encrypted ciphertext.
-8. Download requires both an active grant with download capability and an active user key
-   wrapping for the same file and actor.
-9. A `USER` key wrapping has `recipient_user_id` and `user_key_id`, but no
-   `recovery_key_id`. A `RECOVERY` wrapping has only `recovery_key_id`.
-10. Revocation changes the logical grant and all applicable key wrappings in one transaction.
-11. Recovery transitions are conditional:
-   `PENDING -> APPROVED|REJECTED|CANCELLED`, then
-   `APPROVED -> EXECUTED|CANCELLED`. Execution is idempotent only for the identical result
+7. An `email_verification_codes` row stores only an HMAC-SHA-256 digest keyed by secret,
+   purpose, and address, never the emailed code. Issuing a code invalidates the account's
+   other pending codes for the same purpose. A row is `CONSUMED` exactly once, and
+   `consumed_at` is non-null if and only if the status is `CONSUMED`.
+8. A rejected code attempt is committed on its own before the caller's transaction rolls
+   back. Without that, the per-code attempt counter and the verification throttle buckets
+   would vanish with the rollback and leave a live code open to unlimited guessing.
+9. Password reset atomically replaces the Argon2id hash, records `password_changed_at`,
+   revokes every session family, burns the challenge, and appends its audit event. Like
+   password change, it leaves the key-protection profile and encrypted private-key bundle
+   untouched, so the account keeps access to its encrypted files.
+10. Creating a file atomically creates its metadata, owner grant, owner key wrapping,
+    mandatory active recovery-key wrapping, and upload audit event. The stored object is
+    already client-encrypted ciphertext.
+11. Download requires both an active grant with download capability and an active user key
+    wrapping for the same file and actor.
+12. A `USER` key wrapping has `recipient_user_id` and `user_key_id`, but no
+    `recovery_key_id`. A `RECOVERY` wrapping has only `recovery_key_id`.
+13. Revocation changes the logical grant and all applicable key wrappings in one transaction.
+14. Recovery transitions are conditional:
+    `PENDING -> APPROVED|REJECTED|CANCELLED`, then
+    `APPROVED -> EXECUTED|CANCELLED`. Execution is idempotent only for the identical result
    wrapping. A requester cannot approve or reject their own request. Recovery stores an
    offline-produced target-key wrapping and never receives a recovery private key.
-12. Audit rows are append-only. Appending locks singleton `audit_chain_heads.id = 1` so
+15. Audit rows are append-only. Appending locks singleton `audit_chain_heads.id = 1` so
     concurrent transactions cannot create two entries with the same predecessor; the audit
     append commits or rolls back with its security-sensitive use case. Actor/target user
     foreign keys are restrictive because those IDs are hashed; referenced accounts use
     status-based soft deletion rather than a cascading hard delete.
-13. Each CLIENT_WRAPPED user key has an owner-consistent encrypted private-key bundle, and
+16. Each CLIENT_WRAPPED user key has an owner-consistent encrypted private-key bundle, and
     each user protection profile has a unique public UUID and optimistic revision. Rewrapping
     the AMK requires both the caller's expected revision and an RSA-PSS-SHA256 signature by
     the newest current client private key over the actor/current-key/profile/revision and
     complete proposed protection envelope; update and audit append are atomic.
-14. Soft-deleted files are excluded from normal queries and cannot receive new grants.
+17. Soft-deleted files are excluded from normal queries and cannot receive new grants.
 
 The service layer owns these transactions. Repositories may query, add, and `flush`; they
 must not independently commit.
