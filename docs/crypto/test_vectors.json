@@ -1,0 +1,68 @@
+{
+  "$comment": "Known-answer vectors for the browser cryptography library. Generated with python-cryptography (an independent implementation) so the TypeScript side is checked against something other than itself. Regenerating these is a deliberate specification change, not a way to make a failing test pass.",
+  "suite_version": 1,
+  "generated_with": "python-cryptography 50.0.0",
+  "aes_256_gcm_detached": [
+    {
+      "case": "empty-plaintext",
+      "key_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "nonce_hex": "000000000000000000000000",
+      "aad_hex": "",
+      "plaintext_hex": "",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "530f8afbc74536b9a963b4f1c4cb738b"
+    },
+    {
+      "case": "no-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "000102030405060708090a0b",
+      "aad_hex": "",
+      "plaintext_hex": "7365637572652066696c6520706c6174666f726d",
+      "ciphertext_hex": "3467b56eb780e27de42df2abc1851919e5b9f559",
+      "auth_tag_hex": "117019a294a76b500f43fb28f191cf09"
+    },
+    {
+      "case": "with-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "0b0a09080706050403020100",
+      "aad_hex": "4659502d46494c452d434f4e54454e540001",
+      "plaintext_hex": "41414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141",
+      "ciphertext_hex": "61bc185377292cdcbeffdb3a228c665cc65af3f8525cfef559ba182be492706ab51a10784a265e0f716d55b4bd6a585fad204e3741154bfb381ea75411c66d16",
+      "auth_tag_hex": "c83362067c16db52f590e2b77e091ca7"
+    },
+    {
+      "case": "block-aligned",
+      "key_hex": "2b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfe",
+      "nonce_hex": "cafebabefacedbaddecaf888",
+      "aad_hex": "010203",
+      "plaintext_hex": "42424242424242424242424242424242",
+      "ciphertext_hex": "d048cfea8ccfbd60e907f71e5d0a1fb3",
+      "auth_tag_hex": "d5df0c2466e6cca4aa42f5022804e436"
+    }
+  ],
+  "sha256": [
+    {
+      "case": "empty",
+      "input_utf8": "",
+      "digest_hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "case": "abc",
+      "input_utf8": "abc",
+      "digest_hex": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    {
+      "case": "utf8-cjk",
+      "input_utf8": "机密文件.txt",
+      "digest_hex": "8e9cd717bf897868e68571622ea2426edec9ad58b333644fb7bb4e0de44904cd"
+    }
+  ],
+  "public_key_fingerprint": [
+    {
+      "case": "rsa-3072",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAlM3pBsFv3o7v9mRiFvSi\ncwdGDSe+xWq1vyR+THe2bAxNxB1E17u2e8woQgAnaTvr6OOOxDH/1x4Am3FV7uOF\noXcbp7LjBfWHsY4EcXOiuSHH5ALsFD4W2kWeLkMh0OBXYwYvrqYSBXbmlEHHQHCL\nwXou6llzjxxASCpiw+IN3PiJFUaWWcARzaC9/T/pwEiR+kxlXds2BywNoSYJS5+F\nuIkzDrgYnnpfWVqHr5Co/y6R4VWREW04/s+vc6V1BW3LTIiWmwnBTjBM8leNP0cG\nEdQIlxl1k++czOvUFEwm0KCA+GxWYcCo5FS8MKo0BB7pTLyLO/MtrBSEnz8Mb4xs\nnp+FudG9usjYZ498qIhQBMzQvoJbuJbo+ZoIzBUQpw6Hl7/YFVcDEQbI1KSRrK6w\n3LZWEQ9wRD+GuWwUp6igKWp36PSMgpqrETHvN6PDFEEowjAElEvqZi9fxce68RDU\nMskRodF8Jx+AuWQ7taEKBXIFyIIzZnSOnXYEElC+b5lHAgMBAAE=\n-----END PUBLIC KEY-----\n",
+      "key_size_bits": 3072,
+      "fingerprint_hex": "a2f6dfca4848906eead979cdc58a3da23147c178fa5bf79e108664b3326143eb"
+    }
+  ]
+}
