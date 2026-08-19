@@ -113,8 +113,7 @@ Base `main` @ `c45e54d` · Scope: file encryption only · No backend changes
 
 The frontend had no encryption at all; uploads sent plaintext. These are the primitives every
 encrypted upload needs: ciphertext, nonce, tag, and RSA-wrapped keys.
-前端此前没有任何加密，上传发送的是明文。这些是每次加密上传都需要的底层原语：密文、nonce、
-tag 与 RSA 包装的密钥。
+前端此前没有任何加密，上传发送的是明文。这些是每次加密上传都需要的底层原语：密文、nonce、tag 与 RSA 包装的密钥。
 
 Three rules the backend already enforces are now caught by tests instead of at runtime:
 三条后端已在强制、但此前无人知晓的规则，现在由测试拦截，而不是等到运行时才发现：
@@ -142,7 +141,65 @@ Three rules the backend already enforces are now caught by tests instead of at r
   而后端提供的是 `POST /files`，且要求密文加元数据信封。
 - `vue-tsc` cannot run here; it has drifted from the installed `typescript`. Used
   `tsc --noEmit` instead. Pre-existing.
-- `vue-tsc` 在此无法运行，与已安装的 `typescript` 版本漂移。改用 `tsc --noEmit`。该问题早于
-  本分支存在。
+- `vue-tsc` 在此无法运行，与已安装的 `typescript` 版本漂移。改用 `tsc --noEmit`。该问题早于本分支存在。
+
+update: 2026/8/20
+
+-------------------------------------------------------------------------------------------------------------
+## CT-1.3
+
+Base `main` @ `98f4c64` · Scope: file encryption envelope · No backend changes
+基线 `main` @ `98f4c64` · 范围：文件加密信封 · 未改动后端
+
+### Added / 新增
+
+- `frontend/src/crypto/file_envelope.ts` — AAD-3 construction, `encryptFile` / `decryptFile`,
+  DEK wrapping to the owner and recovery keys, and the `POST /files` metadata assembly.
+- `frontend/src/crypto/file_envelope.ts` — AAD-3 构造、`encryptFile` / `decryptFile`、
+  DEK 向所有者与恢复密钥的包装，以及 `POST /files` 元数据组装。
+- `docs/crypto/FILE_ENVELOPE.md` and its Chinese translation: the normative byte layout.
+- `docs/crypto/FILE_ENVELOPE.md` 及其中文译本：规范性字节布局。
+- 8 new reference vectors (6 AAD, 2 full envelopes) and 44 tests. 85 tests pass in total.
+- 新增 8 组参考向量（6 组 AAD、2 组完整信封）与 44 项测试。累计 85 项测试通过。
+
+### Design decisions / 设计决策
+
+- AAD-3 binds `file_id`, `envelope_version`, `plaintext_size`, `original_filename` and
+  `mime_type`. Those last three are cleartext columns the server could otherwise rewrite, so
+  binding them turns any such edit into a decryption failure.
+- AAD-3 绑定 `file_id`、`envelope_version`、`plaintext_size`、`original_filename` 与
+  `mime_type`。后三者是服务器本可随意改写的明文列，绑定后任何此类修改都会变成解密失败。
+- Trade-off: those three fields become immutable for the lifetime of the ciphertext. No
+  rename route exists today, but a future one needs re-encryption or `envelope_version = 2`.
+- 代价：这三个字段在密文生命周期内不可变。当前不存在改名路由，但将来若要支持，需要重新加密
+  或升级到 `envelope_version = 2`。
+- AAD-3 contains nothing per-recipient. The owner and every share recipient decrypt the same
+  ciphertext with the same DEK, so binding `key_id` would break sharing entirely.
+- AAD-3 不含任何按接收方变化的字段。所有者与每个共享接收方使用同一 DEK 解密同一密文，绑定
+  `key_id` 会彻底破坏共享。
+- `encryptFile` self-tests by decrypting its own output before returning. The server cannot
+  check that ciphertext decrypts to anything, so an unopenable envelope would otherwise be
+  discovered only after the plaintext was gone.
+- `encryptFile` 在返回前解密自己的输出进行自检。服务器无法验证密文能否解出内容，否则一个
+  打不开的信封只会在明文丢弃之后才被发现。
+
+### Notes / 说明
+
+- The server never computes this AAD, so no server-side check can catch a divergent second
+  implementation; it would simply produce files nobody can decrypt. Hence the normative doc
+  and the locked vectors.
+- 服务器从不计算此 AAD，因此没有任何服务端检查能发现第二个实现的分歧，后果只是产出谁也解不开
+  的文件。规范文档与锁定的向量正是为此而存在。
+- The recovery wrapping remains unverifiable by any client; `buildUploadPayload` returns the
+  locally recomputed recovery-key fingerprint so the caller can pin it.
+- 恢复包装对任何客户端都不可验证；`buildUploadPayload` 会返回本地重算的恢复密钥指纹，供调用方
+  固定比对。
+
+### Not included / 未包含
+
+- Wiring into `file_api.ts` and the upload page, which still send plaintext.
+- 接入 `file_api.ts` 与上传页面 —— 它们目前仍在发送明文。
+- Argon2id and the account-key envelopes, while the key-custody model is unresolved.
+- Argon2id 与账户密钥信封 —— 密钥托管模型尚未定论。
 
 update: 2026/8/20
