@@ -6,6 +6,7 @@ from threading import Event
 import pytest
 from pwdlib.hashers.bcrypt import BcryptHasher
 
+import app.core.security as security_module
 from app.core.security import (
     PASSWORD_MAX_LENGTH,
     PASSWORD_MIN_LENGTH,
@@ -34,6 +35,26 @@ def test_argon2_password_hash_round_trip() -> None:
     )
     assert valid is True
     assert replacement is None
+
+
+def test_argon2id_raw_key_derivation_is_deterministic_and_normalizes_passwords() -> None:
+    manager = PasswordManager()
+    parameters = {
+        "salt": b"s" * 16,
+        "memory_cost_kib": 8,
+        "iterations": 1,
+        "parallelism": 1,
+    }
+
+    decomposed = "Cafe\u0301 encryption password"
+    composed = "Caf\u00e9 encryption password"
+    first = manager.derive_argon2id_key(decomposed, **parameters)
+    second = manager.derive_argon2id_key(composed, **parameters)
+    different = manager.derive_argon2id_key("different encryption password", **parameters)
+
+    assert len(first) == 32
+    assert first == second
+    assert different != first
 
 
 def test_legacy_bcrypt_password_is_verified_and_upgraded_to_argon2id() -> None:
@@ -166,6 +187,42 @@ def test_password_capacity_fails_fast_instead_of_waiting_for_a_worker_thread() -
 
         hasher.release.set()
         assert active_operation.result(timeout=1) == "hash::First long password value!"
+
+
+def test_argon2id_raw_derivation_uses_the_shared_password_capacity(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    started = Event()
+    release = Event()
+
+    def blocking_raw_derivation(**parameters: object) -> bytes:
+        started.set()
+        if not release.wait(timeout=2):
+            raise TimeoutError("test key derivation was not released")
+        return b"k" * int(parameters["hash_len"])
+
+    monkeypatch.setattr(security_module, "hash_secret_raw", blocking_raw_derivation)
+    manager = PasswordManager(  # type: ignore[arg-type]
+        _BlockingPasswordHash(),
+        max_concurrent_operations=1,
+    )
+
+    with ThreadPoolExecutor(max_workers=1) as executor:
+        active_operation = executor.submit(
+            manager.derive_argon2id_key,
+            "First long password value!",
+            salt=b"s" * 16,
+            memory_cost_kib=8,
+            iterations=1,
+            parallelism=1,
+        )
+        assert started.wait(timeout=1)
+
+        with pytest.raises(PasswordOperationCapacityError):
+            manager.hash("Second long password value!")
+
+        release.set()
+        assert active_operation.result(timeout=1) == b"k" * 32
 
 
 def test_password_hasher_exception_releases_capacity_slot() -> None:

@@ -39,10 +39,8 @@ def list_users(
             AdminUserOut(
                 user_id=UUID(user.user_uuid),
                 username=user.username,
-                email=user.email,
                 role=user.role,
                 status=user.status,
-                email_verified=user.email_verified,
                 created_at=to_api_utc(user.created_at),
                 last_login_at=to_api_utc(user.last_login_at),
             )

@@ -1,0 +1,177 @@
+{
+  "$comment": "Known-answer vectors for the browser cryptography library. Generated with python-cryptography (an independent implementation) so the TypeScript side is checked against something other than itself. Regenerating these is a deliberate specification change, not a way to make a failing test pass.",
+  "suite_version": 1,
+  "generated_with": "python-cryptography 50.0.0",
+  "aes_256_gcm_detached": [
+    {
+      "case": "empty-plaintext",
+      "key_hex": "0000000000000000000000000000000000000000000000000000000000000000",
+      "nonce_hex": "000000000000000000000000",
+      "aad_hex": "",
+      "plaintext_hex": "",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "530f8afbc74536b9a963b4f1c4cb738b"
+    },
+    {
+      "case": "no-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "000102030405060708090a0b",
+      "aad_hex": "",
+      "plaintext_hex": "7365637572652066696c6520706c6174666f726d",
+      "ciphertext_hex": "3467b56eb780e27de42df2abc1851919e5b9f559",
+      "auth_tag_hex": "117019a294a76b500f43fb28f191cf09"
+    },
+    {
+      "case": "with-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "0b0a09080706050403020100",
+      "aad_hex": "4659502d46494c452d434f4e54454e540001",
+      "plaintext_hex": "41414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141414141",
+      "ciphertext_hex": "61bc185377292cdcbeffdb3a228c665cc65af3f8525cfef559ba182be492706ab51a10784a265e0f716d55b4bd6a585fad204e3741154bfb381ea75411c66d16",
+      "auth_tag_hex": "c83362067c16db52f590e2b77e091ca7"
+    },
+    {
+      "case": "block-aligned",
+      "key_hex": "2b7e151628aed2a6abf7158809cf4f3c762e7160f38b4da56a784d9045190cfe",
+      "nonce_hex": "cafebabefacedbaddecaf888",
+      "aad_hex": "010203",
+      "plaintext_hex": "42424242424242424242424242424242",
+      "ciphertext_hex": "d048cfea8ccfbd60e907f71e5d0a1fb3",
+      "auth_tag_hex": "d5df0c2466e6cca4aa42f5022804e436"
+    }
+  ],
+  "sha256": [
+    {
+      "case": "empty",
+      "input_utf8": "",
+      "digest_hex": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+    },
+    {
+      "case": "abc",
+      "input_utf8": "abc",
+      "digest_hex": "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    },
+    {
+      "case": "utf8-cjk",
+      "input_utf8": "机密文件.txt",
+      "digest_hex": "8e9cd717bf897868e68571622ea2426edec9ad58b333644fb7bb4e0de44904cd"
+    }
+  ],
+  "public_key_fingerprint": [
+    {
+      "case": "rsa-3072",
+      "public_key_pem": "-----BEGIN PUBLIC KEY-----\nMIIBojANBgkqhkiG9w0BAQEFAAOCAY8AMIIBigKCAYEAlM3pBsFv3o7v9mRiFvSi\ncwdGDSe+xWq1vyR+THe2bAxNxB1E17u2e8woQgAnaTvr6OOOxDH/1x4Am3FV7uOF\noXcbp7LjBfWHsY4EcXOiuSHH5ALsFD4W2kWeLkMh0OBXYwYvrqYSBXbmlEHHQHCL\nwXou6llzjxxASCpiw+IN3PiJFUaWWcARzaC9/T/pwEiR+kxlXds2BywNoSYJS5+F\nuIkzDrgYnnpfWVqHr5Co/y6R4VWREW04/s+vc6V1BW3LTIiWmwnBTjBM8leNP0cG\nEdQIlxl1k++czOvUFEwm0KCA+GxWYcCo5FS8MKo0BB7pTLyLO/MtrBSEnz8Mb4xs\nnp+FudG9usjYZ498qIhQBMzQvoJbuJbo+ZoIzBUQpw6Hl7/YFVcDEQbI1KSRrK6w\n3LZWEQ9wRD+GuWwUp6igKWp36PSMgpqrETHvN6PDFEEowjAElEvqZi9fxce68RDU\nMskRodF8Jx+AuWQ7taEKBXIFyIIzZnSOnXYEElC+b5lHAgMBAAE=\n-----END PUBLIC KEY-----\n",
+      "key_size_bits": 3072,
+      "fingerprint_hex": "a2f6dfca4848906eead979cdc58a3da23147c178fa5bf79e108664b3326143eb"
+    }
+  ],
+  "file_content_aad": [
+    {
+      "case": "ascii-filename",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 1024,
+      "original_filename": "report.pdf",
+      "mime_type": "application/pdf",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d00000000000004000000000a7265706f72742e7064660000000f6170706c69636174696f6e2f706466",
+      "aad_sha256": "897d06e3ac0e8762c14065bba16143c63d882546dd86f1020377cf6851c65c11"
+    },
+    {
+      "case": "cjk-filename",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 4096,
+      "original_filename": "机密文件.txt",
+      "mime_type": "text/plain",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d000000000000100000000010e69cbae5af86e69687e4bbb62e7478740000000a746578742f706c61696e",
+      "aad_sha256": "6c2ed633fcd0846898250951d26e7c551dd66b04f855e62bd22aee053f2abd03"
+    },
+    {
+      "case": "nfd-normalized",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 7,
+      "original_filename": "résumé.pdf",
+      "mime_type": "application/pdf",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d00000000000000070000000c72c3a973756dc3a92e7064660000000f6170706c69636174696f6e2f706466",
+      "aad_sha256": "996a64c30caadea98eb7882f5c376a42ecd31af0dfe150a4f1860ec1fe52ff41",
+      "note": "original_filename is deliberately stored in NFD form. The AAD is computed over its NFC normalization, so an implementation that skips normalization fails here."
+    },
+    {
+      "case": "empty-file",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 0,
+      "original_filename": "empty.bin",
+      "mime_type": "application/octet-stream",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d000000000000000000000009656d7074792e62696e000000186170706c69636174696f6e2f6f637465742d73747265616d",
+      "aad_sha256": "39dba961ce50b8711fd3e22f1d61eaefbe454aa56e00ec80e1bc6115bd91f7c4"
+    },
+    {
+      "case": "size-above-2^32",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 5000000000,
+      "original_filename": "big.iso",
+      "mime_type": "application/octet-stream",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d000000012a05f200000000076269672e69736f000000186170706c69636174696f6e2f6f637465742d73747265616d",
+      "aad_sha256": "cb3582739e0311a05a3ebd3c4acf82bcc633a8a5b61d805666b91b4da18d4841"
+    },
+    {
+      "case": "uppercase-mime",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 10,
+      "original_filename": "a.txt",
+      "mime_type": "TEXT/PLAIN",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d000000000000000a00000005612e7478740000000a746578742f706c61696e",
+      "aad_sha256": "54f8c68942872869b6542901156b8a8fd4255b9750d0be1a149866e08de76a37"
+    }
+  ],
+  "file_envelope": [
+    {
+      "case": "report",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 31,
+      "original_filename": "report.pdf",
+      "mime_type": "application/pdf",
+      "dek_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "nonce_hex": "101112131415161718191a1b",
+      "plaintext_hex": "717561727465726c79206e756d626572732c20636f6e666964656e7469616c",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d000000000000001f0000000a7265706f72742e7064660000000f6170706c69636174696f6e2f706466",
+      "ciphertext_hex": "084f5ca322f4664fd786b825869a6ac4763ba4aa697f2c621c0ba7a5b208de",
+      "auth_tag_hex": "047772653c20d56e2301b5a410066cbd"
+    },
+    {
+      "case": "empty",
+      "file_id": "3f2a1b4c-5d6e-4f70-8192-a3b4c5d6e7f8",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM",
+      "plaintext_size": 0,
+      "original_filename": "empty.bin",
+      "mime_type": "application/octet-stream",
+      "dek_hex": "404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f",
+      "nonce_hex": "101112131415161718191a1b",
+      "plaintext_hex": "",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d000000000000000000000009656d7074792e62696e000000186170706c69636174696f6e2f6f637465742d73747265616d",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "022a98524ba4a2ff785a620b1ca93191"
+    }
+  ]
+}

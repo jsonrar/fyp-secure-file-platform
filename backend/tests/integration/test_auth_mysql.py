@@ -371,6 +371,40 @@ def test_mysql_collation_prevents_case_variant_duplicate_email(
     auth_mysql_session.rollback()
 
 
+def test_mysql_collation_prevents_case_variant_duplicate_username(
+    auth_mysql_session: Session,
+) -> None:
+    username = f"CaseSensitiveProbe-{uuid4().hex}"
+    first_user_id = uuid4()
+    second_user_id = uuid4()
+    first = User(
+        user_uuid=str(first_user_id),
+        username=username,
+        email=f"{first_user_id}@demo.invalid",
+        password_hash="not-a-real-password-hash",
+        role=SystemRole.USER,
+        status=UserStatus.ACTIVE,
+        email_verified=False,
+    )
+    second = User(
+        user_uuid=str(second_user_id),
+        username=username.swapcase(),
+        email=f"{second_user_id}@demo.invalid",
+        password_hash="not-a-real-password-hash",
+        role=SystemRole.USER,
+        status=UserStatus.ACTIVE,
+        email_verified=False,
+    )
+    auth_mysql_session.add(first)
+    auth_mysql_session.flush()
+    auth_mysql_session.add(second)
+
+    with pytest.raises(IntegrityError):
+        auth_mysql_session.flush()
+
+    auth_mysql_session.rollback()
+
+
 def test_real_auth_flow_uses_only_connection_local_temporary_tables(
     temporary_auth_mysql_connection: Connection,
 ) -> None:

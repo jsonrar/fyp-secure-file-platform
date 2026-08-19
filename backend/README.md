@@ -6,7 +6,7 @@ FastAPI modular-monolith backend for the secure file encryption and sharing plat
 
 ## Current Status
 
-The Auth, client-wrapped key custody, encrypted-file, sharing, audit, recovery, and admin
+The Auth, password-wrapped key custody, encrypted-file, sharing, audit, recovery, and admin
 vertical slices are implemented. They use real MySQL transactions, public UUID contracts,
 explicit bearer/RBAC dependencies, encrypted object storage, and chained audit events.
 The core Auth endpoints under `/api/v1` are:
@@ -28,6 +28,39 @@ The core Auth endpoints under `/api/v1` are:
 The `/keys`, `/files`, `/audit-logs`, `/recovery`, and `/admin` routers are also active and
 fully described by OpenAPI. `/health/live` checks the process; `/health/ready` additionally
 checks database access and schema revision `0004_email_verification_codes`.
+
+Registration requires `username`, `email`, `password`, `verification_code`, and
+`key_material`. The client generates the account RSA key pair and both envelopes locally and
+uploads only the public key and the sealed material, so the backend never receives an
+encryption passphrase, AMK, or plaintext private key. Registration and login-password reset
+are gated by a one-time code emailed to the address being claimed, which also marks the
+account's email verified. Reset never touches the stored key envelopes, so it cannot cost an
+account access to its encrypted files.
+
+### Server-managed account-key envelope (format 2, currently unused)
+
+> **Not on the registration path.** `CryptoService.generate_account_key` and the format below
+> remain in the tree from the server-managed registration experiment, but registration now
+> takes client-generated `key_material` (see above) because `docs/SECURITY_FLOWS.md` requires
+> the backend never to hold a plaintext private key. The helper and its unit tests are kept
+> for the team to review rather than deleted; nothing calls it.
+
+
+The format is byte-exact so another backend client can reproduce it. Passwords are normalized
+with Unicode NFC and encoded as UTF-8 before Argon2id. Integers are unsigned 32-bit big-endian
+values, UUIDs are their raw 16-byte RFC 4122/network-order representation, and the public-key
+fingerprint is the raw 32-byte SHA-256 value decoded from its hexadecimal API representation.
+Concatenation is shown as `||`; each domain string ends with one `0x00` byte.
+
+- AMK wrapping AAD: `FYP-KEY-PROTECTION || 0x00 || format_version || aad_version || profile_uuid`
+- Private-key HKDF info: `FYP-PRIVATE-KEY-DERIVATION || 0x00 || format_version || profile_uuid || key_uuid || bundle_uuid`
+- Private-key AAD: `FYP-PRIVATE-KEY-BUNDLE || 0x00 || format_version || aad_version || profile_uuid || key_uuid || bundle_uuid || public_key_fingerprint`
+
+The private-key HKDF uses SHA-256, the 32-byte AMK as input key material,
+`derivation_salt` as salt, the value above as `info`, and a 32-byte output. AES-GCM
+authentication tags are stored separately from ciphertext. Format-2 protection is bound to
+the login password and can be rewrapped only through `POST /auth/change-password`; the
+client-signed `/keys/me/rewrap` flow remains available only for legacy format-1 profiles.
 
 Application HTTP endpoints use only `GET` for reads and `POST` for creation, updates,
 deletion, revocation, and other state-changing actions. Do not add `PUT`, `PATCH`, or

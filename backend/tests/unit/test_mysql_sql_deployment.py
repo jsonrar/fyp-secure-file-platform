@@ -173,3 +173,16 @@ def test_root_verification_sql_is_read_only_and_checks_retired_identity() -> Non
     assert "'_latin1', ''" in verification_sql
     assert "CHAR(92), ''" in verification_sql
     assert "lengthderivation_saltbetween16and32" in verification_sql
+
+
+def test_root_verification_accepts_only_a_consistent_live_audit_head() -> None:
+    verification_sql = _read_sql("03-verify.sql")
+
+    assert "ELSE 'LIVE_DATA' END AS audit_log_status" in verification_sql
+    assert "COUNT(head.id) AS audit_chain_head_rows" in verification_sql
+    assert "audit_state.audit_log_rows = 0" in verification_sql
+    assert "head.last_log_id = audit_state.max_log_id" in verification_sql
+    assert "last_log.current_hash = head.current_hash" in verification_sql
+    assert "head.schema_revision = '0004_email_verification_codes'" in verification_sql
+    assert "THEN 'LIVE_DATA'\n        ELSE 'REVIEW'" in verification_sql
+    assert "ON last_log.id = head.last_log_id" in verification_sql

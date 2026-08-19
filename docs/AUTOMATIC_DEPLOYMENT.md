@@ -29,6 +29,13 @@ the schema, and the automatic deployment service has no MySQL administrator or m
 credential. A schema change therefore requires a separately reviewed DBA SQL release, as
 described in [DEPLOYMENT.md](DEPLOYMENT.md).
 
+The verifier distinguishes a fresh audit chain (`OK`) from a valid chain that already contains
+application events (`LIVE_DATA`). A live chain is accepted only when the singleton head keeps
+the exact release schema marker, points to the newest audit row, and carries the same hash as
+that row. `REVIEW`, `MISSING`, and `UNEXPECTED` remain blocking results. This allows ordinary
+code-only releases without treating legitimate audit evidence as schema drift or weakening the
+database, account, grant, and structural checks.
+
 When deployment of a `main` commit fails, that SHA is quarantined. The timer will not repeatedly
 retry the same broken commit; it tries again when `main` changes, or after an administrator
 investigates and explicitly clears the quarantine. Scheduled checks that encounter the same
