@@ -6,7 +6,9 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0 --port 5173",
     "build": "vite build",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
     "@vitejs/plugin-vue": "latest",
@@ -27,6 +29,7 @@
     "tw-animate-css": "latest",
     "typescript": "latest",
     "vite": "latest",
+    "vitest": "^4.1.11",
     "vue-tsc": "latest"
   }
 }

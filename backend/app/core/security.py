@@ -8,6 +8,7 @@ from collections.abc import Iterable, Iterator
 from contextlib import contextmanager
 from threading import BoundedSemaphore
 
+from argon2.low_level import ARGON2_VERSION, Type, hash_secret_raw
 from pwdlib import PasswordHash
 from pwdlib.exceptions import UnknownHashError
 from pwdlib.hashers.bcrypt import BcryptHasher
@@ -105,6 +106,40 @@ class PasswordManager:
     def hash(self, password: str) -> str:
         with self._operation_slot():
             return self._hasher.hash(normalize_password(password))
+
+    def derive_argon2id_key(
+        self,
+        password: str,
+        *,
+        salt: bytes,
+        memory_cost_kib: int,
+        iterations: int,
+        parallelism: int,
+        length: int = 32,
+    ) -> bytes:
+        """Derive raw key bytes while sharing the password-operation memory budget."""
+        if not 16 <= len(salt) <= 32:
+            raise ValueError("Argon2id salt must contain between 16 and 32 bytes")
+        if iterations < 1:
+            raise ValueError("Argon2id iterations must be at least one")
+        if parallelism < 1:
+            raise ValueError("Argon2id parallelism must be at least one")
+        if memory_cost_kib < 8 * parallelism:
+            raise ValueError("Argon2id memory cost is too small for the selected parallelism")
+        if length < 16:
+            raise ValueError("Argon2id derived keys must contain at least 16 bytes")
+
+        with self._operation_slot():
+            return hash_secret_raw(
+                secret=normalize_password(password).encode("utf-8"),
+                salt=salt,
+                time_cost=iterations,
+                memory_cost=memory_cost_kib,
+                parallelism=parallelism,
+                hash_len=length,
+                type=Type.ID,
+                version=ARGON2_VERSION,
+            )
 
     def verify(self, plain_password: str, password_hash: str) -> bool:
         try:

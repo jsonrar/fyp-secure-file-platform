@@ -8,25 +8,38 @@
  * envelopes are uploaded, which is the client-custody boundary described in
  * docs/SECURITY_FLOWS.md.
  *
+ * Low-level operations come from `@/crypto/primitives` and `@/crypto/encoding`
+ * so this module and the file-envelope code share one vetted implementation.
+ * Only the pieces those modules do not provide live here: RSA key-pair
+ * generation, the Argon2id KEK, and the HKDF-SHA256 private-key key.
+ *
  * The associated data for both envelopes is rebuildable from stored non-secret
  * metadata, so a later unlock can reconstruct it without extra server state.
  */
 import { argon2id } from 'hash-wasm'
 
+import { bytesEqual, fromBase64, toBase64, utf8Bytes } from '@/crypto/encoding'
+import {
+  AES_GCM_NONCE_BYTES,
+  AES_KEY_BYTES,
+  aesGcmDecryptDetached,
+  aesGcmEncryptDetached,
+  importAesGcmKey,
+  randomBytes,
+  randomUuid,
+  sha256Hex,
+} from '@/crypto/primitives'
+
 /** Must match the backend USER_RSA_KEY_SIZE setting. */
 export const RSA_KEY_SIZE_BITS = 3072
 
 /** Backend KeyProtectionProfileIn requires at least 65536 KiB. */
-const ARGON2_MEMORY_KIB = 65536
-const ARGON2_ITERATIONS = 3
-const ARGON2_PARALLELISM = 1
+export const ARGON2_MEMORY_KIB = 65536
+export const ARGON2_ITERATIONS = 3
+export const ARGON2_PARALLELISM = 1
 const ARGON2_VERSION = 19
 
 const KDF_SALT_BYTES = 16
-const AMK_BYTES = 32
-const GCM_NONCE_BYTES = 12
-const GCM_TAG_BYTES = 16
-const DERIVED_KEY_BYTES = 32
 const HKDF_SALT_BYTES = 32
 
 export interface KeyProtectionProfilePayload {
@@ -79,49 +92,19 @@ export interface EnrolmentResult {
   privateKeyPem: string
 }
 
-export class UnsupportedCryptoError extends Error {
+export class AccountKeySelfTestError extends Error {
   constructor() {
-    super(
-      'This browser does not expose Web Crypto. Use a current browser over HTTPS or localhost.',
-    )
-    this.name = 'UnsupportedCryptoError'
+    super('Account key self-test failed; registration was not attempted')
+    this.name = 'AccountKeySelfTestError'
   }
 }
 
 function subtle(): SubtleCrypto {
-  if (typeof globalThis.crypto?.subtle === 'undefined') {
-    throw new UnsupportedCryptoError()
+  const api = globalThis.crypto?.subtle
+  if (!api) {
+    throw new Error('WebCrypto is unavailable; a secure context (HTTPS or localhost) is required')
   }
-  return globalThis.crypto.subtle
-}
-
-function randomBytes(length: number): Uint8Array {
-  const buffer = new Uint8Array(length)
-  globalThis.crypto.getRandomValues(buffer)
-  return buffer
-}
-
-function toBase64(bytes: Uint8Array): string {
-  let binary = ''
-  for (const byte of bytes) {
-    binary += String.fromCharCode(byte)
-  }
-  return btoa(binary)
-}
-
-function toHex(bytes: Uint8Array): string {
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-function utf8(value: string): Uint8Array {
-  return new TextEncoder().encode(value)
-}
-
-function bytesEqual(left: Uint8Array, right: Uint8Array): boolean {
-  if (left.length !== right.length) {
-    return false
-  }
-  return left.every((byte, index) => byte === right[index])
+  return api
 }
 
 function toPem(label: string, der: ArrayBuffer): string {
@@ -130,51 +113,31 @@ function toPem(label: string, der: ArrayBuffer): string {
   return `-----BEGIN ${label}-----\n${lines.join('\n')}\n-----END ${label}-----\n`
 }
 
-/** AES-GCM output is ciphertext||tag; the API stores the two parts separately. */
-function splitCiphertextAndTag(sealed: ArrayBuffer): {
-  ciphertext: Uint8Array
-  tag: Uint8Array
-} {
-  const bytes = new Uint8Array(sealed)
-  return {
-    ciphertext: bytes.slice(0, bytes.length - GCM_TAG_BYTES),
-    tag: bytes.slice(bytes.length - GCM_TAG_BYTES),
-  }
+/** AAD for the wrapped AMK, rebuildable from the stored protection profile. */
+export function amkWrapAad(profileId: string): Uint8Array {
+  return utf8Bytes(`secureview:amk-wrap:v1:${profileId}`)
 }
 
-function joinCiphertextAndTag(ciphertext: Uint8Array, tag: Uint8Array): Uint8Array {
-  const joined = new Uint8Array(ciphertext.length + tag.length)
-  joined.set(ciphertext, 0)
-  joined.set(tag, ciphertext.length)
-  return joined
+/** AAD for the private-key bundle, rebuildable from the stored bundle and key. */
+export function privateKeyAad(bundleId: string, keyId: string): Uint8Array {
+  return utf8Bytes(`secureview:private-key:v1:${bundleId}:${keyId}`)
 }
 
-function amkWrapAad(profileId: string): Uint8Array {
-  return utf8(`secureview:amk-wrap:v1:${profileId}`)
-}
-
-function privateKeyAad(bundleId: string, keyId: string): Uint8Array {
-  return utf8(`secureview:private-key:v1:${bundleId}:${keyId}`)
-}
-
-async function deriveKek(passphrase: string, salt: Uint8Array): Promise<Uint8Array> {
-  const derived = await argon2id({
+/** Argon2id KEK derivation. `hash-wasm` supplies what WebCrypto does not. */
+export async function deriveKek(passphrase: string, salt: Uint8Array): Promise<Uint8Array> {
+  return argon2id({
     password: passphrase,
     salt,
     parallelism: ARGON2_PARALLELISM,
     iterations: ARGON2_ITERATIONS,
     memorySize: ARGON2_MEMORY_KIB,
-    hashLength: DERIVED_KEY_BYTES,
+    hashLength: AES_KEY_BYTES,
     outputType: 'binary',
   })
-  return derived
 }
 
-async function importAesKey(raw: Uint8Array, usages: KeyUsage[]): Promise<CryptoKey> {
-  return subtle().importKey('raw', raw as BufferSource, { name: 'AES-GCM' }, false, usages)
-}
-
-async function derivePrivateKeyEncryptionKey(
+/** HKDF-SHA256 private-key encryption key, bound to the bundle AAD as `info`. */
+export async function derivePrivateKeyEncryptionKey(
   amk: Uint8Array,
   salt: Uint8Array,
   info: Uint8Array,
@@ -185,14 +148,9 @@ async function derivePrivateKeyEncryptionKey(
   const bits = await subtle().deriveBits(
     { name: 'HKDF', hash: 'SHA-256', salt: salt as BufferSource, info: info as BufferSource },
     hkdfKey,
-    DERIVED_KEY_BYTES * 8,
+    AES_KEY_BYTES * 8,
   )
   return new Uint8Array(bits)
-}
-
-async function sha256Hex(bytes: Uint8Array): Promise<string> {
-  const digest = await subtle().digest('SHA-256', bytes as BufferSource)
-  return toHex(new Uint8Array(digest))
 }
 
 /**
@@ -221,38 +179,33 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
   const privateKeyPem = toPem('PRIVATE KEY', pkcs8)
   const privateKeyDer = new Uint8Array(pkcs8)
 
-  const keyId = globalThis.crypto.randomUUID()
-  const profileId = globalThis.crypto.randomUUID()
-  const bundleId = globalThis.crypto.randomUUID()
+  const keyId = randomUuid()
+  const profileId = randomUuid()
+  const bundleId = randomUuid()
 
   // 1. Wrap a fresh random AMK under an Argon2id-derived KEK.
-  const amk = randomBytes(AMK_BYTES)
+  const amk = randomBytes(AES_KEY_BYTES)
   const kdfSalt = randomBytes(KDF_SALT_BYTES)
   const kek = await deriveKek(passphrase, kdfSalt)
-  const amkNonce = randomBytes(GCM_NONCE_BYTES)
-  const amkAad = amkWrapAad(profileId)
-  const sealedAmk = await crypto.encrypt(
-    { name: 'AES-GCM', iv: amkNonce as BufferSource, additionalData: amkAad as BufferSource },
-    await importAesKey(kek, ['encrypt']),
-    amk as BufferSource,
-  )
-  const wrappedAmk = splitCiphertextAndTag(sealedAmk)
+  const amkNonce = randomBytes(AES_GCM_NONCE_BYTES)
+  const wrappedAmk = await aesGcmEncryptDetached({
+    key: await importAesGcmKey(kek),
+    nonce: amkNonce,
+    plaintext: amk,
+    aad: amkWrapAad(profileId),
+  })
 
   // 2. Encrypt the PKCS#8 private key under an AMK/HKDF-derived key.
   const hkdfSalt = randomBytes(HKDF_SALT_BYTES)
-  const privateKeyAadBytes = privateKeyAad(bundleId, keyId)
-  const privateKeyKey = await derivePrivateKeyEncryptionKey(amk, hkdfSalt, privateKeyAadBytes)
-  const privateKeyNonce = randomBytes(GCM_NONCE_BYTES)
-  const sealedPrivateKey = await crypto.encrypt(
-    {
-      name: 'AES-GCM',
-      iv: privateKeyNonce as BufferSource,
-      additionalData: privateKeyAadBytes as BufferSource,
-    },
-    await importAesKey(privateKeyKey, ['encrypt']),
-    privateKeyDer as BufferSource,
-  )
-  const sealedBundle = splitCiphertextAndTag(sealedPrivateKey)
+  const bundleAad = privateKeyAad(bundleId, keyId)
+  const privateKeyKey = await derivePrivateKeyEncryptionKey(amk, hkdfSalt, bundleAad)
+  const privateKeyNonce = randomBytes(AES_GCM_NONCE_BYTES)
+  const sealedBundle = await aesGcmEncryptDetached({
+    key: await importAesGcmKey(privateKeyKey),
+    nonce: privateKeyNonce,
+    plaintext: privateKeyDer,
+    aad: bundleAad,
+  })
 
   const keyMaterial: ClientKeyMaterial = {
     key_id: keyId,
@@ -268,11 +221,11 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
       kdf_memory_kib: ARGON2_MEMORY_KIB,
       kdf_iterations: ARGON2_ITERATIONS,
       kdf_parallelism: ARGON2_PARALLELISM,
-      derived_key_length: DERIVED_KEY_BYTES,
+      derived_key_length: AES_KEY_BYTES,
       amk_wrapping_algorithm: 'AES-256-GCM',
       wrapped_amk: toBase64(wrappedAmk.ciphertext),
       amk_nonce: toBase64(amkNonce),
-      amk_auth_tag: toBase64(wrappedAmk.tag),
+      amk_auth_tag: toBase64(wrappedAmk.authTag),
       aad_version: 1,
     },
     private_key_bundle: {
@@ -284,7 +237,7 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
       encryption_algorithm: 'AES-256-GCM',
       encrypted_private_key: toBase64(sealedBundle.ciphertext),
       nonce: toBase64(privateKeyNonce),
-      auth_tag: toBase64(sealedBundle.tag),
+      auth_tag: toBase64(sealedBundle.authTag),
       aad_version: 1,
       ciphertext_sha256: await sha256Hex(sealedBundle.ciphertext),
     },
@@ -300,62 +253,37 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
  * private key. Registering an envelope that cannot be reopened would lock the
  * account out of every file it later encrypts.
  */
-async function assertEnvelopesUnlock(
+export async function assertEnvelopesUnlock(
   keyMaterial: ClientKeyMaterial,
   passphrase: string,
   expectedPrivateKeyDer: Uint8Array,
 ): Promise<void> {
-  const crypto = subtle()
   const { protection, private_key_bundle: bundle } = keyMaterial
 
-  const kdfSalt = fromBase64(protection.kdf_salt)
-  const kek = await deriveKek(passphrase, kdfSalt)
-  const recoveredAmk = new Uint8Array(
-    await crypto.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: fromBase64(protection.amk_nonce) as BufferSource,
-        additionalData: amkWrapAad(protection.profile_id) as BufferSource,
-      },
-      await importAesKey(kek, ['decrypt']),
-      joinCiphertextAndTag(
-        fromBase64(protection.wrapped_amk),
-        fromBase64(protection.amk_auth_tag),
-      ) as BufferSource,
-    ),
-  )
+  const kek = await deriveKek(passphrase, fromBase64(protection.kdf_salt))
+  const recoveredAmk = await aesGcmDecryptDetached({
+    key: await importAesGcmKey(kek),
+    nonce: fromBase64(protection.amk_nonce),
+    ciphertext: fromBase64(protection.wrapped_amk),
+    authTag: fromBase64(protection.amk_auth_tag),
+    aad: amkWrapAad(protection.profile_id),
+  })
 
-  const aad = privateKeyAad(bundle.bundle_id, keyMaterial.key_id)
+  const bundleAad = privateKeyAad(bundle.bundle_id, keyMaterial.key_id)
   const privateKeyKey = await derivePrivateKeyEncryptionKey(
     recoveredAmk,
     fromBase64(bundle.derivation_salt),
-    aad,
+    bundleAad,
   )
-  const recoveredDer = new Uint8Array(
-    await crypto.decrypt(
-      {
-        name: 'AES-GCM',
-        iv: fromBase64(bundle.nonce) as BufferSource,
-        additionalData: aad as BufferSource,
-      },
-      await importAesKey(privateKeyKey, ['decrypt']),
-      joinCiphertextAndTag(
-        fromBase64(bundle.encrypted_private_key),
-        fromBase64(bundle.auth_tag),
-      ) as BufferSource,
-    ),
-  )
+  const recoveredDer = await aesGcmDecryptDetached({
+    key: await importAesGcmKey(privateKeyKey),
+    nonce: fromBase64(bundle.nonce),
+    ciphertext: fromBase64(bundle.encrypted_private_key),
+    authTag: fromBase64(bundle.auth_tag),
+    aad: bundleAad,
+  })
 
   if (!bytesEqual(recoveredDer, expectedPrivateKeyDer)) {
-    throw new Error('Account key self-test failed; registration was not attempted')
+    throw new AccountKeySelfTestError()
   }
-}
-
-export function fromBase64(value: string): Uint8Array {
-  const binary = atob(value)
-  const bytes = new Uint8Array(binary.length)
-  for (let index = 0; index < binary.length; index += 1) {
-    bytes[index] = binary.charCodeAt(index)
-  }
-  return bytes
 }

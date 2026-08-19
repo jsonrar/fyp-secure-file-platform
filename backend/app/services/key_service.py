@@ -288,6 +288,10 @@ class KeyService:
         profile = self.repository.lock_protection_profile(actor.user_id)
         if profile is None:
             raise KeyProtectionProfileNotFoundError()
+        if profile.format_version != 1:
+            raise KeyBundleRevisionConflictError(
+                "Login-password-bound key protection must be changed through /auth/change-password"
+            )
         if profile.revision != expected_revision or profile.profile_uuid != str(
             protection.profile_id
         ):

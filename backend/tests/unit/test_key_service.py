@@ -111,6 +111,7 @@ class FakeRepository:
     def __init__(self, current_public_key_pem: str) -> None:
         self.profile = SimpleNamespace(
             profile_uuid=str(PROFILE_ID),
+            format_version=1,
             revision=3,
         )
         self.current_key = SimpleNamespace(
@@ -273,6 +274,35 @@ def test_current_private_key_authorizes_atomic_protection_rewrap() -> None:
         "previous_revision": 3,
         "revision": 4,
     }
+
+
+def test_server_managed_profile_cannot_be_downgraded_by_legacy_rewrap() -> None:
+    current_private_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    repository = FakeRepository(_pem(current_private_key))
+    repository.profile.format_version = 2
+    service, db, audit = _service(repository)
+
+    with pytest.raises(KeyBundleRevisionConflictError, match="change-password"):
+        service.get_rewrap_signing_payload(
+            actor=_actor(),
+            authorizing_key_id=CURRENT_KEY_ID,
+            expected_revision=3,
+            protection=_protection(),
+        )
+    with pytest.raises(KeyBundleRevisionConflictError, match="change-password"):
+        service.rewrap_protection_profile(
+            actor=_actor(),
+            authorizing_key_id=CURRENT_KEY_ID,
+            expected_revision=3,
+            protection=_protection(),
+            authorization_signature=b"x" * 256,
+            context=RequestContext(),
+        )
+
+    assert repository.profile.revision == 3
+    assert db.commits == 0
+    assert db.rollbacks == 1
+    assert not audit.events
 
 
 def test_unrelated_private_key_cannot_rewrap_protection_profile() -> None:
