@@ -38,7 +38,7 @@ class EncryptedPrivateKeyBundleInput:
 
 
 @dataclass(frozen=True, slots=True)
-class ClientKeyRegistration:
+class GeneratedAccountKey:
     key_id: UUID
     public_key_pem: str
     algorithm: str

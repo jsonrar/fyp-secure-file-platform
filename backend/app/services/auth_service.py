@@ -40,12 +40,11 @@ from app.domain.errors import (
     InvalidCredentialsError,
     InvalidCurrentPasswordError,
     InvalidRefreshTokenError,
-    KeyBundleInvalidError,
     PasswordUnchangedError,
     SessionNotFoundError,
     WeakPasswordError,
 )
-from app.domain.keys import ClientKeyRegistration
+from app.domain.keys import KeyProtectionProfileInput
 from app.models.auth_login_throttle import AuthLoginThrottle
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.session_refresh_token import SessionRefreshToken
@@ -55,7 +54,7 @@ from app.models.user_key_protection_profile import UserKeyProtectionProfile
 from app.models.user_session import UserSession
 from app.repositories.auth_repository import AuthRepository
 from app.services.audit_log_service import AuditLogService
-from app.services.crypto_service import CryptoService
+from app.services.crypto_service import SERVER_MANAGED_KEY_FORMAT_VERSION, CryptoService
 
 
 class AuthService:
@@ -88,16 +87,13 @@ class AuthService:
         self,
         *,
         username: str,
-        email: str,
         password: str,
-        key_material: ClientKeyRegistration,
         context: RequestContext,
     ) -> RegistrationResult:
         normalized_username = username.strip()
-        normalized_email = email.strip().lower()
         policy_error = password_policy_error(
             password,
-            context_values=(normalized_username, normalized_email),
+            context_values=(normalized_username,),
         )
         if policy_error:
             raise WeakPasswordError(policy_error)
@@ -105,31 +101,31 @@ class AuthService:
         self._consume_registration_attempt(context)
 
         try:
-            if self.repository.identifier_exists(normalized_username, normalized_email):
+            if self.repository.username_exists(normalized_username):
                 raise AccountIdentifierUnavailableError()
 
             now = self._now()
             password_hash = self.passwords.hash(password)
-            if key_material.key_size_bits != self.settings.USER_RSA_KEY_SIZE:
-                raise KeyBundleInvalidError(
-                    "The RSA key size does not match the configured account key size"
-                )
-            try:
-                self.crypto.load_rsa_public_key(
-                    key_material.public_key_pem,
-                    expected_key_size=key_material.key_size_bits,
-                )
-                public_key_fingerprint = self.crypto.public_key_fingerprint(
-                    key_material.public_key_pem
-                )
-            except (TypeError, ValueError) as exc:
-                raise KeyBundleInvalidError() from exc
             user_public_id = self.uuid_factory()
+            generated_key = self.crypto.generate_account_key(
+                password=password,
+                password_manager=self.passwords,
+                key_id=self.uuid_factory(),
+                profile_id=self.uuid_factory(),
+                bundle_id=self.uuid_factory(),
+                key_size=self.settings.USER_RSA_KEY_SIZE,
+            )
+            public_key_fingerprint = self.crypto.public_key_fingerprint(
+                generated_key.public_key_pem
+            )
 
             user = User(
                 user_uuid=str(user_public_id),
                 username=normalized_username,
-                email=normalized_email,
+                # The legacy schema still has a required email column. Keep a unique,
+                # non-deliverable value internally until a future schema cleanup; email
+                # is no longer accepted or exposed by the application contract.
+                email=f"{user_public_id}@demo.invalid",
                 password_hash=password_hash,
                 role=SystemRole.USER,
                 status=UserStatus.ACTIVE,
@@ -142,11 +138,11 @@ class AuthService:
             self.repository.flush()
 
             user_key = UserKey(
-                key_uuid=str(key_material.key_id),
+                key_uuid=str(generated_key.key_id),
                 user_id=user.id,
-                public_key_pem=key_material.public_key_pem,
-                algorithm=key_material.algorithm,
-                key_size_bits=key_material.key_size_bits,
+                public_key_pem=generated_key.public_key_pem,
+                algorithm=generated_key.algorithm,
+                key_size_bits=generated_key.key_size_bits,
                 custody_mode="CLIENT_WRAPPED",
                 fingerprint=public_key_fingerprint,
                 status="ACTIVE",
@@ -155,7 +151,7 @@ class AuthService:
             self.repository.add_user_key(user_key)
             self.repository.flush()
 
-            protection = key_material.protection
+            protection = generated_key.protection
             self.repository.add_key_protection_profile(
                 UserKeyProtectionProfile(
                     user_id=user.id,
@@ -179,7 +175,7 @@ class AuthService:
                 )
             )
 
-            private_bundle = key_material.private_key_bundle
+            private_bundle = generated_key.private_key_bundle
             self.repository.add_private_key_bundle(
                 EncryptedPrivateKeyBundle(
                     bundle_uuid=str(private_bundle.bundle_id),
@@ -211,7 +207,7 @@ class AuthService:
             )
             result = RegistrationResult(
                 user=self._account_snapshot(user),
-                key_id=key_material.key_id,
+                key_id=generated_key.key_id,
                 public_key_fingerprint=public_key_fingerprint,
             )
             self.db.commit()
@@ -588,7 +584,7 @@ class AuthService:
 
             contextual_policy_error = password_policy_error(
                 new_password,
-                context_values=(user.username, user.email),
+                context_values=(user.username,),
             )
             if contextual_policy_error:
                 self._clear_successful_account_throttle(
@@ -614,6 +610,45 @@ class AuthService:
                 )
                 raise InvalidCurrentPasswordError()
 
+            protection_profile = self.repository.lock_key_protection_profile(locked_user.id)
+            key_protection_rewrapped = False
+            if (
+                protection_profile is not None
+                and protection_profile.format_version == SERVER_MANAGED_KEY_FORMAT_VERSION
+            ):
+                rewrapped = self.crypto.rewrap_key_protection_profile(
+                    current_password=current_password,
+                    new_password=new_password,
+                    password_manager=self.passwords,
+                    protection=KeyProtectionProfileInput(
+                        profile_id=UUID(protection_profile.profile_uuid),
+                        format_version=protection_profile.format_version,
+                        kdf_algorithm=protection_profile.kdf_algorithm,
+                        kdf_version=protection_profile.kdf_version,
+                        kdf_salt=protection_profile.kdf_salt,
+                        kdf_memory_kib=protection_profile.kdf_memory_kib,
+                        kdf_iterations=protection_profile.kdf_iterations,
+                        kdf_parallelism=protection_profile.kdf_parallelism,
+                        derived_key_length=protection_profile.derived_key_length,
+                        amk_wrapping_algorithm=protection_profile.amk_wrapping_algorithm,
+                        wrapped_amk=protection_profile.wrapped_amk,
+                        amk_nonce=protection_profile.amk_nonce,
+                        amk_auth_tag=protection_profile.amk_auth_tag,
+                        aad_version=protection_profile.aad_version,
+                    ),
+                )
+                protection_profile.kdf_salt = rewrapped.kdf_salt
+                protection_profile.kdf_memory_kib = rewrapped.kdf_memory_kib
+                protection_profile.kdf_iterations = rewrapped.kdf_iterations
+                protection_profile.kdf_parallelism = rewrapped.kdf_parallelism
+                protection_profile.derived_key_length = rewrapped.derived_key_length
+                protection_profile.wrapped_amk = rewrapped.wrapped_amk
+                protection_profile.amk_nonce = rewrapped.amk_nonce
+                protection_profile.amk_auth_tag = rewrapped.amk_auth_tag
+                protection_profile.revision += 1
+                protection_profile.updated_at = now
+                key_protection_rewrapped = True
+
             self._clear_successful_account_throttle(
                 reauthentication_buckets,
                 now=now,
@@ -634,7 +669,10 @@ class AuthService:
                 resource_id=str(locked_user.user_uuid),
                 context_ip_address=self._safe_ip(context),
                 context_user_agent=self._safe_user_agent(context),
-                metadata={"revoked_sessions": revoked},
+                metadata={
+                    "revoked_sessions": revoked,
+                    **({"key_protection_rewrapped": True} if key_protection_rewrapped else {}),
+                },
             )
             self.db.commit()
             return revoked
@@ -1049,10 +1087,8 @@ class AuthService:
         return AccountSnapshot(
             id=UUID(str(user.user_uuid)),
             username=user.username,
-            email=user.email,
             role=SystemRole(user.role),
             status=UserStatus(user.status),
-            email_verified=user.email_verified,
             created_at=to_api_utc(user.created_at),
             last_login_at=to_api_utc(user.last_login_at),
         )
@@ -1105,6 +1141,5 @@ class AuthService:
         mysql_error_code = original_args[0] if original_args else None
         message = str(original_args[1] if len(original_args) > 1 else exc.orig).casefold()
         return mysql_error_code == 1062 and any(
-            constraint.casefold() in message
-            for constraint in ("uq_users_username", "uq_users_email")
+            constraint.casefold() in message for constraint in ("uq_users_username",)
         )

@@ -57,7 +57,7 @@ class ConflictError(AppError):
 
 class AccountIdentifierUnavailableError(ConflictError):
     code = "account_identifier_unavailable"
-    public_message = "The username or email is unavailable"
+    public_message = "The username is unavailable"
 
 
 class InputError(AppError):

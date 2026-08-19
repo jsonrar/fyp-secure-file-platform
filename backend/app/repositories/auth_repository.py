@@ -23,9 +23,8 @@ class AuthRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def identifier_exists(self, username: str, email: str) -> bool:
-        statement = select(User.id).where(or_(User.username == username, User.email == email))
-        return self.db.scalar(statement.limit(1)) is not None
+    def username_exists(self, username: str) -> bool:
+        return self.db.scalar(select(User.id).where(User.username == username).limit(1)) is not None
 
     def get_user_by_username(self, username: str) -> User | None:
         return self.db.scalar(select(User).where(User.username == username).limit(1))
@@ -39,6 +38,14 @@ class AuthRepository:
         return self.db.scalar(
             select(User)
             .where(User.id == user_id)
+            .with_for_update()
+            .execution_options(populate_existing=True)
+        )
+
+    def lock_key_protection_profile(self, user_id: int) -> UserKeyProtectionProfile | None:
+        return self.db.scalar(
+            select(UserKeyProtectionProfile)
+            .where(UserKeyProtectionProfile.user_id == user_id)
             .with_for_update()
             .execution_options(populate_existing=True)
         )

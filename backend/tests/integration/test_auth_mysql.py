@@ -1,10 +1,7 @@
-import hashlib
 from datetime import UTC, datetime, timedelta
-from uuid import UUID, uuid4
+from uuid import uuid4
 
 import pytest
-from cryptography.hazmat.primitives import serialization
-from cryptography.hazmat.primitives.asymmetric import rsa
 from sqlalchemy import Connection, Engine, func, inspect, select, text
 from sqlalchemy.exc import DBAPIError, IntegrityError
 from sqlalchemy.orm import Session
@@ -13,11 +10,6 @@ from app.core.config import Settings
 from app.domain.auth import RequestContext
 from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import AuthenticationError
-from app.domain.keys import (
-    ClientKeyRegistration,
-    EncryptedPrivateKeyBundleInput,
-    KeyProtectionProfileInput,
-)
 from app.models.audit_chain_head import AuditChainHead
 from app.models.audit_log import AuditLog
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
@@ -205,45 +197,6 @@ def _permanent_auth_row_counts(connection: Connection) -> dict[str, int] | None:
         }
 
 
-def _client_key_material(public_key_pem: str) -> ClientKeyRegistration:
-    encrypted_private_key = b"integration-client-encrypted-pkcs8" * 20
-    return ClientKeyRegistration(
-        key_id=UUID("11111111-1111-4111-8111-111111111111"),
-        public_key_pem=public_key_pem,
-        algorithm="RSA-OAEP-SHA256",
-        key_size_bits=2048,
-        protection=KeyProtectionProfileInput(
-            profile_id=UUID("22222222-2222-4222-8222-222222222222"),
-            format_version=1,
-            kdf_algorithm="ARGON2ID",
-            kdf_version=19,
-            kdf_salt=b"s" * 16,
-            kdf_memory_kib=65_536,
-            kdf_iterations=3,
-            kdf_parallelism=4,
-            derived_key_length=32,
-            amk_wrapping_algorithm="AES-256-GCM",
-            wrapped_amk=b"w" * 32,
-            amk_nonce=b"n" * 12,
-            amk_auth_tag=b"t" * 16,
-            aad_version=1,
-        ),
-        private_key_bundle=EncryptedPrivateKeyBundleInput(
-            bundle_id=UUID("33333333-3333-4333-8333-333333333333"),
-            format_version=1,
-            private_key_format="PKCS8-DER",
-            derivation_algorithm="HKDF-SHA256",
-            derivation_salt=b"d" * 16,
-            encryption_algorithm="AES-256-GCM",
-            encrypted_private_key=encrypted_private_key,
-            nonce=b"i" * 12,
-            auth_tag=b"a" * 16,
-            aad_version=1,
-            ciphertext_sha256=hashlib.sha256(encrypted_private_key).hexdigest(),
-        ),
-    )
-
-
 def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine) -> None:
     inspector = inspect(auth_mysql_engine)
     table_names = set(inspector.get_table_names())
@@ -301,22 +254,25 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
     } <= {column["name"] for column in inspector.get_columns("recovery_requests")}
 
 
-def test_mysql_collation_prevents_case_variant_duplicate_email(
+def test_mysql_collation_prevents_case_variant_duplicate_username(
     auth_mysql_session: Session,
 ) -> None:
+    username = f"CaseSensitiveProbe-{uuid4().hex}"
+    first_user_id = uuid4()
+    second_user_id = uuid4()
     first = User(
-        user_uuid=str(uuid4()),
-        username=f"first-{uuid4().hex}",
-        email="CaseSensitiveProbe@Example.com",
+        user_uuid=str(first_user_id),
+        username=username,
+        email=f"{first_user_id}@demo.invalid",
         password_hash="not-a-real-password-hash",
         role=SystemRole.USER,
         status=UserStatus.ACTIVE,
         email_verified=False,
     )
     second = User(
-        user_uuid=str(uuid4()),
-        username=f"second-{uuid4().hex}",
-        email="casesensitiveprobe@example.COM",
+        user_uuid=str(second_user_id),
+        username=username.swapcase(),
+        email=f"{second_user_id}@demo.invalid",
         password_hash="not-a-real-password-hash",
         role=SystemRole.USER,
         status=UserStatus.ACTIVE,
@@ -354,26 +310,21 @@ def test_real_auth_flow_uses_only_connection_local_temporary_tables(
     )
     original_password = "An original high entropy passphrase!"
     replacement_password = "A replacement high entropy passphrase!"
-    public_key_pem = (
-        rsa.generate_private_key(public_exponent=65537, key_size=2048)
-        .public_key()
-        .public_bytes(
-            encoding=serialization.Encoding.PEM,
-            format=serialization.PublicFormat.SubjectPublicKeyInfo,
-        )
-        .decode("ascii")
-    )
 
     try:
         registered = service.register(
             username="integration-user",
-            email="integration-user@example.com",
             password=original_password,
-            key_material=_client_key_material(public_key_pem),
             context=context,
         )
+        stored_user = session.scalar(select(User))
+        stored_user_key = session.scalar(select(UserKey))
+        assert stored_user is not None
+        assert stored_user_key is not None
+        assert stored_user.email == f"{stored_user.user_uuid}@demo.invalid"
+        assert stored_user_key.key_uuid == str(registered.key_id)
         assert registered.public_key_fingerprint == service.crypto.public_key_fingerprint(
-            public_key_pem
+            stored_user_key.public_key_pem
         )
         assert session.scalar(select(func.count()).select_from(User)) == 1
         assert session.scalar(select(func.count()).select_from(UserKey)) == 1

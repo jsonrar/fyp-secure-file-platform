@@ -5,10 +5,9 @@ from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
 
-from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field, field_validator, model_validator
 
 from app.domain.enums import SessionStatus, SystemRole, UserStatus
-from app.schemas.key_schema import ClientKeyRegistrationIn
 
 
 class _AuthRequest(BaseModel):
@@ -41,28 +40,27 @@ def _validate_username(value: str) -> str:
 class AuthUserResponse(_AuthResponse):
     id: UUID
     username: str
-    email: EmailStr
     role: SystemRole
     status: UserStatus
-    email_verified: bool
     created_at: datetime
     last_login_at: datetime | None = None
 
 
 class UserRegisterRequest(_AuthRequest):
     username: str = Field(min_length=3, max_length=100)
-    email: EmailStr = Field(max_length=255)
     password: str = Field(min_length=15, max_length=128, repr=False)
-    key_material: ClientKeyRegistrationIn = Field(repr=False)
 
     _strip_username = field_validator("username", mode="before")(_normalize_username)
     _check_username = field_validator("username")(_validate_username)
     _normalize_password = field_validator("password", mode="before")(_normalize_password)
 
-    @field_validator("email")
+    @model_validator(mode="before")
     @classmethod
-    def normalize_email(cls, value: EmailStr) -> str:
-        return str(value).lower()
+    def discard_legacy_email(cls, value: Any) -> Any:
+        """Keep the untouched demo frontend working while removing email from the contract."""
+        if isinstance(value, dict) and "email" in value:
+            value = {key: item for key, item in value.items() if key != "email"}
+        return value
 
 
 class UserRegisterResponse(_AuthResponse):
