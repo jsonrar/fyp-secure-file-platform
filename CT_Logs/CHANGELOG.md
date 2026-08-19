@@ -84,3 +84,65 @@ update:2026/8/12 14:48
 - 本基线步骤未修改任何密码学实现代码。
 
 update: 2026/8/12 17:27
+
+-------------------------------------------------------------------------------------------------------------
+## CT-1.2
+
+Base `main` @ `c45e54d` · Scope: file encryption only · No backend changes
+基线 `main` @ `c45e54d` · 范围：仅文件加密 · 未改动后端
+
+### Added / 新增
+
+- `frontend/src/crypto/encoding.ts` — byte encoding: integers, UUIDs, NFC-normalized UTF-8,
+  canonical Base64, length prefixes.
+- `frontend/src/crypto/encoding.ts` — 字节编码：整数、UUID、NFC 归一化 UTF-8、规范 Base64、
+  长度前缀。
+- `frontend/src/crypto/primitives.ts` — AES-256-GCM (detached tag), SHA-256,
+  RSA-OAEP-SHA256, RSA-PSS-SHA256.
+- `frontend/src/crypto/primitives.ts` — AES-256-GCM（分离 tag）、SHA-256、RSA-OAEP-SHA256、
+  RSA-PSS-SHA256。
+- `docs/crypto/test_vectors.json` and 41 vitest cases. Vectors are generated with
+  `python-cryptography`, so the TypeScript is checked against an independent implementation
+  rather than against itself.
+- `docs/crypto/test_vectors.json` 与 41 项 vitest 用例。向量由 `python-cryptography` 生成，
+  使 TypeScript 对照独立实现验证，而非自我往返验证。
+- `vitest` declared in `package.json` with `package-lock.json` synchronized.
+- 已在 `package.json` 声明 `vitest`，并同步 `package-lock.json`。
+
+### Why / 用途
+
+The frontend had no encryption at all; uploads sent plaintext. These are the primitives every
+encrypted upload needs: ciphertext, nonce, tag, and RSA-wrapped keys.
+前端此前没有任何加密，上传发送的是明文。这些是每次加密上传都需要的底层原语：密文、nonce、
+tag 与 RSA 包装的密钥。
+
+Three rules the backend already enforces are now caught by tests instead of at runtime:
+三条后端已在强制、但此前无人知晓的规则，现在由测试拦截，而不是等到运行时才发现：
+
+- The GCM tag must be detached from the ciphertext, or the upload is rejected.
+- GCM tag 必须与密文分离，否则上传被拒。
+- Base64 must be standard and padded, or the request is rejected.
+- Base64 必须是标准字母表且带填充，否则请求被拒。
+- Filenames must be NFC-normalized, or upload succeeds and later decryption fails.
+- 文件名必须 NFC 归一化，否则上传成功、之后解密失败。
+
+### Not included / 未包含
+
+- Argon2id and the account-key envelopes, while the key-custody model is unresolved on `main`.
+- Argon2id 与账户密钥信封 —— `main` 上的密钥托管模型尚未定论。
+- File envelope assembly and AAD construction, which follow in the next step.
+- 文件信封组装与 AAD 构造，将在下一步完成。
+
+### Notes / 说明
+
+- The existing `file_api.upload` is broken independently of this work: it posts the plaintext
+  file to `/files/upload`, while the backend serves `POST /files` and requires ciphertext plus
+  a metadata envelope.
+- 现有 `file_api.upload` 本身即为损坏状态，与本次工作无关：它把明文文件发往 `/files/upload`，
+  而后端提供的是 `POST /files`，且要求密文加元数据信封。
+- `vue-tsc` cannot run here; it has drifted from the installed `typescript`. Used
+  `tsc --noEmit` instead. Pre-existing.
+- `vue-tsc` 在此无法运行，与已安装的 `typescript` 版本漂移。改用 `tsc --noEmit`。该问题早于
+  本分支存在。
+
+update: 2026/8/20
