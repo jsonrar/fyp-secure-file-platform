@@ -146,3 +146,28 @@ def test_request_body_limit_is_positive_bounded_and_independent_from_upload_limi
 
     with pytest.raises(ValidationError, match="less than or equal to 8388608"):
         Settings(_env_file=None, MAX_REQUEST_BODY_BYTES=8 * 1024 * 1024 + 1)
+
+
+def test_requirements_declare_every_import_the_app_needs_at_startup() -> None:
+    """A dependency only present in a developer's venv still breaks a fresh deploy.
+
+    `EmailStr` needs `email-validator`, which pydantic imports lazily. Dropping
+    it from requirements.txt passed every local test and only failed in the
+    release preflight, where the venv is built from this file alone.
+    """
+    requirements = (Path(__file__).resolve().parents[2] / "requirements.txt").read_text(
+        encoding="utf-8"
+    )
+    declared = {
+        line.split("==")[0].split("[")[0].strip().lower()
+        for line in requirements.splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    }
+
+    schema_source = (
+        Path(__file__).resolve().parents[2] / "app" / "schemas" / "auth_schema.py"
+    ).read_text(encoding="utf-8")
+    if "EmailStr" in schema_source:
+        assert "email-validator" in declared, (
+            "auth_schema.py uses EmailStr, so requirements.txt must declare email-validator"
+        )
