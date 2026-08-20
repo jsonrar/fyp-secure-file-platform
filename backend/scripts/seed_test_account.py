@@ -61,7 +61,9 @@ from app.services.auth_service import AuthService
 
 # Mirrors of frontend/src/utils/account-crypto.ts. These must stay in step with
 # it: a mismatch produces an envelope the browser cannot open, and the failure
-# only surfaces when someone tries to log in.
+# only surfaces when someone tries to log in. The algorithm names and format
+# versions are not here because they are not on the wire — the API pins them,
+# and `ClientKeyRegistrationIn` rejects a request that tries to declare one.
 RSA_KEY_SIZE_BITS = 3072
 ARGON2_MEMORY_KIB = 65536
 ARGON2_ITERATIONS = 3
@@ -163,35 +165,23 @@ def build_key_material(passphrase: str) -> tuple[ClientKeyRegistrationIn, str]:
     key_material = ClientKeyRegistrationIn(
         key_id=key_id,
         public_key_pem=public_key_pem,
-        algorithm="RSA-OAEP-SHA256",
         key_size_bits=RSA_KEY_SIZE_BITS,
         protection={
             "profile_id": profile_id,
-            "format_version": 1,
-            "kdf_algorithm": "ARGON2ID",
-            "kdf_version": 19,
             "kdf_salt": _b64(kdf_salt),
             "kdf_memory_kib": ARGON2_MEMORY_KIB,
             "kdf_iterations": ARGON2_ITERATIONS,
             "kdf_parallelism": ARGON2_PARALLELISM,
-            "derived_key_length": AES_KEY_BYTES,
-            "amk_wrapping_algorithm": "AES-256-GCM",
             "wrapped_amk": _b64(wrapped_amk),
             "amk_nonce": _b64(amk_nonce),
             "amk_auth_tag": _b64(amk_tag),
-            "aad_version": 1,
         },
         private_key_bundle={
             "bundle_id": bundle_id,
-            "format_version": 1,
-            "private_key_format": "PKCS8-DER",
-            "derivation_algorithm": "HKDF-SHA256",
             "derivation_salt": _b64(hkdf_salt),
-            "encryption_algorithm": "AES-256-GCM",
             "encrypted_private_key": _b64(sealed_private_key),
             "nonce": _b64(bundle_nonce),
             "auth_tag": _b64(bundle_tag),
-            "aad_version": 1,
             "ciphertext_sha256": hashlib.sha256(sealed_private_key).hexdigest(),
         },
     )
