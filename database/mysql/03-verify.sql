@@ -790,7 +790,7 @@ SELECT
         AND audit_state.audit_log_rows > 0
         AND head.last_log_id = audit_state.max_log_id
         AND last_log.current_hash = head.current_hash
-        AND head.schema_revision = '0003_client_key_custody'
+        AND head.schema_revision = '0004_email_verification_codes'
     ), 0) AS live_rows,
     CASE
         WHEN COUNT(head.id) = 1
@@ -809,7 +809,7 @@ SELECT
              AND audit_state.audit_log_rows > 0
              AND head.last_log_id = audit_state.max_log_id
              AND last_log.current_hash = head.current_hash
-             AND head.schema_revision = '0003_client_key_custody'
+             AND head.schema_revision = '0004_email_verification_codes'
          ), 0) = 1
         THEN 'LIVE_DATA'
         ELSE 'REVIEW'

@@ -183,6 +183,11 @@ def test_root_verification_accepts_only_a_consistent_live_audit_head() -> None:
     assert "audit_state.audit_log_rows = 0" in verification_sql
     assert "head.last_log_id = audit_state.max_log_id" in verification_sql
     assert "last_log.current_hash = head.current_hash" in verification_sql
-    assert "head.schema_revision = '0004_email_verification_codes'" in verification_sql
+    # Both the genesis and the live branch must name the current revision. A
+    # merge that updated only one of them let an inconsistent live deployment
+    # fail its release gate, so assert the count and that no stale revision
+    # string survives anywhere in the file.
+    assert verification_sql.count("head.schema_revision = '0004_email_verification_codes'") == 4
+    assert "0003_client_key_custody" not in verification_sql
     assert "THEN 'LIVE_DATA'\n        ELSE 'REVIEW'" in verification_sql
     assert "ON last_log.id = head.last_log_id" in verification_sql
