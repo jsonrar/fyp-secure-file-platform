@@ -81,7 +81,15 @@ and a resend inside the cooldown returns `429` with `Retry-After`.
 Registration requires `username`, `email`, `password`, `verification_code`, and
 `key_material`. `key_material` contains a client-generated RSA-OAEP-SHA256 public key, a
 KEK-wrapped AMK profile using Argon2id plus AES-256-GCM, and an AMK/HKDF-derived AES-256-GCM
-encrypted PKCS8-DER private-key bundle. A registration that omits the code fails validation
+encrypted PKCS8-DER private-key bundle.
+
+Those algorithm names, the format and AAD versions, and the derived key length are fixed by
+the API rather than declared by the caller, and sending one is rejected as an unexpected
+field. What the request carries is the material a caller alone can produce: the public key,
+the salts, the KDF cost parameters, the sealed envelopes with their nonces and tags, and the
+bundle's `ciphertext_sha256`. Stored rows and every `*Out` response still record which
+algorithm sealed each envelope, so a second one can be introduced later. A registration that
+omits the code fails validation
 with `422`, and an incorrect or expired code fails with `error_code`
 `invalid_verification_code`. Consuming the code proves control of the address, so the created
 account is stored with `email_verified` already true. The successful response returns `user`,

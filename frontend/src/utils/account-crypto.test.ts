@@ -6,6 +6,7 @@ import {
   AccountKeySelfTestError,
   ARGON2_ITERATIONS,
   ARGON2_MEMORY_KIB,
+  ARGON2_PARALLELISM,
   RSA_KEY_SIZE_BITS,
   amkWrapAad,
   assertEnvelopesUnlock,
@@ -56,15 +57,45 @@ describe('enrolAccountKey', () => {
   it('declares the KDF parameters the backend schema requires', async () => {
     const { keyMaterial } = await sharedEnrolment()
 
-    expect(keyMaterial.protection.kdf_algorithm).toBe('ARGON2ID')
-    expect(keyMaterial.protection.kdf_version).toBe(19)
     // The backend rejects anything below 65536 KiB.
     expect(keyMaterial.protection.kdf_memory_kib).toBe(ARGON2_MEMORY_KIB)
     expect(ARGON2_MEMORY_KIB).toBeGreaterThanOrEqual(65536)
     expect(keyMaterial.protection.kdf_iterations).toBe(ARGON2_ITERATIONS)
-    expect(keyMaterial.protection.derived_key_length).toBe(32)
+    expect(keyMaterial.protection.kdf_parallelism).toBe(ARGON2_PARALLELISM)
     expect(keyMaterial.key_size_bits).toBe(RSA_KEY_SIZE_BITS)
-    expect(keyMaterial.algorithm).toBe('RSA-OAEP-SHA256')
+  })
+
+  it('uploads material only, never a label the API pins itself', async () => {
+    const { keyMaterial } = await sharedEnrolment()
+
+    // Each of these had exactly one legal value on the wire and is now supplied
+    // server-side. `extra="forbid"` means sending one back is a 422, so an
+    // enrolment that reintroduces one fails at registration, not at first login.
+    expect(Object.keys(keyMaterial).sort()).toEqual([
+      'key_id',
+      'key_size_bits',
+      'private_key_bundle',
+      'protection',
+      'public_key_pem',
+    ])
+    expect(Object.keys(keyMaterial.protection).sort()).toEqual([
+      'amk_auth_tag',
+      'amk_nonce',
+      'kdf_iterations',
+      'kdf_memory_kib',
+      'kdf_parallelism',
+      'kdf_salt',
+      'profile_id',
+      'wrapped_amk',
+    ])
+    expect(Object.keys(keyMaterial.private_key_bundle).sort()).toEqual([
+      'auth_tag',
+      'bundle_id',
+      'ciphertext_sha256',
+      'derivation_salt',
+      'encrypted_private_key',
+      'nonce',
+    ])
   })
 
   it('uploads a public key only, and returns the private key just to the caller', async () => {
