@@ -4,6 +4,19 @@
 
 Final Year Project architecture for a secure file encryption and sharing platform.
 
+## Staging Deployment
+
+The current build runs at **https://secureview.tech**.
+
+Always write and share the URL **with the `https://` prefix**. `.tech` is not on the browser
+HSTS preload list, so a visitor who types the bare domain reaches `http://` once before the
+redirect, and some in-app browsers (WeChat among them) warn during that hop. After one HTTPS
+visit the `Strict-Transport-Security` header pins the scheme for a year.
+
+HTTPS is required for the product to work at all, not only for the padlock: the browser
+exposes `crypto.subtle` only in a secure context, and registration uses it to generate the
+account RSA key pair and derive the Argon2id key-encryption key.
+
 ## Project Goal
 
 This system allows users to upload files, store them encrypted on the server, share files
