@@ -14,6 +14,8 @@ from app.core.config import Settings
 
 logger = logging.getLogger(__name__)
 
+_USER_AGENT = "SecureView/1.0 (+https://secureview.tech)"
+
 
 class EmailDeliveryError(Exception):
     """Outbound mail could not be handed to the configured provider."""
@@ -79,6 +81,9 @@ class EmailService:
             headers={
                 "Authorization": f"Bearer {self.settings.RESEND_API_KEY}",
                 "Content-Type": "application/json",
+                # urllib defaults to "Python-urllib/<version>", which Resend's
+                # edge rejects with 403 before the request reaches the API.
+                "User-Agent": _USER_AGENT,
             },
             method="POST",
         )
@@ -91,8 +96,13 @@ class EmailService:
                 if response.status >= 300:
                     raise EmailDeliveryError(f"Resend returned HTTP {response.status}")
         except urllib.error.HTTPError as exc:
-            # The response body can echo the recipient; keep only the status.
-            logger.error("Resend rejected a message with HTTP %s", exc.code)
+            # The body can echo the recipient, so log only the provider's error
+            # name. Without it a 403 is indistinguishable from a bad key.
+            logger.error(
+                "Resend rejected a message with HTTP %s (%s)",
+                exc.code,
+                _resend_error_name(exc),
+            )
             raise EmailDeliveryError(f"Resend returned HTTP {exc.code}") from exc
         except (urllib.error.URLError, TimeoutError, OSError) as exc:
             logger.error("Resend delivery failed: %s", type(exc).__name__)
@@ -146,3 +156,13 @@ class EmailService:
             return address
         local_part, _, domain = address.partition("@")
         return str(Address(display_name, local_part, domain))
+
+
+def _resend_error_name(exc: urllib.error.HTTPError) -> str:
+    """Return only the provider's error identifier, never the response body."""
+    try:
+        body = json.loads(exc.read().decode("utf-8", errors="replace"))
+    except (ValueError, OSError):
+        return "unparseable_error_body"
+    name = body.get("name") if isinstance(body, dict) else None
+    return str(name) if name else "unnamed_error"
