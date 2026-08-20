@@ -222,11 +222,36 @@ location = / {
     allow 127.0.0.1;
     allow ::1;
     deny all;
+    error_page 403 = @canonical;
     try_files /index.html =404;
+}
+
+location @canonical {
+    return 308 https://secureview.tech$request_uri;
+}
+
+location / {
+    return 308 https://secureview.tech$request_uri;
 }
 ```
 
-外部客户端以明文 HTTP 访问裸 IP 仍然得到 `403`；两个域名仍然跳转到 HTTPS。
+回环访问两个探针仍然得到 `200`。80 端口上的其余请求一律跳转到规范的 HTTPS 源，裸 IP 也不例
+外——`error_page` 把访问阶段的 `403` 转成同一个跳转。两种情况下都不会有任何内容以明文送出。
+
+跳转用的是 `308` 而非 `301`，这样对 `/api/` 的 `POST` 会保留方法与请求体，而不会变成 `GET`
+再以 `405` 失败。
+
+### 用 IP 访问这台机器
+
+443 端口块的 `server_name` 里带了裸 IP，所以 `https://103.233.0.105/` 确实能打开站点；但
+Let's Encrypt 证书只覆盖 `secureview.tech` 与 `www.secureview.tech`，浏览器会给出证书名称不
+匹配的警告。Let's Encrypt 不为 IP 地址签发证书——IP 没有可供校验的名称。
+
+请统一使用 `https://secureview.tech`。`http://103.233.0.105/<路径>` 会跳转过去，这才是受支持
+的入口：例如直接输入 IP 访问 API 文档，会落到 `https://secureview.tech/docs`。
+
+在这个跳转存在之前，以 HTTP 访问裸 IP 时，除两个回环探针外的所有路径都由 nginx 返回 `404`。
+那个页面很容易被读成"后端挂了"，而实际上只是明文请求找不到可跳转的名称而被拒绝。
 
 ### 首次访问的 HTTP 跳转
 
