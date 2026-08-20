@@ -274,12 +274,40 @@ location = / {
     allow 127.0.0.1;
     allow ::1;
     deny all;
+    error_page 403 = @canonical;
     try_files /index.html =404;
+}
+
+location @canonical {
+    return 308 https://secureview.tech$request_uri;
+}
+
+location / {
+    return 308 https://secureview.tech$request_uri;
 }
 ```
 
-An external client on the bare IP over cleartext HTTP still gets `403`; the two domain names
-still redirect to HTTPS.
+Loopback keeps its `200` for both probes. Everyone else on port 80 is redirected to the
+canonical HTTPS origin, including on the bare IP, where `error_page` turns the access-phase
+`403` into that same redirect. Nothing is served over cleartext either way.
+
+The redirect is `308`, not `301`, so that a `POST` to `/api/` keeps its method and body
+instead of arriving as a `GET` and failing with `405`.
+
+### Reaching the box by IP
+
+The 443 block lists the bare IP in `server_name`, so `https://103.233.0.105/` does reach the
+site — but the Let's Encrypt certificate covers only `secureview.tech` and
+`www.secureview.tech`, so a browser shows a name-mismatch warning. Let's Encrypt does not
+issue for IP addresses, and an IP has no name to validate.
+
+Use `https://secureview.tech`. `http://103.233.0.105/<path>` redirects there, which is the
+supported way in: the API docs, for instance, are reachable by typing the IP and landing on
+`https://secureview.tech/docs`.
+
+Before this redirect existed, the bare IP over HTTP answered `404` from nginx for every path
+but the two loopback probes. That page is easy to read as a dead backend when it is really
+just cleartext being refused a name it can redirect to.
 
 ### First-visit HTTP hop
 
