@@ -37,46 +37,40 @@ export const RSA_KEY_SIZE_BITS = 3072
 export const ARGON2_MEMORY_KIB = 65536
 export const ARGON2_ITERATIONS = 3
 export const ARGON2_PARALLELISM = 1
-const ARGON2_VERSION = 19
 
 const KDF_SALT_BYTES = 16
 const HKDF_SALT_BYTES = 32
 
+/**
+ * The uploaded shape carries material only. Algorithm names, format versions and
+ * the derived key length had one legal value each, so the API pins them and no
+ * longer accepts them; sending one back is a 422. The stored rows and the
+ * `GET /keys/me` response still spell them out, which is what a second algorithm
+ * would eventually need.
+ */
 export interface KeyProtectionProfilePayload {
   profile_id: string
-  format_version: 1
-  kdf_algorithm: 'ARGON2ID'
-  kdf_version: 19
   kdf_salt: string
   kdf_memory_kib: number
   kdf_iterations: number
   kdf_parallelism: number
-  derived_key_length: 32
-  amk_wrapping_algorithm: 'AES-256-GCM'
   wrapped_amk: string
   amk_nonce: string
   amk_auth_tag: string
-  aad_version: 1
 }
 
 export interface EncryptedPrivateKeyBundlePayload {
   bundle_id: string
-  format_version: 1
-  private_key_format: 'PKCS8-DER'
-  derivation_algorithm: 'HKDF-SHA256'
   derivation_salt: string
-  encryption_algorithm: 'AES-256-GCM'
   encrypted_private_key: string
   nonce: string
   auth_tag: string
-  aad_version: 1
   ciphertext_sha256: string
 }
 
 export interface ClientKeyMaterial {
   key_id: string
   public_key_pem: string
-  algorithm: 'RSA-OAEP-SHA256'
   key_size_bits: number
   protection: KeyProtectionProfilePayload
   private_key_bundle: EncryptedPrivateKeyBundlePayload
@@ -210,35 +204,23 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
   const keyMaterial: ClientKeyMaterial = {
     key_id: keyId,
     public_key_pem: publicKeyPem,
-    algorithm: 'RSA-OAEP-SHA256',
     key_size_bits: RSA_KEY_SIZE_BITS,
     protection: {
       profile_id: profileId,
-      format_version: 1,
-      kdf_algorithm: 'ARGON2ID',
-      kdf_version: ARGON2_VERSION,
       kdf_salt: toBase64(kdfSalt),
       kdf_memory_kib: ARGON2_MEMORY_KIB,
       kdf_iterations: ARGON2_ITERATIONS,
       kdf_parallelism: ARGON2_PARALLELISM,
-      derived_key_length: AES_KEY_BYTES,
-      amk_wrapping_algorithm: 'AES-256-GCM',
       wrapped_amk: toBase64(wrappedAmk.ciphertext),
       amk_nonce: toBase64(amkNonce),
       amk_auth_tag: toBase64(wrappedAmk.authTag),
-      aad_version: 1,
     },
     private_key_bundle: {
       bundle_id: bundleId,
-      format_version: 1,
-      private_key_format: 'PKCS8-DER',
-      derivation_algorithm: 'HKDF-SHA256',
       derivation_salt: toBase64(hkdfSalt),
-      encryption_algorithm: 'AES-256-GCM',
       encrypted_private_key: toBase64(sealedBundle.ciphertext),
       nonce: toBase64(privateKeyNonce),
       auth_tag: toBase64(sealedBundle.authTag),
-      aad_version: 1,
       ciphertext_sha256: await sha256Hex(sealedBundle.ciphertext),
     },
   }

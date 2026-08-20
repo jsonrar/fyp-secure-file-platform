@@ -39,25 +39,48 @@ def decode_base64(value: str, *, field_name: str, exact_length: int | None = Non
     return decoded
 
 
+# The one shape a client key envelope is allowed to have.
+#
+# Every value below had exactly one legal setting on the wire, so a caller could
+# only ever repeat them back or get a 422 for trying anything else. They are
+# pinned here instead: requests carry the material, the server supplies the
+# labels, and the stored rows and API responses stay just as self-describing as
+# before — the columns and the `*Out` models still record which algorithm sealed
+# each envelope, which is what makes adding a second one later possible.
+CLIENT_KEY_ALGORITHM = "RSA-OAEP-SHA256"
+PROTECTION_FORMAT_VERSION = 1
+PROTECTION_AAD_VERSION = 1
+KDF_ALGORITHM = "ARGON2ID"
+KDF_VERSION = 19
+DERIVED_KEY_LENGTH = 32
+AMK_WRAPPING_ALGORITHM = "AES-256-GCM"
+BUNDLE_FORMAT_VERSION = 1
+BUNDLE_AAD_VERSION = 1
+PRIVATE_KEY_FORMAT = "PKCS8-DER"
+PRIVATE_KEY_DERIVATION_ALGORITHM = "HKDF-SHA256"
+PRIVATE_KEY_ENCRYPTION_ALGORITHM = "AES-256-GCM"
+
+
 class _StrictModel(BaseModel):
     model_config = ConfigDict(extra="forbid")
 
 
 class KeyProtectionProfileIn(_StrictModel):
+    """The passphrase-derived wrapping of the account master key.
+
+    The KDF cost parameters stay on the wire because they are a per-account
+    choice: they are what lets the cost be raised later without locking out an
+    account enrolled under the old ones.
+    """
+
     profile_id: UUID
-    format_version: Literal[1] = 1
-    kdf_algorithm: Literal["ARGON2ID"] = "ARGON2ID"
-    kdf_version: Literal[19] = 19
     kdf_salt: Base64Value
     kdf_memory_kib: int = Field(ge=65_536, le=1_048_576)
     kdf_iterations: int = Field(ge=1, le=10)
     kdf_parallelism: int = Field(ge=1, le=16)
-    derived_key_length: Literal[32] = 32
-    amk_wrapping_algorithm: Literal["AES-256-GCM"] = "AES-256-GCM"
     wrapped_amk: Base64Value
     amk_nonce: Base64Value
     amk_auth_tag: Base64Value
-    aad_version: Literal[1] = 1
 
     @model_validator(mode="after")
     def validate_binary_fields(self) -> KeyProtectionProfileIn:
@@ -72,33 +95,36 @@ class KeyProtectionProfileIn(_StrictModel):
     def to_domain(self) -> KeyProtectionProfileInput:
         return KeyProtectionProfileInput(
             profile_id=self.profile_id,
-            format_version=self.format_version,
-            kdf_algorithm=self.kdf_algorithm,
-            kdf_version=self.kdf_version,
+            format_version=PROTECTION_FORMAT_VERSION,
+            kdf_algorithm=KDF_ALGORITHM,
+            kdf_version=KDF_VERSION,
             kdf_salt=decode_base64(self.kdf_salt, field_name="kdf_salt"),
             kdf_memory_kib=self.kdf_memory_kib,
             kdf_iterations=self.kdf_iterations,
             kdf_parallelism=self.kdf_parallelism,
-            derived_key_length=self.derived_key_length,
-            amk_wrapping_algorithm=self.amk_wrapping_algorithm,
+            derived_key_length=DERIVED_KEY_LENGTH,
+            amk_wrapping_algorithm=AMK_WRAPPING_ALGORITHM,
             wrapped_amk=decode_base64(self.wrapped_amk, field_name="wrapped_amk"),
             amk_nonce=decode_base64(self.amk_nonce, field_name="amk_nonce"),
             amk_auth_tag=decode_base64(self.amk_auth_tag, field_name="amk_auth_tag"),
-            aad_version=self.aad_version,
+            aad_version=PROTECTION_AAD_VERSION,
         )
 
 
 class EncryptedPrivateKeyBundleIn(_StrictModel):
+    """The private key sealed under an AMK/HKDF-derived key.
+
+    `ciphertext_sha256` stays on the wire despite the AES-GCM tag already
+    covering the ciphertext: it is the compact commitment the current-key
+    authorization signature carries, so dropping it would weaken what that
+    signature actually attests to.
+    """
+
     bundle_id: UUID
-    format_version: Literal[1] = 1
-    private_key_format: Literal["PKCS8-DER"] = "PKCS8-DER"
-    derivation_algorithm: Literal["HKDF-SHA256"] = "HKDF-SHA256"
     derivation_salt: Base64Value
-    encryption_algorithm: Literal["AES-256-GCM"] = "AES-256-GCM"
     encrypted_private_key: Base64Value
     nonce: Base64Value
     auth_tag: Base64Value
-    aad_version: Literal[1] = 1
     ciphertext_sha256: Sha256Hex
 
     @model_validator(mode="after")
@@ -118,25 +144,31 @@ class EncryptedPrivateKeyBundleIn(_StrictModel):
     def to_domain(self) -> EncryptedPrivateKeyBundleInput:
         return EncryptedPrivateKeyBundleInput(
             bundle_id=self.bundle_id,
-            format_version=self.format_version,
-            private_key_format=self.private_key_format,
-            derivation_algorithm=self.derivation_algorithm,
+            format_version=BUNDLE_FORMAT_VERSION,
+            private_key_format=PRIVATE_KEY_FORMAT,
+            derivation_algorithm=PRIVATE_KEY_DERIVATION_ALGORITHM,
             derivation_salt=decode_base64(self.derivation_salt, field_name="derivation_salt"),
-            encryption_algorithm=self.encryption_algorithm,
+            encryption_algorithm=PRIVATE_KEY_ENCRYPTION_ALGORITHM,
             encrypted_private_key=decode_base64(
                 self.encrypted_private_key, field_name="encrypted_private_key"
             ),
             nonce=decode_base64(self.nonce, field_name="nonce"),
             auth_tag=decode_base64(self.auth_tag, field_name="auth_tag"),
-            aad_version=self.aad_version,
+            aad_version=BUNDLE_AAD_VERSION,
             ciphertext_sha256=self.ciphertext_sha256,
         )
 
 
 class ClientKeyRegistrationIn(_StrictModel):
+    """Account key material generated and sealed by the client.
+
+    `key_size_bits` stays: it is the one declared value with more than a single
+    legal setting, and the server cross-checks it against the modulus of the
+    uploaded key rather than taking it on trust.
+    """
+
     key_id: UUID
     public_key_pem: str = Field(min_length=200, max_length=8000)
-    algorithm: Literal["RSA-OAEP-SHA256"] = "RSA-OAEP-SHA256"
     key_size_bits: Literal[2048, 3072, 4096] = 3072
     protection: KeyProtectionProfileIn
     private_key_bundle: EncryptedPrivateKeyBundleIn
@@ -153,7 +185,7 @@ class ClientKeyRegistrationIn(_StrictModel):
         return ClientKeyRegistration(
             key_id=self.key_id,
             public_key_pem=self.public_key_pem,
-            algorithm=self.algorithm,
+            algorithm=CLIENT_KEY_ALGORITHM,
             key_size_bits=self.key_size_bits,
             protection=self.protection.to_domain(),
             private_key_bundle=self.private_key_bundle.to_domain(),
@@ -168,7 +200,6 @@ class ClientKeyAdditionIn(_StrictModel):
     expected_profile_revision: int = Field(ge=1)
     key_id: UUID
     public_key_pem: str = Field(min_length=200, max_length=8000)
-    algorithm: Literal["RSA-OAEP-SHA256"] = "RSA-OAEP-SHA256"
     key_size_bits: Literal[2048, 3072, 4096] = 3072
     private_key_bundle: EncryptedPrivateKeyBundleIn
 
@@ -187,7 +218,7 @@ class ClientKeyAdditionIn(_StrictModel):
             expected_profile_revision=self.expected_profile_revision,
             key_id=self.key_id,
             public_key_pem=self.public_key_pem,
-            algorithm=self.algorithm,
+            algorithm=CLIENT_KEY_ALGORITHM,
             key_size_bits=self.key_size_bits,
             private_key_bundle=self.private_key_bundle.to_domain(),
         )
