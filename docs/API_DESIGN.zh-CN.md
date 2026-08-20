@@ -72,8 +72,12 @@ JSON 应用响应使用统一信封，其中 `data` 是路由专用 DTO。失败
 
 注册请求包含 `username`、`email`、`password`、`verification_code` 和 `key_material`。
 `key_material` 包含客户端生成的 RSA-OAEP-SHA256 公钥、使用 Argon2id 与 AES-256-GCM 的 KEK
-包装 AMK 配置，以及使用 AMK/HKDF 派生密钥与 AES-256-GCM 加密的 PKCS8-DER 私钥包。缺少验证码
-时返回 `422`；验证码错误或过期时 `error_code` 为 `invalid_verification_code`。消费验证码即
+包装 AMK 配置，以及使用 AMK/HKDF 派生密钥与 AES-256-GCM 加密的 PKCS8-DER 私钥包。
+
+其中的算法名、格式版本与 AAD 版本、派生密钥长度由 API 固定，不由调用方声明；携带这些字段会被
+当作多余字段拒绝。请求真正承载的是只有调用方能产生的材料：公钥、各个盐、KDF 开销参数、连同
+nonce 与认证标签的两个信封，以及私钥包的 `ciphertext_sha256`。存储行与所有 `*Out` 响应仍然
+记录每个信封由哪种算法封装，以便日后引入第二种算法。缺少验证码时返回 `422`；验证码错误或过期时 `error_code` 为 `invalid_verification_code`。消费验证码即
 证明该地址受控，因此新账户直接以 `email_verified` 为真写入。成功响应返回 `user`、
 `key_id` 和 `public_key_fingerprint`，不返回私钥。
 
