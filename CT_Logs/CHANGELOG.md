@@ -244,9 +244,13 @@ Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No bac
 - Files above the 25 MiB limit are rejected before being read into memory, and `File.type` falls back to `application/octet-stream` when the browser reports nothing usable.
 - 超过 25 MiB 限制的文件在读入内存前即被拒绝；当浏览器未能识别类型时，`File.type` 回退为 `application/octet-stream`。
 
-### Not verified / 未验证
+### Verified end to end / 端到端验证
 
-- No request has been made against a running backend yet. The metadata shape is checked against the schema by hand and by unit tests, not by an accepted upload.
-- 尚未对运行中的后端发起过任何请求。metadata 的结构是通过人工比对 schema 与单元测试验证的，而非通过一次被接受的上传。
+- Ran against a local MySQL 8.4 and backend: `01/02/03` SQL reports schema `OK` at revision `0004`, two files uploaded and accepted, each with an owner and a recovery wrapping, and `file_size_bytes == encrypted_size_bytes` confirming the tag stayed detached.
+- 已在本地 MySQL 8.4 与后端上运行：`01/02/03` SQL 报告 schema `OK`、revision 为 `0004`；两个文件上传成功并被接受，各带所有者与恢复两份包装；`file_size_bytes == encrypted_size_bytes`，证明 tag 保持分离。
+- Decrypted a stored file with the **offline recovery private key**, rebuilding AAD-3 in Python from the persisted metadata alone. This path touches none of the TypeScript, so it independently confirms both the AAD byte layout and the recovery wrapping — the one envelope no client can ever self-test.
+- 已用**离线恢复私钥**解密一个已存储的文件，且仅凭数据库中持久化的元数据在 Python 侧重建 AAD-3。该路径完全不经过 TypeScript，因此独立确认了 AAD 字节布局与恢复包装 —— 后者是任何客户端都无法自检的唯一信封。
+- Added `upload.integration.test.ts`, skipped unless `E2E_API_BASE` is set, so `npm test` stays offline while the live check stays reproducible.
+- 已新增 `upload.integration.test.ts`，未设置 `E2E_API_BASE` 时自动跳过，使 `npm test` 保持离线，同时让线上检查可复现。
 
 update: 2026/8/20
