@@ -185,6 +185,56 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 Readiness 会探测数据库并要求精确 Schema revision `0004_email_verification_codes`；它只诊断漂移，
 不会执行 migration 或 stamp。
 
+## 5. 在 nginx 终止 TLS
+
+预发布 VPS 通过 Let's Encrypt 证书以 HTTPS 提供 `secureview.tech`。线上 server 块的版本化副本
+位于 `deployment/server/nginx-secureview.conf`。
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d secureview.tech -d www.secureview.tech --redirect
+```
+
+`certbot --nginx` 会重写 80 端口块，因此任何改动过配置的续期之后，都必须重新应用下面的回环
+探针例外，并与版本化副本比对。
+
+这里的 HTTPS 不是装饰。浏览器只在安全上下文中暴露 `crypto.subtle`，而注册流程依赖它生成账户
+RSA 密钥对并派生 Argon2id KEK。在明文 HTTP 下客户端登记代码根本拿不到该 API，注册无法完成。
+
+### 80 端口块与发布探针
+
+`mcs21-deploy` 会带 `Host: <public_host>`（即服务器裸 IP）探测
+`http://127.0.0.1/health/live` 与 `http://127.0.0.1/`。certbot 生成的跳转只匹配两个域名，
+其余一律返回 `404`，会导致部署后的存活检查失败并回滚发布。
+
+因此 80 端口块保留且仅保留这两个路径，并限制为回环访问：
+
+```nginx
+location = /health/live {
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+    proxy_pass http://127.0.0.1:8000;
+    include /etc/nginx/proxy_params;
+}
+
+location = / {
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+    try_files /index.html =404;
+}
+```
+
+外部客户端以明文 HTTP 访问裸 IP 仍然得到 `403`；两个域名仍然跳转到 HTTPS。
+
+### 首次访问的 HTTP 跳转
+
+`.tech` 不在浏览器 HSTS 预加载名单中，因此不带协议直接输入 `secureview.tech` 的访客会先经过
+一次 `http://` 才被跳转。此后 `Strict-Transport-Security` 头会将 HTTPS 固定一年。对外发布与
+分享链接时请一律写作 `https://secureview.tech`，即可完全避免这一跳——部分应用内置浏览器会
+在该跳转期间提示不安全。
+
 ## 后续非空生产数据库升级
 
 不得在非空生产数据库上重跑 `02-schema.sql`，也不得运行 Alembic。每次 Schema 变化必须提供

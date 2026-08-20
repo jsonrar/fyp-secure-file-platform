@@ -234,6 +234,60 @@ adding the instance to service. Readiness executes a database probe and requires
 configured schema revision `0004_email_verification_codes`; it diagnoses drift but never migrates
 or stamps the database.
 
+## 5. Terminate TLS at nginx
+
+The staging VPS serves `secureview.tech` over HTTPS with a Let's Encrypt certificate. The
+tracked copy of the live server block is `deployment/server/nginx-secureview.conf`.
+
+```bash
+sudo apt-get install -y certbot python3-certbot-nginx
+sudo certbot --nginx -d secureview.tech -d www.secureview.tech --redirect
+```
+
+`certbot --nginx` rewrites the port-80 block, so re-apply the loopback probe exception below
+after any renewal that touches the configuration, and diff against the tracked copy.
+
+HTTPS is not cosmetic here. The browser exposes `crypto.subtle` only in a secure context, and
+registration depends on it to generate the account RSA key pair and derive the Argon2id KEK.
+Over plain HTTP the API is unreachable to the client-side enrolment code, so registration
+cannot complete at all.
+
+### The port-80 block and the release probes
+
+`mcs21-deploy` probes `http://127.0.0.1/health/live` and `http://127.0.0.1/` with a
+`Host: <public_host>` header, where `public_host` is the bare server IP. Certbot's generated
+redirects match only the two domain names and answer `404` for anything else, which fails the
+post-deploy live health check and rolls the release back.
+
+The port-80 block therefore keeps exactly those two paths reachable, restricted to loopback:
+
+```nginx
+location = /health/live {
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+    proxy_pass http://127.0.0.1:8000;
+    include /etc/nginx/proxy_params;
+}
+
+location = / {
+    allow 127.0.0.1;
+    allow ::1;
+    deny all;
+    try_files /index.html =404;
+}
+```
+
+An external client on the bare IP over cleartext HTTP still gets `403`; the two domain names
+still redirect to HTTPS.
+
+### First-visit HTTP hop
+
+`.tech` is not on the browser HSTS preload list, so a visitor who types `secureview.tech`
+without a scheme reaches `http://` once before the redirect. The `Strict-Transport-Security`
+header then pins HTTPS for a year. Publish and share the URL as `https://secureview.tech` so
+that first hop never happens; some in-app browsers warn on it.
+
 ## Legacy and failed deployments
 
 The former `docs/init.sql` was a historical development bootstrap and has been deleted. A
