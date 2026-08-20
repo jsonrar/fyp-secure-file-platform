@@ -2,14 +2,24 @@
 import { Check, FileIcon, Lock, RefreshCw, Upload, X } from 'lucide-vue-next'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
-import { fileApi } from '@/api/file_api'
+import { apiErrorMessage } from '@/api/http'
 import { formatFileSize } from '@/api/types'
+import {
+  encryptAndUpload,
+  fetchUploadRecipients,
+  MAX_UPLOAD_BYTES,
+  type UploadRecipients,
+} from '@/crypto/upload'
+
+type UploadStatus = 'pending' | 'encrypting' | 'done' | 'failed'
 
 interface UploadedFile {
   raw: File
   name: string
   size: number
   type: string
+  status: UploadStatus
+  error: string
 }
 
 const router = useRouter()
@@ -18,14 +28,15 @@ const isEncrypting = ref(false)
 const isEncrypted = ref(false)
 const errorMessage = ref('')
 const dragActive = ref(false)
-const algorithms = ['AES-128', 'AES-192', 'AES-256', '3DES'] as const
-const selectedAlgorithm = ref<(typeof algorithms)[number]>('AES-256')
+const recoveryFingerprint = ref('')
 
 const toUploadedFile = (file: File): UploadedFile => ({
   raw: file,
   name: file.name,
   size: file.size,
   type: file.type || 'unknown',
+  status: 'pending',
+  error: '',
 })
 
 const addFiles = (fileList: FileList) => {
@@ -59,20 +70,47 @@ const removeFile = (index: number) => {
   isEncrypted.value = false
 }
 
+/**
+ * Encrypt each file in the browser, then upload ciphertext only.
+ *
+ * The recipient public keys are fetched once for the whole batch rather than per file.
+ * Each file reports its own outcome, because one rejected filename should not hide the
+ * files that did upload.
+ */
 const handleEncrypt = async () => {
   if (!files.value.length) return
   isEncrypting.value = true
   errorMessage.value = ''
+  isEncrypted.value = false
+
+  let recipients: UploadRecipients
   try {
-    for (const file of files.value) {
-      await fileApi.upload(file.raw)
-    }
-    isEncrypted.value = true
+    recipients = await fetchUploadRecipients()
+    recoveryFingerprint.value = recipients.recoveryKeyFingerprint
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Upload failed'
-    isEncrypted.value = false
-  } finally {
+    errorMessage.value = apiErrorMessage(error, 'Could not load the encryption keys')
     isEncrypting.value = false
+    return
+  }
+
+  let failures = 0
+  for (const file of files.value) {
+    file.status = 'encrypting'
+    file.error = ''
+    try {
+      await encryptAndUpload(file.raw, recipients)
+      file.status = 'done'
+    } catch (error) {
+      failures += 1
+      file.status = 'failed'
+      file.error = apiErrorMessage(error, 'Encryption failed')
+    }
+  }
+
+  isEncrypting.value = false
+  isEncrypted.value = failures === 0
+  if (failures > 0) {
+    errorMessage.value = `${failures} of ${files.value.length} file(s) failed. See each file below.`
   }
 }
 
@@ -86,7 +124,7 @@ const goToFiles = () => {
     <div class="container mx-auto px-4">
       <div class="text-center mb-16">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Encrypt Your Files</h2>
-        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Upload files and encrypt with one click. Server-side encryption uses AES-256-GCM.</p>
+        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Files are encrypted in your browser with AES-256-GCM. Only ciphertext is uploaded; the server never receives your file or its key.</p>
       </div>
       <div class="max-w-4xl mx-auto rounded-xl bg-card border border-border p-6">
         <div class="grid lg:grid-cols-2 gap-8">
@@ -114,34 +152,46 @@ const goToFiles = () => {
                   <div>
                     <p class="text-sm text-foreground truncate max-w-[200px]">{{ file.name }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatFileSize(file.size) }}</p>
+                    <p v-if="file.status === 'failed'" class="text-xs text-destructive mt-1 max-w-[220px]">{{ file.error }}</p>
                   </div>
                 </div>
-                <button class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" @click="removeFile(index)">
-                  <X class="h-4 w-4" />
-                </button>
+                <div class="flex items-center gap-2">
+                  <RefreshCw v-if="file.status === 'encrypting'" class="h-4 w-4 animate-spin text-primary" />
+                  <Check v-else-if="file.status === 'done'" class="h-4 w-4 text-primary" />
+                  <button v-else class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" @click="removeFile(index)">
+                    <X class="h-4 w-4" />
+                  </button>
+                </div>
               </div>
             </div>
           </div>
 
           <div>
-            <label class="text-foreground mb-4 block text-lg font-medium">Encryption Model</label>
+            <label class="text-foreground mb-4 block text-lg font-medium">Encryption</label>
             <div class="space-y-4">
-              <select
-                v-model="selectedAlgorithm"
-                class="h-10 w-full rounded-md border border-border bg-secondary px-3 text-foreground"
-                @change="isEncrypted = false"
-              >
-                <option v-for="algorithm in algorithms" :key="algorithm" :value="algorithm">
-                  {{ algorithm }}
-                </option>
-              </select>
+              <div class="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">File contents</span>
+                  <span class="font-semibold text-primary">AES-256-GCM</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">File key wrapping</span>
+                  <span class="font-semibold text-primary">RSA-OAEP-SHA256</span>
+                </div>
+                <div class="flex justify-between text-sm">
+                  <span class="text-muted-foreground">Maximum size</span>
+                  <span class="text-foreground">{{ formatFileSize(MAX_UPLOAD_BYTES) }}</span>
+                </div>
+              </div>
               <p class="text-xs text-muted-foreground">
-                Backend currently encrypts with AES-256-GCM. Algorithm selection is for display only.
+                A fresh 256-bit key is generated per file and wrapped to your public key and to
+                the recovery key. Neither key nor plaintext leaves this browser.
               </p>
-              <div class="p-3 rounded-lg bg-secondary/50 border border-border">
-                <p class="text-sm text-foreground">
-                  Selected model: <span class="font-semibold text-primary">{{ selectedAlgorithm }}</span>
+              <div v-if="recoveryFingerprint" class="p-3 rounded-lg bg-secondary/50 border border-border">
+                <p class="text-xs text-muted-foreground mb-1">
+                  Recovery key fingerprint &mdash; verify this out of band before trusting an upload.
                 </p>
+                <p class="text-xs font-mono break-all text-foreground">{{ recoveryFingerprint }}</p>
               </div>
             </div>
 

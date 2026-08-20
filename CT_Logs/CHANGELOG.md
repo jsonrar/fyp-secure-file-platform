@@ -207,3 +207,46 @@ Base `main` @ `98f4c64` · Scope: file encryption envelope · No backend changes
 - Argon2id 与账户密钥信封 —— 密钥托管模型尚未定论。
 
 update: 2026/8/20
+
+-------------------------------------------------------------------------------------------------------------
+## CT-1.4
+
+Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No backend changes
+基线 `main` @ `2003e47` · 范围：将加密接入上传路径 · 未改动后端
+
+### Fixed / 修复
+
+- The upload page returned a bare `422`. `POST /files/upload` takes two multipart parts, `file` and `metadata`, and the page sent only `file` — with the plaintext in it. `metadata` is a required form field that cannot be filled without encrypting first, so FastAPI rejected every upload.
+- 上传页此前直接返回 `422`。`POST /files/upload` 需要 `file` 与 `metadata` 两个 multipart 部分，而页面只发送了 `file`，且内容是明文。`metadata` 是必填字段，不先加密就无法填写，因此 FastAPI 拒绝了每一次上传。
+- Removed the `AES-128 / AES-192 / AES-256 / 3DES` selector, which was wired to nothing, and the "Server-side encryption uses AES-256-GCM" copy, which described the opposite of the design.
+- 已移除未接任何逻辑的 `AES-128 / AES-192 / AES-256 / 3DES` 下拉框，以及与设计相反的
+  "Server-side encryption uses AES-256-GCM" 文案。
+- Dropped the manual `Content-Type: multipart/form-data` header. Naming the type without a boundary leaves the browser unable to generate one.
+- 已移除手写的 `Content-Type: multipart/form-data` 头。只写类型而不带 boundary 会导致浏览器无法生成分隔符。
+
+### Added / 新增
+
+- `frontend/src/crypto/upload.ts` — fetches the owner and recovery public keys, encrypts the file, wraps the file key to both, and assembles the multipart payload.
+- `frontend/src/crypto/upload.ts` — 获取所有者与恢复公钥、加密文件、将文件密钥包装给两者，并组装 multipart 载荷。
+- `frontend/src/api/key_api.ts` — `GET /keys/me`, `/keys/me/{key_id}`, `/keys/users/{user_id}/active`.
+- `frontend/src/api/key_api.ts` — `GET /keys/me`、`/keys/me/{key_id}`、`/keys/users/{user_id}/active`。
+- `recovery_api.getPublicKey` for the active recovery key, and `fileApi.uploadEncrypted`.
+- `recovery_api.getPublicKey` 用于获取活跃恢复密钥，以及 `fileApi.uploadEncrypted`。
+- 9 tests, including a full round trip: unwrap the file key with a real RSA private key, rebuild the AAD from the metadata, and decrypt back to the exact input bytes. 109 tests pass in total.
+- 新增 9 项测试，含完整往返验证：用真实 RSA 私钥解包文件密钥、从 metadata 重建 AAD、解密回完全一致的输入字节。累计 109 项测试通过。
+
+### Behaviour / 行为
+
+- Recipient keys are fetched once per batch, not per file, and each file reports its own outcome so one rejected filename does not hide the uploads that succeeded.
+- 接收方密钥按批次获取一次而非每个文件一次；每个文件单独报告结果，避免一个被拒的文件名掩盖其他成功的上传。
+- The recovery key fingerprint is recomputed locally from the PEM and shown in the UI. It is never read from the API response field, because this is the one wrapping no client can verify.
+- 恢复密钥指纹由客户端从 PEM 本地重算并在界面显示，绝不读取 API 响应中的该字段 —— 因为这是唯一无法被任何客户端验证的包装。
+- Files above the 25 MiB limit are rejected before being read into memory, and `File.type` falls back to `application/octet-stream` when the browser reports nothing usable.
+- 超过 25 MiB 限制的文件在读入内存前即被拒绝；当浏览器未能识别类型时，`File.type` 回退为 `application/octet-stream`。
+
+### Not verified / 未验证
+
+- No request has been made against a running backend yet. The metadata shape is checked against the schema by hand and by unit tests, not by an accepted upload.
+- 尚未对运行中的后端发起过任何请求。metadata 的结构是通过人工比对 schema 与单元测试验证的，而非通过一次被接受的上传。
+
+update: 2026/8/20
