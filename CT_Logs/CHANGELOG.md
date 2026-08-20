@@ -254,3 +254,40 @@ Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No bac
 - 已新增 `upload.integration.test.ts`，未设置 `E2E_API_BASE` 时自动跳过，使 `npm test` 保持离线，同时让线上检查可复现。
 
 update: 2026/8/20
+
+-------------------------------------------------------------------------------------------------------------
+## CT-1.5
+
+Base `main` @ `8e174c6` · Scope: recovery key provisioning · No application code changed
+基线 `main` @ `8e174c6` · 范围：恢复密钥的配置工具 · 未修改应用代码
+
+### Added / 新增
+
+- `backend/scripts/register_recovery_key.py` — generates an RSA recovery key pair, writes the private half locally at mode 600, and registers only the public half through the ADMIN-only API route.
+- `backend/scripts/register_recovery_key.py` — 生成 RSA 恢复密钥对，将私钥以 600 权限写入本地，并仅通过 ADMIN 专用 API 路由注册公钥。
+
+### Why / 用途
+
+- Every upload wraps its file key twice: to the owner's public key and to the active recovery public key. With no recovery key registered, the API answers `No active recovery public key is configured` and nothing can be uploaded. Staging hit exactly this after the browser-side encryption landed.
+- 每次上传都会把文件密钥包装两次：给所有者公钥和给活跃的恢复公钥。若未注册恢复密钥，API 返回 `No active recovery public key is configured`，任何文件都无法上传。浏览器端加密上线后，staging 正是卡在这里。
+
+### Safeguards / 保护措施
+
+- Refuses to overwrite an existing private key file. Registering a new key revokes the previous one for new uploads but does not rewrap existing files, so the old private half must be retained.
+- 拒绝覆盖已存在的私钥文件。注册新密钥会使旧密钥对新上传失效，但不会重新包装已有文件，因此旧私钥必须保留。
+- Checks the account is `ADMIN` before generating anything, so a failed attempt leaves no key material behind.
+- 在生成任何密钥材料之前先校验账号为 `ADMIN`，使失败的尝试不会遗留密钥材料。
+- Compares the fingerprint the API reports against one computed locally and aborts on any difference.
+- 将 API 返回的指纹与本地计算结果比对，不一致即中止。
+
+### Verified / 验证
+
+- Ran against the local backend: rotation moved the previous key to `REVOKED`, a new upload wrapped to the new key, and the new private half decrypted the stored ciphertext. Both guards were exercised and neither wrote a private key on failure.
+- 已对本地后端运行：轮换将旧密钥置为 `REVOKED`，新上传包装给新密钥，新私钥成功解密已存储的密文。两道保护均已触发，且失败时都未写出私钥。
+
+### Note / 说明
+
+- The private key is not in offline or HSM custody, as `docs/SECURITY_FLOWS.md` describes for a real deployment. For this demonstration project it lives in `recovery_keys/`, which is gitignored in a private repository. Whoever holds it can decrypt every file uploaded under the matching public key.
+- 本项目的私钥并未如 `docs/SECURITY_FLOWS.md` 对真实部署所述那样置于离线或 HSM 保管中。作为展示项目，它存放在 `recovery_keys/`（私有仓库中已被 gitignore）。持有该私钥者可解密以对应公钥上传的每一个文件。
+
+update: 2026/8/20
