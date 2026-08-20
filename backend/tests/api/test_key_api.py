@@ -107,19 +107,13 @@ def _rewrap_payload(*, include_signature: bool = False) -> dict:
         "authorizing_key_id": str(KEY_ID),
         "profile_id": str(PROFILE_ID),
         "expected_revision": 4,
-        "format_version": 1,
-        "kdf_algorithm": "ARGON2ID",
-        "kdf_version": 19,
         "kdf_salt": base64.b64encode(b"s" * 16).decode("ascii"),
         "kdf_memory_kib": 65_536,
         "kdf_iterations": 3,
         "kdf_parallelism": 1,
-        "derived_key_length": 32,
-        "amk_wrapping_algorithm": "AES-256-GCM",
         "wrapped_amk": base64.b64encode(b"w" * 32).decode("ascii"),
         "amk_nonce": base64.b64encode(b"n" * 12).decode("ascii"),
         "amk_auth_tag": base64.b64encode(b"t" * 16).decode("ascii"),
-        "aad_version": 1,
     }
     if include_signature:
         payload.update(
