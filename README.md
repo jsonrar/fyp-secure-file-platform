@@ -101,6 +101,10 @@ fyp-secure-file-platform/
 |-- frontend/
 |   |-- src/
 |   `-- package.json
+|-- changelog/
+|   |-- CHANGELOG.md
+|   |-- README.md
+|   `-- work-packages/
 |-- docs/
 |   |-- ARCHITECTURE.md
 |   |-- API_DESIGN.md
@@ -113,6 +117,14 @@ fyp-secure-file-platform/
 |-- .gitignore
 `-- docker-compose.yml
 ```
+
+## Change Log
+
+Everything the team has changed, and why, is recorded in
+[`changelog/CHANGELOG.md`](changelog/CHANGELOG.md). Per-work-package records live in
+[`changelog/work-packages/`](changelog/work-packages/). Read
+[`changelog/README.md`](changelog/README.md) before adding an entry: it says which of the two
+a given entry belongs in.
 
 ## Local Setup
 
