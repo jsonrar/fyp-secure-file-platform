@@ -4,6 +4,29 @@ All notable changes to this project are documented in this file.
 
 本文件记录此项目的所有重要变更。
 
+## How this file is organized / 本文件的组织方式
+
+Two logs share this file, and they answer different questions.
+
+- **[Unreleased]** is the release log: what changed in the product, grouped by area, in the
+  order it landed on `main`.
+- **Crypto track (CT) milestones** are per-work-package records. Each one names the `main`
+  commit it branched from, the scope it stayed inside, and the limitations it confirmed but
+  deliberately did not fix.
+
+An entry belongs to whichever log matches the question it answers. Work that shipped a change
+to the product goes in the release log even when the crypto track did it; a milestone record
+stays a milestone record even when it changed no code.
+
+本文件承载两份日志，回答的是不同的问题。
+
+- **[未发布]** 是发布日志：产品发生了什么变化，按领域分组，按落到 `main` 的顺序排列。
+- **密码学工作包里程碑（CT）** 是分工作包的记录。每一段都写明它从哪个 `main` 提交拉出、范围限定
+  在哪里，以及确认存在但有意留待后续处理的限制。
+
+条目归入哪一份，取决于它回答的是哪个问题。产品发生了变化就写进发布日志——即使这项工作出自密码学线；
+里程碑记录仍然是里程碑记录——即使它没有改动任何代码。
+
 ## [Unreleased] / [未发布]
 
 ### Email verification and password reset / 邮箱验证与密码重置
@@ -97,16 +120,25 @@ All notable changes to this project are documented in this file.
 update:2026/8/15 02:40
 
 -------------------------------------------------------------------------------------------------------------
-## CT-1.1
+## Crypto track (CT) milestones / 密码学工作包里程碑
 
-### Baseline / 基线
+Work-package records from the crypto track, oldest first. These are not release entries: a
+milestone can close with no code changed, and the limitations it lists are left open on
+purpose for a later package.
+
+密码学线的工作包记录，按时间正序。它们不是发布条目：一个工作包可以在未改动代码的情况下结束，
+其中列出的限制也是有意留给后续工作包的。
+
+### CT-1.1
+
+#### Baseline / 基线
 
 - Created `CT-1.1` from the merged `main` commit `9593e75`.
 - 已从完成合并的 `main` 提交 `9593e75` 创建 `CT-1.1`。
 - Verified the existing cryptography baseline with `python -m pytest tests/unit/test_crypto_service.py -q --durations=10`: 4 tests passed in 0.54 seconds.
 - 已使用 `python -m pytest tests/unit/test_crypto_service.py -q --durations=10` 验证现有密码学基线：4 项测试全部通过，耗时 0.54 秒。
 
-### Confirmed limitations / 已确认限制
+#### Confirmed limitations / 已确认限制
 
 - AES-GCM encryption currently processes the complete plaintext in memory and does not authenticate associated data (AAD).
 - 当前 AES-GCM 加密会在内存中处理完整明文，且未认证关联数据（AAD）。
@@ -118,12 +150,12 @@ update:2026/8/15 02:40
 update: 2026/8/12 17:27
 
 -------------------------------------------------------------------------------------------------------------
-## CT-1.2
+### CT-1.2
 
 Base `main` @ `c45e54d` · Scope: file encryption only · No backend changes
 基线 `main` @ `c45e54d` · 范围：仅文件加密 · 未改动后端
 
-### Added / 新增
+#### Added / 新增
 
 - `frontend/src/crypto/encoding.ts` — byte encoding: integers, UUIDs, NFC-normalized UTF-8, canonical Base64, length prefixes.
 - `frontend/src/crypto/encoding.ts` — 字节编码：整数、UUID、NFC 归一化 UTF-8、规范 Base64、长度前缀。
@@ -134,7 +166,7 @@ Base `main` @ `c45e54d` · Scope: file encryption only · No backend changes
 - `vitest` declared in `package.json` with `package-lock.json` synchronized.
 - 已在 `package.json` 声明 `vitest`，并同步 `package-lock.json`。
 
-### Why / 用途
+#### Why / 用途
 
 The frontend had no encryption at all; uploads sent plaintext. These are the primitives every
 encrypted upload needs: ciphertext, nonce, tag, and RSA-wrapped keys.
@@ -150,14 +182,14 @@ Three rules the backend already enforces are now caught by tests instead of at r
 - Filenames must be NFC-normalized, or upload succeeds and later decryption fails.
 - 文件名必须 NFC 归一化，否则上传成功、之后解密失败。
 
-### Not included / 未包含
+#### Not included / 未包含
 
 - Argon2id and the account-key envelopes, while the key-custody model is unresolved on `main`.
 - Argon2id 与账户密钥信封 —— `main` 上的密钥托管模型尚未定论。
 - File envelope assembly and AAD construction, which follow in the next step.
 - 文件信封组装与 AAD 构造，将在下一步完成。
 
-### Notes / 说明
+#### Notes / 说明
 
 - The existing `file_api.upload` is broken independently of this work: it posts the plaintext file to `/files/upload`, while the backend serves `POST /files` and requires ciphertext plus a metadata envelope.
 - 现有 `file_api.upload` 本身即为损坏状态，与本次工作无关：它把明文文件发往 `/files/upload`，而后端提供的是 `POST /files`，且要求密文加元数据信封。
@@ -167,12 +199,12 @@ Three rules the backend already enforces are now caught by tests instead of at r
 update: 2026/8/20
 
 -------------------------------------------------------------------------------------------------------------
-## CT-1.3
+### CT-1.3
 
 Base `main` @ `98f4c64` · Scope: file encryption envelope · No backend changes
 基线 `main` @ `98f4c64` · 范围：文件加密信封 · 未改动后端
 
-### Added / 新增
+#### Added / 新增
 
 - `frontend/src/crypto/file_envelope.ts` — AAD-3 construction, `encryptFile` / `decryptFile`, DEK wrapping to the owner and recovery keys, and the `POST /files` metadata assembly.
 - `frontend/src/crypto/file_envelope.ts` — AAD-3 构造、`encryptFile` / `decryptFile`、DEK 向所有者与恢复密钥的包装，以及 `POST /files` 元数据组装。
@@ -181,7 +213,7 @@ Base `main` @ `98f4c64` · Scope: file encryption envelope · No backend changes
 - 8 new reference vectors (6 AAD, 2 full envelopes) and 44 tests. 85 tests pass in total.
 - 新增 8 组参考向量（6 组 AAD、2 组完整信封）与 44 项测试。累计 85 项测试通过。
 
-### Design decisions / 设计决策
+#### Design decisions / 设计决策
 
 - AAD-3 binds `file_id`, `envelope_version`, `plaintext_size`, `original_filename` and `mime_type`. Those last three are cleartext columns the server could otherwise rewrite, so binding them turns any such edit into a decryption failure.
 - AAD-3 绑定 `file_id`、`envelope_version`、`plaintext_size`、`original_filename` 与 `mime_type`。后三者是服务器本可随意改写的明文列，绑定后任何此类修改都会变成解密失败。
@@ -192,14 +224,14 @@ Base `main` @ `98f4c64` · Scope: file encryption envelope · No backend changes
 - `encryptFile` self-tests by decrypting its own output before returning. The server cannot check that ciphertext decrypts to anything, so an unopenable envelope would otherwise be discovered only after the plaintext was gone.
 - `encryptFile` 在返回前解密自己的输出进行自检。服务器无法验证密文能否解出内容，否则一个打不开的信封只会在明文丢弃之后才被发现。
 
-### Notes / 说明
+#### Notes / 说明
 
 - The server never computes this AAD, so no server-side check can catch a divergent second implementation; it would simply produce files nobody can decrypt. Hence the normative doc and the locked vectors.
 - 服务器从不计算此 AAD，因此没有任何服务端检查能发现第二个实现的分歧，后果只是产出谁也解不开的文件。规范文档与锁定的向量正是为此而存在。
 - The recovery wrapping remains unverifiable by any client; `buildUploadPayload` returns the locally recomputed recovery-key fingerprint so the caller can pin it.
 - 恢复包装对任何客户端都不可验证；`buildUploadPayload` 会返回本地重算的恢复密钥指纹，供调用方固定比对。
 
-### Not included / 未包含
+#### Not included / 未包含
 
 - Wiring into `file_api.ts` and the upload page, which still send plaintext.
 - 接入 `file_api.ts` 与上传页面 —— 它们目前仍在发送明文。
@@ -209,12 +241,12 @@ Base `main` @ `98f4c64` · Scope: file encryption envelope · No backend changes
 update: 2026/8/20
 
 -------------------------------------------------------------------------------------------------------------
-## CT-1.4
+### CT-1.4
 
 Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No backend changes
 基线 `main` @ `2003e47` · 范围：将加密接入上传路径 · 未改动后端
 
-### Fixed / 修复
+#### Fixed / 修复
 
 - The upload page returned a bare `422`. `POST /files/upload` takes two multipart parts, `file` and `metadata`, and the page sent only `file` — with the plaintext in it. `metadata` is a required form field that cannot be filled without encrypting first, so FastAPI rejected every upload.
 - 上传页此前直接返回 `422`。`POST /files/upload` 需要 `file` 与 `metadata` 两个 multipart 部分，而页面只发送了 `file`，且内容是明文。`metadata` 是必填字段，不先加密就无法填写，因此 FastAPI 拒绝了每一次上传。
@@ -224,7 +256,7 @@ Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No bac
 - Dropped the manual `Content-Type: multipart/form-data` header. Naming the type without a boundary leaves the browser unable to generate one.
 - 已移除手写的 `Content-Type: multipart/form-data` 头。只写类型而不带 boundary 会导致浏览器无法生成分隔符。
 
-### Added / 新增
+#### Added / 新增
 
 - `frontend/src/crypto/upload.ts` — fetches the owner and recovery public keys, encrypts the file, wraps the file key to both, and assembles the multipart payload.
 - `frontend/src/crypto/upload.ts` — 获取所有者与恢复公钥、加密文件、将文件密钥包装给两者，并组装 multipart 载荷。
@@ -235,7 +267,7 @@ Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No bac
 - 9 tests, including a full round trip: unwrap the file key with a real RSA private key, rebuild the AAD from the metadata, and decrypt back to the exact input bytes. 109 tests pass in total.
 - 新增 9 项测试，含完整往返验证：用真实 RSA 私钥解包文件密钥、从 metadata 重建 AAD、解密回完全一致的输入字节。累计 109 项测试通过。
 
-### Behaviour / 行为
+#### Behaviour / 行为
 
 - Recipient keys are fetched once per batch, not per file, and each file reports its own outcome so one rejected filename does not hide the uploads that succeeded.
 - 接收方密钥按批次获取一次而非每个文件一次；每个文件单独报告结果，避免一个被拒的文件名掩盖其他成功的上传。
@@ -244,7 +276,7 @@ Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No bac
 - Files above the 25 MiB limit are rejected before being read into memory, and `File.type` falls back to `application/octet-stream` when the browser reports nothing usable.
 - 超过 25 MiB 限制的文件在读入内存前即被拒绝；当浏览器未能识别类型时，`File.type` 回退为 `application/octet-stream`。
 
-### Verified end to end / 端到端验证
+#### Verified end to end / 端到端验证
 
 - Ran against a local MySQL 8.4 and backend: `01/02/03` SQL reports schema `OK` at revision `0004`, two files uploaded and accepted, each with an owner and a recovery wrapping, and `file_size_bytes == encrypted_size_bytes` confirming the tag stayed detached.
 - 已在本地 MySQL 8.4 与后端上运行：`01/02/03` SQL 报告 schema `OK`、revision 为 `0004`；两个文件上传成功并被接受，各带所有者与恢复两份包装；`file_size_bytes == encrypted_size_bytes`，证明 tag 保持分离。
@@ -256,22 +288,22 @@ Base `main` @ `2003e47` · Scope: wire encryption into the upload path · No bac
 update: 2026/8/20
 
 -------------------------------------------------------------------------------------------------------------
-## CT-1.5
+### CT-1.5
 
 Base `main` @ `8e174c6` · Scope: recovery key provisioning · No application code changed
 基线 `main` @ `8e174c6` · 范围：恢复密钥的配置工具 · 未修改应用代码
 
-### Added / 新增
+#### Added / 新增
 
 - `backend/scripts/register_recovery_key.py` — generates an RSA recovery key pair, writes the private half locally at mode 600, and registers only the public half through the ADMIN-only API route.
 - `backend/scripts/register_recovery_key.py` — 生成 RSA 恢复密钥对，将私钥以 600 权限写入本地，并仅通过 ADMIN 专用 API 路由注册公钥。
 
-### Why / 用途
+#### Why / 用途
 
 - Every upload wraps its file key twice: to the owner's public key and to the active recovery public key. With no recovery key registered, the API answers `No active recovery public key is configured` and nothing can be uploaded. Staging hit exactly this after the browser-side encryption landed.
 - 每次上传都会把文件密钥包装两次：给所有者公钥和给活跃的恢复公钥。若未注册恢复密钥，API 返回 `No active recovery public key is configured`，任何文件都无法上传。浏览器端加密上线后，staging 正是卡在这里。
 
-### Safeguards / 保护措施
+#### Safeguards / 保护措施
 
 - Refuses to overwrite an existing private key file. Registering a new key revokes the previous one for new uploads but does not rewrap existing files, so the old private half must be retained.
 - 拒绝覆盖已存在的私钥文件。注册新密钥会使旧密钥对新上传失效，但不会重新包装已有文件，因此旧私钥必须保留。
@@ -280,12 +312,12 @@ Base `main` @ `8e174c6` · Scope: recovery key provisioning · No application co
 - Compares the fingerprint the API reports against one computed locally and aborts on any difference.
 - 将 API 返回的指纹与本地计算结果比对，不一致即中止。
 
-### Verified / 验证
+#### Verified / 验证
 
 - Ran against the local backend: rotation moved the previous key to `REVOKED`, a new upload wrapped to the new key, and the new private half decrypted the stored ciphertext. Both guards were exercised and neither wrote a private key on failure.
 - 已对本地后端运行：轮换将旧密钥置为 `REVOKED`，新上传包装给新密钥，新私钥成功解密已存储的密文。两道保护均已触发，且失败时都未写出私钥。
 
-### Note / 说明
+#### Note / 说明
 
 - The private key is not in offline or HSM custody, as `docs/SECURITY_FLOWS.md` describes for a real deployment. For this demonstration project it lives in `recovery_keys/`, which is gitignored in a private repository. Whoever holds it can decrypt every file uploaded under the matching public key.
 - 本项目的私钥并未如 `docs/SECURITY_FLOWS.md` 对真实部署所述那样置于离线或 HSM 保管中。作为展示项目，它存放在 `recovery_keys/`（私有仓库中已被 gitignore）。持有该私钥者可解密以对应公钥上传的每一个文件。
