@@ -1,12 +1,21 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Download, KeyRound, ShieldCheck, UserPlus } from 'lucide-vue-next'
 import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
+import PasswordField from '@/components/PasswordField.vue'
 import { enrolAccountKey } from '@/utils/account-crypto'
+import {
+  PASSPHRASE_MIN_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENT_HINT,
+  evaluatePassword,
+} from '@/utils/password-policy'
 
-const PASSWORD_MIN_LENGTH = 15
+const USERNAME_MIN_LENGTH = 3
+const USERNAME_MAX_LENGTH = 100
+const USERNAME_PATTERN = /^[A-Za-z0-9_.-]+$/
 
 const username = ref('')
 const email = ref('')
@@ -27,30 +36,112 @@ const privateKeyPem = ref('')
 const publicKeyFingerprint = ref('')
 const keyAcknowledged = ref(false)
 
+/**
+ * Registration validates on submit, not by disabling the button.
+ *
+ * A disabled Register button cannot explain itself: the user is left comparing
+ * their password against a placeholder to guess which rule they missed. So the
+ * button stays live, every rule is checked on click, and the first field that
+ * fails is named and focused. A rule is also shown early once the user has left
+ * that field, which is the point they have finished their thought about it.
+ */
+type FieldName = 'username' | 'password' | 'confirmPassword' | 'passphrase' | 'email' | 'code'
+
+const touched = reactive<Record<FieldName, boolean>>({
+  username: false,
+  password: false,
+  confirmPassword: false,
+  passphrase: false,
+  email: false,
+  code: false,
+})
+const hasAttemptedSubmit = ref(false)
+
+const usernameInput = ref<HTMLInputElement | null>(null)
+const emailInput = ref<HTMLInputElement | null>(null)
+const codeInput = ref<HTMLInputElement | null>(null)
+const passwordField = ref<InstanceType<typeof PasswordField> | null>(null)
+const confirmPasswordField = ref<InstanceType<typeof PasswordField> | null>(null)
+const passphraseField = ref<InstanceType<typeof PasswordField> | null>(null)
+
 const emailLooksValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
-const passwordTooShort = computed(
-  () => password.value.length > 0 && password.value.length < PASSWORD_MIN_LENGTH,
+
+/** The password must not be built out of the account details it protects. */
+const passwordCheck = computed(() =>
+  evaluatePassword(password.value, [username.value.trim(), email.value.trim()]),
 )
-const passwordsMismatch = computed(
-  () => confirmPassword.value.length > 0 && password.value !== confirmPassword.value,
-)
-const passphraseReused = computed(
-  () => passphrase.value.length > 0 && passphrase.value === password.value,
-)
-const canSendCode = computed(
-  () => emailLooksValid.value && cooldownSeconds.value === 0 && !isSendingCode.value,
-)
-const canSubmit = computed(
-  () =>
-    username.value.trim().length >= 3 &&
-    emailLooksValid.value &&
-    password.value.length >= PASSWORD_MIN_LENGTH &&
-    password.value === confirmPassword.value &&
-    passphrase.value.length >= PASSWORD_MIN_LENGTH &&
-    !passphraseReused.value &&
-    /^\d{6}$/.test(verificationCode.value.trim()) &&
-    !isSubmitting.value,
-)
+
+const errors = computed<Record<FieldName, string>>(() => {
+  const trimmedUsername = username.value.trim()
+
+  let usernameError = ''
+  if (trimmedUsername.length < USERNAME_MIN_LENGTH) {
+    usernameError = `Use at least ${USERNAME_MIN_LENGTH} characters.`
+  } else if (trimmedUsername.length > USERNAME_MAX_LENGTH) {
+    usernameError = `Use at most ${USERNAME_MAX_LENGTH} characters.`
+  } else if (!USERNAME_PATTERN.test(trimmedUsername)) {
+    usernameError = 'Use only letters, numbers, underscore, dot, and hyphen.'
+  }
+
+  let confirmError = ''
+  if (confirmPassword.value.length === 0) {
+    confirmError = 'Repeat your password.'
+  } else if (confirmPassword.value !== password.value) {
+    confirmError = 'The two passwords do not match.'
+  }
+
+  let passphraseError = ''
+  const passphraseLength = [...passphrase.value].length
+  if (passphraseLength === 0) {
+    passphraseError = 'Enter an encryption passphrase.'
+  } else if (passphraseLength < PASSPHRASE_MIN_LENGTH) {
+    passphraseError = `Use at least ${PASSPHRASE_MIN_LENGTH} characters (${passphraseLength} so far).`
+  } else if (passphrase.value === password.value) {
+    passphraseError = 'Use a different value from your login password.'
+  }
+
+  return {
+    username: usernameError,
+    password: passwordCheck.value.message,
+    confirmPassword: confirmError,
+    passphrase: passphraseError,
+    email: emailLooksValid.value ? '' : 'Enter a valid email address.',
+    code: /^\d{6}$/.test(verificationCode.value.trim())
+      ? ''
+      : 'Enter the 6-digit code sent to your email.',
+  }
+})
+
+/** Field order here is the order on screen, so "first problem" means the top one. */
+const FIELD_ORDER: readonly FieldName[] = [
+  'username',
+  'password',
+  'confirmPassword',
+  'passphrase',
+  'email',
+  'code',
+]
+
+function errorFor(field: FieldName): string {
+  if (!hasAttemptedSubmit.value && !touched[field]) return ''
+  return errors.value[field]
+}
+
+function markTouched(field: FieldName) {
+  touched[field] = true
+}
+
+function focusField(field: FieldName) {
+  const targets: Record<FieldName, { focus: () => void } | null> = {
+    username: usernameInput.value,
+    password: passwordField.value,
+    confirmPassword: confirmPasswordField.value,
+    passphrase: passphraseField.value,
+    email: emailInput.value,
+    code: codeInput.value,
+  }
+  targets[field]?.focus()
+}
 
 function startCooldown(seconds: number) {
   cooldownSeconds.value = seconds
@@ -67,7 +158,13 @@ function startCooldown(seconds: number) {
 onUnmounted(() => clearInterval(cooldownTimer))
 
 async function sendCode() {
-  if (!canSendCode.value) return
+  if (isSendingCode.value || cooldownSeconds.value > 0) return
+  // The same rule as Register: the button explains the problem instead of hiding it.
+  if (!emailLooksValid.value) {
+    markTouched('email')
+    focusField('email')
+    return
+  }
   isSendingCode.value = true
   errorMessage.value = ''
   codeNotice.value = ''
@@ -88,7 +185,16 @@ async function sendCode() {
 }
 
 async function register() {
-  if (!canSubmit.value) return
+  if (isSubmitting.value) return
+
+  hasAttemptedSubmit.value = true
+  const firstInvalid = FIELD_ORDER.find((field) => errors.value[field] !== '')
+  if (firstInvalid) {
+    errorMessage.value = 'Some details still need fixing. See the messages above.'
+    focusField(firstInvalid)
+    return
+  }
+
   isSubmitting.value = true
   errorMessage.value = ''
   codeNotice.value = ''
@@ -144,104 +250,109 @@ function downloadPrivateKey() {
           <h1 class="text-2xl font-bold text-foreground">Create Account</h1>
         </div>
 
-        <form @submit.prevent="register">
-          <label class="text-sm text-foreground mb-2 block">
+        <form novalidate @submit.prevent="register">
+          <label for="register-username" class="text-sm text-foreground mb-2 block">
             Username <span class="text-destructive">*</span>
           </label>
           <input
+            id="register-username"
+            ref="usernameInput"
             v-model="username"
             placeholder="Username"
-            required
-            minlength="3"
             autocomplete="username"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+            :aria-invalid="errorFor('username') ? 'true' : undefined"
+            class="h-10 w-full rounded-md border bg-secondary px-3 text-foreground"
+            :class="errorFor('username') ? 'border-destructive' : 'border-border'"
+            @blur="markTouched('username')"
           />
+          <p v-if="errorFor('username')" class="text-xs text-destructive mt-1" role="alert">
+            {{ errorFor('username') }}
+          </p>
+          <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
-            Password <span class="text-destructive">*</span>
-          </label>
-          <input
+          <PasswordField
+            ref="passwordField"
             v-model="password"
-            placeholder="At least 15 characters"
-            type="password"
-            required
-            autocomplete="new-password"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3"
+            label="Password"
+            :placeholder="`At least ${PASSWORD_MIN_LENGTH} characters`"
+            :hint="PASSWORD_REQUIREMENT_HINT"
+            :error="errorFor('password')"
+            @blur="markTouched('password')"
           />
-          <p v-if="passwordTooShort" class="text-xs text-destructive mt-1">
-            Use at least {{ PASSWORD_MIN_LENGTH }} characters ({{ password.length }} so far).
-          </p>
           <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
-            Confirm Password <span class="text-destructive">*</span>
-          </label>
-          <input
+          <PasswordField
+            ref="confirmPasswordField"
             v-model="confirmPassword"
+            label="Confirm Password"
             placeholder="Repeat your password"
-            type="password"
-            required
-            autocomplete="new-password"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3"
+            :error="errorFor('confirmPassword')"
+            @blur="markTouched('confirmPassword')"
           />
-          <p v-if="passwordsMismatch" class="text-xs text-destructive mt-1">
-            The two passwords do not match.
-          </p>
           <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
-            Encryption Passphrase <span class="text-destructive">*</span>
-          </label>
-          <input
+          <PasswordField
+            ref="passphraseField"
             v-model="passphrase"
-            placeholder="At least 15 characters, different from your password"
-            type="password"
-            required
-            autocomplete="new-password"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3"
-          />
-          <p class="text-xs text-muted-foreground mt-1 flex gap-1.5">
-            <ShieldCheck class="h-4 w-4 shrink-0 text-primary" />
-            <span>
-              This never leaves your browser. It unlocks your private key, so if you lose it your
-              encrypted files cannot be recovered.
-            </span>
-          </p>
-          <p v-if="passphraseReused" class="text-xs text-destructive mt-1">
-            Use a different value from your login password.
-          </p>
+            label="Encryption Passphrase"
+            :placeholder="`At least ${PASSPHRASE_MIN_LENGTH} characters, different from your password`"
+            :error="errorFor('passphrase')"
+            @blur="markTouched('passphrase')"
+          >
+            <template #hint>
+              <p class="text-xs text-muted-foreground mt-1 flex gap-1.5">
+                <ShieldCheck class="h-4 w-4 shrink-0 text-primary" />
+                <span>
+                  This never leaves your browser. It unlocks your private key, so if you lose it
+                  your encrypted files cannot be recovered. That is why it stays longer than your
+                  login password.
+                </span>
+              </p>
+            </template>
+          </PasswordField>
           <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
+          <label for="register-email" class="text-sm text-foreground mb-2 block">
             Email Address <span class="text-destructive">*</span>
           </label>
           <input
+            id="register-email"
+            ref="emailInput"
             v-model="email"
             placeholder="you@example.com"
             type="email"
-            required
             autocomplete="email"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+            :aria-invalid="errorFor('email') ? 'true' : undefined"
+            class="h-10 w-full rounded-md border bg-secondary px-3 text-foreground"
+            :class="errorFor('email') ? 'border-destructive' : 'border-border'"
+            @blur="markTouched('email')"
           />
+          <p v-if="errorFor('email')" class="text-xs text-destructive mt-1" role="alert">
+            {{ errorFor('email') }}
+          </p>
+          <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
+          <label for="register-code" class="text-sm text-foreground mb-2 block">
             Verification Code <span class="text-destructive">*</span>
           </label>
-          <div class="flex gap-2 mb-2">
+          <div class="flex gap-2">
             <input
+              id="register-code"
+              ref="codeInput"
               v-model="verificationCode"
               placeholder="6-digit code"
               inputmode="numeric"
-              pattern="\d{6}"
               maxlength="6"
-              required
               autocomplete="one-time-code"
-              class="h-10 flex-1 rounded-md border border-border bg-secondary px-3 tracking-widest"
+              :aria-invalid="errorFor('code') ? 'true' : undefined"
+              class="h-10 flex-1 rounded-md border bg-secondary px-3 text-foreground tracking-widest"
+              :class="errorFor('code') ? 'border-destructive' : 'border-border'"
+              @blur="markTouched('code')"
             />
             <button
               type="button"
               class="h-10 shrink-0 rounded-md border border-border px-3 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="!canSendCode"
+              :disabled="isSendingCode || cooldownSeconds > 0"
               @click="sendCode"
             >
               <span v-if="isSendingCode">Sending...</span>
@@ -249,19 +360,24 @@ function downloadPrivateKey() {
               <span v-else>Send code</span>
             </button>
           </div>
-          <p v-if="codeNotice" class="text-xs text-muted-foreground mb-4">{{ codeNotice }}</p>
-          <div v-else class="mb-4" />
+          <p v-if="errorFor('code')" class="text-xs text-destructive mt-1" role="alert">
+            {{ errorFor('code') }}
+          </p>
+          <p v-if="codeNotice" class="text-xs text-muted-foreground mt-1">{{ codeNotice }}</p>
+          <div class="mb-6" />
 
           <button
             type="submit"
             class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="!canSubmit"
+            :disabled="isSubmitting"
           >
             {{ progressLabel || 'Register' }}
           </button>
         </form>
 
-        <p v-if="errorMessage" class="text-sm text-destructive mt-3">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="text-sm text-destructive mt-3" role="alert">
+          {{ errorMessage }}
+        </p>
 
         <p class="text-sm text-muted-foreground mt-6 text-center">
           Already have an account?

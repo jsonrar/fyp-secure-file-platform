@@ -4,6 +4,7 @@ import { RouterLink } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 import { Lock } from 'lucide-vue-next'
 import { authApi } from '@/api/auth_api'
+import PasswordField from '@/components/PasswordField.vue'
 import { useAuthStore } from '@/stores/auth_store'
 
 const username = ref('')
@@ -56,21 +57,19 @@ async function login() {
           class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
         />
 
-        <div class="mb-2 flex items-center justify-between">
-          <label class="text-sm text-foreground">
-            Password <span class="text-destructive">*</span>
-          </label>
-          <RouterLink to="/forgot-password" class="text-xs text-primary hover:underline">
-            Forgot password?
-          </RouterLink>
-        </div>
-        <input
+        <PasswordField
           v-model="password"
+          label="Password"
           placeholder="Password"
-          type="password"
-          required
-          class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-6"
-        />
+          autocomplete="current-password"
+        >
+          <template #label-aside>
+            <RouterLink to="/forgot-password" class="text-xs text-primary hover:underline">
+              Forgot password?
+            </RouterLink>
+          </template>
+        </PasswordField>
+        <div class="mb-6" />
 
         <button
           type="submit"
