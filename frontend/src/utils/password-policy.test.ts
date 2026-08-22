@@ -1,0 +1,85 @@
+import { describe, expect, it } from 'vitest'
+
+import {
+  PASSWORD_MAX_LENGTH,
+  PASSWORD_MIN_LENGTH,
+  evaluatePassword,
+  passwordCharacterClasses,
+} from './password-policy'
+
+describe('passwordCharacterClasses', () => {
+  it('buckets characters the way the server does', () => {
+    expect([...passwordCharacterClasses('Ab1!')].sort()).toEqual([
+      'lowercase',
+      'number',
+      'symbol',
+      'uppercase',
+    ])
+    expect([...passwordCharacterClasses('abc')]).toEqual(['lowercase'])
+  })
+
+  it('counts a space as a symbol, so a plain passphrase qualifies', () => {
+    expect([...passwordCharacterClasses('two words')].sort()).toEqual(['lowercase', 'symbol'])
+  })
+
+  it('puts caseless scripts in one class rather than none', () => {
+    expect([...passwordCharacterClasses('密码密码密码密码')]).toEqual(['symbol'])
+  })
+})
+
+describe('evaluatePassword', () => {
+  it('accepts any two character classes at the minimum length', () => {
+    for (const password of ['Abcdefgh', 'abcd1234', 'ABCD1234', 'abcd!@#$', '1234!@#$']) {
+      expect(evaluatePassword(password).ok, password).toBe(true)
+    }
+  })
+
+  it('reports how far a short password still has to go', () => {
+    const result = evaluatePassword('Ab1')
+    expect(result.ok).toBe(false)
+    expect(result.tooShort).toBe(true)
+    expect(result.message).toBe(`Use at least ${PASSWORD_MIN_LENGTH} characters (3 so far).`)
+  })
+
+  it('rejects a password drawn from a single character class', () => {
+    const result = evaluatePassword('abcdefghij')
+    expect(result.ok).toBe(false)
+    expect(result.tooFewClasses).toBe(true)
+    expect(result.message).toContain('Mix at least 2 of')
+  })
+
+  it('rejects a password built around the username or email local part', () => {
+    expect(evaluatePassword('Alice2024!', ['alice', 'alice@example.com']).ok).toBe(false)
+    expect(evaluatePassword('x9-owner-Qz', ['someone', 'owner@example.com'])).toMatchObject({
+      ok: false,
+      usesAccountDetails: true,
+    })
+  })
+
+  it('ignores account fragments too short to mean anything', () => {
+    expect(evaluatePassword('Th1s-is-fine', ['a@example.com']).ok).toBe(true)
+  })
+
+  it('ignores blank context values', () => {
+    expect(evaluatePassword('Th1s-is-fine', ['', '   ']).ok).toBe(true)
+  })
+
+  it('treats an empty password as incomplete rather than as a rule violation', () => {
+    const result = evaluatePassword('')
+    expect(result).toMatchObject({ ok: false, isEmpty: true, tooShort: false, tooFewClasses: false })
+    expect(result.message).toBe('Enter a password')
+  })
+
+  it('enforces the upper bound the API also enforces', () => {
+    const result = evaluatePassword('Ab1'.padEnd(PASSWORD_MAX_LENGTH + 1, 'c'))
+    expect(result.ok).toBe(false)
+    expect(result.tooLong).toBe(true)
+  })
+
+  it('measures length in code points, so an emoji is one character', () => {
+    // Eight code points, two classes. A UTF-16 .length check would read this as 12
+    // and wave through a password the server would then reject.
+    expect(evaluatePassword('🔐🔐🔐🔐ab🔐🔐').length).toBe(8)
+    expect(evaluatePassword('🔐🔐🔐ab🔐🔐').ok).toBe(false)
+  })
+})

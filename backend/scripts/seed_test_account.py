@@ -49,7 +49,7 @@ from pydantic import ValidationError
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
-from app.core.security import hash_auth_throttle_key
+from app.core.security import PASSWORD_MIN_LENGTH, hash_auth_throttle_key
 from app.core.time import to_database_utc, utc_now
 from app.domain.auth import RequestContext
 from app.domain.enums import VerificationCodeStatus, VerificationPurpose
@@ -258,7 +258,11 @@ def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--username", required=True)
     parser.add_argument("--email", required=True)
-    parser.add_argument("--password", required=True, help="At least 15 characters")
+    parser.add_argument(
+        "--password",
+        required=True,
+        help=f"At least {PASSWORD_MIN_LENGTH} characters, from two or more character classes",
+    )
     parser.add_argument("--passphrase", required=True, help="Unlocks the account key envelope")
     parser.add_argument(
         "--private-key-out",

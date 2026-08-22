@@ -1,11 +1,17 @@
 <script setup lang="ts">
-import { computed, onUnmounted, ref } from 'vue'
+import { computed, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { CheckCircle2, Info, KeyRound } from 'lucide-vue-next'
 import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
+import PasswordField from '@/components/PasswordField.vue'
+import {
+  PASSWORD_MIN_LENGTH,
+  PASSWORD_REQUIREMENT_HINT,
+  evaluatePassword,
+} from '@/utils/password-policy'
 
-const PASSWORD_MIN_LENGTH = 15
+const USERNAME_MIN_LENGTH = 3
 
 const username = ref('')
 const email = ref('')
@@ -23,25 +29,77 @@ let cooldownTimer: ReturnType<typeof setInterval> | undefined
 const isComplete = ref(false)
 const revokedSessions = ref(0)
 
+// Same contract as registration: the submit button stays live and names the first
+// field that still needs work, rather than going grey without saying why.
+type FieldName = 'username' | 'email' | 'code' | 'password' | 'confirmPassword'
+
+const touched = reactive<Record<FieldName, boolean>>({
+  username: false,
+  email: false,
+  code: false,
+  password: false,
+  confirmPassword: false,
+})
+const hasAttemptedSubmit = ref(false)
+
+const usernameInput = ref<HTMLInputElement | null>(null)
+const emailInput = ref<HTMLInputElement | null>(null)
+const codeInput = ref<HTMLInputElement | null>(null)
+const passwordField = ref<InstanceType<typeof PasswordField> | null>(null)
+const confirmPasswordField = ref<InstanceType<typeof PasswordField> | null>(null)
+
 const emailLooksValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.value.trim()))
-const passwordTooShort = computed(
-  () => password.value.length > 0 && password.value.length < PASSWORD_MIN_LENGTH,
-)
-const passwordsMismatch = computed(
-  () => confirmPassword.value.length > 0 && password.value !== confirmPassword.value,
-)
-const canSendCode = computed(
-  () => emailLooksValid.value && cooldownSeconds.value === 0 && !isSendingCode.value,
-)
-const canSubmit = computed(
-  () =>
-    username.value.trim().length >= 3 &&
-    emailLooksValid.value &&
-    /^\d{6}$/.test(verificationCode.value.trim()) &&
-    password.value.length >= PASSWORD_MIN_LENGTH &&
-    password.value === confirmPassword.value &&
-    !isSubmitting.value,
-)
+
+const errors = computed<Record<FieldName, string>>(() => {
+  let confirmError = ''
+  if (confirmPassword.value.length === 0) {
+    confirmError = 'Repeat your new password.'
+  } else if (confirmPassword.value !== password.value) {
+    confirmError = 'The two passwords do not match.'
+  }
+
+  return {
+    username:
+      username.value.trim().length >= USERNAME_MIN_LENGTH
+        ? ''
+        : `Use at least ${USERNAME_MIN_LENGTH} characters.`,
+    email: emailLooksValid.value ? '' : 'Enter a valid email address.',
+    code: /^\d{6}$/.test(verificationCode.value.trim())
+      ? ''
+      : 'Enter the 6-digit code sent to your email.',
+    password: evaluatePassword(password.value, [username.value.trim(), email.value.trim()]).message,
+    confirmPassword: confirmError,
+  }
+})
+
+/** Field order here is the order on screen, so "first problem" means the top one. */
+const FIELD_ORDER: readonly FieldName[] = [
+  'username',
+  'email',
+  'code',
+  'password',
+  'confirmPassword',
+]
+
+function errorFor(field: FieldName): string {
+  if (!hasAttemptedSubmit.value && !touched[field]) return ''
+  return errors.value[field]
+}
+
+function markTouched(field: FieldName) {
+  touched[field] = true
+}
+
+function focusField(field: FieldName) {
+  const targets: Record<FieldName, { focus: () => void } | null> = {
+    username: usernameInput.value,
+    email: emailInput.value,
+    code: codeInput.value,
+    password: passwordField.value,
+    confirmPassword: confirmPasswordField.value,
+  }
+  targets[field]?.focus()
+}
 
 function startCooldown(seconds: number) {
   cooldownSeconds.value = seconds
@@ -58,7 +116,12 @@ function startCooldown(seconds: number) {
 onUnmounted(() => clearInterval(cooldownTimer))
 
 async function sendCode() {
-  if (!canSendCode.value) return
+  if (isSendingCode.value || cooldownSeconds.value > 0) return
+  if (!emailLooksValid.value) {
+    markTouched('email')
+    focusField('email')
+    return
+  }
   isSendingCode.value = true
   errorMessage.value = ''
   codeNotice.value = ''
@@ -79,7 +142,16 @@ async function sendCode() {
 }
 
 async function resetPassword() {
-  if (!canSubmit.value) return
+  if (isSubmitting.value) return
+
+  hasAttemptedSubmit.value = true
+  const firstInvalid = FIELD_ORDER.find((field) => errors.value[field] !== '')
+  if (firstInvalid) {
+    errorMessage.value = 'Some details still need fixing. See the messages above.'
+    focusField(firstInvalid)
+    return
+  }
+
   isSubmitting.value = true
   errorMessage.value = ''
   codeNotice.value = ''
@@ -119,49 +191,67 @@ async function resetPassword() {
           new password.
         </p>
 
-        <form @submit.prevent="resetPassword">
-          <label class="text-sm text-foreground mb-2 block">
+        <form novalidate @submit.prevent="resetPassword">
+          <label for="reset-username" class="text-sm text-foreground mb-2 block">
             Username <span class="text-destructive">*</span>
           </label>
           <input
+            id="reset-username"
+            ref="usernameInput"
             v-model="username"
             placeholder="Username"
-            required
-            minlength="3"
             autocomplete="username"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+            :aria-invalid="errorFor('username') ? 'true' : undefined"
+            class="h-10 w-full rounded-md border bg-secondary px-3 text-foreground"
+            :class="errorFor('username') ? 'border-destructive' : 'border-border'"
+            @blur="markTouched('username')"
           />
+          <p v-if="errorFor('username')" class="text-xs text-destructive mt-1" role="alert">
+            {{ errorFor('username') }}
+          </p>
+          <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
+          <label for="reset-email" class="text-sm text-foreground mb-2 block">
             Email <span class="text-destructive">*</span>
           </label>
           <input
+            id="reset-email"
+            ref="emailInput"
             v-model="email"
             placeholder="you@example.com"
             type="email"
-            required
             autocomplete="email"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3 mb-4"
+            :aria-invalid="errorFor('email') ? 'true' : undefined"
+            class="h-10 w-full rounded-md border bg-secondary px-3 text-foreground"
+            :class="errorFor('email') ? 'border-destructive' : 'border-border'"
+            @blur="markTouched('email')"
           />
+          <p v-if="errorFor('email')" class="text-xs text-destructive mt-1" role="alert">
+            {{ errorFor('email') }}
+          </p>
+          <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
+          <label for="reset-code" class="text-sm text-foreground mb-2 block">
             Verification Code <span class="text-destructive">*</span>
           </label>
-          <div class="flex gap-2 mb-4">
+          <div class="flex gap-2">
             <input
+              id="reset-code"
+              ref="codeInput"
               v-model="verificationCode"
               placeholder="6-digit code"
               inputmode="numeric"
-              pattern="\d{6}"
               maxlength="6"
-              required
               autocomplete="one-time-code"
-              class="h-10 flex-1 rounded-md border border-border bg-secondary px-3 tracking-widest"
+              :aria-invalid="errorFor('code') ? 'true' : undefined"
+              class="h-10 flex-1 rounded-md border bg-secondary px-3 text-foreground tracking-widest"
+              :class="errorFor('code') ? 'border-destructive' : 'border-border'"
+              @blur="markTouched('code')"
             />
             <button
               type="button"
               class="h-10 shrink-0 rounded-md border border-border px-3 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
-              :disabled="!canSendCode"
+              :disabled="isSendingCode || cooldownSeconds > 0"
               @click="sendCode"
             >
               <span v-if="isSendingCode">Sending...</span>
@@ -169,37 +259,30 @@ async function resetPassword() {
               <span v-else>Send code</span>
             </button>
           </div>
-
-          <label class="text-sm text-foreground mb-2 block">
-            New Password <span class="text-destructive">*</span>
-          </label>
-          <input
-            v-model="password"
-            placeholder="At least 15 characters"
-            type="password"
-            required
-            autocomplete="new-password"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3"
-          />
-          <p v-if="passwordTooShort" class="text-xs text-destructive mt-1">
-            Use at least {{ PASSWORD_MIN_LENGTH }} characters ({{ password.length }} so far).
+          <p v-if="errorFor('code')" class="text-xs text-destructive mt-1" role="alert">
+            {{ errorFor('code') }}
           </p>
           <div class="mb-4" />
 
-          <label class="text-sm text-foreground mb-2 block">
-            Confirm New Password <span class="text-destructive">*</span>
-          </label>
-          <input
-            v-model="confirmPassword"
-            placeholder="Repeat your new password"
-            type="password"
-            required
-            autocomplete="new-password"
-            class="h-10 w-full rounded-md border border-border bg-secondary px-3"
+          <PasswordField
+            ref="passwordField"
+            v-model="password"
+            label="New Password"
+            :placeholder="`At least ${PASSWORD_MIN_LENGTH} characters`"
+            :hint="PASSWORD_REQUIREMENT_HINT"
+            :error="errorFor('password')"
+            @blur="markTouched('password')"
           />
-          <p v-if="passwordsMismatch" class="text-xs text-destructive mt-1">
-            The two passwords do not match.
-          </p>
+          <div class="mb-4" />
+
+          <PasswordField
+            ref="confirmPasswordField"
+            v-model="confirmPassword"
+            label="Confirm New Password"
+            placeholder="Repeat your new password"
+            :error="errorFor('confirmPassword')"
+            @blur="markTouched('confirmPassword')"
+          />
           <div class="mb-4" />
 
           <p class="text-xs text-muted-foreground mb-6 flex gap-1.5">
@@ -213,14 +296,16 @@ async function resetPassword() {
           <button
             type="submit"
             class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
-            :disabled="!canSubmit"
+            :disabled="isSubmitting"
           >
             {{ isSubmitting ? 'Resetting password...' : 'Reset password' }}
           </button>
         </form>
 
         <p v-if="codeNotice" class="text-xs text-muted-foreground mt-3">{{ codeNotice }}</p>
-        <p v-if="errorMessage" class="text-sm text-destructive mt-3">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="text-sm text-destructive mt-3" role="alert">
+          {{ errorMessage }}
+        </p>
 
         <p class="text-sm text-muted-foreground mt-6 text-center">
           Remember your password?
