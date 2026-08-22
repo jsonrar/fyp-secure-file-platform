@@ -31,6 +31,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import ssl
 import sys
 import urllib.error
 import urllib.request
@@ -41,6 +42,25 @@ from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 SUPPORTED_KEY_SIZES = (2048, 3072, 4096)
+
+
+def tls_context() -> ssl.SSLContext:
+    """Build a verifying TLS context that works on a stock macOS Python.
+
+    Python installed from python.org does not read the system keychain; it expects a CA
+    bundle at a path its "Install Certificates" step creates, and without that step every
+    HTTPS call fails with CERTIFICATE_VERIFY_FAILED. certifi ships the same bundle, so
+    prefer it when present. Verification stays on either way: disabling it would let anyone
+    on the path substitute the recovery public key this script is about to trust.
+    """
+    if ssl.get_default_verify_paths().cafile is None:
+        try:
+            import certifi
+        except ImportError:
+            pass
+        else:
+            return ssl.create_default_context(cafile=certifi.where())
+    return ssl.create_default_context()
 
 
 def parse_args() -> argparse.Namespace:
@@ -69,7 +89,7 @@ def call(api_base: str, path: str, payload: dict | None = None, token: str | Non
     if token:
         request.add_header("Authorization", f"Bearer {token}")
     try:
-        with urllib.request.urlopen(request, timeout=30) as response:
+        with urllib.request.urlopen(request, timeout=30, context=tls_context()) as response:
             return json.loads(response.read())
     except urllib.error.HTTPError as error:
         detail = error.read().decode("utf-8", "replace")

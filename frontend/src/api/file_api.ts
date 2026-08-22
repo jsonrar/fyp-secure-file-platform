@@ -1,14 +1,15 @@
 import { http } from './http'
 import type { ApiEnvelope } from './auth_api'
-import type { FileOut } from './types'
+import type { FileListOut, FileOut } from './types'
 import type { UploadPayload } from '@/crypto/file_envelope'
 
 export const fileApi = {
-  listFiles() {
-    return http.get<{ files: FileOut[] }>('/files')
+  /** Paginated. The rows arrive as `data.items`; `page_size` caps at 100. */
+  listFiles(params?: { page?: number; page_size?: number }) {
+    return http.get<ApiEnvelope<FileListOut>>('/files', { params })
   },
   getFile(fileId: string) {
-    return http.get<FileOut>(`/files/${fileId}`)
+    return http.get<ApiEnvelope<FileOut>>(`/files/${fileId}`)
   },
 
   /**

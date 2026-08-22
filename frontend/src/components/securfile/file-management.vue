@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { AlertCircle, CheckCircle, Download, FileIcon, Filter, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { formatFileSize, mapFileStatus, unwrapData } from '@/api/types'
-import type { FileOut } from '@/api/types'
+import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 
 interface EncryptedFile {
@@ -28,12 +28,13 @@ const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
 const actionMessage = ref('')
 
-const mapFile = (file: FileOut): EncryptedFile => ({
+const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   id: file.file_id,
   name: file.original_filename,
-  originalSize: formatFileSize(file.file_size),
-  encryptedSize: formatFileSize(file.file_size),
-  encryptedAt: '-',
+  originalSize: formatFileSize(file.plaintext_size),
+  // AES-GCM is a stream mode, so these match; the tag is stored apart from the object.
+  encryptedSize: formatFileSize(file.ciphertext_size),
+  encryptedAt: new Date(file.created_at).toLocaleString(),
   status: mapFileStatus(file.status),
 })
 
@@ -42,9 +43,9 @@ const loadFiles = async () => {
   errorMessage.value = ''
   try {
     const res = await fileApi.listFiles()
-    const data = unwrapData(res)
-    const list = Array.isArray(data) ? data : data.files ?? []
-    files.value = list.map(mapFile)
+    // The API paginates: rows live under `items`. Reading anything else silently
+    // yields an empty list, which reads as "no files" even when uploads succeeded.
+    files.value = unwrapData(res).items.map(mapFile)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Failed to load files'
   } finally {
