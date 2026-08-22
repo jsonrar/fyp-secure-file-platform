@@ -216,3 +216,43 @@ Base `main` @ `8e174c6` · Scope: recovery key provisioning · No application co
 - 本项目的私钥并未如 `docs/SECURITY_FLOWS.md` 对真实部署所述那样置于离线或 HSM 保管中。作为展示项目，它存放在 `recovery_keys/`（私有仓库中已被 gitignore）。持有该私钥者可解密以对应公钥上传的每一个文件。
 
 update: 2026/8/20
+
+---
+
+## CT-1.6
+
+### Baseline / 基线
+
+- Created `CT-1.6` from the merged `main` commit `a742330`.
+- 已从完成合并的 `main` 提交 `a742330` 创建 `CT-1.6`。
+
+### Scope / 范围
+
+- Making the encrypted files uploaded by CT-1.4 visible on the file page, plus the TLS fix CT-1.5 needed in order to run from a Mac. No change to any envelope format, AAD construction, or algorithm choice.
+- 让 CT-1.4 上传的加密文件在文件页面上可见，以及 CT-1.5 在 Mac 上运行所需的 TLS 修复。未改动任何信封格式、AAD 构造或算法选择。
+
+### Fixed / 修复
+
+- The file page read `data.files` from a `GET /files` response whose rows live under `items`, then fell back to `[]`. Uploads had been succeeding and the ciphertext was on disk, but the page reported zero files with no error — the fallback turned a contract mismatch into what looked like an empty account.
+- 文件页面从 `GET /files` 响应中读取 `data.files`，而数据行实际在 `items` 下，随后回落为 `[]`。上传其实一直成功、密文也已落盘，但页面显示零个文件且没有任何报错——这个回落把契约不匹配变成了看起来像"账户里没东西"。
+- The frontend `FileOut` type declared `file_size`, which the API does not return. Both size columns would have shown `0 Bytes` even after the rows appeared. It now mirrors `FileSummaryOut`: `plaintext_size`, `ciphertext_size`, `mime_type`, `owner`, `created_at`, `updated_at`.
+- 前端 `FileOut` 类型声明了 API 并不返回的 `file_size`，即使数据行显示出来，两列大小也都会是 `0 Bytes`。现已对齐 `FileSummaryOut`：`plaintext_size`、`ciphertext_size`、`mime_type`、`owner`、`created_at`、`updated_at`。
+- `register_recovery_key.py` now builds its TLS context from the `certifi` bundle when the interpreter has no CA file of its own, which is the default state of a python.org Python on macOS. Verification is never disabled: the script's whole purpose is to establish which recovery public key to trust, and an unverified connection would let anyone on the path choose it.
+- `register_recovery_key.py` 现在会在解释器自身没有 CA 文件时改用 `certifi` 证书包构建 TLS 上下文——macOS 上 python.org 版 Python 默认就是这个状态。校验从不关闭：该脚本的全部意义就是确定该信任哪个恢复公钥，而未校验的连接会让链路上的任何人替你选定它。
+
+### Verified / 验证
+
+- Frontend suite `122 passed | 3 skipped`, production build clean. End to end on staging: uploaded a 155.43 KB PDF, confirmed the ciphertext directory `<file_id>/<random>.ciphertext` on the server, and confirmed the file now appears on the file page with both sizes and its upload time.
+- 前端测试 `122 passed | 3 skipped`，生产构建通过。staging 端到端：上传 155.43 KB 的 PDF，在服务器上确认密文目录 `<file_id>/<random>.ciphertext`，并确认文件现已出现在文件页面，两列大小与上传时间均正确。
+
+### Limitations / 限制
+
+- The list is still fetched as a single page of the API's default size. Pagination controls are not wired up, so an account with more than 25 files will not see the rest.
+- 列表目前仍只请求 API 默认大小的第一页。分页控件尚未接入，因此文件超过 25 个的账户看不到其余部分。
+- `mapFileStatus` receives the record status (`ACTIVE`), not an integrity verdict, so every row renders as "pending". Real integrity state comes from `POST /files/{id}/integrity-check`, which the page does not call.
+- `mapFileStatus` 收到的是记录状态（`ACTIVE`）而非完整性判定，因此每一行都显示为 "pending"。真正的完整性状态来自 `POST /files/{id}/integrity-check`，而页面并未调用它。
+- Download still returns ciphertext the page cannot open: unwrapping the file key needs the account private key, and no passphrase-unlock path exists yet. That is the next package.
+- 下载目前仍返回页面无法打开的密文：解包文件密钥需要账户私钥，而 passphrase 解锁路径尚不存在。这是下一个工作包的内容。
+
+update: 2026/8/23
+

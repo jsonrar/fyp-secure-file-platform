@@ -63,6 +63,15 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 - Registration and login failures now surface the API's `message` and field-level validation detail instead of the bare "Request failed with status code 422" that axios produces by default. The 422 seen during testing was the frontend omitting the required `key_material` field, submitting a password below the 15-character minimum, and submitting an address without a top-level domain; it was never a database fault.
 - 注册与登录失败现在会展示 API 返回的 `message` 及字段级校验详情，而不是 axios 默认产生的 "Request failed with status code 422"。测试中出现的 422 源于前端漏发必填的 `key_material` 字段、密码短于 15 个字符下限，以及邮箱缺少顶级域，与数据库无关。
 
+### Browser-side file encryption / 浏览器端文件加密
+
+- Fixed the encrypted-file list, which showed "Total 0 encrypted files" even though every upload had succeeded and the ciphertext was on disk. `GET /files` is paginated and returns its rows under `items`; the page read `data.files`, got `undefined`, and fell back to an empty array — so the failure looked exactly like having no files rather than like a bug. The fallback is gone: the page now reads `items` directly, and a shape change will throw where it can be seen instead of quietly rendering nothing.
+- 已修复加密文件列表——此前即使上传全部成功、密文已落盘，页面仍显示 "Total 0 encrypted files"。`GET /files` 是分页接口，数据行在 `items` 下；页面读的是 `data.files`，取到 `undefined` 后回落为空数组，于是这个故障看起来和"确实没有文件"一模一样，而不像一个 bug。该回落已移除：页面现在直接读 `items`，字段形态若再变化会抛出可见的错误，而不是静默渲染出一片空白。
+- Corrected the frontend `FileOut` type, which declared a `file_size` field the API has never returned. The API returns `plaintext_size` and `ciphertext_size` separately, so both size columns would have read `0 Bytes` once the rows appeared. The type now mirrors the backend `FileSummaryOut` in full, including `created_at`, which the list had been rendering as a hard-coded `-`.
+- 已修正前端 `FileOut` 类型——它声明了一个 API 从未返回过的 `file_size` 字段。API 分别返回 `plaintext_size` 与 `ciphertext_size`，因此即便数据行显示出来，两列大小也都会是 `0 Bytes`。该类型现已完整对齐后端的 `FileSummaryOut`，其中包括 `created_at`——此前列表把这一列写死为 `-`。
+- Gave `backend/scripts/register_recovery_key.py` a TLS context that falls back to the `certifi` bundle. A python.org Python on macOS has no CA file until its "Install Certificates" step is run, so every HTTPS call failed with `CERTIFICATE_VERIFY_FAILED` and registering the staging recovery key was impossible from a Mac. Verification stays on either way — disabling it would let anyone on the path substitute the very recovery public key the script is about to trust.
+- 已为 `backend/scripts/register_recovery_key.py` 增加会回退到 `certifi` 证书包的 TLS 上下文。macOS 上从 python.org 安装的 Python 在未执行 "Install Certificates" 之前没有 CA 文件，因此所有 HTTPS 调用都以 `CERTIFICATE_VERIFY_FAILED` 失败，在 Mac 上根本无法注册 staging 的恢复密钥。两条路径都保持证书校验开启——关闭校验会让链路上的任何人替换掉脚本正要信任的那个恢复公钥。
+
 ### Verification / 验证
 
 - Verified the deployed staging build end to end at `https://secureview.tech`: the send endpoint answers `200` and stores only a digest, an unregistered address for password reset answers `200` with no row written, a resend inside the cooldown answers `429` with `Retry-After`, and a real verification email reached a Gmail inbox rather than the spam folder.
@@ -104,6 +113,8 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 - 已用中英文记录从 Pull Request 到发布的流程、只读 Deploy Key 边界、队员命令、数据库安全边界、回滚行为及审计路径。
 - Versioned the guarded release implementation and fixed completed-release permissions so the unprivileged `fypapp` and Nginx identities can execute/read artifacts created after source extraction. The failed preflight remained on the prior healthy release and the corrected retry passed.
 - 已将带保护措施的发布实现纳入版本管理，并修复完整 release 的最终权限，使无特权 `fypapp` 与 Nginx 身份可执行／读取源码解压后才生成的文件。首次预检失败期间仍保持旧健康版本运行，修复后的重试已经通过。
+- Gave the staging ciphertext root to the service account. `/var/lib/fyp-secure-file-platform` was `drwx------ root:root` while its `encrypted/` and `tmp/` children were already `fypapp`; without execute permission on the parent, `fypapp` could not traverse into directories it owned, and every upload failed with `Encrypted file storage is temporarily unavailable`. Only the owner changed — the mode stays `700`, so the ciphertext root is still closed to every other account on the host.
+- 已将 staging 的密文根目录移交给服务账号。`/var/lib/fyp-secure-file-platform` 是 `drwx------ root:root`，而其下的 `encrypted/` 与 `tmp/` 早已属于 `fypapp`；由于对父目录没有执行权限，`fypapp` 无法进入自己拥有的子目录，导致每次上传都以 `Encrypted file storage is temporarily unavailable` 失败。本次只改属主——权限位仍为 `700`，密文根目录对主机上其他任何账号依然封闭。
 - Treat scheduled skips of an already-quarantined SHA as a healthy no-op while retaining the original deployment failure in the journal and audit log.
 - 已隔离 SHA 的后续定时跳过现在属于健康的无操作；原始部署失败仍保留在 journal 与审计日志中，不再每两分钟制造重复的 systemd 失败。
 
