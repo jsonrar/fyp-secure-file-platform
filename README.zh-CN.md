@@ -94,6 +94,10 @@ fyp-secure-file-platform/
 |-- frontend/
 |   |-- src/
 |   `-- package.json
+|-- changelog/
+|   |-- CHANGELOG.md
+|   |-- README.md
+|   `-- work-packages/
 |-- docs/
 |   |-- ARCHITECTURE.md
 |   |-- API_DESIGN.md
@@ -106,6 +110,12 @@ fyp-secure-file-platform/
 |-- .gitignore
 `-- docker-compose.yml
 ```
+
+## 更改日志
+
+团队做过的所有变更及其原因，都记录在 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)；
+分工作包的记录存放在 [`changelog/work-packages/`](changelog/work-packages/)。添加条目前请先读
+[`changelog/README.md`](changelog/README.md)，其中写明了哪类记录该写进哪一份。
 
 ## 本地设置
 

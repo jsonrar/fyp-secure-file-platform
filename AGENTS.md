@@ -21,3 +21,16 @@ These rules apply to the entire repository.
 - This HTTP restriction does not prohibit SQL `UPDATE`/`DELETE`, database privileges,
   migrations, foreign-key actions, or internal repository operations. Do not rewrite
   database terminology as though it were an HTTP method.
+
+## Change Log
+
+- Record every notable change in `changelog/CHANGELOG.md`, under the section matching the area
+  you changed. A change is notable when a teammate would be surprised to discover it by
+  reading the diff instead of the log.
+- Write the entry as a pair of lines, English first then 简体中文, matching the rest of the
+  file. State why the change mattered, not only what moved: the diff already records what.
+- Work-package records — a baseline taken, a scope declared, a limitation confirmed and left
+  open — go in `changelog/work-packages/<track>.md` instead, even when no code changed. Work
+  that both shipped a change and closed a package belongs in both; they answer different
+  questions and are not duplicates.
+- See `changelog/README.md` for the full convention.
