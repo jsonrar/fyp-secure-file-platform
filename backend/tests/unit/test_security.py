@@ -9,6 +9,7 @@ from pwdlib.hashers.bcrypt import BcryptHasher
 import app.core.security as security_module
 from app.core.security import (
     PASSWORD_MAX_LENGTH,
+    PASSWORD_MIN_CHARACTER_CLASSES,
     PASSWORD_MIN_LENGTH,
     PasswordManager,
     PasswordOperationCapacityError,
@@ -16,6 +17,7 @@ from app.core.security import (
     hash_password,
     hash_session_token,
     normalize_password,
+    password_character_classes,
     password_policy_error,
     verify_and_update_password,
     verify_password,
@@ -292,11 +294,66 @@ def test_password_policy_blocks_account_context_case_insensitively() -> None:
     )
 
 
+def test_password_policy_blocks_account_details_used_as_a_fragment() -> None:
+    """A short minimum only holds if the password cannot be built around the username."""
+    assert (
+        password_policy_error("Alice2024!", context_values=("alice", "alice@example.com"))
+        == "Choose a password that is not common or based on your account details"
+    )
+    assert (
+        password_policy_error("x9-owner-Qz", context_values=("someone", "owner@example.com"))
+        == "Choose a password that is not common or based on your account details"
+    )
+
+
+def test_password_policy_ignores_account_fragments_too_short_to_be_meaningful() -> None:
+    """The "a" of "a@example.com" appears in most honest passwords and must not block."""
+    assert password_policy_error("Th1s-is-fine", context_values=("a@example.com",)) is None
+
+
 def test_password_policy_enforces_length_boundaries() -> None:
-    assert password_policy_error("a" * (PASSWORD_MIN_LENGTH - 1)) == (
+    assert password_policy_error("Aa1" + "b" * (PASSWORD_MIN_LENGTH - 4)) == (
         f"Password must contain at least {PASSWORD_MIN_LENGTH} characters"
     )
-    assert password_policy_error("a" * (PASSWORD_MAX_LENGTH + 1)) == (
+    assert password_policy_error("Aa1" + "b" * (PASSWORD_MAX_LENGTH - 2)) == (
         f"Password must contain at most {PASSWORD_MAX_LENGTH} characters"
     )
     assert password_policy_error("A sufficiently long! passphrase") is None
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        "Abcdefgh",  # upper + lower
+        "abcd1234",  # lower + number
+        "ABCD1234",  # upper + number
+        "abcd!@#$",  # lower + symbol
+        "1234!@#$",  # number + symbol
+    ],
+)
+def test_password_policy_accepts_any_two_character_classes(password: str) -> None:
+    assert password_policy_error(password) is None
+
+
+@pytest.mark.parametrize(
+    "password",
+    [
+        "abcdefghij",
+        "ABCDEFGHIJ",
+        "4835729164",
+        "!@#$%^&*()",
+        "密码密码密码密码",  # caseless letters all land in one class
+    ],
+)
+def test_password_policy_rejects_a_single_character_class(password: str) -> None:
+    assert password_policy_error(password) == (
+        f"Password must combine at least {PASSWORD_MIN_CHARACTER_CLASSES} of these: "
+        "uppercase letters, lowercase letters, numbers, symbols"
+    )
+
+
+def test_password_character_classes_buckets_unicode_by_category() -> None:
+    assert password_character_classes("Ab1!") == {"uppercase", "lowercase", "number", "symbol"}
+    assert password_character_classes("abc") == {"lowercase"}
+    # A space is a symbol, which is what lets an all-lowercase passphrase qualify.
+    assert password_character_classes("two words") == {"lowercase", "symbol"}

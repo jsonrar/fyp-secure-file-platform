@@ -7,6 +7,7 @@ from uuid import UUID
 
 from pydantic import AliasChoices, BaseModel, ConfigDict, EmailStr, Field, field_validator
 
+from app.core.security import PASSWORD_MAX_LENGTH, PASSWORD_MIN_LENGTH
 from app.domain.enums import SessionStatus, SystemRole, UserStatus, VerificationPurpose
 from app.schemas.key_schema import ClientKeyRegistrationIn
 
@@ -78,7 +79,11 @@ class SendVerificationCodeResponse(_AuthResponse):
 class UserRegisterRequest(_AuthRequest):
     username: str = Field(min_length=3, max_length=100)
     email: EmailStr = Field(max_length=255)
-    password: str = Field(min_length=15, max_length=128, repr=False)
+    password: str = Field(
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+        repr=False,
+    )
     verification_code: str = Field(pattern=VERIFICATION_CODE_PATTERN, repr=False)
     key_material: ClientKeyRegistrationIn = Field(repr=False)
 
@@ -101,7 +106,7 @@ class UserRegisterResponse(_AuthResponse):
 
 class UserLoginRequest(_AuthRequest):
     username: str = Field(min_length=3, max_length=100)
-    password: str = Field(min_length=1, max_length=128, repr=False)
+    password: str = Field(min_length=1, max_length=PASSWORD_MAX_LENGTH, repr=False)
 
     _strip_username = field_validator("username", mode="before")(_normalize_username)
     _check_username = field_validator("username")(_validate_username)
@@ -144,8 +149,12 @@ class UserLogoutAllResponse(_AuthResponse):
 
 
 class ChangePasswordRequest(_AuthRequest):
-    current_password: str = Field(min_length=1, max_length=128, repr=False)
-    new_password: str = Field(min_length=15, max_length=128, repr=False)
+    current_password: str = Field(min_length=1, max_length=PASSWORD_MAX_LENGTH, repr=False)
+    new_password: str = Field(
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+        repr=False,
+    )
 
     _normalize_current_password = field_validator("current_password", mode="before")(
         _normalize_password
@@ -163,7 +172,11 @@ class PasswordResetRequest(_AuthRequest):
     username: str = Field(min_length=3, max_length=100)
     email: EmailStr = Field(max_length=255)
     verification_code: str = Field(pattern=VERIFICATION_CODE_PATTERN, repr=False)
-    new_password: str = Field(min_length=15, max_length=128, repr=False)
+    new_password: str = Field(
+        min_length=PASSWORD_MIN_LENGTH,
+        max_length=PASSWORD_MAX_LENGTH,
+        repr=False,
+    )
 
     _strip_username = field_validator("username", mode="before")(_normalize_username)
     _check_username = field_validator("username")(_validate_username)

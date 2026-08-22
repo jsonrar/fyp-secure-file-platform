@@ -13,30 +13,69 @@ from pwdlib import PasswordHash
 from pwdlib.exceptions import UnknownHashError
 from pwdlib.hashers.bcrypt import BcryptHasher
 
-PASSWORD_MIN_LENGTH = 15
+PASSWORD_MIN_LENGTH = 8
 PASSWORD_MAX_LENGTH = 128
+# A shorter minimum only stays defensible if the password cannot be a single run of
+# one character class, so composition carries the strength the extra length used to.
+PASSWORD_MIN_CHARACTER_CLASSES = 2
+# The shortest account detail worth matching as a substring. Below this, a fragment
+# such as the "a" of "a@example.com" would appear in almost every honest password.
+_MIN_CONTEXT_FRAGMENT_LENGTH = 3
 SESSION_TOKEN_BYTES = 32
 _BCRYPT_PREFIXES = ("$2a$", "$2b$", "$2y$")
 
 # This local deny-list catches the highest-risk defaults and project-specific choices.
 # Deployments can replace/extend it with a maintained breached-password corpus without
 # changing password hashing or the application-service contract.
+#
+# Entries shorter than PASSWORD_MIN_LENGTH are unreachable, because the length check
+# runs first. Keep the list at or above that bound when the minimum moves again.
 _COMMON_PASSWORDS = frozenset(
     {
+        "12345678",
+        "123456789",
+        "1234567890",
         "123456789012345",
         "1234567890123456",
         "111111111111111",
+        "1q2w3e4r",
+        "1qaz2wsx",
+        "abc12345",
+        "admin123",
+        "adminadmin",
         "adminadminadmin",
         "administrator123",
+        "asdfghjkl",
+        "changeme",
         "changemechangeme",
         "correct horse battery staple",
+        "football",
+        "iloveyou",
         "iloveyouiloveyou",
+        "letmein123",
         "letmeinletmeinletmein",
-        "passwordpassword",
+        "master123",
+        "monkey123",
+        "passw0rd",
+        "password",
+        "password1",
+        "password123",
         "password123456",
+        "passwordpassword",
+        "q1w2e3r4",
+        "qazwsxedc",
+        "qwerty123",
+        "qwertyui",
         "qwertyqwertyqwerty",
+        "secure123",
+        "securefile",
         "securefileplatform",
+        "sunshine",
+        "trustno1",
+        "welcome1",
+        "welcome123",
         "welcome123456789",
+        "zaq12wsx",
     }
 )
 
@@ -197,6 +236,41 @@ class PasswordManager:
 password_manager = PasswordManager()
 
 
+def password_character_classes(password: str) -> frozenset[str]:
+    """Report which of the four character classes a password draws on.
+
+    Unicode is bucketed by general category so a non-Latin password is judged the
+    same way a Latin one is: cased letters land in "uppercase"/"lowercase", any
+    numeric character in "number", and everything else - punctuation, symbols,
+    whitespace, and caseless scripts - in "symbol".
+    """
+    found: set[str] = set()
+    for character in normalize_password(password):
+        category = unicodedata.category(character)
+        if category in ("Lu", "Lt"):
+            found.add("uppercase")
+        elif category == "Ll":
+            found.add("lowercase")
+        elif category in ("Nd", "Nl", "No"):
+            found.add("number")
+        else:
+            found.add("symbol")
+    return frozenset(found)
+
+
+def _account_detail_fragments(context_values: Iterable[str]) -> set[str]:
+    """Expand account details into the fragments a password must not be built on."""
+    fragments: set[str] = set()
+    for value in context_values:
+        normalized_value = unicodedata.normalize("NFC", value).strip().casefold()
+        if not normalized_value:
+            continue
+        fragments.add(normalized_value)
+        if "@" in normalized_value:
+            fragments.add(normalized_value.split("@", maxsplit=1)[0])
+    return {fragment for fragment in fragments if len(fragment) >= _MIN_CONTEXT_FRAGMENT_LENGTH}
+
+
 def password_policy_error(
     password: str,
     *,
@@ -208,19 +282,22 @@ def password_policy_error(
     if len(normalized) > PASSWORD_MAX_LENGTH:
         return f"Password must contain at most {PASSWORD_MAX_LENGTH} characters"
 
+    # The guessability checks run before the composition rule on purpose. "password1"
+    # satisfies two character classes, so reporting the class rule first would send the
+    # user off to add a digit to a password that is guessed in the first thousand tries.
     candidate = normalized.casefold()
-    contextual_values: set[str] = set()
-    for value in context_values:
-        normalized_value = unicodedata.normalize("NFC", value).strip().casefold()
-        if not normalized_value:
-            continue
-        contextual_values.add(normalized_value)
-        if "@" in normalized_value:
-            contextual_values.add(normalized_value.split("@", maxsplit=1)[0])
-
-    blocked_values = _COMMON_PASSWORDS | contextual_values
-    if candidate in blocked_values:
+    if candidate in _COMMON_PASSWORDS:
         return "Choose a password that is not common or based on your account details"
+    # Account details are matched as substrings, not whole values: at eight characters
+    # "alice2024!" is as guessable for user "alice" as "alice" alone would be.
+    if any(fragment in candidate for fragment in _account_detail_fragments(context_values)):
+        return "Choose a password that is not common or based on your account details"
+
+    if len(password_character_classes(normalized)) < PASSWORD_MIN_CHARACTER_CLASSES:
+        return (
+            f"Password must combine at least {PASSWORD_MIN_CHARACTER_CLASSES} of these: "
+            "uppercase letters, lowercase letters, numbers, symbols"
+        )
     return None
 
 
