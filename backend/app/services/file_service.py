@@ -292,11 +292,25 @@ class FileService:
             )
             raise
 
-    def list_files(self, *, actor: ActorContext, page: int, page_size: int) -> FileListOut:
+    def list_files(
+        self,
+        *,
+        actor: ActorContext,
+        page: int,
+        page_size: int,
+        search: str | None = None,
+    ) -> FileListOut:
+        # `original_filename` is a cleartext column: the server already stores it, shows it
+        # back in every listing, and the client binds it into the file AAD precisely
+        # because the server could otherwise rewrite it. Matching on it here therefore
+        # discloses nothing the caller could not already read, and nothing about content --
+        # the ciphertext and the file key stay as opaque to this query as to every other.
+        normalized = search.strip() if search else None
         records, total = self.repository.list_active_access(
             actor.user_id,
             offset=(page - 1) * page_size,
             limit=page_size,
+            search=normalized or None,
         )
         return FileListOut(
             items=[self._summary(record, actor_user_id=actor.user_id) for record in records],
