@@ -85,3 +85,55 @@ def test_publish_removes_new_object_when_directory_sync_fails(tmp_path, monkeypa
         storage.publish(staged, object_key)
 
     assert not storage._object_path(object_key).exists()
+
+
+def _publish(storage: FileStorageService, file_id: UUID, object_id: UUID, body: bytes) -> str:
+    staged = asyncio.run(storage.stage_upload(_upload(body), max_size_bytes=1024))
+    object_key = storage.allocate_object_key(file_id, random_id=object_id)
+    storage.publish(staged, object_key)
+    return object_key
+
+
+def test_deleting_an_object_removes_its_per_file_directory(tmp_path) -> None:
+    """`publish` makes one directory per file; nothing used to take it away again.
+
+    Left alone, every file ever uploaded cost the deployment a permanent empty
+    directory, and nothing but this call was in a position to remove one.
+    """
+    storage = FileStorageService(settings=_settings(tmp_path))
+    object_key = _publish(storage, FILE_ID, OBJECT_ID, b"ciphertext")
+    object_directory = (tmp_path / "objects" / str(FILE_ID)).resolve()
+    assert object_directory.is_dir()
+
+    storage.delete_object(object_key)
+
+    assert not object_directory.exists()
+    assert (tmp_path / "objects").resolve().is_dir()
+
+
+def test_deleting_one_object_keeps_a_directory_that_still_holds_another(tmp_path) -> None:
+    """rmdir refusing a non-empty directory is the interlock, not an error to handle."""
+    storage = FileStorageService(settings=_settings(tmp_path))
+    first = _publish(storage, FILE_ID, OBJECT_ID, b"first")
+    second = _publish(
+        storage,
+        FILE_ID,
+        UUID("33333333-3333-4333-8333-333333333333"),
+        b"second",
+    )
+
+    storage.delete_object(first)
+
+    object_directory = (tmp_path / "objects" / str(FILE_ID)).resolve()
+    assert object_directory.is_dir()
+    assert storage.open_verified(second).size_bytes == len(b"second")
+
+
+def test_deleting_an_absent_object_still_prunes_and_never_raises(tmp_path) -> None:
+    storage = FileStorageService(settings=_settings(tmp_path))
+    object_key = _publish(storage, FILE_ID, OBJECT_ID, b"ciphertext")
+
+    storage.delete_object(object_key)
+    storage.delete_object(object_key)
+
+    assert not (tmp_path / "objects" / str(FILE_ID)).exists()

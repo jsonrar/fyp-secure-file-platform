@@ -162,6 +162,7 @@ class FileStorageService:
     def delete_object(self, object_key: str) -> None:
         path = self._object_path(object_key)
         self._unlink_if_present(path)
+        self._prune_empty_parent(path)
 
     def hash_object(self, object_key: str) -> tuple[str, int]:
         verified = self.open_verified(object_key)
@@ -241,6 +242,25 @@ class FileStorageService:
     def _flush_and_sync(stream: BinaryIO) -> None:
         stream.flush()
         os.fsync(stream.fileno())
+
+    def _prune_empty_parent(self, path: Path) -> None:
+        """Remove the per-file directory once its object is gone.
+
+        `publish` creates one directory per `file_id` and `delete_object` only unlinked
+        the object inside it, so every file ever uploaded left a directory behind for the
+        lifetime of the deployment. Nothing read them and nothing else could remove them.
+
+        Best effort by design: `rmdir` refuses a non-empty directory, which is exactly the
+        interlock wanted if a concurrent publish has just written a sibling. A directory
+        that cannot be removed is inert, so a failure here must not turn a successful
+        delete into an error.
+        """
+        parent = path.parent
+        if parent == self.object_root:
+            return
+        with suppress(OSError):
+            self._require_within(parent, self.object_root)
+            parent.rmdir()
 
     @staticmethod
     def _unlink_if_present(path: Path) -> None:

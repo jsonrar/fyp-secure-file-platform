@@ -6,7 +6,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.time import to_api_utc, to_database_utc, utc_now
+from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import FileCapability
 from app.domain.errors import IntegrityVerificationError, StorageUnavailableError
@@ -248,4 +248,4 @@ class IntegrityService:
             file_record.revision += 1
 
     def _now(self) -> datetime:
-        return to_database_utc(self.clock())
+        return to_second_resolution_utc(self.clock())
