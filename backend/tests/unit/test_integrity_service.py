@@ -52,6 +52,9 @@ class FailingStorage:
     def open_verified(self, object_key: str):
         raise self.failure
 
+    def hash_object(self, object_key: str) -> tuple[str, int]:
+        raise self.failure
+
 
 def _actor() -> ActorContext:
     return ActorContext(
@@ -118,3 +121,118 @@ def test_download_integrity_failure_uses_stable_public_error(
     assert db.rollbacks == 0
     assert len(repository.checks) == 1
     assert audit.events[0]["action"] == "FILE_DOWNLOAD_INTEGRITY_FAILED"
+
+
+class StubStorage:
+    """Answers with a fixed digest and size, as a healthy or a damaged object would."""
+
+    def __init__(self, *, sha256: str, size_bytes: int) -> None:
+        self.sha256 = sha256
+        self.size_bytes = size_bytes
+
+    def hash_object(self, object_key: str) -> tuple[str, int]:
+        return self.sha256, self.size_bytes
+
+    def open_verified(self, object_key: str):
+        return SimpleNamespace(
+            sha256=self.sha256,
+            size_bytes=self.size_bytes,
+            stream=SimpleNamespace(close=lambda: None),
+        )
+
+
+def _service(storage, record) -> IntegrityService:
+    return IntegrityService(
+        db=FakeDb(),
+        settings=SimpleNamespace(),
+        storage=storage,
+        audit_service=FakeAudit(),
+        repository=FakeRepository(),
+        access_control=SimpleNamespace(require=lambda **_: record),
+        clock=lambda: NOW,
+    )
+
+
+def test_missing_object_does_not_mark_the_file_corrupted() -> None:
+    """A momentary storage outage says nothing about bytes nobody could read.
+
+    Marking the file here is what let an unmounted volume permanently strand an intact
+    file: the status never moved back, and every read route filtered CORRUPTED away.
+    """
+    record = _record()
+    service = _service(FailingStorage(StorageObjectMissingError("missing")), record)
+
+    result = service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext())
+
+    assert result.status == "MISSING"
+    assert record.file.status == "ACTIVE"
+    assert record.file.revision == 1
+
+
+def test_unreadable_object_does_not_mark_the_file_corrupted() -> None:
+    record = _record()
+    service = _service(FailingStorage(StorageObjectError("errno")), record)
+
+    result = service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext())
+
+    assert result.status == "ERROR"
+    assert record.file.status == "ACTIVE"
+
+
+def test_modified_ciphertext_still_marks_the_file_corrupted() -> None:
+    record = _record()
+    service = _service(StubStorage(sha256="e" * 64, size_bytes=5), record)
+
+    result = service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext())
+
+    assert result.status == "MODIFIED"
+    assert record.file.status == "CORRUPTED"
+    assert record.file.revision == 2
+    assert record.file.updated_at == NOW.replace(tzinfo=None)
+
+
+def test_a_passing_recheck_restores_a_corrupted_file() -> None:
+    """Status describes the ciphertext now, not the worst ever observed about it."""
+    record = _record()
+    record.file.status = "CORRUPTED"
+    service = _service(StubStorage(sha256="d" * 64, size_bytes=5), record)
+
+    result = service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext())
+
+    assert result.status == "VALID"
+    assert record.file.status == "ACTIVE"
+    assert record.file.revision == 2
+
+
+def test_a_passing_download_verification_restores_a_corrupted_file() -> None:
+    record = _record()
+    record.file.status = "CORRUPTED"
+    service = _service(StubStorage(sha256="d" * 64, size_bytes=5), record)
+
+    service.open_verified_for_download(
+        record=record,
+        actor=_actor(),
+        context=RequestContext(),
+    )
+
+    assert record.file.status == "ACTIVE"
+
+
+def test_a_valid_check_on_a_healthy_file_does_not_bump_the_revision() -> None:
+    record = _record()
+    service = _service(StubStorage(sha256="d" * 64, size_bytes=5), record)
+
+    service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext())
+
+    assert record.file.status == "ACTIVE"
+    assert record.file.revision == 1
+
+
+def test_a_deleted_file_is_never_resurrected_by_a_verification() -> None:
+    record = _record()
+    record.file.status = "DELETED"
+    service = _service(StubStorage(sha256="d" * 64, size_bytes=5), record)
+
+    service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext())
+
+    assert record.file.status == "DELETED"

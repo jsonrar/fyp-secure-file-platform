@@ -91,8 +91,7 @@ class IntegrityService:
                 actual=actual,
                 message=message,
             )
-            if result in {"MODIFIED", "MISSING"}:
-                self._mark_corrupted(record.file, checked_at)
+            self._apply_status(record.file, result, checked_at)
             self.audit.append(
                 action="FILE_INTEGRITY_CHECKED",
                 result="SUCCESS" if result == "VALID" else "FAIL",
@@ -155,9 +154,8 @@ class IntegrityService:
                 actual=actual,
                 message=message,
             )
+            self._apply_status(record.file, result, checked_at)
             if result != "VALID":
-                if result in {"MODIFIED", "MISSING"}:
-                    self._mark_corrupted(record.file, checked_at)
                 self.audit.append(
                     action="FILE_DOWNLOAD_INTEGRITY_FAILED",
                     result="FAIL",
@@ -220,8 +218,31 @@ class IntegrityService:
         return check
 
     @staticmethod
-    def _mark_corrupted(file_record: File, now: datetime) -> None:
-        file_record.status = "CORRUPTED"
+    def _apply_status(file_record: File, result: str, now: datetime) -> None:
+        """Move the durable status only for findings about the ciphertext itself.
+
+        MODIFIED is evidence about content: the object is readable and its bytes no longer
+        match the digest recorded at upload. MISSING and ERROR are statements about the
+        environment -- an unmounted volume, a misconfigured root, a filesystem that answered
+        with an errno -- and they say nothing about bytes nobody could read. Recording an
+        environment condition in a per-file column is what made a momentary outage
+        indistinguishable from destroyed data. Every result, MISSING included, is still
+        recorded in `integrity_checks` and in the audit log, which is where a transient
+        condition belongs and where an operator can see it repeat.
+
+        VALID restores ACTIVE so the status stays a description of the ciphertext as it is
+        now rather than the worst thing ever observed about it. A file already stranded at
+        CORRUPTED by the previous rule heals on its next successful verification.
+        """
+        if result == "MODIFIED":
+            target = "CORRUPTED"
+        elif result == "VALID":
+            target = "ACTIVE"
+        else:
+            return
+        if file_record.status == target or file_record.status == "DELETED":
+            return
+        file_record.status = target
         file_record.updated_at = now
         if hasattr(file_record, "revision"):
             file_record.revision += 1
