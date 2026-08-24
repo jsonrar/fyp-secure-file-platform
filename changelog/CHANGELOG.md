@@ -91,6 +91,14 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ### Verification / 验证
 
+- Added `tests/integration/test_file_lifecycle_mysql.py`, sixteen tests covering upload, listing, download, integrity, deletion, and the failure paths against a real MySQL 8.4 and a real storage root. Both file-storage defects fixed in this cycle lived where the service, the SQL, and the object store meet, and neither was visible to the unit suite: a fake storage cannot round a timestamp the way a `DATETIME` column does, and a fake session cannot demonstrate that a status is written and then filtered out of every query that could return it. Run against `main` before those fixes, this file fails exactly five tests, all of them the two defects; run against the fixes, all sixteen pass. That is the coverage gap `TODO.md` had recorded as outstanding.
+- 已新增 `tests/integration/test_file_lifecycle_mysql.py`，共十六个测试，针对真实的 MySQL 8.4 与真实存储根目录覆盖上传、列表、下载、完整性、删除以及各条失败路径。本轮修复的两个文件存储缺陷都位于服务、SQL 与对象存储的交汇处，单元测试套件对二者均不可见：伪造的存储不会像 `DATETIME` 列那样对时间戳做舍入，伪造的会话也无法呈现"某个状态被写入之后，又被所有可能返回它的查询过滤掉"。在修复之前的 `main` 上运行该文件，恰好有五个测试失败，且全部对应这两个缺陷；在修复之上运行，十六个全部通过。这正是 `TODO.md` 此前记录为未完成的那处覆盖缺口。
+- The new file follows the existing `AUTH_TEST_DATABASE_URL` convention, so `pytest` alone still skips it and a machine without MySQL is unaffected. Both backend READMEs now say how to point it at a disposable database, and say plainly that a green `pytest` with no database does not mean the integration tests passed — which is how a suite of skipped tests comes to be mistaken for a suite of passing ones.
+- 新文件沿用既有的 `AUTH_TEST_DATABASE_URL` 约定，因此单独执行 `pytest` 仍会跳过它，没有 MySQL 的机器不受影响。两份后端 README 现已说明如何将其指向一次性数据库，并明确指出：在没有数据库的情况下 `pytest` 全绿并不代表集成测试通过了——一套被跳过的测试正是这样被误认为是一套通过的测试的。
+- Each run creates its own identity and removes its own file rows afterwards. Audit rows and the identity they point at are left in place deliberately: the chain is append-only by design, the runtime grant on `audit_logs` is `SELECT, INSERT` and nothing more, and deleting from the middle of a hash chain would destroy exactly the property the table exists to provide.
+- 每次运行都会创建自己的身份，并在结束后清理自己产生的文件数据行。审计行及其指向的身份有意保留：该链在设计上就是只追加的，运行时账号对 `audit_logs` 的授权仅为 `SELECT, INSERT`，而从哈希链中间删除记录会恰好摧毁这张表本就用来提供的那个性质。
+
+
 - Verified the deployed staging build end to end at `https://secureview.tech`: the send endpoint answers `200` and stores only a digest, an unregistered address for password reset answers `200` with no row written, a resend inside the cooldown answers `429` with `Retry-After`, and a real verification email reached a Gmail inbox rather than the spam folder.
 - 已在 `https://secureview.tech` 上对已部署版本完成端到端验证：发送端点返回 `200` 且只存摘要；未注册地址请求重置码返回 `200` 且不写入任何数据行；冷却期内重发返回 `429` 并带 `Retry-After`；真实验证码邮件送达 Gmail 收件箱而非垃圾箱。
 
