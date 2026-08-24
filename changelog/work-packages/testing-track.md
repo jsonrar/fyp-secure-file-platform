@@ -103,4 +103,11 @@ Base `main` @ `aa4e858` · Scope: the encrypted-file path, end to end · Backend
 - `lucide-vue-next` is deprecated upstream in favour of `@lucide/vue`. Pinned rather than swapped, because changing packages is not a version pin.
 - `lucide-vue-next` 在上游已废弃，官方建议改用 `@lucide/vue`。此处选择固定版本而非更换，因为更换依赖包不属于版本固定的范畴。
 
+### Closed / 收尾
+
+- PRs #20 through #24 merged to `main` as `197bcd7`, `9d8b32c`, `66bbc25`, `23487b1`, `89263ef`. On merged `main` the backend reports `288 passed` with the integration suite actually running, Ruff and `alembic check` are clean, and the frontend passes `typecheck`, `128 passed`, and a production build from a fresh `npm ci` — which also confirms the newly committed lockfile installs.
+- PR #20 至 #24 已合入 `main`，对应 `197bcd7`、`9d8b32c`、`66bbc25`、`23487b1`、`89263ef`。在合并后的 `main` 上，后端报告 `288 passed` 且集成测试为真实执行，Ruff 与 `alembic check` 均通过，前端 `typecheck` 通过、`128 passed`，并可从全新的 `npm ci` 完成生产构建——这同时验证了新提交的 lockfile 确实可安装。
+- Staging auto-deployed the merge and passed its own release gate: `result=success commit=89263ef`, with `backend=active`, `mysql=healthy`, `mysql_tls_required=1`, `nginx=active`, `health=ok`. The service reports `NRestarts=0` and `/health/ready` answers `ready`. Two `502` probes appear in the deploy log inside the backend restart window, before the gate's health check succeeded; they are the restart, not a failure.
+- staging 已自动部署该合并并通过其自身的发布门禁：`result=success commit=89263ef`，其中 `backend=active`、`mysql=healthy`、`mysql_tls_required=1`、`nginx=active`、`health=ok`。服务报告 `NRestarts=0`，`/health/ready` 返回 `ready`。部署日志中出现的两次 `502` 探测位于后端重启窗口内、发生在门禁健康检查成功之前，那是重启本身，不是失败。
+
 update: 2026/8/24
