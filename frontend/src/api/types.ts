@@ -70,9 +70,33 @@ export function formatFileSize(bytes: number): string {
   return `${parseFloat((bytes / Math.pow(k, i)).toFixed(2))} ${sizes[i]}`
 }
 
-export function mapFileStatus(status: string): 'verified' | 'modified' | 'pending' {
+export type FileBadge = 'verified' | 'modified' | 'pending'
+
+/**
+ * Map an *integrity check* result onto a badge.
+ *
+ * The vocabulary here is the one `POST /files/{id}/integrity-check` answers with:
+ * `VALID`, `MODIFIED`, `MISSING`, `ERROR`. It is not the vocabulary of `files.status`.
+ */
+export function mapFileStatus(status: string): FileBadge {
   const normalized = status.toUpperCase()
   if (normalized === 'VALID' || normalized === 'VERIFIED') return 'verified'
   if (normalized === 'MODIFIED' || normalized === 'INVALID') return 'modified'
+  return 'pending'
+}
+
+/**
+ * Map a *file lifecycle* status onto a badge.
+ *
+ * `GET /files` reports `files.status` — `ACTIVE`, `CORRUPTED`, `DELETED` — which shares no
+ * word with the integrity vocabulary above. Running it through `mapFileStatus` sent every
+ * value down the fallback branch, so a healthy file and a file the server had positively
+ * marked as damaged both rendered as an identical grey "Pending". The two lookups are kept
+ * apart because they answer different questions about different fields.
+ */
+export function mapFileLifecycle(status: string): FileBadge {
+  const normalized = status.toUpperCase()
+  if (normalized === 'ACTIVE') return 'verified'
+  if (normalized === 'CORRUPTED') return 'modified'
   return 'pending'
 }
