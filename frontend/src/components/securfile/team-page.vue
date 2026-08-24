@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ChevronDown, Code, LockKeyhole, Palette, Server } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { CSSProperties } from 'vue'
 
 const members = [
   {
@@ -84,7 +85,7 @@ function onResize() {
 }
 
 const titleLeave = computed(() => clamp(progress.value / TITLE_END))
-const titleStyle = computed(() => {
+const titleStyle = computed((): CSSProperties => {
   const t = titleLeave.value
   return {
     opacity: String(1 - t),
@@ -177,7 +178,7 @@ const carouselSpin = computed(() => {
   return t * spinMax
 })
 
-const carouselStageStyle = computed(() => {
+const carouselStageStyle = computed((): CSSProperties => {
   const t = carouselEnter.value
   return {
     opacity: String(t),
@@ -214,7 +215,7 @@ const activeIndex = computed(() => {
   return best
 })
 
-function cardStyle(index: number) {
+function cardStyle(index: number): CSSProperties {
   const theta = cardTheta(index)
   const R = radius.value
   const overshootScale = R * 2.2
