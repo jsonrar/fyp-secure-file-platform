@@ -8,9 +8,12 @@ import ShareDialog from '@/components/ShareDialog.vue'
 import UnlockDialog from '@/components/UnlockDialog.vue'
 import {
   downloadAndDecrypt,
+  FileIntegrityError,
+  FileKeyUnwrapError,
   isUnlocked,
   KeyNotUnlockedError,
   NotUnlockedError,
+  onRelock,
   saveDecryptedFile,
 } from '@/crypto/download'
 
@@ -89,6 +92,13 @@ const loadFiles = async () => {
 
 onMounted(loadFiles)
 
+// The account key relocks itself after a spell of disuse. Nothing on screen depends on it
+// directly, but a download started afterwards must ask for the passphrase again rather
+// than failing, so the message says what happened before the dialog reappears.
+const stopRelockListener = onRelock(() => {
+  actionMessage.value = 'Your account key was locked after a period of inactivity.'
+})
+
 const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
 const hasPreviousPage = computed(() => page.value > 1)
 const hasNextPage = computed(() => page.value < pageCount.value)
@@ -123,6 +133,7 @@ watch(searchQuery, () => {
 
 onBeforeUnmount(() => {
   if (searchTimer !== undefined) clearTimeout(searchTimer)
+  stopRelockListener()
 })
 
 // The server has already applied the filter; the rows on hand are the rows to show.
@@ -178,6 +189,18 @@ const handleDownload = async (id: string) => {
       pendingDownloadId.value = id
       unlockKeyId.value = null
       showUnlock.value = true
+      return
+    }
+    if (error instanceof FileIntegrityError) {
+      // An integrity finding, not a transport or permission problem. Mark the row so the
+      // state persists after the message is replaced by the next action.
+      const row = files.value.find((f) => f.id === id)
+      if (row) row.status = 'modified'
+      errorMessage.value = error.message
+      return
+    }
+    if (error instanceof FileKeyUnwrapError) {
+      errorMessage.value = error.message
       return
     }
     actionMessage.value = error instanceof Error ? error.message : 'Download failed'
