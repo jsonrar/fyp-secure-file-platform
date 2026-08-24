@@ -181,6 +181,28 @@ own file rows afterwards; audit rows and the identity they reference are left in
 purpose, since the audit chain is append-only and deleting from the middle of a hash chain
 would destroy the property it exists to provide.
 
+## Reconciliation
+
+Four tables grow without bound on ordinary traffic — sessions, refresh tokens, throttle
+buckets, and verification codes — and none of them is read once it lapses, because expiry
+is decided from the timestamps at request time rather than from a stored flag. Storage has
+the mirror problem: a process that dies between publishing a ciphertext object and
+committing its row leaves an object no row names.
+
+```bash
+.venv/bin/python scripts/reconcile.py            # report only, the default
+.venv/bin/python scripts/reconcile.py --apply    # actually delete
+```
+
+Reporting is the default deliberately: a reconciler is the kind of job whose bugs are
+discovered by what it removed, so the first run on a deployment should be read rather than
+trusted. It never touches `audit_logs` or `audit_chain_heads` (append-only, hash-chained,
+and the runtime grant is `SELECT, INSERT` so this cannot happen by accident), the file
+tables, the identity and key-custody tables, or `recovery_requests`.
+
+`deployment/server/mcs21-reconcile.{service,timer}` run it daily. They are tracked but not
+installed; enabling them is a deliberate step, after a report-only run has been read.
+
 ## Database Changes
 
 SQLAlchemy metadata and Alembic remain the schema-authoring workflow for local development

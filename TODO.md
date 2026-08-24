@@ -278,8 +278,12 @@ Priorities:
   exact `0004_email_verification_codes` application schema marker without migrating.
 - [x] TLS termination and the canonical-origin redirect are in place for staging.
 - [ ] Add edge rate limits and a trusted proxy boundary before accepting forwarded IPs.
-- [ ] Add cleanup/reconciliation jobs for expired sessions/refresh tokens/throttle buckets,
-  stale staged objects, orphaned ciphertext, and expired recovery requests.
+- [x] Add cleanup/reconciliation jobs for expired sessions/refresh tokens/throttle buckets,
+  stale staged objects, and orphaned ciphertext. `backend/scripts/reconcile.py`, report-only
+  by default, with `deployment/server/mcs21-reconcile.{service,timer}` tracked but not
+  installed. Expired recovery requests are deliberately left in place: an expired request
+  records that someone asked for a file and nobody acted on it, which is accountability
+  information rather than debris.
 - [ ] Automate encrypted database/object backups, retention, restore drills, and RPO/RTO;
   remember that database theft enables offline passphrase guessing and exposes metadata.
 - [ ] Define production deployment for API, frontend, TLS termination, persistent ciphertext

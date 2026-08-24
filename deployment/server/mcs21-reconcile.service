@@ -1,0 +1,35 @@
+# Not installed by the deploy tooling. Copy to /etc/systemd/system/ and enable the timer
+# deliberately, after a report-only run has been read on the target deployment.
+#
+#   sudo cp deployment/server/mcs21-reconcile.{service,timer} /etc/systemd/system/
+#   sudo systemctl daemon-reload
+#   sudo systemctl enable --now mcs21-reconcile.timer
+#
+# Run it once by hand first, without --apply, and read what it proposes:
+#
+#   cd /opt/mcs21/current/backend \
+#     && set -a && . /etc/fyp-secure-file-platform/backend.env && set +a \
+#     && PYTHONPATH=$PWD .venv/bin/python scripts/reconcile.py
+
+[Unit]
+Description=Remove lapsed MCS21 rows and unreferenced ciphertext objects
+Wants=network-online.target
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=fyp-backend
+WorkingDirectory=/opt/mcs21/current/backend
+EnvironmentFile=/etc/fyp-secure-file-platform/backend.env
+ExecStart=/opt/mcs21/current/backend/.venv/bin/python scripts/reconcile.py --apply
+TimeoutStartSec=30min
+Nice=15
+IOSchedulingClass=idle
+
+# The job only ever deletes rows the runtime account is granted DELETE on, and files under
+# the two configured storage roots. Nothing here needs to write anywhere else.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/opt/mcs21/current/backend/encrypted_files /opt/mcs21/current/backend/temp_files
