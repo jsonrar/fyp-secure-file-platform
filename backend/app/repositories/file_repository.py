@@ -127,7 +127,11 @@ class FileRepository:
             .join(FileKeyWrapping, FileKeyWrapping.id == wrapping_ids.c.wrapping_id)
             .join(UserKey, UserKey.id == FileKeyWrapping.user_key_id)
             .where(
-                File.status == "ACTIVE",
+                # CORRUPTED is reachable on purpose. Hiding a damaged file removes the only
+                # route its owner has to see the damage, re-check it, or delete it, and the
+                # ciphertext is often still intact. Download stays protected by the
+                # verification that runs on the way out, not by this filter.
+                File.status.in_(("ACTIVE", "CORRUPTED")),
                 FileAccessGrant.status == "ACTIVE",
                 FileKeyWrapping.status == "ACTIVE",
                 UserKey.status == "ACTIVE",
