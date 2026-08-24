@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { AlertCircle, CheckCircle, Download, FileIcon, Filter, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
+import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, Filter, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
-import { formatFileSize, mapFileStatus, unwrapData } from '@/api/types'
+import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 
@@ -21,12 +21,17 @@ interface StatusConfig {
   className: string
 }
 
+/** `GET /files` caps `page_size` at 100. Ask for the most the API will give per request. */
+const PAGE_SIZE = 100
+
 const searchQuery = ref('')
 const files = ref<EncryptedFile[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
 const actionMessage = ref('')
+const page = ref(1)
+const total = ref(0)
 
 const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   id: file.file_id,
@@ -35,17 +40,24 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   // AES-GCM is a stream mode, so these match; the tag is stored apart from the object.
   encryptedSize: formatFileSize(file.ciphertext_size),
   encryptedAt: new Date(file.created_at).toLocaleString(),
-  status: mapFileStatus(file.status),
+  // `files.status` is ACTIVE/CORRUPTED/DELETED, not the integrity vocabulary. Sending it
+  // through mapFileStatus put every row on the fallback branch, so a damaged file looked
+  // exactly like a healthy one.
+  status: mapFileLifecycle(file.status),
 })
 
 const loadFiles = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await fileApi.listFiles()
+    const res = await fileApi.listFiles({ page: page.value, page_size: PAGE_SIZE })
     // The API paginates: rows live under `items`. Reading anything else silently
     // yields an empty list, which reads as "no files" even when uploads succeeded.
-    files.value = unwrapData(res).items.map(mapFile)
+    const data = unwrapData(res)
+    files.value = data.items.map(mapFile)
+    // `total` counts every file the caller can reach, not the ones on this page. Dropping
+    // it is what let the list quietly stop at one page and still call that the total.
+    total.value = data.total
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Failed to load files'
   } finally {
@@ -55,6 +67,22 @@ const loadFiles = async () => {
 
 onMounted(loadFiles)
 
+const pageCount = computed(() => Math.max(1, Math.ceil(total.value / PAGE_SIZE)))
+const hasPreviousPage = computed(() => page.value > 1)
+const hasNextPage = computed(() => page.value < pageCount.value)
+const firstOnPage = computed(() => (total.value === 0 ? 0 : (page.value - 1) * PAGE_SIZE + 1))
+const lastOnPage = computed(() => (page.value - 1) * PAGE_SIZE + files.value.length)
+
+const goToPage = async (next: number) => {
+  if (next < 1 || next > pageCount.value || next === page.value) return
+  page.value = next
+  actionMessage.value = ''
+  await loadFiles()
+}
+
+// Deliberately scoped to the rows already fetched: `GET /files` has no search parameter,
+// so filtering here cannot see the other pages. The input says so rather than letting a
+// user conclude a file is missing when it is merely on another page.
 const filteredFiles = computed(() =>
   files.value.filter((file) => file.name.toLowerCase().includes(searchQuery.value.toLowerCase())),
 )
@@ -64,6 +92,12 @@ const handleDelete = async (id: string) => {
   try {
     await fileApi.delete(id)
     files.value = files.value.filter((f) => f.id !== id)
+    total.value = Math.max(0, total.value - 1)
+    // Removing the last row of the last page would otherwise strand the view on a page
+    // that no longer exists, showing an empty table over a non-zero total.
+    if (!files.value.length && page.value > 1) {
+      await goToPage(page.value - 1)
+    }
     actionMessage.value = 'File deleted'
   } catch (error) {
     actionMessage.value = error instanceof Error ? error.message : 'Delete failed'
@@ -122,12 +156,14 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <h3 class="text-foreground text-lg font-semibold">My Encrypted Files</h3>
-            <p class="text-muted-foreground text-sm">Total {{ filteredFiles.length }} encrypted files</p>
+            <p class="text-muted-foreground text-sm">
+              Total {{ total }} encrypted {{ total === 1 ? 'file' : 'files' }}<span v-if="total > files.length">, showing {{ firstOnPage }}-{{ lastOnPage }}</span>
+            </p>
           </div>
           <div class="flex items-center gap-2">
             <div class="relative">
               <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input v-model="searchQuery" placeholder="Search files..." class="h-10 w-full md:w-64 rounded-md border border-border bg-secondary pl-9 pr-3" />
+              <input v-model="searchQuery" placeholder="Filter this page..." class="h-10 w-full md:w-64 rounded-md border border-border bg-secondary pl-9 pr-3" />
             </div>
             <button class="h-10 w-10 inline-flex items-center justify-center rounded-md border border-border hover:bg-secondary" @click="loadFiles">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
@@ -195,6 +231,28 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
               </tr>
             </tbody>
           </table>
+        </div>
+
+        <div v-if="pageCount > 1" class="flex items-center justify-between gap-4 mt-6 pt-4 border-t border-border">
+          <p class="text-muted-foreground text-sm">Page {{ page }} of {{ pageCount }}</p>
+          <div class="flex items-center gap-2">
+            <button
+              class="h-9 px-3 inline-flex items-center gap-1 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="!hasPreviousPage || isLoading"
+              @click="goToPage(page - 1)"
+            >
+              <ChevronLeft class="h-4 w-4" />
+              Previous
+            </button>
+            <button
+              class="h-9 px-3 inline-flex items-center gap-1 rounded-md border border-border hover:bg-secondary disabled:opacity-40 disabled:cursor-not-allowed"
+              :disabled="!hasNextPage || isLoading"
+              @click="goToPage(page + 1)"
+            >
+              Next
+              <ChevronRight class="h-4 w-4" />
+            </button>
+          </div>
         </div>
       </div>
     </div>
