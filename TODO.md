@@ -96,26 +96,32 @@ Priorities:
 
 ### Download and Decryption (the demo cannot complete without this)
 
-- [ ] Implement the real download path. `file-management.vue` currently calls
-  `fileApi.download(id)`, discards the returned ciphertext, and reports "Download request
-  sent". Nothing is ever decrypted, so uploaded files cannot be read back through the UI.
-- [ ] Unwrap the caller-specific DEK, rebuild the AAD from the file metadata exactly as
+- [x] Implement the real download path. `file-management.vue` used to call
+  `fileApi.download(id)`, discard the returned ciphertext, and report "Download request
+  sent", so uploaded files could not be read back through the UI. `crypto/download.ts` now
+  unwraps, decrypts, and saves.
+- [x] Unwrap the caller-specific DEK, rebuild the AAD from the file metadata exactly as
   `docs/crypto/FILE_ENVELOPE.md` defines it, authenticate/decrypt locally, and save the
-  plaintext without persistent staging.
-- [ ] Resolve the historical-key case: a file wrapped to a superseded key needs
-  `GET /keys/me/{key_id}` and that bundle's private key, not the current one.
+  plaintext without persistent staging. Nothing reaches disk before the tag authenticates.
+- [x] Resolve the historical-key case: a file wrapped to a superseded key needs
+  `GET /keys/me/{key_id}` and that bundle's private key, not the current one. Unlocked keys
+  are cached by id, and a file wrapped to an unopened key names it and offers to unlock it.
 - [ ] Surface authentication-tag failures as integrity failures, distinctly from network or
-  authorization errors.
+  authorization errors. `AuthenticationFailure` is raised and shown, but the file page still
+  renders it as a generic action message rather than marking the row.
 
 ### Browser Private-Key Custody and Unlock
 
-- [ ] Decide and implement how the private key returns to the browser after registration.
-  Today `RegisterPage.vue` offers a one-time plaintext PEM download and nothing ever imports
-  it back; `GET /keys/me` returns the encrypted bundle but no passphrase-unlock UX exists.
-  Every client-side operation except upload is blocked on this.
-- [ ] Implement unlock: Argon2id from the stored protection profile, AMK unwrap, private-key
-  bundle decrypt, an in-memory session-scoped key handle, and explicit clearing on logout,
-  tab close, and idle timeout.
+- [x] Decide and implement how the private key returns to the browser after registration.
+  Decided: it comes back from `GET /keys/me` and is opened with the encryption passphrase,
+  not re-imported from the PEM. `UnlockDialog.vue` provides the passphrase UX; the one-time
+  PEM download stays an offline backup, which is the open question below.
+- [x] Implement unlock: Argon2id from the stored protection profile, AMK unwrap, private-key
+  bundle decrypt, an in-memory session-scoped key handle, and explicit clearing on logout
+  and tab close. The handle is a non-extractable `CryptoKey` in module scope, so a reload or
+  tab close discards it, and `logout()` clears it explicitly.
+- [ ] Add an idle timeout that relocks the account key. Today it stays unlocked for as long
+  as the tab is open.
 - [ ] Implement passphrase change using `GET /keys/me`,
   `POST /keys/me/rewrap/signing-payload`, local newest-current-private-key RSA-PSS-SHA256
   signing, and `POST /keys/me/rewrap`, including optimistic-revision/current-key conflicts,
@@ -191,7 +197,7 @@ Priorities:
   DEK to the owner and recovery public keys, upload ciphertext, and report per-file outcomes.
   The recovery fingerprint shown in the UI is recomputed locally from the PEM, never read
   from the API response.
-- [ ] Frontend: decrypt on download, per the P0 item above.
+- [x] Frontend: decrypt on download, per the P0 item above.
 - [ ] Frontend: replace the placeholder file table (`components/FileTable.vue`), show real
   encrypted sizes and timestamps instead of the `-` placeholders in `file-management.vue`,
   and wire delete and integrity-check results into the UI.
@@ -317,7 +323,7 @@ Priorities:
   synchronized with the client-side encryption boundary.
 - [x] The browser encrypts before upload against a normative, vector-locked envelope, and the
   ciphertext has been decrypted independently outside the TypeScript implementation.
-- [ ] A file uploaded through the browser can be downloaded and decrypted through the browser.
+- [x] A file uploaded through the browser can be downloaded and decrypted through the browser.
 - [ ] Required MySQL 8.4 integration, concurrency, production-SQL, and parity tests pass in CI.
 - [ ] The frontend implements the real cryptographic/API contracts without demo fallbacks and
   passes type, lint, unit, component, build, and browser E2E gates.

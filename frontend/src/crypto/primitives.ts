@@ -192,6 +192,23 @@ export async function importRsaOaepPublicKey(pem: string): Promise<CryptoKey> {
   )
 }
 
+/**
+ * Import a PKCS8 DER private key for RSA-OAEP-SHA256 unwrapping.
+ *
+ * Non-extractable: once the key is imported the page can decrypt with it but can no
+ * longer read the bytes back out, so a later bug cannot serialise the account private key
+ * into a log line, an error report, or a request body.
+ */
+export async function importRsaOaepPrivateKey(pkcs8Der: Uint8Array): Promise<CryptoKey> {
+  return subtle().importKey(
+    'pkcs8',
+    pkcs8Der as BufferSource,
+    { name: 'RSA-OAEP', hash: 'SHA-256' },
+    false,
+    ['decrypt'],
+  )
+}
+
 /** Import a PEM public key for RSA-PSS-SHA256 verification. */
 export async function importRsaPssPublicKey(pem: string): Promise<CryptoKey> {
   return subtle().importKey(
