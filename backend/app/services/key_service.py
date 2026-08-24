@@ -9,7 +9,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
-from app.core.time import to_api_utc, to_database_utc, utc_now
+from app.core.time import to_api_utc, to_database_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.errors import (
     ConflictError,
@@ -188,7 +188,10 @@ class KeyService:
                     "The current-key authorization signature is invalid"
                 ) from exc
 
-            now = to_database_utc(self.clock())
+            # `user_keys` is a plain DATETIME, which MySQL rounds into; the bundle is
+            # DATETIME(6) and keeps what it is given. One instant, two precisions.
+            now = to_second_resolution_utc(self.clock())
+            bundle_now = to_database_utc(self.clock())
             key = UserKey(
                 key_uuid=str(addition.key_id),
                 user_id=actor.user_id,
@@ -219,8 +222,8 @@ class KeyService:
                 aad_version=source.aad_version,
                 ciphertext_sha256=source.ciphertext_sha256,
                 revision=1,
-                created_at=now,
-                updated_at=now,
+                created_at=bundle_now,
+                updated_at=bundle_now,
             )
             self.repository.add_private_key_bundle(bundle)
             self.audit.append(

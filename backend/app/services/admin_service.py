@@ -6,7 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.time import to_database_utc, utc_now
+from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import AuthorizationError, ConflictError, ResourceNotFoundError
@@ -62,7 +62,7 @@ class AdminService:
             desired = UserStatus.ACTIVE if enabled else UserStatus.DISABLED
             changed = user.status is not desired
             revoked_sessions = 0
-            now = to_database_utc(self.clock())
+            now = to_second_resolution_utc(self.clock())
             if changed:
                 user.status = desired
                 user.updated_at = now

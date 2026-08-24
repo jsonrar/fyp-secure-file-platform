@@ -7,7 +7,7 @@ from uuid import UUID, uuid4
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.core.time import to_database_utc, utc_now
+from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole
 from app.domain.errors import (
@@ -59,7 +59,7 @@ class RecoveryService:
         self.request_ttl = request_ttl
 
     def _now(self) -> datetime:
-        return to_database_utc(self.clock())
+        return to_second_resolution_utc(self.clock())
 
     @staticmethod
     def _require_reviewer(actor: ActorContext) -> None:

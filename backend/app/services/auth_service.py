@@ -21,7 +21,7 @@ from app.core.security import (
     password_manager,
     password_policy_error,
 )
-from app.core.time import to_api_utc, to_database_utc, utc_now
+from app.core.time import to_api_utc, to_database_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import (
     AccountSnapshot,
     ActorContext,
@@ -147,6 +147,9 @@ class AuthService:
             )
 
             now = self._now()
+            # The two key-custody tables are DATETIME(6); everything else here is
+            # second-resolution. Same instant, each column at the precision it declares.
+            custody_now = self._now_exact()
             password_hash = self.passwords.hash(password)
             if key_material.key_size_bits != self.settings.USER_RSA_KEY_SIZE:
                 raise KeyBundleInvalidError(
@@ -213,8 +216,8 @@ class AuthService:
                     amk_auth_tag=protection.amk_auth_tag,
                     aad_version=protection.aad_version,
                     revision=1,
-                    created_at=now,
-                    updated_at=now,
+                    created_at=custody_now,
+                    updated_at=custody_now,
                 )
             )
 
@@ -235,8 +238,8 @@ class AuthService:
                     aad_version=private_bundle.aad_version,
                     ciphertext_sha256=private_bundle.ciphertext_sha256,
                     revision=1,
-                    created_at=now,
-                    updated_at=now,
+                    created_at=custody_now,
+                    updated_at=custody_now,
                 )
             )
             self.audit.append(
@@ -1199,6 +1202,24 @@ class AuthService:
         )
 
     def _now(self) -> datetime:
+        """The instant as the second-resolution DATETIME columns can hold it.
+
+        Everything this service writes -- users, sessions, refresh tokens, throttle
+        buckets -- lands in a plain `DATETIME`, which stores no fractional part and which
+        MySQL *rounds* into rather than truncating. Settling the value here keeps the row
+        equal to what the caller holds, and keeps a stored timestamp from landing up to
+        half a second in the future. Registration is the one exception; see `_now_exact`.
+        """
+        return to_second_resolution_utc(self.clock())
+
+    def _now_exact(self) -> datetime:
+        """Full precision, for the `DATETIME(6)` key-custody columns only.
+
+        `user_key_protection_profiles` and `encrypted_private_key_bundles` were declared
+        with fractional seconds deliberately. Nothing signs those timestamps today, but
+        reducing a column's fidelity is not a side effect this change is entitled to
+        have, so the custody rows keep every digit the column was given.
+        """
         return to_database_utc(self.clock())
 
     @staticmethod

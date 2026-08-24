@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import Settings
 from app.core.security import hash_auth_throttle_key
-from app.core.time import to_database_utc, utc_now
+from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import RequestContext
 from app.domain.enums import (
     LoginThrottleScope,
@@ -387,7 +387,7 @@ class VerificationService:
             throttle.updated_at = now
 
     def _now(self) -> datetime:
-        return to_database_utc(self.clock())
+        return to_second_resolution_utc(self.clock())
 
 
 def _generate_numeric_code(length: int) -> str:
