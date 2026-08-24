@@ -76,8 +76,20 @@ def list_files(
     service: Annotated[FileService, Depends(get_file_service)],
     page: Annotated[int, Query(ge=1, le=1_000_000)] = 1,
     page_size: Annotated[int, Query(ge=1, le=100)] = 25,
+    search: Annotated[
+        str | None,
+        Query(
+            max_length=255,
+            description="Case-insensitive substring of the original filename",
+        ),
+    ] = None,
 ) -> JSONResponse:
-    result = service.list_files(actor=actor, page=page, page_size=page_size)
+    result = service.list_files(
+        actor=actor,
+        page=page,
+        page_size=page_size,
+        search=search,
+    )
     return ApiResponse.success(
         data=result,
         message="Files retrieved",

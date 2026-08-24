@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, Filter, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
@@ -46,22 +46,31 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   status: mapFileLifecycle(file.status),
 })
 
+let requestId = 0
+
 const loadFiles = async () => {
+  const thisRequest = ++requestId
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await fileApi.listFiles({ page: page.value, page_size: PAGE_SIZE })
+    const res = await fileApi.listFiles({
+      page: page.value,
+      page_size: PAGE_SIZE,
+      search: searchQuery.value.trim() || undefined,
+    })
     // The API paginates: rows live under `items`. Reading anything else silently
     // yields an empty list, which reads as "no files" even when uploads succeeded.
+    if (thisRequest !== requestId) return
     const data = unwrapData(res)
     files.value = data.items.map(mapFile)
     // `total` counts every file the caller can reach, not the ones on this page. Dropping
     // it is what let the list quietly stop at one page and still call that the total.
     total.value = data.total
   } catch (error) {
+    if (thisRequest !== requestId) return
     errorMessage.value = error instanceof Error ? error.message : 'Failed to load files'
   } finally {
-    isLoading.value = false
+    if (thisRequest === requestId) isLoading.value = false
   }
 }
 
@@ -80,12 +89,31 @@ const goToPage = async (next: number) => {
   await loadFiles()
 }
 
-// Deliberately scoped to the rows already fetched: `GET /files` has no search parameter,
-// so filtering here cannot see the other pages. The input says so rather than letting a
-// user conclude a file is missing when it is merely on another page.
-const filteredFiles = computed(() =>
-  files.value.filter((file) => file.name.toLowerCase().includes(searchQuery.value.toLowerCase())),
-)
+/**
+ * Search runs on the server, so it sees every page rather than only the fetched one.
+ *
+ * Debounced because it costs a request per keystroke otherwise, and the request that
+ * returns last is not necessarily the one for the current text -- `requestId` drops any
+ * response that a newer search has already superseded.
+ */
+const SEARCH_DEBOUNCE_MS = 250
+let searchTimer: ReturnType<typeof setTimeout> | undefined
+
+watch(searchQuery, () => {
+  if (searchTimer !== undefined) clearTimeout(searchTimer)
+  searchTimer = setTimeout(() => {
+    // A narrower result set rarely has the page the user was on; start from the first.
+    page.value = 1
+    void loadFiles()
+  }, SEARCH_DEBOUNCE_MS)
+})
+
+onBeforeUnmount(() => {
+  if (searchTimer !== undefined) clearTimeout(searchTimer)
+})
+
+// The server has already applied the filter; the rows on hand are the rows to show.
+const filteredFiles = computed(() => files.value)
 
 const handleDelete = async (id: string) => {
   actionMessage.value = ''
@@ -157,13 +185,14 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
           <div>
             <h3 class="text-foreground text-lg font-semibold">My Encrypted Files</h3>
             <p class="text-muted-foreground text-sm">
-              Total {{ total }} encrypted {{ total === 1 ? 'file' : 'files' }}<span v-if="total > files.length">, showing {{ firstOnPage }}-{{ lastOnPage }}</span>
+              <template v-if="searchQuery.trim()">{{ total }} {{ total === 1 ? 'match' : 'matches' }} for "{{ searchQuery.trim() }}"</template>
+              <template v-else>Total {{ total }} encrypted {{ total === 1 ? 'file' : 'files' }}</template><span v-if="total > files.length">, showing {{ firstOnPage }}-{{ lastOnPage }}</span>
             </p>
           </div>
           <div class="flex items-center gap-2">
             <div class="relative">
               <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
-              <input v-model="searchQuery" placeholder="Filter this page..." class="h-10 w-full md:w-64 rounded-md border border-border bg-secondary pl-9 pr-3" />
+              <input v-model="searchQuery" placeholder="Search your files..." class="h-10 w-full md:w-64 rounded-md border border-border bg-secondary pl-9 pr-3" />
             </div>
             <button class="h-10 w-10 inline-flex items-center justify-center rounded-md border border-border hover:bg-secondary" @click="loadFiles">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
@@ -180,7 +209,8 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         </div>
 
         <div v-else-if="!filteredFiles.length" class="text-center py-12 text-muted-foreground">
-          No encrypted files yet. Upload your first file to get started.
+          <template v-if="searchQuery.trim()">No file matches "{{ searchQuery.trim() }}".</template>
+          <template v-else>No encrypted files yet. Upload your first file to get started.</template>
         </div>
 
         <div v-else class="overflow-x-auto">

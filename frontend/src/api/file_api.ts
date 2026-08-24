@@ -4,8 +4,15 @@ import type { FileListOut, FileOut } from './types'
 import type { UploadPayload } from '@/crypto/file_envelope'
 
 export const fileApi = {
-  /** Paginated. The rows arrive as `data.items`; `page_size` caps at 100. */
-  listFiles(params?: { page?: number; page_size?: number }) {
+  /**
+   * Paginated. The rows arrive as `data.items`; `page_size` caps at 100.
+   *
+   * `search` is a case-insensitive substring of the original filename, matched by the
+   * server across every page. Filtering in the browser can only ever see the page it
+   * already holds, which is why the box used to answer "no results" for files that
+   * existed on another page.
+   */
+  listFiles(params?: { page?: number; page_size?: number; search?: string }) {
     return http.get<ApiEnvelope<FileListOut>>('/files', { params })
   },
   getFile(fileId: string) {

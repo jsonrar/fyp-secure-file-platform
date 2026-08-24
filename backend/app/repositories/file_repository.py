@@ -151,14 +151,30 @@ class FileRepository:
             user_key=row[3],
         )
 
+    @staticmethod
+    def _filename_contains(search: str):
+        """A LIKE predicate over the filename, with the wildcards taken literally.
+
+        `%` and `_` are LIKE metacharacters, so an unescaped search for `_` matches every
+        single character and a search for `%` matches everything. Both are ordinary
+        characters in a filename and a user typing one means it literally. The column
+        collates `utf8mb4_unicode_ci`, so matching is already case- and accent-insensitive
+        without lowering either side and losing the index.
+        """
+        escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+        return File.original_filename.like(f"%{escaped}%", escape="\\")
+
     def list_active_access(
         self,
         user_id: int,
         *,
         offset: int,
         limit: int,
+        search: str | None = None,
     ) -> tuple[list[FileAccessRecord], int]:
         access_statement = self._active_access_statement(user_id)
+        if search:
+            access_statement = access_statement.where(self._filename_contains(search))
         count_statement = select(func.count()).select_from(
             access_statement.with_only_columns(File.id).order_by(None).subquery()
         )
