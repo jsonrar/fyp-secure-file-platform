@@ -124,6 +124,21 @@ pip-audit -r requirements.txt
 
 用于验证 ORM 行为的集成测试必须使用 MySQL 8.4，因为该架构使用了 MySQL 特有的无符号整数、枚举、二进制列、排序规则、JSON 和引用操作。不得使用 SQLite 替代这些测试的数据库。
 
+### 针对真实数据库的集成测试
+
+单独执行 `pytest` 会跳过 `tests/integration/` 下的全部测试，因此一次全绿的运行并不代表它们通过了。把 `AUTH_TEST_DATABASE_URL` 指向一个一次性的、已完成迁移的数据库即可让它们真正运行。库名必须包含独立的 `_test` 片段，fixture 会拒绝其他名称——因为这些测试会写入并删除数据行。
+
+```bash
+mysql --user=root --password -e "CREATE DATABASE fyp_secure_file_platform_test \
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/fyp_secure_file_platform_test?charset=utf8mb4' \
+  alembic upgrade head
+AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/fyp_secure_file_platform_test?charset=utf8mb4' \
+  pytest
+```
+
+`test_file_lifecycle_mysql.py` 针对该数据库以及 `tmp_path` 下的真实存储根目录，覆盖上传、列表、下载、完整性校验、共享状态与删除。它之所以存在，是因为有若干缺陷只出现在服务、SQL 与对象存储三者交汇的地方，伪造的存储或伪造的会话根本看不到它们。每次运行都会创建自己的身份，并在结束后清理自己产生的文件数据行；审计行及其引用的身份有意保留——审计链是只追加的，从哈希链中间删除记录会破坏它本就用来提供的那个性质。
+
 ## 数据库变更
 
 Alembic revision 和 ORM metadata 用于本地开发／CI 中编写、评审和测试 Schema 变更。

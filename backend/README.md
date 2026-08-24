@@ -157,6 +157,30 @@ Integration tests that exercise ORM behavior must use MySQL 8.4 because the sche
 MySQL-specific unsigned integers, enums, binary columns, collation, JSON, and referential
 actions. Do not substitute SQLite for those tests.
 
+### Integration tests against a real database
+
+`pytest` alone skips every test under `tests/integration/`, so a green run does not mean they
+passed. Point `AUTH_TEST_DATABASE_URL` at a disposable, already-migrated database to make
+them run. The name must carry a distinct `_test` segment; the fixture refuses anything else,
+because these tests write and delete rows.
+
+```bash
+mysql --user=root --password -e "CREATE DATABASE fyp_secure_file_platform_test \
+  CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"
+AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/fyp_secure_file_platform_test?charset=utf8mb4' \
+  alembic upgrade head
+AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/fyp_secure_file_platform_test?charset=utf8mb4' \
+  pytest
+```
+
+`test_file_lifecycle_mysql.py` covers upload, listing, download, integrity, sharing state and
+deletion against that database and a real storage root under `tmp_path`. It exists because
+several defects live only where the service, the SQL, and the object store meet, and a fake
+storage or a fake session cannot see them. Each run creates its own identity and removes its
+own file rows afterwards; audit rows and the identity they reference are left in place on
+purpose, since the audit chain is append-only and deleting from the middle of a hash chain
+would destroy the property it exists to provide.
+
 ## Database Changes
 
 SQLAlchemy metadata and Alembic remain the schema-authoring workflow for local development
