@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { ArrowRight, ChevronDown, Sparkles } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
+import type { CSSProperties } from 'vue'
 import { RouterLink } from 'vue-router'
 
 const highlights = [
@@ -44,7 +45,7 @@ function requestFrame() {
 }
 
 const titleLeave = computed(() => clamp(progress.value / TITLE_END))
-const titleStyle = computed(() => {
+const titleStyle = computed((): CSSProperties => {
   const t = titleLeave.value
   return {
     opacity: String(1 - t),
@@ -55,7 +56,7 @@ const titleStyle = computed(() => {
 })
 
 const introEnter = computed(() => clamp((progress.value - INTRO_IN) / (INTRO_READY - INTRO_IN)))
-const introStyle = computed(() => {
+const introStyle = computed((): CSSProperties => {
   const t = introEnter.value
   return {
     opacity: String(t),

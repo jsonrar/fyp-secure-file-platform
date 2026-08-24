@@ -1,4 +1,5 @@
 import { http } from './http'
+import type { ApiEnvelope } from './types'
 import type { ClientKeyMaterial } from '@/utils/account-crypto'
 
 export type VerificationPurpose = 'REGISTRATION' | 'PASSWORD_RESET'
@@ -54,11 +55,15 @@ export interface ResetPasswordData {
   key_envelopes_unchanged: boolean
 }
 
-export interface ApiEnvelope<T> {
-  success: boolean
-  message: string
-  data: T
-}
+/**
+ * Re-exported so the existing `from './auth_api'` imports keep working.
+ *
+ * There used to be a second, narrower `ApiEnvelope` declared here, missing the `status`
+ * and `code` the API actually sends. Because both were spelled the same, the mismatch
+ * only showed up as `unwrapData` rejecting the very responses it exists to unwrap — and
+ * only once type checking could run again. One declaration, in `types.ts`.
+ */
+export type { ApiEnvelope } from './types'
 
 export const authApi = {
   sendVerificationCode(payload: SendVerificationCodePayload) {
