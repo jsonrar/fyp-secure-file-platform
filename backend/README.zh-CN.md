@@ -139,6 +139,19 @@ AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/fyp_secure_
 
 `test_file_lifecycle_mysql.py` 针对该数据库以及 `tmp_path` 下的真实存储根目录，覆盖上传、列表、下载、完整性校验、共享状态与删除。它之所以存在，是因为有若干缺陷只出现在服务、SQL 与对象存储三者交汇的地方，伪造的存储或伪造的会话根本看不到它们。每次运行都会创建自己的身份，并在结束后清理自己产生的文件数据行；审计行及其引用的身份有意保留——审计链是只追加的，从哈希链中间删除记录会破坏它本就用来提供的那个性质。
 
+## 对账清理
+
+有四张表会随日常流量无上限增长——会话、刷新令牌、限流桶、验证码——而它们一旦失效就不会再被读取，因为过期是在请求时从时间戳判定的，而不是依赖某个存储的标志位。存储侧存在镜像问题：某个进程若在发布密文对象之后、提交对应数据行之前崩溃，就会留下一个没有任何数据行指向的对象。
+
+```bash
+.venv/bin/python scripts/reconcile.py            # 仅报告，默认行为
+.venv/bin/python scripts/reconcile.py --apply    # 实际删除
+```
+
+默认仅报告是有意为之：对账任务的 bug 往往要靠"它删掉了什么"才被发现，因此在某个部署上的首次运行应当被阅读，而不是被信任。它绝不触碰 `audit_logs` 与 `audit_chain_heads`（只追加、有哈希链，且运行时授权仅为 `SELECT, INSERT`，因此不可能误删）、文件相关表、身份与密钥托管表，以及 `recovery_requests`。
+
+`deployment/server/mcs21-reconcile.{service,timer}` 会每日运行它。这两个文件已纳入版本管理但**未安装**；启用它们是一个需要明确决定的步骤，且应在阅读过一次仅报告的运行结果之后再进行。
+
 ## 数据库变更
 
 Alembic revision 和 ORM metadata 用于本地开发／CI 中编写、评审和测试 Schema 变更。

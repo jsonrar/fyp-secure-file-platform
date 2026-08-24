@@ -1,0 +1,13 @@
+[Unit]
+Description=Remove lapsed MCS21 rows and unreferenced ciphertext objects, daily
+
+[Timer]
+# Daily is frequent enough: the retention window is measured in days, and a job that
+# deletes things should run seldom enough that a bad run is noticed before the next one.
+OnCalendar=daily
+RandomizedDelaySec=30m
+Persistent=true
+Unit=mcs21-reconcile.service
+
+[Install]
+WantedBy=timers.target
