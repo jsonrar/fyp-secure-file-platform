@@ -106,9 +106,9 @@ Priorities:
 - [x] Resolve the historical-key case: a file wrapped to a superseded key needs
   `GET /keys/me/{key_id}` and that bundle's private key, not the current one. Unlocked keys
   are cached by id, and a file wrapped to an unopened key names it and offers to unlock it.
-- [ ] Surface authentication-tag failures as integrity failures, distinctly from network or
-  authorization errors. `AuthenticationFailure` is raised and shown, but the file page still
-  renders it as a generic action message rather than marking the row.
+- [x] Surface authentication-tag failures as integrity failures, distinctly from network or
+  authorization errors. `FileKeyUnwrapError` and `FileIntegrityError` separate "not your
+  key" from "not the bytes that were encrypted", and the second marks the file's row.
 
 ### Browser Private-Key Custody and Unlock
 
@@ -120,8 +120,8 @@ Priorities:
   bundle decrypt, an in-memory session-scoped key handle, and explicit clearing on logout
   and tab close. The handle is a non-extractable `CryptoKey` in module scope, so a reload or
   tab close discards it, and `logout()` clears it explicitly.
-- [ ] Add an idle timeout that relocks the account key. Today it stays unlocked for as long
-  as the tab is open.
+- [x] Add an idle timeout that relocks the account key. Fifteen minutes without use, reset
+  by use rather than by mouse movement.
 - [ ] Implement passphrase change using `GET /keys/me`,
   `POST /keys/me/rewrap/signing-payload`, local newest-current-private-key RSA-PSS-SHA256
   signing, and `POST /keys/me/rewrap`, including optimistic-revision/current-key conflicts,

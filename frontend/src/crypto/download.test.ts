@@ -9,6 +9,13 @@ import {
 } from '@/utils/account-crypto'
 
 import { fromBase64, toBase64 } from './encoding'
+import {
+  FileIntegrityError,
+  FileKeyUnwrapError,
+  UNLOCK_IDLE_TIMEOUT_MS,
+  forgetUnlockedKeys,
+  isUnlocked,
+} from './download'
 import { buildUploadPayload, decryptFile, encryptFile, unwrapDek } from './file_envelope'
 import { AuthenticationFailure } from './primitives'
 
@@ -218,5 +225,34 @@ describe('the upload and download halves compose', () => {
     await expect(
       unwrapDek(strangerKey, fromBase64(payload.metadata.wrapped_file_key)),
     ).rejects.toBeInstanceOf(AuthenticationFailure)
+  })
+})
+
+
+describe('the two authentication failures are told apart', () => {
+  it('names a key that cannot open the wrapping separately from a content failure', () => {
+    // They mean different things and need different answers: one is "this file is not
+    // yours to open", the other is "these bytes are not the bytes that were encrypted".
+    // Collapsing both into one message is what made a tamper finding look like a network
+    // hiccup.
+    expect(new FileKeyUnwrapError()).toBeInstanceOf(Error)
+    expect(new FileIntegrityError('x')).toBeInstanceOf(Error)
+    expect(new FileKeyUnwrapError()).not.toBeInstanceOf(FileIntegrityError)
+    expect(new FileIntegrityError('x')).not.toBeInstanceOf(FileKeyUnwrapError)
+  })
+})
+
+describe('the unlocked key relocks itself', () => {
+  it('starts locked and clears on demand', () => {
+    forgetUnlockedKeys()
+    expect(isUnlocked()).toBe(false)
+  })
+
+  it('keeps the idle timeout short enough to matter on a shared machine', () => {
+    // A key that stays open for as long as the tab does is open indefinitely on an
+    // unattended machine. The exact figure is a judgement call; that it is bounded, and
+    // bounded in minutes rather than hours, is not.
+    expect(UNLOCK_IDLE_TIMEOUT_MS).toBeGreaterThan(60_000)
+    expect(UNLOCK_IDLE_TIMEOUT_MS).toBeLessThanOrEqual(30 * 60_000)
   })
 })

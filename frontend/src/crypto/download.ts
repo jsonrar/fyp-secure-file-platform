@@ -36,7 +36,43 @@ import { AuthenticationFailure } from './primitives'
  */
 const unlockedKeys = new Map<string, CryptoKey>()
 
+/**
+ * How long an unlocked key survives without being used.
+ *
+ * Without this the key stays open for as long as the tab does, which on a shared or
+ * unattended machine means "indefinitely". The clock is reset by *use* rather than by
+ * mouse movement: a key nobody has decrypted with for fifteen minutes should relock even
+ * if the person is still reading something else in the tab.
+ */
+export const UNLOCK_IDLE_TIMEOUT_MS = 15 * 60 * 1000
+
+let idleTimer: ReturnType<typeof setTimeout> | undefined
+const relockListeners = new Set<() => void>()
+
+/** Notified when the keys relock on their own, so a view can stop claiming to be unlocked. */
+export function onRelock(listener: () => void): () => void {
+  relockListeners.add(listener)
+  return () => relockListeners.delete(listener)
+}
+
+function clearIdleTimer(): void {
+  if (idleTimer !== undefined) {
+    clearTimeout(idleTimer)
+    idleTimer = undefined
+  }
+}
+
+function restartIdleTimer(): void {
+  clearIdleTimer()
+  idleTimer = setTimeout(() => {
+    if (unlockedKeys.size === 0) return
+    unlockedKeys.clear()
+    for (const listener of relockListeners) listener()
+  }, UNLOCK_IDLE_TIMEOUT_MS)
+}
+
 export function forgetUnlockedKeys(): void {
+  clearIdleTimer()
   unlockedKeys.clear()
 }
 
@@ -54,6 +90,7 @@ async function openBundle(
     private_key_bundle: bundle.private_key_bundle,
   } as SealedAccountKey
   unlockedKeys.set(sealed.key_id, await unlockAccountPrivateKey(sealed, passphrase))
+  restartIdleTimer()
   return sealed.key_id
 }
 
@@ -82,6 +119,35 @@ export class KeyNotUnlockedError extends Error {
     super(`This file is wrapped to account key ${keyId}, which is not unlocked`)
     this.name = 'KeyNotUnlockedError'
     this.keyId = keyId
+  }
+}
+
+/**
+ * The wrapped file key did not open with this account key.
+ *
+ * Distinct from a content failure: the ciphertext may be perfectly intact and simply
+ * wrapped to a key this account does not hold, which is what a revoked share or a
+ * mis-addressed wrapping looks like.
+ */
+export class FileKeyUnwrapError extends Error {
+  constructor() {
+    super('Your account key does not open this file\'s key')
+    this.name = 'FileKeyUnwrapError'
+  }
+}
+
+/**
+ * The ciphertext, or the metadata bound into its AAD, failed authentication.
+ *
+ * The AAD covers the filename, MIME type and size, so this also fires when the server
+ * serves a document under details it did not have at upload -- which is the point of
+ * binding them. Either way the bytes on offer are not the bytes that were encrypted, and
+ * that is an integrity finding rather than a network or authorization problem.
+ */
+export class FileIntegrityError extends Error {
+  constructor(message: string) {
+    super(message)
+    this.name = 'FileIntegrityError'
   }
 }
 
@@ -124,31 +190,50 @@ export async function downloadAndDecrypt(fileId: string): Promise<DecryptedFile>
   const response = await fileApi.download(fileId)
   const ciphertext = new Uint8Array(response.data as ArrayBuffer)
 
-  const dek = await unwrapDek(privateKey, fromBase64(envelope.wrapped_file_key))
-  const plaintext = await decryptFile({
-    identity: {
-      fileId: metadata.file_id,
-      originalFilename: metadata.original_filename,
-      plaintextSize: metadata.plaintext_size,
-      mimeType: metadata.mime_type ?? 'application/octet-stream',
-      envelopeVersion: envelope.envelope_version,
-      aadVersion: envelope.aad_version,
-      encryptionAlgorithm: envelope.encryption_algorithm,
-    },
-    dek,
-    nonce: fromBase64(envelope.nonce),
-    ciphertext,
-    authTag: fromBase64(envelope.auth_tag),
-  })
+  let dek: Uint8Array
+  try {
+    dek = await unwrapDek(privateKey, fromBase64(envelope.wrapped_file_key))
+  } catch (error) {
+    if (error instanceof AuthenticationFailure) throw new FileKeyUnwrapError()
+    throw error
+  }
+
+  let plaintext: Uint8Array
+  try {
+    plaintext = await decryptFile({
+      identity: {
+        fileId: metadata.file_id,
+        originalFilename: metadata.original_filename,
+        plaintextSize: metadata.plaintext_size,
+        mimeType: metadata.mime_type ?? 'application/octet-stream',
+        envelopeVersion: envelope.envelope_version,
+        aadVersion: envelope.aad_version,
+        encryptionAlgorithm: envelope.encryption_algorithm,
+      },
+      dek,
+      nonce: fromBase64(envelope.nonce),
+      ciphertext,
+      authTag: fromBase64(envelope.auth_tag),
+    })
+  } catch (error) {
+    if (error instanceof AuthenticationFailure) {
+      throw new FileIntegrityError(
+        'This file failed authentication: its ciphertext or the details it was encrypted ' +
+          'under have changed since upload.',
+      )
+    }
+    throw error
+  }
 
   // The AAD binds plaintext_size, so a mismatch here should be unreachable. Checking costs
   // nothing and turns a corrupted save into a refusal the user can act on.
   if (plaintext.length !== metadata.plaintext_size) {
-    throw new AuthenticationFailure(
+    throw new FileIntegrityError(
       `Decrypted ${plaintext.length} bytes but the envelope declares ${metadata.plaintext_size}`,
     )
   }
 
+  restartIdleTimer()
   return {
     filename: metadata.original_filename,
     mimeType: metadata.mime_type ?? 'application/octet-stream',
