@@ -1,10 +1,18 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, Filter, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
+import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, Filter, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
+import UnlockDialog from '@/components/UnlockDialog.vue'
+import {
+  downloadAndDecrypt,
+  isUnlocked,
+  KeyNotUnlockedError,
+  NotUnlockedError,
+  saveDecryptedFile,
+} from '@/crypto/download'
 
 interface EncryptedFile {
   id: string
@@ -32,6 +40,11 @@ const shareFileId = ref<string | null>(null)
 const actionMessage = ref('')
 const page = ref(1)
 const total = ref(0)
+const downloadingId = ref<string | null>(null)
+// Set while the passphrase dialog is open; holds the file to resume once unlocked.
+const pendingDownloadId = ref<string | null>(null)
+const unlockKeyId = ref<string | null>(null)
+const showUnlock = ref(false)
 
 const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   id: file.file_id,
@@ -132,14 +145,59 @@ const handleDelete = async (id: string) => {
   }
 }
 
+/**
+ * Download, decrypt in the page, and hand the plaintext to the browser.
+ *
+ * The account key has to be open first, so a locked session raises the passphrase dialog
+ * and remembers which file to resume. Nothing is written to disk until the AES-GCM tag has
+ * authenticated: a file that fails to decrypt is never saved half-formed.
+ */
 const handleDownload = async (id: string) => {
   actionMessage.value = ''
-  try {
-    await fileApi.download(id)
-    actionMessage.value = 'Download request sent'
-  } catch (error) {
-    actionMessage.value = error instanceof Error ? error.message : 'Download failed'
+  if (!isUnlocked()) {
+    pendingDownloadId.value = id
+    unlockKeyId.value = null
+    showUnlock.value = true
+    return
   }
+
+  downloadingId.value = id
+  try {
+    const file = await downloadAndDecrypt(id)
+    saveDecryptedFile(file)
+    actionMessage.value = `Decrypted and saved ${file.filename}`
+  } catch (error) {
+    if (error instanceof KeyNotUnlockedError) {
+      // Ordinary after a key rotation: the file is wrapped to an older account key.
+      pendingDownloadId.value = id
+      unlockKeyId.value = error.keyId
+      showUnlock.value = true
+      return
+    }
+    if (error instanceof NotUnlockedError) {
+      pendingDownloadId.value = id
+      unlockKeyId.value = null
+      showUnlock.value = true
+      return
+    }
+    actionMessage.value = error instanceof Error ? error.message : 'Download failed'
+  } finally {
+    downloadingId.value = null
+  }
+}
+
+const onUnlocked = async () => {
+  showUnlock.value = false
+  unlockKeyId.value = null
+  const resume = pendingDownloadId.value
+  pendingDownloadId.value = null
+  if (resume) await handleDownload(resume)
+}
+
+const closeUnlock = () => {
+  showUnlock.value = false
+  unlockKeyId.value = null
+  pendingDownloadId.value = null
 }
 
 const handleIntegrityCheck = async (id: string) => {
@@ -247,8 +305,14 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 </td>
                 <td class="text-right">
                   <div class="inline-flex gap-1">
-                    <button class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Download" @click="handleDownload(file.id)">
-                      <Download class="h-4 w-4" />
+                    <button
+                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
+                      :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
+                      :disabled="downloadingId !== null"
+                      @click="handleDownload(file.id)"
+                    >
+                      <Loader2 v-if="downloadingId === file.id" class="h-4 w-4 animate-spin" />
+                      <Download v-else class="h-4 w-4" />
                     </button>
                     <button class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
                       <Share2 class="h-4 w-4" />
@@ -288,5 +352,11 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
     </div>
 
     <ShareDialog v-if="shareFileId !== null" :file-id="shareFileId" @close="closeShare" />
+    <UnlockDialog
+      v-if="showUnlock"
+      :key-id="unlockKeyId"
+      @unlocked="onUnlocked"
+      @close="closeUnlock"
+    />
   </section>
 </template>

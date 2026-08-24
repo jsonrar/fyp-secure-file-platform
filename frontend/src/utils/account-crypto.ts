@@ -25,6 +25,7 @@ import {
   aesGcmDecryptDetached,
   aesGcmEncryptDetached,
   importAesGcmKey,
+  importRsaOaepPrivateKey,
   randomBytes,
   randomUuid,
   sha256Hex,
@@ -117,14 +118,38 @@ export function privateKeyAad(bundleId: string, keyId: string): Uint8Array {
   return utf8Bytes(`secureview:private-key:v1:${bundleId}:${keyId}`)
 }
 
-/** Argon2id KEK derivation. `hash-wasm` supplies what WebCrypto does not. */
-export async function deriveKek(passphrase: string, salt: Uint8Array): Promise<Uint8Array> {
+/** The Argon2id cost an account was enrolled with, as its protection profile records it. */
+export interface Argon2Cost {
+  memorySize: number
+  iterations: number
+  parallelism: number
+}
+
+export const DEFAULT_ARGON2_COST: Argon2Cost = {
+  memorySize: ARGON2_MEMORY_KIB,
+  iterations: ARGON2_ITERATIONS,
+  parallelism: ARGON2_PARALLELISM,
+}
+
+/**
+ * Argon2id KEK derivation. `hash-wasm` supplies what WebCrypto does not.
+ *
+ * The cost is a parameter rather than a constant because it is a per-account choice
+ * carried on the wire: raising it later must not lock out accounts enrolled under the old
+ * one. Deriving with today's constants against yesterday's profile produces a different
+ * key and reads as a wrong passphrase, which is the least debuggable failure available.
+ */
+export async function deriveKek(
+  passphrase: string,
+  salt: Uint8Array,
+  cost: Argon2Cost = DEFAULT_ARGON2_COST,
+): Promise<Uint8Array> {
   return argon2id({
     password: passphrase,
     salt,
-    parallelism: ARGON2_PARALLELISM,
-    iterations: ARGON2_ITERATIONS,
-    memorySize: ARGON2_MEMORY_KIB,
+    parallelism: cost.parallelism,
+    iterations: cost.iterations,
+    memorySize: cost.memorySize,
     hashLength: AES_KEY_BYTES,
     outputType: 'binary',
   })
@@ -235,35 +260,88 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
  * private key. Registering an envelope that cannot be reopened would lock the
  * account out of every file it later encrypts.
  */
-export async function assertEnvelopesUnlock(
-  keyMaterial: ClientKeyMaterial,
-  passphrase: string,
-  expectedPrivateKeyDer: Uint8Array,
-): Promise<void> {
-  const { protection, private_key_bundle: bundle } = keyMaterial
+/** Everything needed to reopen an account key, as `GET /keys/me` returns it. */
+export interface SealedAccountKey {
+  key_id: string
+  protection: KeyProtectionProfilePayload
+  private_key_bundle: EncryptedPrivateKeyBundlePayload
+}
 
-  const kek = await deriveKek(passphrase, fromBase64(protection.kdf_salt))
-  const recoveredAmk = await aesGcmDecryptDetached({
-    key: await importAesGcmKey(kek),
-    nonce: fromBase64(protection.amk_nonce),
-    ciphertext: fromBase64(protection.wrapped_amk),
-    authTag: fromBase64(protection.amk_auth_tag),
-    aad: amkWrapAad(protection.profile_id),
+export class PassphraseRejectedError extends Error {
+  constructor() {
+    super('That passphrase does not open your account key')
+    this.name = 'PassphraseRejectedError'
+  }
+}
+
+/**
+ * Reopen the account private key from the passphrase.
+ *
+ * Two AES-GCM envelopes in sequence: the passphrase derives a KEK that unwraps the account
+ * master key, and the AMK derives -- through HKDF, bound to the bundle's own AAD -- the key
+ * that decrypts the PKCS8 private key. Both are authenticated, so a wrong passphrase fails
+ * at the first tag rather than yielding plausible rubbish.
+ *
+ * The returned DER is the plaintext account private key. Callers that only need to decrypt
+ * should prefer {@link unlockAccountPrivateKey}, which hands back a non-extractable
+ * `CryptoKey` and never exposes the bytes.
+ */
+export async function unlockAccountPrivateKeyDer(
+  sealed: SealedAccountKey,
+  passphrase: string,
+): Promise<Uint8Array> {
+  const { protection, private_key_bundle: bundle } = sealed
+
+  const kek = await deriveKek(passphrase, fromBase64(protection.kdf_salt), {
+    memorySize: protection.kdf_memory_kib,
+    iterations: protection.kdf_iterations,
+    parallelism: protection.kdf_parallelism,
   })
 
-  const bundleAad = privateKeyAad(bundle.bundle_id, keyMaterial.key_id)
+  let amk: Uint8Array
+  try {
+    amk = await aesGcmDecryptDetached({
+      key: await importAesGcmKey(kek),
+      nonce: fromBase64(protection.amk_nonce),
+      ciphertext: fromBase64(protection.wrapped_amk),
+      authTag: fromBase64(protection.amk_auth_tag),
+      aad: amkWrapAad(protection.profile_id),
+    })
+  } catch {
+    // The only envelope the passphrase alone controls, so this is the honest place to
+    // say the passphrase was wrong. A failure further in means something else is broken.
+    throw new PassphraseRejectedError()
+  }
+
+  const bundleAad = privateKeyAad(bundle.bundle_id, sealed.key_id)
   const privateKeyKey = await derivePrivateKeyEncryptionKey(
-    recoveredAmk,
+    amk,
     fromBase64(bundle.derivation_salt),
     bundleAad,
   )
-  const recoveredDer = await aesGcmDecryptDetached({
+  return aesGcmDecryptDetached({
     key: await importAesGcmKey(privateKeyKey),
     nonce: fromBase64(bundle.nonce),
     ciphertext: fromBase64(bundle.encrypted_private_key),
     authTag: fromBase64(bundle.auth_tag),
     aad: bundleAad,
   })
+}
+
+/** Reopen the account key as a non-extractable `CryptoKey` that can only decrypt. */
+export async function unlockAccountPrivateKey(
+  sealed: SealedAccountKey,
+  passphrase: string,
+): Promise<CryptoKey> {
+  return importRsaOaepPrivateKey(await unlockAccountPrivateKeyDer(sealed, passphrase))
+}
+
+export async function assertEnvelopesUnlock(
+  keyMaterial: ClientKeyMaterial,
+  passphrase: string,
+  expectedPrivateKeyDer: Uint8Array,
+): Promise<void> {
+  const recoveredDer = await unlockAccountPrivateKeyDer(keyMaterial, passphrase)
 
   if (!bytesEqual(recoveredDer, expectedPrivateKeyDer)) {
     throw new AccountKeySelfTestError()
