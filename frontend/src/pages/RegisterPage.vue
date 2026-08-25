@@ -394,9 +394,24 @@ function downloadPrivateKey() {
         </div>
 
         <p class="text-sm text-muted-foreground mb-4">
-          Your account is ready. This private key is shown once and is not stored anywhere in
-          readable form on the server. Save it somewhere safe together with your encryption
-          passphrase.
+          Your account is ready. This is your account's RSA private key — the key your files
+          are encrypted to. It is shown once and is not stored anywhere in readable form on
+          the server.
+        </p>
+
+        <p class="text-sm text-muted-foreground mb-4">
+          <strong class="text-foreground">Save it.</strong> It is the only way back into your
+          files if you forget your encryption passphrase: the passphrase cannot be reset, and
+          neither the team nor the server holds anything that can open your files without one
+          of the two. The download is a plain text <code class="text-xs">.pem</code> file —
+          your computer may have no application associated with it, which is expected; any
+          text editor can open it.
+        </p>
+
+        <p class="text-sm text-muted-foreground mb-4">
+          Because it needs no passphrase, treat the file itself as the secret: anyone who
+          holds it can decrypt your files. Keep it somewhere you would keep a password, not in
+          your Downloads folder.
         </p>
 
         <textarea
@@ -421,7 +436,7 @@ function downloadPrivateKey() {
 
         <label class="flex items-start gap-2 mt-4 text-sm text-foreground">
           <input v-model="keyAcknowledged" type="checkbox" class="mt-1" />
-          <span>I have saved this private key. I understand it will not be shown again.</span>
+          <span>I have saved this private key somewhere safe. I understand it will not be shown again, and that without it a forgotten passphrase means losing access to my files.</span>
         </label>
 
         <RouterLink

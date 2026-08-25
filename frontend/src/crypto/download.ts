@@ -20,7 +20,15 @@ import {
 
 import { fromBase64 } from './encoding'
 import { decryptFile, unwrapDek } from './file_envelope'
-import { AuthenticationFailure } from './primitives'
+import {
+  AuthenticationFailure,
+  importRsaOaepPrivateKey,
+  importRsaOaepPublicKey,
+  privateKeyPemToDer,
+  randomBytes,
+  rsaOaepUnwrap,
+  rsaOaepWrap,
+} from './primitives'
 
 /**
  * Account keys, opened once and reused, keyed by the id they were opened for.
@@ -104,6 +112,64 @@ export async function unlockWithPassphrase(passphrase: string): Promise<void> {
 export async function unlockOwnedKey(keyId: string, passphrase: string): Promise<void> {
   const response = await keyApi.ownedBundle(keyId)
   await openBundle(response.data.data, passphrase)
+}
+
+/** The supplied private key file is well-formed but belongs to a different account key. */
+export class PrivateKeyMismatchError extends Error {
+  constructor() {
+    super('This private key file does not match your account key')
+    this.name = 'PrivateKeyMismatchError'
+  }
+}
+
+/**
+ * Prove the imported private key is the partner of the account's public key.
+ *
+ * `importKey` accepts any well-formed PKCS#8 RSA key, so without this the wrong file --
+ * a key from a different account, or from a different platform entirely -- would import
+ * cleanly and then fail much later as an unwrap error on a file, which reads like the file
+ * is damaged rather than like the wrong key was supplied.
+ *
+ * A random probe is wrapped to the public key and unwrapped with the candidate private key.
+ * The probe is discarded; only whether it survives the round trip matters.
+ */
+async function assertKeyPairMatches(privateKey: CryptoKey, publicKeyPem: string): Promise<void> {
+  const probe = randomBytes(32)
+  let recovered: Uint8Array
+  try {
+    const publicKey = await importRsaOaepPublicKey(publicKeyPem)
+    recovered = await rsaOaepUnwrap(privateKey, await rsaOaepWrap(publicKey, probe))
+  } catch {
+    throw new PrivateKeyMismatchError()
+  }
+  if (recovered.length !== probe.length || recovered.some((byte, i) => byte !== probe[i])) {
+    throw new PrivateKeyMismatchError()
+  }
+}
+
+/**
+ * Open an account key with the private key file saved at registration, not the passphrase.
+ *
+ * The registration page exports the plaintext PKCS#8 key once and tells the user to keep it
+ * safe, and until now nothing could read it back: every unlock path derived the key from the
+ * passphrase, so a forgotten passphrase meant every uploaded file was unreadable even though
+ * the user was holding the key that opens them. `docs/SECURITY_FLOWS.md` is explicit that the
+ * offline recovery workflow "cannot recover a forgotten encryption passphrase" -- this file is
+ * the only escape hatch that exists, and it needed a door.
+ *
+ * The passphrase is not involved and nothing is re-enrolled: this unlocks the current session
+ * only, exactly as `unlockWithPassphrase` does.
+ */
+export async function unlockWithPrivateKeyPem(pem: string, keyId?: string): Promise<string> {
+  const response = keyId ? await keyApi.ownedBundle(keyId) : await keyApi.myBundle()
+  const key = response.data.data.key
+
+  const privateKey = await importRsaOaepPrivateKey(privateKeyPemToDer(pem))
+  await assertKeyPairMatches(privateKey, key.public_key_pem)
+
+  unlockedKeys.set(key.key_id, privateKey)
+  restartIdleTimer()
+  return key.key_id
 }
 
 /**
