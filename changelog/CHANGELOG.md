@@ -18,6 +18,17 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Session lifetime / 会话有效期
+
+- The browser now renews an expiring session instead of failing the next click. The access token lasts 30 minutes and the refresh token 7 days, but the refresh token was discarded at login and never presented — so a tab left open for half an hour answered a bare authorization error to the next action, with nothing on screen saying the session had ended or that signing in again was the fix. A 401 now triggers one refresh and a retry of the request that failed, transparently.
+- 浏览器现在会自动续期即将过期的会话，而不是让下一次点击直接失败。Access token 有效期 30 分钟、refresh token 7 天，但 refresh token 在登录时就被丢弃、从未使用过——因此一个开着半小时的标签页会对下一步操作回一句光秃秃的鉴权错误，界面上既不说明会话已结束，也不提示重新登录即可解决。现在遇到 401 会先续期一次并重放失败的请求，整个过程对用户不可见。
+- Concurrent 401s share one refresh. The server rotates the refresh token on every call, so three requests failing together and each starting its own refresh would present an already-consumed token twice and turn a recoverable expiry into a forced logout. They now await the same promise.
+- 并发的 401 共用同一次续期。服务端每次续期都会轮换 refresh token，因此三个请求同时失败、各自发起续期的话，第二和第三次会提交已被消费的 token，把一次本可恢复的过期变成强制登出。现在它们等待同一个 promise。
+- When a session genuinely cannot be renewed, the tokens are cleared and the user is sent to the login page with an explanation and the page they were on, rather than left in a signed-in-looking shell where every request fails. Both tokens are cleared together through one module, so a logout cannot leave a usable refresh credential behind after the access token is gone.
+- 当会话确实无法续期时，会清除令牌并把用户送到登录页，附带说明和原本停留的页面，而不是把人留在一个"看起来已登录、但每个请求都失败"的界面里。两个令牌通过同一个模块一起清除，因此登出不会在 access token 已消失后仍留下一个可用的 refresh 凭证。
+- The account key's own 15-minute idle relock is unchanged: it is a separate mechanism, it only affects decryption, and it announces itself with the passphrase dialog. The confusing failure being fixed here was always the session, not the key.
+- 账户密钥自身的 15 分钟空闲重锁保持不变：那是另一套机制，只影响解密，并且会通过 passphrase 对话框明确告知用户。这里修复的那个令人困惑的失败自始至终都出在会话上，而不是密钥上。
+
 ### Navigation after signing in / 登录后的导航
 
 - Signing in now lands on a workspace page that offers a choice — upload, manage files, or access records — instead of dropping straight onto the encryption form. The old landing assumed every visit begins with an upload, which is only true the first time: someone signing in to share or download a file they uploaded last week arrived at a drag-and-drop box with no way onward, and the only route to their existing files was to upload a throwaway file first.

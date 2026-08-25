@@ -24,7 +24,7 @@ beforeEach(() => {
   localStorage.clear()
 })
 
-const signIn = () => useAuthStore().setToken('token-for-the-test')
+const signIn = () => useAuthStore().setSession('token-for-the-test', 'refresh-for-the-test')
 
 describe('authGuard', () => {
   it('lets a signed-in visitor through to a protected page', () => {
