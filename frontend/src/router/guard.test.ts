@@ -1,0 +1,68 @@
+import { createPinia, setActivePinia } from 'pinia'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
+import type { RouteLocationNormalized } from 'vue-router'
+
+import { useAuthStore } from '@/stores/auth_store'
+import { authGuard, HOME_AFTER_LOGIN, LOGIN_PATH } from './guard'
+
+// The auth store reads the token out of localStorage as it initialises, and this suite
+// runs in node. A map is enough: the guard only ever asks whether a token is present.
+const store = new Map<string, string>()
+vi.stubGlobal('localStorage', {
+  getItem: (key: string) => store.get(key) ?? null,
+  setItem: (key: string, value: string) => void store.set(key, value),
+  removeItem: (key: string) => void store.delete(key),
+  clear: () => store.clear(),
+})
+
+/** Only the three fields the guard reads. */
+const route = (path: string, meta: Record<string, unknown> = {}) =>
+  ({ path, fullPath: path, meta }) as unknown as RouteLocationNormalized
+
+beforeEach(() => {
+  setActivePinia(createPinia())
+  localStorage.clear()
+})
+
+const signIn = () => useAuthStore().setToken('token-for-the-test')
+
+describe('authGuard', () => {
+  it('lets a signed-in visitor through to a protected page', () => {
+    signIn()
+    expect(authGuard(route('/files', { requiresAuth: true }))).toBeUndefined()
+  })
+
+  it('leaves public pages alone either way', () => {
+    expect(authGuard(route('/education'))).toBeUndefined()
+    signIn()
+    expect(authGuard(route('/education'))).toBeUndefined()
+  })
+
+  it('sends a signed-out visitor to log in, remembering where they were going', () => {
+    // Without the query the visitor logs in and lands somewhere else entirely, having to
+    // find their way back to the page they clicked.
+    expect(authGuard(route('/files', { requiresAuth: true }))).toEqual({
+      path: LOGIN_PATH,
+      query: { redirect: '/files' },
+    })
+  })
+
+  it('does not strand a signed-in visitor on the login page', () => {
+    signIn()
+    expect(authGuard(route('/login', { guestOnly: true }))).toBe(HOME_AFTER_LOGIN)
+  })
+
+  it('lands a signed-in visitor on a page that offers a choice, not on the upload form', () => {
+    // The regression this replaces: signing in went straight to /upload, so someone who
+    // came back to share or download an earlier file was put in front of the encryption
+    // form instead, with no link onward to /files or /audit-logs.
+    signIn()
+    expect(authGuard(route('/login', { guestOnly: true }))).not.toBe('/upload')
+    expect(HOME_AFTER_LOGIN).toBe('/dashboard')
+  })
+
+  it('honours an explicit destination over the default landing page', () => {
+    const sent = authGuard(route('/audit-logs', { requiresAuth: true }))
+    expect(sent).toEqual({ path: LOGIN_PATH, query: { redirect: '/audit-logs' } })
+  })
+})

@@ -6,6 +6,7 @@ import { Lock } from 'lucide-vue-next'
 import { authApi } from '@/api/auth_api'
 import PasswordField from '@/components/PasswordField.vue'
 import { useAuthStore } from '@/stores/auth_store'
+import { HOME_AFTER_LOGIN } from '@/router/guard'
 
 const username = ref('')
 const password = ref('')
@@ -26,7 +27,7 @@ async function login() {
       throw new Error('Login response did not contain an access token')
     }
     auth.setToken(token)
-    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : '/upload'
+    const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : HOME_AFTER_LOGIN
     router.push(redirect)
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Login failed'
