@@ -18,6 +18,15 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Navigation after signing in / 登录后的导航
+
+- Signing in now lands on a workspace page that offers a choice — upload, manage files, or access records — instead of dropping straight onto the encryption form. The old landing assumed every visit begins with an upload, which is only true the first time: someone signing in to share or download a file they uploaded last week arrived at a drag-and-drop box with no way onward, and the only route to their existing files was to upload a throwaway file first.
+- 登录后现在进入一个提供选择的工作台页面——上传、管理文件、访问记录——而不是直接落到加密表单上。旧的落地页假设每次访问都从上传开始，而这只在第一次成立：想要分享或下载上周上传的文件的用户，登录后面对的是一个拖拽上传框，无法继续往下走，要进入已有文件列表唯一的办法竟是先上传一个无用的文件。
+- Gave `/files` and `/audit-logs` an entry point. Both pages had existed since earlier work, but nothing in the header linked to them and the "Dashboard" button pointed at `/upload`, so they were reachable only by typing the URL. Downloading, sharing, integrity-checking, and deleting were all implemented and all invisible — which is why the download feature was reported as not working when the code for it was in fact deployed and functioning. The header now shows Upload, My Files, and Access Records once signed in, and keeps the single marketing "Product" link for signed-out visitors.
+- 已为 `/files` 与 `/audit-logs` 补上入口。这两个页面在此前的工作中就已存在，但页头没有任何链接指向它们，且"Dashboard"按钮指向 `/upload`，因此只能靠手动输入 URL 抵达。下载、分享、完整性校验与删除全部已实现，却全部不可见——这正是下载功能被报告为"用不了"的原因，而实际上相关代码已经部署且工作正常。页头现在在登录后显示 Upload、My Files、Access Records，对未登录访客则保留单一的营销入口"Product"。
+- Moved the route guard into `frontend/src/router/guard.ts` so the redirect targets can be tested without a DOM, and gave the landing route a single named constant shared by the guard and the login page. The two had been separate string literals that had to agree; they now cannot drift apart.
+- 已将路由守卫移入 `frontend/src/router/guard.ts`，使跳转目标可以在无 DOM 的环境下测试，并为落地路由引入由守卫与登录页共用的具名常量。此前两处是各自独立、必须保持一致的字符串字面量，现在不会再各自漂移。
+
 ### Password policy and registration form / 密码策略与注册表单
 
 - Lowered the login-password minimum from 15 characters to 8, and paid for the difference with composition: a password must now draw on at least 2 of uppercase letters, lowercase letters, numbers, and symbols. Fifteen characters with no other rule was the worst of both trades — long enough to push people toward reuse or a sticky note, but still satisfied by `aaaaaaaaaaaaaaa`. Characters are bucketed by Unicode general category, so a non-Latin password is judged by the same rule rather than failing for being non-ASCII. Existing accounts are unaffected: the login and change-password endpoints still accept any password an older policy could have produced.

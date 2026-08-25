@@ -20,11 +20,25 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-const navLinks = [
+// Signed out, "Product" is the marketing entry into the encryption page. Signed in, the
+// three authenticated pages get their own links: /files and /audit-logs existed but were
+// reachable only by typing the URL, so managing or sharing an already-uploaded file had
+// no entry point at all.
+const guestLinks = [
   { to: '/upload', label: 'Product', match: ['/upload', '/files', '/audit-logs'] },
   { to: '/education', label: 'Education', match: ['/education'] },
   { to: '/team', label: 'Development Team', match: ['/team'] },
 ]
+
+const authedLinks = [
+  { to: '/upload', label: 'Upload', match: ['/upload'] },
+  { to: '/files', label: 'My Files', match: ['/files'] },
+  { to: '/audit-logs', label: 'Access Records', match: ['/audit-logs'] },
+  { to: '/education', label: 'Education', match: ['/education'] },
+  { to: '/team', label: 'Development Team', match: ['/team'] },
+]
+
+const navLinks = computed(() => (auth.isAuthed ? authedLinks : guestLinks))
 
 const isActive = (match: string[]) => match.some((path) => route.path.startsWith(path))
 
@@ -49,7 +63,7 @@ function handleLogout() {
           <span class="text-xl font-semibold text-foreground">SecureView</span>
         </RouterLink>
 
-        <nav class="hidden md:flex items-center gap-8">
+        <nav class="hidden md:flex items-center gap-6">
           <RouterLink
             v-for="link in navLinks"
             :key="link.to"
@@ -84,7 +98,7 @@ function handleLogout() {
           <!-- Log out page -->
           <template v-else>
             <RouterLink
-              to="/upload"
+              to="/dashboard"
               class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center"
             >
               Dashboard
@@ -148,7 +162,7 @@ function handleLogout() {
           <!-- Log out page -->
           <template v-else>
             <RouterLink
-              to="/upload"
+              to="/dashboard"
               class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
               @click="emit('close-mobile-menu')"
             >
