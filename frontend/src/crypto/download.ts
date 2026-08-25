@@ -88,6 +88,19 @@ export function isUnlocked(): boolean {
   return unlockedKeys.size > 0
 }
 
+/**
+ * The opened key for `keyId`, if this session holds it.
+ *
+ * Exported for the sharing rewrap, which needs the same key the download path uses and must
+ * not keep its own copy. Handing the key out counts as use, so the idle clock is reset here
+ * for the same reason `downloadAndDecrypt` resets it.
+ */
+export function unlockedKeyFor(keyId: string): CryptoKey | undefined {
+  const key = unlockedKeys.get(keyId)
+  if (key !== undefined) restartIdleTimer()
+  return key
+}
+
 async function openBundle(
   bundle: { key: { key_id: string }; protection: unknown; private_key_bundle: unknown },
   passphrase: string,

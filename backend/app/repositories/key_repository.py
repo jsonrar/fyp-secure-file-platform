@@ -77,6 +77,31 @@ class KeyRepository:
         ).one_or_none()
         return None if row is None else row._tuple()
 
+    def get_active_public_key_by_username(
+        self,
+        username: str,
+    ) -> tuple[User, UserKey] | None:
+        """The same row as `get_active_public_key_by_user_uuid`, addressed by username.
+
+        Sharing needs this: a sender knows who they mean by name, but the share contract is
+        expressed in `target_user_id` and `target_key_id`. Matching is exact -- no prefix or
+        substring search -- so this resolves a recipient the sender already knows and does
+        not double as a directory to browse.
+        """
+        row = self.db.execute(
+            select(User, UserKey)
+            .join(UserKey, UserKey.user_id == User.id)
+            .where(
+                User.username == username,
+                User.status == UserStatus.ACTIVE,
+                UserKey.status == "ACTIVE",
+            )
+            .order_by(UserKey.created_at.desc(), UserKey.id.desc())
+            .limit(1)
+            .execution_options(populate_existing=True)
+        ).one_or_none()
+        return None if row is None else row._tuple()
+
     def lock_protection_profile(self, user_id: int) -> UserKeyProtectionProfile | None:
         return self.db.scalar(
             select(UserKeyProtectionProfile)

@@ -236,3 +236,31 @@ def active_user_key(
         data=_public_key(user, key),
         headers=AUTH_NO_STORE_HEADERS,
     )
+
+
+@router.get(
+    "/users/by-username/{username}/active",
+    response_model=ApiSuccessResponse[PublicEncryptionKeyOut],
+)
+def active_user_key_by_username(
+    username: str,
+    _actor: ActorDependency,
+    service: KeyServiceDependency,
+) -> JSONResponse:
+    """Resolve a share recipient by the name the sender knows them by.
+
+    The share contract is expressed in `target_user_id` and `target_key_id`, but a sender
+    knows a colleague's username, not their UUID -- so sharing could not be completed from
+    the browser at all. Registered under `by-username` rather than as a second shape of
+    `/users/{user_id}/active` so a username that happens to parse as a UUID cannot be
+    routed as one.
+
+    Exact match only, and authenticated: this resolves someone the sender already knows,
+    and is deliberately not a directory that can be searched or listed.
+    """
+    user, key = service.get_active_public_key_by_username(username=username)
+    return ok(
+        message="Active public key retrieved",
+        data=_public_key(user, key),
+        headers=AUTH_NO_STORE_HEADERS,
+    )

@@ -112,6 +112,7 @@ AMK 信封的材料，该项丢失在设计上即不可恢复。
 | POST | `/keys/add/signing-payload` | Bearer | 构建必须由当前客户端密钥授权的规范摘要 |
 | POST | `/keys/add` | Bearer | 使用当前密钥的 RSA-PSS-SHA256 授权添加后继公钥/加密私钥 |
 | GET | `/keys/users/{user_id}/active` | Bearer | 只返回用户用于共享的活跃加密公钥 |
+| GET | `/keys/users/by-username/{username}/active` | Bearer | 同一把密钥，改用用户名寻址，便于发送方按已知的名字解析共享接收人。仅精确匹配，不作为可搜索的用户目录 |
 
 保护配置重包装采用两次调用的持有证明流程。客户端在本地解开 AMK 和最新当前私钥，准备
 `authorizing_key_id`、`expected_revision` 及完整拟议保护配置，把这些未签名字段提交至

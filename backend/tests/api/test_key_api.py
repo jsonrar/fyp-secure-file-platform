@@ -14,6 +14,7 @@ from app.api.dependencies import get_current_actor, get_key_service
 from app.core.config import Settings
 from app.domain.auth import ActorContext
 from app.domain.enums import SystemRole, UserStatus
+from app.domain.errors import UserKeyNotFoundError
 from app.main import create_app
 
 NOW = datetime(2026, 8, 12, 12, 0, tzinfo=UTC)
@@ -21,6 +22,8 @@ USER_ID = UUID("11111111-1111-4111-8111-111111111111")
 KEY_ID = UUID("22222222-2222-4222-8222-222222222222")
 PROFILE_ID = UUID("33333333-3333-4333-8333-333333333333")
 BUNDLE_ID = UUID("44444444-4444-4444-8444-444444444444")
+RECIPIENT_ID = UUID("66666666-6666-4666-8666-666666666666")
+RECIPIENT_KEY_ID = UUID("77777777-7777-4777-8777-777777777777")
 
 
 def _actor() -> ActorContext:
@@ -86,6 +89,22 @@ class FakeKeyService:
                 ciphertext_sha256=hashlib.sha256(ciphertext).hexdigest(),
                 revision=1,
                 updated_at=NOW.replace(tzinfo=None),
+            ),
+        )
+
+    def get_active_public_key_by_username(self, *, username: str):
+        self.calls.append(("get_active_public_key_by_username", {"username": username}))
+        if username != "recipient":
+            raise UserKeyNotFoundError()
+        return (
+            SimpleNamespace(user_uuid=str(RECIPIENT_ID)),
+            SimpleNamespace(
+                key_uuid=str(RECIPIENT_KEY_ID),
+                algorithm="RSA-OAEP-SHA256",
+                key_size_bits=3072,
+                public_key_pem="-----BEGIN PUBLIC KEY-----\nrecipient\n-----END PUBLIC KEY-----\n",
+                fingerprint="e" * 64,
+                created_at=NOW.replace(tzinfo=None),
             ),
         )
 
@@ -269,3 +288,35 @@ def test_rewrap_openapi_requires_signature_and_exposes_no_secret_input(
     assert schema["paths"]["/api/v1/keys/me/rewrap/signing-payload"]["post"]["security"] == [
         {"HTTPBearer": []}
     ]
+
+
+def test_resolves_a_share_recipient_by_username(key_api) -> None:
+    client, service = key_api
+
+    response = client.get("/api/v1/keys/users/by-username/recipient/active")
+
+    assert response.status_code == 200
+    data = response.json()["data"]
+    # Sharing needs all three: the contract is expressed in ids, the rewrap needs the PEM.
+    assert data["user_id"] == str(RECIPIENT_ID)
+    assert data["key_id"] == str(RECIPIENT_KEY_ID)
+    assert data["public_key_pem"].startswith("-----BEGIN PUBLIC KEY-----")
+    assert ("get_active_public_key_by_username", {"username": "recipient"}) in service.calls
+
+
+def test_an_unknown_recipient_is_not_found(key_api) -> None:
+    client, _ = key_api
+
+    response = client.get("/api/v1/keys/users/by-username/nobody/active")
+
+    assert response.status_code == 404
+
+
+def test_the_username_route_does_not_shadow_the_user_id_route(key_api) -> None:
+    # "by-username" sits one segment deeper than /users/{user_id}/active, so the two cannot
+    # collide -- including for a username that happens to parse as a UUID.
+    client, service = key_api
+
+    client.get(f"/api/v1/keys/users/by-username/{RECIPIENT_ID}/active")
+
+    assert ("get_active_public_key_by_username", {"username": str(RECIPIENT_ID)}) in service.calls
