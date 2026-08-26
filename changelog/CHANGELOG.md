@@ -18,6 +18,21 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### The audit page reads the API it actually has / 审计页改用真实的接口契约
+
+- The records page had been reading fields the API has never sent. `AuditLogOut` in the browser declared `log_id`, `file_id`, `actor_username`, `device` and `location`; the server sends `action`, `resource_type`, `resource_id`, `actor_user_id`, `target_user_id`, `result`, `description`, `metadata`, `created_at`. Every one of the invented fields was optional, so type checking was satisfied and the page silently read `undefined` for all of them: every row collapsed into one nameless group, every actor rendered as "Unknown user", and the device and location columns were permanently "Unknown". The audit trail was on screen and told the reader nothing. The type now mirrors the server exactly.
+- 访问记录页此前一直在读取接口从未发送过的字段。浏览器侧的 `AuditLogOut` 声明了 `log_id`、`file_id`、`actor_username`、`device`、`location`；而服务端发送的是 `action`、`resource_type`、`resource_id`、`actor_user_id`、`target_user_id`、`result`、`description`、`metadata`、`created_at`。那些凭空捏造的字段全都是可选的，因此类型检查毫无怨言，页面则默默地把它们全部读成 `undefined`：所有记录塌缩进同一个无名分组，所有操作者都显示为"Unknown user"，设备与位置两列则永远是"Unknown"。审计记录就摆在屏幕上，却什么也没告诉读者。现在该类型与服务端逐字段对齐。
+- This also means the filename lookup added in the previous entry never fired: it read `file_id` on every row, got `undefined`, and resolved nothing. A row's subject is `resource_type` plus `resource_id`, and that is what the grouping uses now — with `SHARE` rows filed under the file they are about, since a share belongs in that file's history.
+- 这同时意味着上一条记录里新增的文件名查询从未真正生效：它在每一行上读取 `file_id`，得到 `undefined`，因而什么也没解析出来。一条记录的主体是 `resource_type` 加 `resource_id`，现在的分组正是依此进行——并且 `SHARE` 记录会归入它所涉及的那个文件，因为一次共享属于该文件的历史。
+- Account-level events — signing in, changing a password, closing an account — belong to no file and now appear under their own "Account activity" heading instead of being grouped beneath a file id they never had. They also carry proper labels rather than falling to the title-case fallback: "Signed in", not "Auth login succeeded".
+- 账户级事件——登录、修改密码、注销账户——不属于任何文件，现在归入独立的「Account activity」标题下，而不再被塞进一个它们从来没有的文件 id 之下。它们同样获得了正式的标签，而不是退化到首字母大写的兜底格式："Signed in"，而不是"Auth login succeeded"。
+- `AuditLogOut` gained `actor_username` and `target_username`. Both `User` rows are already joined and in hand in the router, so this costs no extra query — and without them the page can only say "someone did this", which is the one thing an audit trail must not say. A share now reads "Shared with junyan".
+- `AuditLogOut` 新增了 `actor_username` 与 `target_username`。两个 `User` 行本来就已经在路由里 join 好并持有，因此这不产生任何额外查询——而缺了它们，页面只能说"有人做了这件事"，这恰恰是审计记录最不该说的话。一次共享现在会显示成 "Shared with junyan"。
+- Each entry now shows what the action was, who did it, when, and whatever that action has worth adding — the size uploaded, the person shared with, the reason a download was refused — with failures marked. The two permanently-"Unknown" columns are gone rather than left as furniture.
+- 每条记录现在显示操作是什么、谁做的、什么时候、以及该操作值得补充的信息——上传的大小、分享给了谁、下载被拒绝的原因——失败的记录会被标出。那两列永远是"Unknown"的内容被删掉了，而不是留作摆设。
+- The hash-chain line no longer shows a permission refusal as a finding. `POST /audit-logs/verify-chain` is ADMIN only and recomputes every hash in the table, so restricting it is right — but the page called it for everyone and printed the 403 as red text, so an ordinary user opening their own history was met with what looked like a broken audit log. Not being allowed to run the check now hides the line; a genuine `INVALID` result is called out prominently, because it is the single most important thing this page can say.
+- 哈希链那一行不再把权限拒绝当成检查结论来显示。`POST /audit-logs/verify-chain` 仅限 ADMIN 且会重算整张表的哈希，因此限制它是正确的——但页面对所有人都调用了它，并把 403 当作红色错误文本打印出来，于是普通用户打开自己的历史记录时，看到的像是一个坏掉的审计日志。现在无权执行检查会直接隐藏该行；而真正的 `INVALID` 结果会被醒目地标示出来，因为那是这个页面能说出的最重要的一句话。
+
 ### Filenames in the audit log / 审计日志中的文件名
 
 - The records page now shows what each file is called instead of `File #<uuid>`. `GET /audit-logs` returns `file_id` and no filename, and the agreed resolution was for the browser to look it up rather than widen the audit response.

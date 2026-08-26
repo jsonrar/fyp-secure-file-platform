@@ -1,29 +1,34 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Activity, Clock, Download, Eye, FileIcon, RefreshCw, User } from 'lucide-vue-next'
+import { Activity, AlertTriangle, Clock, Download, Eye, FileIcon, RefreshCw, User } from 'lucide-vue-next'
 import { auditApi } from '@/api/audit_api'
-import { unwrapData, type AuditLogOut } from '@/api/types'
-import { auditActionLabel, isDownloadAction } from '@/utils/audit-actions'
+import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
+import { auditActionLabel, auditSubjectFileId, isDownloadAction } from '@/utils/audit-actions'
 import { fallbackFileLabel, resolveFileNames } from '@/utils/file-names'
 
-interface AccessUser {
+interface AccessEvent {
   id: string
-  name: string
+  /** Who did it. The API sends the username; only an admin ever sees anyone else's. */
+  actor: string
   accessTime: string
-  /** Human label, e.g. "Downloaded". The raw enum is kept separately for counting. */
+  /** Human label, e.g. "Downloaded". */
   action: string
   isDownload: boolean
-  device: string
-  location: string
+  /** SUCCESS, or the failure this row records. */
+  succeeded: boolean
+  /** "Shared with junyan", the size uploaded -- whatever this action has worth saying. */
+  detail: string
 }
 
 interface AuditGroup {
   id: string
   name: string
+  /** Account-level rows (sign-in, key changes) belong to no file and say so. */
+  isAccount: boolean
   sharedAt: string
   totalViews: number
   totalDownloads: number
-  accessHistory: AccessUser[]
+  accessHistory: AccessEvent[]
 }
 
 interface StatCard {
@@ -38,48 +43,77 @@ const logs = ref<AuditLogOut[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const expanded = ref<string[]>([])
-const chainStatus = ref('')
+const chainState = ref<'unknown' | 'valid' | 'invalid' | 'unavailable'>('unknown')
+const chainCheckedEntries = ref(0)
 const fileNames = ref<Map<string, string>>(new Map())
 
-const mapLogToUser = (log: AuditLogOut, index: number): AccessUser => ({
-  id: String(log.log_id ?? index),
-  name: log.actor_username ?? 'Unknown user',
-  accessTime: log.created_at ?? '-',
+const ACCOUNT_GROUP = 'account'
+
+/** Same locale rendering the file list uses, so timestamps read alike across the app. */
+const formatTimestamp = (value: string | null | undefined): string => {
+  if (!value) return '-'
+  const parsed = new Date(value)
+  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+}
+
+/** Whatever this particular action has worth saying beyond its name. */
+const detailOf = (log: AuditLogOut): string => {
+  if (log.target_username) return `with ${log.target_username}`
+  if (log.description) return log.description
+  const size = log.metadata?.ciphertext_size
+  return typeof size === 'number' ? formatFileSize(size) : ''
+}
+
+const mapLogToEvent = (log: AuditLogOut, index: number): AccessEvent => ({
+  id: `${log.created_at}-${log.action}-${index}`,
+  actor: log.actor_username ?? 'A deleted account',
+  accessTime: formatTimestamp(log.created_at),
   action: auditActionLabel(log.action),
   isDownload: isDownloadAction(log.action),
-  device: log.device ?? 'Unknown device',
-  location: log.location ?? 'Unknown',
+  succeeded: log.result === 'SUCCESS',
+  detail: detailOf(log),
 })
 
 const groups = computed<AuditGroup[]>(() => {
   const grouped = new Map<string, AuditGroup>()
   for (const [index, log] of logs.value.entries()) {
-    const fileId = String(log.file_id ?? 'unknown')
-    const existing = grouped.get(fileId)
-    const user = mapLogToUser(log, index)
+    // Signing in, changing a passphrase and closing an account are about the account, not
+    // about any file. They used to fall into a single group labelled with a file id they
+    // never had; they get their own heading now.
+    const fileId = auditSubjectFileId(log)
+    const key = fileId ?? ACCOUNT_GROUP
+    const event = mapLogToEvent(log, index)
+    const existing = grouped.get(key)
     if (existing) {
-      existing.accessHistory.push(user)
-      if (user.isDownload) existing.totalDownloads += 1
+      existing.accessHistory.push(event)
+      if (event.isDownload) existing.totalDownloads += 1
       else existing.totalViews += 1
     } else {
-      grouped.set(fileId, {
-        id: fileId,
-        name: fileNames.value.get(fileId) ?? fallbackFileLabel(fileId),
-        sharedAt: log.created_at ?? '-',
-        totalViews: user.isDownload ? 0 : 1,
-        totalDownloads: user.isDownload ? 1 : 0,
-        accessHistory: [user],
+      grouped.set(key, {
+        id: key,
+        name: fileId
+          ? (fileNames.value.get(fileId) ?? fallbackFileLabel(fileId))
+          : 'Account activity',
+        isAccount: fileId === null,
+        sharedAt: formatTimestamp(log.created_at),
+        totalViews: event.isDownload ? 0 : 1,
+        totalDownloads: event.isDownload ? 1 : 0,
+        accessHistory: [event],
       })
     }
   }
-  return Array.from(grouped.values())
+  // Files first; the account group is context, not the subject of the page.
+  return Array.from(grouped.values()).sort(
+    (a, b) => Number(a.isAccount) - Number(b.isAccount),
+  )
 })
 
 const stats = computed(() => ({
-  totalFiles: groups.value.length,
+  totalFiles: groups.value.filter((group) => !group.isAccount).length,
   totalViews: groups.value.reduce((sum, f) => sum + f.totalViews, 0),
   totalDownloads: groups.value.reduce((sum, f) => sum + f.totalDownloads, 0),
-  uniqueUsers: new Set(groups.value.flatMap((f) => f.accessHistory.map((u) => u.id))).size,
+  // Was counting row ids, so it only ever restated the number of log entries.
+  uniqueUsers: new Set(groups.value.flatMap((f) => f.accessHistory.map((u) => u.actor))).size,
 }))
 
 const statCards: StatCard[] = [
@@ -100,7 +134,9 @@ const loadLogs = async () => {
     // The audit response carries file_id and no filename, so the names are resolved here.
     // Deliberately after the rows are on screen and not awaited into the loading state: the
     // history is readable without them, and a slow lookup should not hold it back.
-    const ids = logs.value.map((log) => String(log.file_id ?? 'unknown'))
+    const ids = logs.value
+      .map(auditSubjectFileId)
+      .filter((id): id is string => id !== null)
     resolveFileNames(ids)
       .then((names) => {
         fileNames.value = names
@@ -115,13 +151,25 @@ const loadLogs = async () => {
   }
 }
 
+/**
+ * Verify the tamper-evident chain, when the caller is allowed to.
+ *
+ * `POST /audit-logs/verify-chain` is ADMIN-only and recomputes every hash in the table, so
+ * restricting it is right. The page called it for everyone and printed the refusal as red
+ * text, which meant an ordinary user opening their own history was met with what looked like
+ * a broken audit log. Not being permitted to run the check is not a finding: the line is
+ * hidden instead.
+ *
+ * An actual INVALID result is the opposite -- it is the single most important thing this
+ * page can say -- so it is kept distinct from both.
+ */
 const verifyChain = async () => {
   try {
-    const res = await auditApi.verifyChain()
-    const data = unwrapData(res)
-    chainStatus.value = data.status ?? 'UNKNOWN'
-  } catch (error) {
-    chainStatus.value = error instanceof Error ? error.message : 'Verification failed'
+    const data = unwrapData(await auditApi.verifyChain())
+    chainState.value = data.valid ? 'valid' : 'invalid'
+    chainCheckedEntries.value = data.checked_entries ?? 0
+  } catch {
+    chainState.value = 'unavailable'
   }
 }
 
@@ -150,7 +198,16 @@ const toggle = (id: string) => {
           <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
           Refresh
         </button>
-        <span v-if="chainStatus" class="text-sm text-muted-foreground">Hash chain: {{ chainStatus }}</span>
+        <span v-if="chainState === 'valid'" class="text-sm text-muted-foreground">
+          Hash chain verified · {{ chainCheckedEntries }} entries
+        </span>
+        <span
+          v-else-if="chainState === 'invalid'"
+          class="text-sm font-medium text-destructive inline-flex items-center gap-1"
+        >
+          <AlertTriangle class="h-4 w-4" />
+          Hash chain broken — this log has been altered
+        </span>
       </div>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-4xl mx-auto">
@@ -182,7 +239,10 @@ const toggle = (id: string) => {
           <button class="w-full p-4 text-left hover:bg-secondary/40 transition-colors" @click="toggle(file.id)">
             <div class="flex items-center justify-between gap-4">
               <div class="flex items-center gap-4">
-                <div class="p-3 rounded-lg bg-secondary"><FileIcon class="h-5 w-5 text-primary" /></div>
+                <div class="p-3 rounded-lg bg-secondary">
+                  <User v-if="file.isAccount" class="h-5 w-5 text-primary" />
+                  <FileIcon v-else class="h-5 w-5 text-primary" />
+                </div>
                 <div>
                   <h3 class="text-base text-foreground">{{ file.name }}</h3>
                   <p class="text-sm text-muted-foreground flex items-center gap-2 mt-1"><Clock class="h-3 w-3" /> Last activity {{ file.sharedAt }}</p>
@@ -198,15 +258,28 @@ const toggle = (id: string) => {
           <div v-if="expanded.includes(file.id)" class="border-t border-border p-4">
             <div class="flex items-center gap-2 text-sm text-muted-foreground mb-4"><Activity class="h-4 w-4" /><span>Recent Access History</span></div>
             <div class="space-y-3">
-              <div v-for="user in file.accessHistory" :key="user.id" class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                <div>
-                  <p class="text-sm font-medium text-foreground">{{ user.name }}</p>
-                  <p class="text-xs text-muted-foreground">{{ user.accessTime }} · {{ user.action }}</p>
+              <div
+                v-for="event in file.accessHistory"
+                :key="event.id"
+                class="flex items-start justify-between gap-4 p-3 rounded-lg bg-secondary/50"
+              >
+                <div class="min-w-0">
+                  <p class="text-sm font-medium text-foreground">
+                    {{ event.action }}
+                    <span v-if="event.detail" class="font-normal text-muted-foreground">
+                      {{ event.detail }}
+                    </span>
+                  </p>
+                  <p class="text-xs text-muted-foreground mt-0.5">
+                    {{ event.actor }} · {{ event.accessTime }}
+                  </p>
                 </div>
-                <div class="text-right">
-                  <p class="text-xs text-muted-foreground">{{ user.device }}</p>
-                  <p class="text-xs text-muted-foreground">{{ user.location }}</p>
-                </div>
+                <span
+                  v-if="!event.succeeded"
+                  class="shrink-0 text-xs px-2 py-0.5 rounded-md bg-destructive/10 text-destructive"
+                >
+                  Failed
+                </span>
               </div>
             </div>
           </div>
