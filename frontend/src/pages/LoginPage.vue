@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
 import { Lock } from 'lucide-vue-next'
@@ -17,6 +17,10 @@ const auth = useAuthStore()
 const router = useRouter()
 const route = useRoute()
 
+// Set by the refresh interceptor when a session could not be renewed. Saying so is the
+// difference between "I was signed out" and "this app is broken".
+const sessionExpired = computed(() => route.query.expired === '1')
+
 async function login() {
   isSubmitting.value = true
   errorMessage.value = ''
@@ -26,7 +30,8 @@ async function login() {
     if (!token) {
       throw new Error('Login response did not contain an access token')
     }
-    auth.setToken(token)
+    // The refresh token is what keeps the session alive past the access token's 30 minutes.
+    auth.setSession(token, res.data?.data?.refresh_token ?? '')
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : HOME_AFTER_LOGIN
     router.push(redirect)
   } catch (error) {
@@ -46,6 +51,14 @@ async function login() {
         </div>
         <h1 class="text-2xl font-bold text-foreground">Sign In</h1>
       </div>
+
+      <p
+        v-if="sessionExpired"
+        class="text-sm rounded-md border border-border bg-secondary/60 text-foreground px-3 py-2 mb-4"
+      >
+        Your session expired after a period of inactivity. Sign in again to pick up where you
+        left off.
+      </p>
 
       <form @submit.prevent="login">
         <label class="text-sm text-foreground mb-2 block">

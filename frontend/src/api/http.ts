@@ -1,4 +1,12 @@
-import axios from 'axios'
+import axios, { type AxiosRequestConfig } from 'axios'
+
+import {
+  clearSession,
+  notifySessionExpired,
+  readAccessToken,
+  readRefreshToken,
+  writeSession,
+} from './session'
 
 export const http = axios.create({
   baseURL: import.meta.env.VITE_API_BASE_URL || 'http://localhost:8000/api/v1',
@@ -49,9 +57,90 @@ export function apiErrorMessage(error: unknown, fallback = 'Request failed'): st
 }
 
 http.interceptors.request.use((config) => {
-  const token = localStorage.getItem('access_token')
+  const token = readAccessToken()
   if (token) {
     config.headers.Authorization = `Bearer ${token}`
   }
   return config
 })
+
+/** Set once a request has been retried, so a second 401 cannot loop. */
+interface RetriableConfig extends AxiosRequestConfig {
+  _retriedAfterRefresh?: boolean
+}
+
+const REFRESH_PATH = '/auth/refresh'
+
+/**
+ * One refresh at a time.
+ *
+ * A page that fires three requests at once gets three 401s at once. Without this, each
+ * would start its own refresh, and since the server rotates the refresh token on every
+ * call, the second and third would present a token the first had already consumed --
+ * turning one recoverable expiry into a forced logout. They now await the same promise.
+ */
+let inFlightRefresh: Promise<boolean> | undefined
+
+async function refreshSession(): Promise<boolean> {
+  const refreshToken = readRefreshToken()
+  if (!refreshToken) return false
+
+  try {
+    // A bare axios call, not `http`: the interceptors below must not see this response, or
+    // a failed refresh would recurse into itself.
+    const response = await axios.post(`${http.defaults.baseURL}${REFRESH_PATH}`, {
+      refresh_token: refreshToken,
+    })
+    const data = response.data?.data
+    if (!data?.access_token) return false
+    writeSession({
+      accessToken: data.access_token,
+      // The server rotates the refresh token; keeping the old one would work exactly once.
+      refreshToken: data.refresh_token ?? '',
+    })
+    return true
+  } catch {
+    return false
+  }
+}
+
+function refreshOnce(): Promise<boolean> {
+  inFlightRefresh ??= refreshSession().finally(() => {
+    inFlightRefresh = undefined
+  })
+  return inFlightRefresh
+}
+
+/**
+ * Renew a session that expired mid-use instead of surfacing the bare authorization error.
+ *
+ * The access token lasts 30 minutes and the refresh token 7 days, but the refresh token was
+ * being discarded at login and never presented -- so a tab left open for half an hour
+ * answered "Not authenticated" to the next click, with nothing on screen explaining why or
+ * suggesting what to do about it.
+ */
+http.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    if (!axios.isAxiosError(error) || error.response?.status !== 401) {
+      return Promise.reject(error)
+    }
+
+    const config = error.config as RetriableConfig | undefined
+    // A 401 from the refresh call itself, or from a request already retried, is final.
+    if (!config || config._retriedAfterRefresh || config.url?.includes(REFRESH_PATH)) {
+      return Promise.reject(error)
+    }
+
+    if (await refreshOnce()) {
+      config._retriedAfterRefresh = true
+      return http.request(config)
+    }
+
+    // Out of options: the stored tokens cannot authenticate anything, so clear them rather
+    // than leaving the app looking signed in while every request fails.
+    clearSession()
+    notifySessionExpired()
+    return Promise.reject(error)
+  },
+)
