@@ -157,6 +157,28 @@ export async function aesGcmDecryptDetached(params: {
 }
 
 const PEM_PUBLIC_KEY = /-----BEGIN PUBLIC KEY-----([\s\S]+?)-----END PUBLIC KEY-----/
+const PEM_PRIVATE_KEY = /-----BEGIN PRIVATE KEY-----([\s\S]+?)-----END PRIVATE KEY-----/
+
+/**
+ * The DER PKCS#8 bytes carried by a PEM private key.
+ *
+ * The counterpart of `publicKeyPemToDer`, for the key file the registration page hands the
+ * user once and tells them to keep. Only PKCS#8 (`BEGIN PRIVATE KEY`) is accepted:
+ * `BEGIN RSA PRIVATE KEY` is PKCS#1, which WebCrypto cannot import, and it is worth saying
+ * so rather than failing later inside `importKey` with a DataError.
+ */
+export function privateKeyPemToDer(pem: string): Uint8Array {
+  if (/-----BEGIN RSA PRIVATE KEY-----/.test(pem)) {
+    throw new TypeError(
+      'This is a PKCS#1 private key. SecureView issues PKCS#8 keys, which begin with "BEGIN PRIVATE KEY".',
+    )
+  }
+  const match = PEM_PRIVATE_KEY.exec(pem)
+  if (!match) {
+    throw new TypeError('Not a PEM-encoded PKCS#8 private key')
+  }
+  return fromBase64(match[1].replace(/\s/g, ''))
+}
 
 /** The DER SubjectPublicKeyInfo bytes carried by a PEM public key. */
 export function publicKeyPemToDer(pem: string): Uint8Array {
