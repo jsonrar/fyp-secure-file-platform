@@ -183,3 +183,76 @@ def test_a_failure_to_count_skips_the_email_rather_than_guessing() -> None:
 
     assert _notify(service) is False
     assert email.sent == []
+
+
+def test_escapes_a_username_rather_than_letting_it_become_markup() -> None:
+    # Usernames are chosen by users and land in a message the platform sends on someone
+    # else's behalf. Unescaped, a username is a way to put arbitrary HTML in that message.
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    service.notify_shared(
+        recipient_email="admin@secureview.tech",
+        recipient_username="admin",
+        sender_username="<img src=x onerror=alert(1)>",
+    )
+
+    html = email.sent[0].html_body or ""
+    assert "<img" not in html
+    assert "&lt;img" in html
+
+
+def test_the_html_is_a_complete_document_with_a_preheader() -> None:
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True, APP_PUBLIC_URL="https://secureview.tech"),
+        email=email,
+    )
+
+    _notify(service)
+    html = email.sent[0].html_body or ""
+
+    assert html.startswith("<!doctype html>")
+    # The inbox preview line, and the button target.
+    assert "shared an encrypted file with you on SecureView." in html
+    assert 'href="https://secureview.tech/files"' in html
+    # Layout is tables and inline styles; a <style> block would be stripped by Gmail.
+    assert "<style" not in html
+
+
+def test_the_plain_text_alternative_says_the_same_thing() -> None:
+    # Some clients show it, some people prefer it, and a screen reader reaches it first.
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True, APP_PUBLIC_URL="https://secureview.tech"),
+        email=email,
+    )
+
+    _notify(service)
+    text = email.sent[0].text_body
+
+    assert "waldo" in text
+    assert "your own encryption passphrase" in text
+    assert "https://secureview.tech/files" in text
+    assert "<" not in text
+
+
+def test_a_username_cannot_break_the_subject_line() -> None:
+    # Usernames are only length-constrained, so newlines are reachable. They have no
+    # business in a header.
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    service.notify_shared(
+        recipient_email="admin@secureview.tech",
+        recipient_username="admin",
+        sender_username="waldo\r\nBcc: someone@elsewhere.test",
+    )
+
+    subject = email.sent[0].subject
+    assert "\n" not in subject
+    assert "\r" not in subject
