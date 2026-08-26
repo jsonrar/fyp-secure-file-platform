@@ -30,11 +30,17 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:
     active_settings = app_settings or settings
+    # Passing None un-mounts the route entirely, so a disabled schema is a 404 rather than a
+    # 403 -- it does not confirm that the documentation is there to be found.
+    docs_enabled = active_settings.APP_DOCS_ENABLED
     application = FastAPI(
         title=active_settings.APP_NAME,
         version=active_settings.APP_VERSION,
         description="Secure File Encryption and Sharing Platform API",
         lifespan=lifespan,
+        docs_url="/docs" if docs_enabled else None,
+        redoc_url="/redoc" if docs_enabled else None,
+        openapi_url="/openapi.json" if docs_enabled else None,
     )
     application.state.settings = active_settings
     application.state.db_engine = (

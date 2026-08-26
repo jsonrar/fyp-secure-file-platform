@@ -22,6 +22,14 @@ class Settings(BaseSettings):
     APP_VERSION: str = "0.1.0"
     APP_ENV: str = "development"
     APP_DEBUG: bool = True
+    # Serve /docs, /redoc and /openapi.json.
+    #
+    # True by default because it costs the team nothing locally and is genuinely useful
+    # while building. It is turned off on the public staging host: the schema is a complete,
+    # machine-readable list of every route, its parameters, and the exact shape each one
+    # accepts -- which is a considerable head start to hand an anonymous visitor, and worth
+    # nothing to a user of the site.
+    APP_DOCS_ENABLED: bool = True
     API_PREFIX: str = "/api/v1"
     SECRET_KEY: str = Field(default=_DEVELOPMENT_SECRET_KEY, repr=False)
     ACCESS_TOKEN_EXPIRE_MINUTES: int = Field(default=30, gt=0)
