@@ -18,6 +18,17 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Deleting your own account / 自助注销账户
+
+- Added `POST /auth/delete-account` and a "Delete account" control on the workspace. A forgotten encryption passphrase is unrecoverable by design — the offline recovery workflow cannot recover one, and `POST /keys/me/rewrap` cannot set a new one without the account master key, which is precisely what the forgotten passphrase protects. Starting over is therefore the only remaining path, and it should not require a teammate with database access to perform it by hand.
+- 已新增 `POST /auth/delete-account` 接口以及工作台上的"删除账户"入口。遗忘的加密 passphrase 在设计上就不可恢复——离线恢复流程无法恢复它，`POST /keys/me/rewrap` 也无法在没有账户主密钥的情况下设置新的，而账户主密钥恰恰是被这个遗忘的 passphrase 保护的。因此重新开始是唯一剩下的路径，而这件事不应该需要某位有数据库权限的队友手工完成。
+- The login password is required again on top of a live session, and the word `DELETE` must be typed. This is the one irreversible action in the application, and a session left open on an unattended machine should not be enough to trigger it. Owned files are soft-deleted with their access grants revoked — a share must not outlive the account that granted it — and the ciphertext is unlinked only after the database commit lands, matching `FileService.delete`: a process that dies midway leaves rows marked DELETED with their objects still present, which the reconcile job can clean, rather than live rows whose ciphertext has already gone.
+- 除了有效的会话之外，还需要再次输入登录密码，并键入 `DELETE` 一词。这是本应用中唯一不可逆的操作，一个留在无人看管机器上的会话不应足以触发它。名下文件会被软删除并撤销其访问授权——共享不应比授予它的账户存活得更久——密文则在数据库提交落盘之后才解除链接，与 `FileService.delete` 保持一致：中途崩溃的进程留下的是状态为 DELETED 但对象仍在的数据行（对账任务可以清理），而不是密文已消失的存活数据行。
+- The username and email are released so the same person can register again with them. `identifier_exists` does not filter by status, so leaving the original values in place would reserve them forever — and being able to start over is the entire point. The user row itself stays: audit entries reference the user by id, and removing it would take the record of what happened with it. The tombstone address deliberately keeps a real domain, since a reserved TLD registers fine and then breaks serialization wherever the address is read back.
+- 用户名与邮箱会被释放，以便本人可以用它们重新注册。`identifier_exists` 不按状态过滤，因此保留原值会让它们被永久占用——而"能够重新开始"正是这件事的全部意义。用户数据行本身保留：审计记录通过 id 引用用户，删除该行会连带抹掉事情发生过的记录。墓碑邮箱有意保留一个真实域名，因为保留 TLD 虽然能注册成功，却会在任何读回该地址的地方导致序列化失败。
+- The dialog points at the private key file first. Deleting is the last resort for someone locked out by a forgotten passphrase, not the first thing to try — the `.pem` saved at registration opens the files without the passphrase, and is worth ruling out before destroying anything.
+- 对话框会优先引导用户使用私钥文件。对于因遗忘 passphrase 而被锁在门外的用户，删除是最后手段而非首选——注册时保存的 `.pem` 无需 passphrase 即可打开文件，在销毁任何东西之前值得先排除这条路。
+
 ### Session lifetime / 会话有效期
 
 - The browser now renews an expiring session instead of failing the next click. The access token lasts 30 minutes and the refresh token 7 days, but the refresh token was discarded at login and never presented — so a tab left open for half an hour answered a bare authorization error to the next action, with nothing on screen saying the session had ended or that signing in again was the fix. A 401 now triggers one refresh and a retry of the request that failed, transparently.

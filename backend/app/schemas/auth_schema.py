@@ -148,6 +148,22 @@ class UserLogoutAllResponse(_AuthResponse):
     revoked_sessions: int = Field(ge=0)
 
 
+class DeleteAccountRequest(_AuthRequest):
+    """Closing the account requires the password again, not just a live session.
+
+    `confirmation` must be the literal word so the request cannot be produced by a stray
+    click or a replayed body -- the caller has to have meant this specific thing.
+    """
+
+    password: str = Field(min_length=1, max_length=PASSWORD_MAX_LENGTH, repr=False)
+    confirmation: Literal["DELETE"]
+
+
+class DeleteAccountResponse(_AuthResponse):
+    files_deleted: int = Field(ge=0)
+    sessions_revoked: int = Field(ge=0)
+
+
 class ChangePasswordRequest(_AuthRequest):
     current_password: str = Field(min_length=1, max_length=PASSWORD_MAX_LENGTH, repr=False)
     new_password: str = Field(

@@ -221,6 +221,20 @@ class AuthRepository:
                 revoked += 1
         return revoked
 
+    def release_identifiers(self, user: User, *, tombstone: str) -> None:
+        """Free the username and email of a closed account so they can be registered again.
+
+        `identifier_exists` does not filter by status, so leaving the original values in
+        place would keep them reserved forever -- and closing the account exists precisely so
+        the person can start over. The row itself stays: audit entries reference the user by
+        id, and deleting it would take the history of what happened with it.
+
+        The tombstone email keeps a real domain on purpose. A reserved TLD registers fine and
+        then makes serialization fail wherever the address is read back.
+        """
+        user.username = f"deleted-{tombstone}"
+        user.email = f"deleted+{tombstone}@secureview.tech"
+
     def get_blocked_until(
         self,
         buckets: tuple[tuple[LoginThrottleScope, str], ...],

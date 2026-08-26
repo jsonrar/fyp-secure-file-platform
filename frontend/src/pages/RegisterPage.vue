@@ -1,11 +1,17 @@
 <script setup lang="ts">
 import { computed, onUnmounted, reactive, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRoute } from 'vue-router'
 import { Download, KeyRound, ShieldCheck, UserPlus } from 'lucide-vue-next'
 import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
 import PasswordField from '@/components/PasswordField.vue'
 import { enrolAccountKey } from '@/utils/account-crypto'
+
+const route = useRoute()
+
+// Arriving straight from a deletion. Saying so beats a bare registration form for someone
+// who has just destroyed an account on purpose and is expecting to start over.
+const afterDeletion = computed(() => route.query.deleted === '1')
 import {
   PASSPHRASE_MIN_LENGTH,
   PASSWORD_MIN_LENGTH,
@@ -249,6 +255,14 @@ function downloadPrivateKey() {
           </div>
           <h1 class="text-2xl font-bold text-foreground">Create Account</h1>
         </div>
+
+        <p
+          v-if="afterDeletion"
+          class="text-sm rounded-md border border-border bg-secondary/60 text-foreground px-3 py-2 mb-4"
+        >
+          Your previous account and its files were deleted. You can register again with the
+          same username and email if you want them.
+        </p>
 
         <form novalidate @submit.prevent="register">
           <label for="register-username" class="text-sm text-foreground mb-2 block">
