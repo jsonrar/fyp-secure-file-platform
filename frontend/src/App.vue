@@ -8,7 +8,7 @@ import { useTheme } from '@/composables/useTheme'
 const route = useRoute()
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
-const { theme, toggleTheme } = useTheme()
+const { preference, setPreference } = useTheme()
 
 watch(
   () => route.fullPath,
@@ -37,10 +37,10 @@ onBeforeUnmount(() => {
     <AppHeader
       :is-scrolled="isScrolled"
       :is-mobile-menu-open="isMobileMenuOpen"
-      :theme="theme"
+      :theme-preference="preference"
       @toggle-mobile-menu="isMobileMenuOpen = !isMobileMenuOpen"
       @close-mobile-menu="isMobileMenuOpen = false"
-      @toggle-theme="toggleTheme"
+      @set-theme-preference="setPreference"
     />
     <RouterView />
     <AppFooter />

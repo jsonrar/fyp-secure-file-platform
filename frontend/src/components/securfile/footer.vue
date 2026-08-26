@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { FileLock } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
+import SecureViewMark from '@/components/brand/SecureViewMark.vue'
 
 const productLinks = [
   { label: 'Home', to: '/' },
@@ -17,11 +17,12 @@ const socialLinks = ['GitHub', 'X', 'Discord']
     <div class="container mx-auto px-4">
       <div class="grid md:grid-cols-4 gap-8">
         <div class="md:col-span-2">
-          <RouterLink to="/" class="flex items-center gap-2 mb-4 w-fit">
-            <div class="p-2 rounded-lg bg-primary/10">
-              <FileLock class="h-5 w-5 text-primary" />
-            </div>
-            <span class="text-lg font-semibold text-foreground">SecureView</span>
+          <RouterLink
+            to="/"
+            class="mb-4 inline-flex w-fit items-center text-foreground"
+            aria-label="SecureView home"
+          >
+            <SecureViewMark variant="logo" class="h-8" />
           </RouterLink>
           <p class="text-muted-foreground text-sm max-w-md">
             SecureView provides enterprise-grade file encryption solutions using cutting-edge encryption technology to ensure your sensitive data is always secure.

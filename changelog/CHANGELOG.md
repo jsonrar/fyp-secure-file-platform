@@ -18,6 +18,25 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Header theme control and brand marks / 页头主题控件与品牌标识
+
+- Replaced the binary Light/Dark header toggle with a System / Light / Dark dropdown whose
+  trigger stays a fixed width, so choosing an option cannot shove neighbouring Sign In /
+  Get Started controls sideways. System follows `prefers-color-scheme` and updates when the
+  OS theme changes.
+- 将页头二态 Light/Dark 切换改为 System / Light / Dark 下拉，触发器宽度固定，选择任一项都不会把
+  旁边的 Sign In / Get Started 挤歪。System 跟随 `prefers-color-scheme`，并在系统主题变化时更新。
+- Header chrome text is black in Light and white in Dark so links stay readable on the
+  translucent bar; primary CTAs keep their existing colours.
+- 页头导航文字在 Light 下为黑、Dark 下为白，保证半透明栏上仍可读；主色 CTA 配色不变。
+- Header and footer now show the SecureView wordmark SVG (inlined for `currentColor` theme
+  tracking). The tab favicon is a permanent brand-blue shield (`#006DC7`) rather than a
+  theme-tinted mark, because favicons cannot inherit page colour and a fixed blue stays
+  recognisable in every theme. Detail: [`JY-changelog.md`](JY-changelog.md).
+- 页头与页脚改为展示 SecureView 字标 SVG（内联以跟随 `currentColor` 主题色）。标签页图标为固定
+  品牌蓝盾牌（`#006DC7`），不再随主题着色——favicon 无法继承页面颜色，固定蓝色在任何主题下都更
+  可辨认。明细见 [`JY-changelog.md`](JY-changelog.md)。
+
 ### A presentable notification email / 像样的通知邮件
 
 - The share notification is now a designed message rather than a stack of bare paragraphs: a branded header, the one sentence that matters set apart in a callout, a real button, and a muted footer. `email_templates.py` holds the shell so the verification-code email can adopt the same one later.
