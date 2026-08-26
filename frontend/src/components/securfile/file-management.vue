@@ -46,6 +46,9 @@ const total = ref(0)
 const downloadingId = ref<string | null>(null)
 // Set while the passphrase dialog is open; holds the file to resume once unlocked.
 const pendingDownloadId = ref<string | null>(null)
+// The same, for a share interrupted by the unlock. Sharing needs the account key too:
+// the file's key has to be unwrapped before it can be rewrapped to the recipient.
+const pendingShareId = ref<string | null>(null)
 const unlockKeyId = ref<string | null>(null)
 const showUnlock = ref(false)
 
@@ -212,15 +215,23 @@ const handleDownload = async (id: string) => {
 const onUnlocked = async () => {
   showUnlock.value = false
   unlockKeyId.value = null
-  const resume = pendingDownloadId.value
+  const resumeDownload = pendingDownloadId.value
+  const resumeShare = pendingShareId.value
   pendingDownloadId.value = null
-  if (resume) await handleDownload(resume)
+  pendingShareId.value = null
+  if (resumeDownload) {
+    await handleDownload(resumeDownload)
+  } else if (resumeShare) {
+    // Reopen the share dialog rather than sharing silently: the username was lost with it.
+    shareFileId.value = resumeShare
+  }
 }
 
 const closeUnlock = () => {
   showUnlock.value = false
   unlockKeyId.value = null
   pendingDownloadId.value = null
+  pendingShareId.value = null
 }
 
 const handleIntegrityCheck = async (id: string) => {
@@ -245,6 +256,23 @@ const openShare = (id: string) => {
 const closeShare = () => {
   shareFileId.value = null
 }
+
+const onShared = (username: string) => {
+  shareFileId.value = null
+  actionMessage.value = `Shared with ${username}`
+}
+
+/** The rewrap needs the account key open; stand the share down and raise the passphrase. */
+const onShareNeedsUnlock = (keyId: string | null) => {
+  pendingShareId.value = shareFileId.value
+  shareFileId.value = null
+  unlockKeyId.value = keyId
+  showUnlock.value = true
+}
+
+const shareFilename = computed(
+  () => files.value.find((file) => file.id === shareFileId.value)?.name,
+)
 
 const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
   verified: { label: 'Verified', icon: CheckCircle, className: 'bg-primary/10 text-primary' },
@@ -374,7 +402,14 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       </div>
     </div>
 
-    <ShareDialog v-if="shareFileId !== null" :file-id="shareFileId" @close="closeShare" />
+    <ShareDialog
+      v-if="shareFileId !== null"
+      :file-id="shareFileId"
+      :filename="shareFilename"
+      @close="closeShare"
+      @shared="onShared"
+      @needs-unlock="onShareNeedsUnlock"
+    />
     <UnlockDialog
       v-if="showUnlock"
       :key-id="unlockKeyId"
