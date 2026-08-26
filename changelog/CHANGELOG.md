@@ -18,6 +18,17 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### A presentable notification email / 像样的通知邮件
+
+- The share notification is now a designed message rather than a stack of bare paragraphs: a branded header, the one sentence that matters set apart in a callout, a real button, and a muted footer. `email_templates.py` holds the shell so the verification-code email can adopt the same one later.
+- 分享通知现在是一封经过设计的邮件，而不是一堆光秃秃的段落：品牌化的页头、把最要紧的那句话单独放进强调框、一个真正的按钮、以及低调的页脚。外层结构放在 `email_templates.py`，验证码邮件日后可以套用同一套。
+- Built the way email actually has to be built: tables for layout because Outlook renders through Word, styles inline because Gmail strips most of a `<style>` block, and no images at all — a blocked remote image leaves a hole, and a tracking pixel is not something this product should be sending. A preheader gives the inbox a real preview line instead of a fragment of markup.
+- 按邮件真正需要的方式构建：布局用表格，因为 Outlook 通过 Word 渲染；样式内联，因为 Gmail 会剥掉大部分 `<style>` 块；完全不用图片——被拦截的远程图片会留下一个空洞，而追踪像素不是这个产品该发的东西。preheader 让收件箱显示一句真正的预览文字，而不是一段markup 碎片。
+- The plain-text alternative says the same thing rather than being a formality. Some clients show it, some people prefer it, and it is what a screen reader reaches first.
+- 纯文本版本说的是同样的内容，不是走个形式。有些客户端只显示它，有些人偏好它，而且屏幕阅读器最先读到的就是它。
+- Usernames are escaped into the markup and collapsed to a single line in the subject. A username is only length-constrained — there is no character restriction — so unescaped it is a way to put arbitrary HTML into a message the platform sends on someone else's behalf, and a newline in it has no business in a header. Both were live defects caught by writing the tests, not by reading the code: the preheader had been interpolating the raw name.
+- 用户名在写入 markup 时会转义，在主题行中会被折叠为单行。用户名只有长度限制、没有字符限制——因此不转义就等于给了一条途径，把任意 HTML 放进平台代他人发出的邮件里；而其中的换行符更不该出现在邮件头中。这两处都是真实缺陷，且是写测试时发现的、不是读代码看出来的：preheader 此前一直在插入未转义的原始用户名。
+
 ### Telling someone a file was shared with them / 告知接收方有文件分享给了他
 
 - There had been no notification of any kind. A recipient learned about a share only by opening their file list and noticing something new — which, for a file shared once and never mentioned in person, means never.

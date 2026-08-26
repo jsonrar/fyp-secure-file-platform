@@ -2,11 +2,27 @@ from __future__ import annotations
 
 import logging
 from collections.abc import Callable
+import re
+from html import escape
 
 from app.core.config import Settings
 from app.services.email_service import EmailDeliveryError, EmailService, OutboundEmail
+from app.services.email_templates import (
+    button,
+    callout,
+    layout,
+    muted_paragraph,
+    paragraph,
+)
 
 logger = logging.getLogger(__name__)
+
+_WHITESPACE_RUN = re.compile(r"\s+")
+
+
+def _single_line(value: str) -> str:
+    """Collapse anything that would break a header into ordinary spaces."""
+    return _WHITESPACE_RUN.sub(" ", value).strip()
 
 
 class ShareNotificationService:
@@ -73,33 +89,62 @@ class ShareNotificationService:
 
     def _compose(self, email: str, recipient: str, sender: str) -> OutboundEmail:
         where = self.settings.APP_PUBLIC_URL.rstrip("/")
-        link_line = f"\n\nOpen your files: {where}/files" if where else ""
-        html_link = (
-            f'<p><a href="{where}/files">Open your files</a></p>' if where else ""
-        )
 
+        # Usernames are chosen by users and are interpolated into markup here. Escaping them
+        # is not optional: without it a username is a way to put arbitrary HTML into a
+        # message the platform sends on someone else's behalf.
+        safe_sender = escape(sender)
+        safe_recipient = escape(recipient)
+        # A username has no character restriction beyond its length, so it can carry
+        # newlines and control characters. Those have no business in a header line.
+        subject_sender = _single_line(sender)
+
+        link_line = f"\n\nOpen your files: {where}/files" if where else ""
         text_body = (
             f"Hello {recipient},\n\n"
             f"{sender} has shared an encrypted file with you on SecureView.\n\n"
-            "You will find it under \"Shared with me\" in your file list. Opening it uses "
-            "your own encryption passphrase -- never the sender's."
+            "You open it with your own encryption passphrase -- never the sender's. "
+            "Look under \"Shared with me\" in your file list."
             f"{link_line}\n\n"
-            "If you were not expecting this, you can ignore it; nothing has been added to "
-            "your account that you have to act on.\n"
+            "If you were not expecting this, you can ignore it. Nothing has been added to "
+            "your account that you have to act on.\n\n"
+            "--\n"
+            "SecureView encrypts files in your browser. Neither your passphrase nor your "
+            "file contents ever reach the server.\n"
         )
-        html_body = (
-            f"<p>Hello {recipient},</p>"
-            f"<p><strong>{sender}</strong> has shared an encrypted file with you on "
-            "SecureView.</p>"
-            '<p>You will find it under &quot;Shared with me&quot; in your file list. Opening '
-            "it uses your own encryption passphrase &mdash; never the sender&rsquo;s.</p>"
-            f"{html_link}"
-            "<p>If you were not expecting this, you can ignore it; nothing has been added to "
-            "your account that you have to act on.</p>"
+
+        body = paragraph(f"Hello {safe_recipient},")
+        body += paragraph(
+            f"<strong>{safe_sender}</strong> has shared an encrypted file with you."
         )
+        body += callout(
+            "You open it with <strong>your own encryption passphrase</strong> &mdash; "
+            "never the sender&rsquo;s."
+        )
+        if where:
+            body += button("Open your files", f"{where}/files")
+            body += muted_paragraph(
+                "It is filed under &quot;Shared with me&quot;. If the button does not work, "
+                f"go to {escape(where)}/files"
+            )
+        else:
+            body += paragraph(
+                "Sign in and look under &quot;Shared with me&quot; in your file list."
+            )
+        body += muted_paragraph(
+            "If you were not expecting this, you can ignore it. Nothing has been added to "
+            "your account that you have to act on."
+        )
+
         return OutboundEmail(
             to_address=email,
-            subject=f"{sender} shared a file with you",
+            subject=f"{subject_sender} shared a file with you",
             text_body=text_body,
-            html_body=html_body,
+            html_body=layout(
+                # Escaped: the preheader is markup like the rest of the document, and this
+                # is the one place the sender's name appears before the body.
+                preheader=f"{safe_sender} shared an encrypted file with you on SecureView.",
+                heading="A file was shared with you",
+                body_html=body,
+            ),
         )
