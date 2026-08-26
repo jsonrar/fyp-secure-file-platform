@@ -4,6 +4,7 @@ import { Activity, Clock, Download, Eye, FileIcon, RefreshCw, User } from 'lucid
 import { auditApi } from '@/api/audit_api'
 import { unwrapData, type AuditLogOut } from '@/api/types'
 import { auditActionLabel, isDownloadAction } from '@/utils/audit-actions'
+import { fallbackFileLabel, resolveFileNames } from '@/utils/file-names'
 
 interface AccessUser {
   id: string
@@ -38,6 +39,7 @@ const isLoading = ref(false)
 const errorMessage = ref('')
 const expanded = ref<string[]>([])
 const chainStatus = ref('')
+const fileNames = ref<Map<string, string>>(new Map())
 
 const mapLogToUser = (log: AuditLogOut, index: number): AccessUser => ({
   id: String(log.log_id ?? index),
@@ -62,7 +64,7 @@ const groups = computed<AuditGroup[]>(() => {
     } else {
       grouped.set(fileId, {
         id: fileId,
-        name: `File #${fileId}`,
+        name: fileNames.value.get(fileId) ?? fallbackFileLabel(fileId),
         sharedAt: log.created_at ?? '-',
         totalViews: user.isDownload ? 0 : 1,
         totalDownloads: user.isDownload ? 1 : 0,
@@ -94,6 +96,18 @@ const loadLogs = async () => {
     const res = await auditApi.listLogs()
     const data = unwrapData(res)
     logs.value = data.logs ?? []
+
+    // The audit response carries file_id and no filename, so the names are resolved here.
+    // Deliberately after the rows are on screen and not awaited into the loading state: the
+    // history is readable without them, and a slow lookup should not hold it back.
+    const ids = logs.value.map((log) => String(log.file_id ?? 'unknown'))
+    resolveFileNames(ids)
+      .then((names) => {
+        fileNames.value = names
+      })
+      .catch(() => {
+        // Labels stay as ids. Not worth an error banner over the history itself loading.
+      })
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Failed to load audit logs'
   } finally {
