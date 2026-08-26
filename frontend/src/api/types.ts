@@ -48,14 +48,30 @@ export interface FileListOut {
   total: number
 }
 
+/**
+ * One row of `GET /audit-logs`. Mirrors the backend `AuditLogOut` exactly.
+ *
+ * It previously declared `log_id`, `file_id`, `actor_username`, `device` and `location` --
+ * none of which the API has ever sent. Because every field was optional, TypeScript was
+ * happy and the page silently read `undefined` for all of them: every row grouped under one
+ * "unknown" file, every actor rendered as "Unknown user", and the device and location
+ * columns were permanently "Unknown". The audit trail was on screen and told you nothing.
+ *
+ * The server identifies the subject as `resource_type` + `resource_id`, not as a file id:
+ * a row can be about a FILE, a SHARE, or a USER.
+ */
 export interface AuditLogOut {
-  log_id?: number
-  file_id?: string
-  action?: string
-  actor_username?: string
-  created_at?: string
-  device?: string
-  location?: string
+  action: string
+  resource_type: string
+  resource_id: string | null
+  actor_user_id: string | null
+  actor_username: string | null
+  target_user_id: string | null
+  target_username: string | null
+  result: string
+  description: string | null
+  metadata: Record<string, unknown>
+  created_at: string
 }
 
 export function unwrapData<T>(response: { data: ApiEnvelope<T> }): T {

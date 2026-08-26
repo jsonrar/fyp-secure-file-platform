@@ -13,7 +13,18 @@ export const auditApi = {
       `/audit-logs/file/${fileId}`,
     )
   },
+  /**
+   * ADMIN only. Recomputes every hash in the table, so a non-admin gets a 403 -- which is a
+   * permission answer, not a finding about the chain.
+   */
   verifyChain() {
-    return http.post<ApiEnvelope<{ status: string }>>('/audit-logs/verify-chain')
+    return http.post<
+      ApiEnvelope<{
+        status: string
+        valid: boolean
+        checked_entries: number
+        first_invalid_position: number | null
+      }>
+    >('/audit-logs/verify-chain')
   },
 }

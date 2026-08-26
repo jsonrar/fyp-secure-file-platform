@@ -28,6 +28,22 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   KEY_PROTECTION_REWRAPPED: { label: 'Passphrase changed', category: 'other' },
   USER_KEY_ADDED: { label: 'Account key added', category: 'other' },
   ACCOUNT_DELETED: { label: 'Account deleted', category: 'other' },
+  // Account-level events now have a group of their own on the records page, so they are
+  // worth naming properly rather than leaving to the title-case fallback.
+  AUTH_REGISTERED: { label: 'Account created', category: 'other' },
+  AUTH_LOGIN_SUCCEEDED: { label: 'Signed in', category: 'other' },
+  AUTH_LOGIN_FAILED: { label: 'Sign-in failed', category: 'other' },
+  AUTH_LOGGED_OUT: { label: 'Signed out', category: 'other' },
+  AUTH_PASSWORD_CHANGED: { label: 'Password changed', category: 'other' },
+  AUTH_PASSWORD_CHANGE_FAILED: { label: 'Password change failed', category: 'other' },
+  AUTH_PASSWORD_RESET: { label: 'Password reset', category: 'other' },
+  AUTH_SESSION_REVOKED: { label: 'Session revoked', category: 'other' },
+  AUTH_ALL_SESSIONS_REVOKED: { label: 'All sessions signed out', category: 'other' },
+  AUTH_SESSION_EXPIRED: { label: 'Session expired', category: 'other' },
+  AUTH_SESSION_REFRESHED: { label: 'Session renewed', category: 'other' },
+  AUTH_REFRESH_REJECTED: { label: 'Session renewal rejected', category: 'other' },
+  AUTH_REFRESH_REPLAY_DETECTED: { label: 'Reused session token detected', category: 'other' },
+  AUTH_VERIFICATION_CODE_SENT: { label: 'Verification code sent', category: 'other' },
 }
 
 /**
@@ -55,4 +71,25 @@ export function auditActionCategory(action: string | undefined): AuditCategory {
 /** Only a served download counts. A blocked one is not an access that happened. */
 export function isDownloadAction(action: string | undefined): boolean {
   return action === 'FILE_DOWNLOAD_AUTHORIZED'
+}
+
+/** The minimum of an audit row this module needs. */
+interface AuditSubject {
+  resource_type: string
+  resource_id: string | null
+}
+
+/**
+ * The file an audit row is about, or null when it is about the account itself.
+ *
+ * The API identifies the subject as `resource_type` + `resource_id`; it has never sent a
+ * `file_id`, which is what the page used to read. Because the field was optional in the
+ * frontend type, every row resolved to `undefined` and landed in one nameless group.
+ *
+ * SHARE rows count as file rows: `resource_id` is the file being shared, and a share belongs
+ * in that file's history rather than off on its own.
+ */
+export function auditSubjectFileId(log: AuditSubject): string | null {
+  if (log.resource_type !== 'FILE' && log.resource_type !== 'SHARE') return null
+  return log.resource_id || null
 }
