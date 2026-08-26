@@ -433,6 +433,7 @@ class FileService:
             encryption_algorithm=record.file.encryption_algorithm,
             status=record.file.status,
             owner=record.file.owner_id == actor_user_id,
+            owner_username=getattr(record.file.owner, "username", None),
             created_at=to_api_utc(record.file.created_at),
             updated_at=to_api_utc(record.file.updated_at),
         )
