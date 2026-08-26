@@ -18,6 +18,17 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Telling someone a file was shared with them / 告知接收方有文件分享给了他
+
+- There had been no notification of any kind. A recipient learned about a share only by opening their file list and noticing something new — which, for a file shared once and never mentioned in person, means never.
+- 此前没有任何形式的通知。接收方只能通过打开文件列表、注意到多了个东西才知道有人分享给了他——而对于一个分享过一次、又没人当面提起的文件来说，这等于永远不知道。
+- The file list badges how many shared files this browser has not shown yet, cleared when the shared list is opened. A file that stops being shared drops out of the marker, so re-sharing it counts as new again, and signing out clears it so the next person at that machine does not inherit it.
+- 文件列表会标记有多少个分享文件是这个浏览器尚未展示过的，打开分享列表后即清除。不再被分享的文件会从标记中移除，因此重新分享会再次算作"新的"；登出会清空标记，使同一台机器上的下一个人不会继承它。
+- Optional email, off by default (`SHARE_NOTIFICATION_EMAIL`), so a deployment without working mail does not queue messages nobody receives. It is sent **after** the share has committed and swallows its own delivery failures: a share that succeeded must not be reported as failed, or rolled back, because a mail server was unreachable.
+- 可选的邮件通知，默认关闭（`SHARE_NOTIFICATION_EMAIL`），以免在邮件不通的部署里堆积无人接收的消息。它在分享**提交之后**才发送，并自行吞掉投递失败：一次已经成功的分享，不应该因为邮件服务器不可达就被报告为失败，更不该被回滚。
+- **The filename is deliberately not in the email.** The platform's threat model accepts that the server holds filenames, but an email leaves that boundary entirely — it sits in a third-party mailbox, gets indexed, and is forwarded. Naming the sender is enough to prompt the recipient to go and look; naming the file would move metadata somewhere the design never accounted for. The message does say the recipient opens it with their own passphrase, which is the single most confusing thing about this product for a first-time recipient.
+- **邮件中有意不包含文件名。** 本平台的威胁模型接受服务端持有文件名这一事实，但邮件完全离开了那个边界——它躺在第三方邮箱里、会被索引、会被转发。写明分享者已足以促使接收方去查看；写明文件名则会把元数据带到设计从未考虑过的地方。邮件正文会说明接收方用自己的 passphrase 打开它，这是初次接收分享的人最容易困惑的一点。
+
 ### Taking a share back / 收回已经分享出去的权限
 
 - The share dialog now lists who currently holds the file and can revoke each of them. `GET /files/{id}/shared-users` and `POST /files/{id}/revoke` both existed and neither was ever called, so a share was invisible and irreversible from the interface: no way to see who held a file, and no way to take it back short of calling the API by hand.

@@ -1,0 +1,130 @@
+from __future__ import annotations
+
+from app.core.config import Settings
+from app.services.email_service import EmailDeliveryError, OutboundEmail
+from app.services.share_notification_service import ShareNotificationService
+
+
+class FakeEmail:
+    def __init__(self, *, fail: Exception | None = None) -> None:
+        self.sent: list[OutboundEmail] = []
+        self.fail = fail
+
+    def send(self, message: OutboundEmail) -> None:
+        if self.fail is not None:
+            raise self.fail
+        self.sent.append(message)
+
+
+def _settings(**overrides) -> Settings:
+    return Settings(
+        _env_file=None,
+        APP_ENV="test",
+        APP_DEBUG=False,
+        SECRET_KEY="test-secret-key-that-is-long-enough",
+        **overrides,
+    )
+
+
+def _notify(service: ShareNotificationService) -> bool:
+    return service.notify_shared(
+        recipient_email="admin@secureview.tech",
+        recipient_username="admin",
+        sender_username="waldo",
+    )
+
+
+def test_sends_nothing_unless_the_deployment_asked_for_it() -> None:
+    # Off by default, so a deployment without working mail does not queue messages nobody
+    # receives.
+    email = FakeEmail()
+    service = ShareNotificationService(settings=_settings(), email=email)
+
+    assert _notify(service) is False
+    assert email.sent == []
+
+
+def test_names_the_sender_so_the_recipient_knows_who_to_expect() -> None:
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    assert _notify(service) is True
+    message = email.sent[0]
+    assert message.to_address == "admin@secureview.tech"
+    assert "waldo" in message.subject
+    assert "waldo" in message.text_body
+
+
+def test_tells_the_recipient_they_use_their_own_passphrase() -> None:
+    # The single most confusing thing about this product for a first-time recipient.
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    _notify(service)
+
+    assert "your own encryption passphrase" in email.sent[0].text_body
+
+
+def test_does_not_put_the_filename_in_the_email() -> None:
+    # An email leaves the system's boundary entirely: third-party mailbox, indexed,
+    # forwarded. Naming the sender is enough to prompt the recipient to look.
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    _notify(service)
+
+    body = email.sent[0].text_body + (email.sent[0].html_body or "")
+    assert "pdf" not in body.lower()
+    assert "filename" not in body.lower()
+
+
+def test_links_to_the_site_when_one_is_configured() -> None:
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(
+            SHARE_NOTIFICATION_EMAIL=True, APP_PUBLIC_URL="https://secureview.tech/"
+        ),
+        email=email,
+    )
+
+    _notify(service)
+
+    # The trailing slash must not produce a doubled one.
+    assert "https://secureview.tech/files" in email.sent[0].text_body
+
+
+def test_says_nothing_about_a_link_when_none_is_configured() -> None:
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    _notify(service)
+
+    assert "http" not in email.sent[0].text_body
+
+
+def test_a_delivery_failure_is_swallowed() -> None:
+    # The share has already committed by the time this runs. A mail server being down must
+    # not turn a successful share into a reported failure.
+    email = FakeEmail(fail=EmailDeliveryError("smtp unreachable"))
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    assert _notify(service) is False
+
+
+def test_an_unexpected_error_is_swallowed_too() -> None:
+    email = FakeEmail(fail=RuntimeError("something else entirely"))
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True), email=email
+    )
+
+    assert _notify(service) is False

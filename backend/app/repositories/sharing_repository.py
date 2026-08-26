@@ -72,6 +72,10 @@ class SharingRepository:
     def get_user_by_uuid(self, user_uuid: UUID) -> User | None:
         return self.db.scalar(select(User).where(User.user_uuid == str(user_uuid)).limit(1))
 
+    def get_user(self, user_id: int) -> User | None:
+        """The sender, so a notification can name them rather than say "someone"."""
+        return self.db.scalar(select(User).where(User.id == user_id).limit(1))
+
     def lock_user_wrappings(self, file_id: int, user_id: int) -> list[FileKeyWrapping]:
         return list(
             self.db.scalars(

@@ -12,6 +12,7 @@ from app.domain.errors import AuthenticationError, AuthorizationError
 from app.services.admin_service import AdminService
 from app.services.account_deletion_service import AccountDeletionService
 from app.services.audit_log_service import AuditLogService
+from app.services.share_notification_service import ShareNotificationService
 from app.services.audit_query_service import AuditQueryService
 from app.services.auth_service import AuthService
 from app.services.file_service import FileService
@@ -93,9 +94,14 @@ def get_account_deletion_service(
 
 
 def get_sharing_service(
+    request: Request,
     db: Annotated[Session, Depends(get_request_db)],
 ) -> SharingService:
-    return SharingService(db=db)
+    settings = request.app.state.settings
+    return SharingService(
+        db=db,
+        notifier=ShareNotificationService(settings=settings),
+    )
 
 
 def get_recovery_service(

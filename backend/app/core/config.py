@@ -71,6 +71,12 @@ class Settings(BaseSettings):
     EMAIL_FROM_NAME: str = "SecureView"
     EMAIL_REPLY_TO: str | None = None
     EMAIL_TIMEOUT_SECONDS: int = Field(default=10, ge=1, le=60)
+    # Where a notification email should send the reader. Empty means the mail simply says
+    # to sign in, which is better than linking somewhere wrong.
+    APP_PUBLIC_URL: str = ""
+    # Tell a recipient by email that a file has been shared with them. Off by default so a
+    # deployment without working mail does not queue messages nobody receives.
+    SHARE_NOTIFICATION_EMAIL: bool = False
     RESEND_API_KEY: str = Field(default="", repr=False)
     RESEND_API_URL: str = "https://api.resend.com/emails"
     SMTP_HOST: str = ""

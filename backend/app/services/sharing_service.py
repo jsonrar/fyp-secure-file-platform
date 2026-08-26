@@ -18,6 +18,7 @@ from app.models.file_key_wrapping import FileKeyWrapping
 from app.repositories.sharing_repository import SharingRepository
 from app.services.audit_log_service import AuditLogService
 from app.services.crypto_service import CryptoService
+from app.services.share_notification_service import ShareNotificationService
 
 
 class SharingService:
@@ -28,12 +29,14 @@ class SharingService:
         repository: SharingRepository | None = None,
         audit_service: AuditLogService | None = None,
         crypto_service: CryptoService | None = None,
+        notifier: ShareNotificationService | None = None,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self.db = db
         self.repository = repository or SharingRepository(db)
         self.audit = audit_service or AuditLogService(db, clock=clock)
         self.crypto = crypto_service or CryptoService()
+        self.notifier = notifier
         self.clock = clock
 
     def _authorized_file(self, *, actor: ActorContext, file_id: UUID, capability: str):
@@ -172,10 +175,22 @@ class SharingService:
                 },
             )
             self.db.commit()
-            return created, "ACTIVE"
         except Exception:
             self.db.rollback()
             raise
+
+        # After the commit, deliberately. The share has happened; a mail server that is
+        # down must not turn a successful share into a reported failure, and must not roll
+        # one back. The notifier swallows its own delivery errors for the same reason.
+        if self.notifier is not None:
+            actor_user = self.repository.get_user(actor.user_id)
+            self.notifier.notify_shared(
+                recipient_email=target_user.email,
+                recipient_username=target_user.username,
+                sender_username=getattr(actor_user, "username", "Someone"),
+            )
+
+        return created, "ACTIVE"
 
     def list_shared_users(self, *, actor: ActorContext, file_id: UUID):
         file, _grant = self._authorized_file(

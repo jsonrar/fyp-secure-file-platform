@@ -2,6 +2,7 @@ import { defineStore } from 'pinia'
 
 import { clearSession, readAccessToken, writeSession } from '@/api/session'
 import { forgetUnlockedKeys } from '@/crypto/download'
+import { forgetSeenShares } from '@/utils/seen-shares'
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
@@ -31,6 +32,9 @@ export const useAuthStore = defineStore('auth', {
       // The unwrapped account key outlives the token otherwise: the next person at this
       // machine would sign in and find the previous session's files already decryptable.
       forgetUnlockedKeys()
+      // The next person to sign in at this machine should not inherit a marker saying they
+      // have already seen the previous account's shared files.
+      forgetSeenShares()
     },
   },
 })
