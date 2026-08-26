@@ -74,7 +74,7 @@ defineExpose({
         :autocomplete="autocomplete"
         :aria-invalid="error ? 'true' : undefined"
         :aria-describedby="describedBy || undefined"
-        class="h-10 w-full rounded-md border bg-secondary pl-3 pr-10 text-foreground"
+        class="h-10 w-full rounded-md border bg-secondary pl-3 pr-10 text-foreground [&::-ms-reveal]:hidden [&::-ms-clear]:hidden"
         :class="error ? 'border-destructive' : 'border-border'"
         @blur="emit('blur')"
       />
