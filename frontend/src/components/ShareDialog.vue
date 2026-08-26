@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { nextTick, onMounted, ref } from 'vue'
-import { Share2 } from 'lucide-vue-next'
+import { computed, nextTick, onMounted, ref } from 'vue'
+import { Loader2, Share2, UserMinus } from 'lucide-vue-next'
 
 import {
   FileKeyUnwrapError,
@@ -9,6 +9,8 @@ import {
 } from '@/crypto/download'
 import { RecipientNotFoundError, shareFileWithUsername } from '@/crypto/share'
 import { apiErrorMessage } from '@/api/http'
+import { shareApi, type SharedUser } from '@/api/share_api'
+import { unwrapData } from '@/api/types'
 
 const props = defineProps<{
   fileId: string
@@ -18,6 +20,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'shared', username: string): void
+  (e: 'revoked', username: string): void
   /** The account key must be opened before the file's key can be rewrapped. */
   (e: 'needs-unlock', keyId: string | null): void
 }>()
@@ -27,7 +30,48 @@ const errorMessage = ref('')
 const isSubmitting = ref(false)
 const field = ref<HTMLInputElement | null>(null)
 
+const recipients = ref<SharedUser[]>([])
+const isLoadingRecipients = ref(true)
+const revokingUserId = ref<string | null>(null)
+
+/** The owner holds a canonical grant that cannot be revoked, so it is not offered. */
+const others = computed(() => recipients.value.filter((user) => !user.is_owner))
+
+/**
+ * Who currently holds this file.
+ *
+ * `GET /files/{id}/shared-users` existed and nothing called it, so a share, once made, was
+ * invisible and irreversible from the interface -- there was no list of who held the file
+ * and no way to take it back.
+ */
+const loadRecipients = async () => {
+  isLoadingRecipients.value = true
+  try {
+    recipients.value = unwrapData(await shareApi.sharedUsers(props.fileId)).users ?? []
+  } catch {
+    // Not fatal: sharing with someone new still works without the current list.
+    recipients.value = []
+  } finally {
+    isLoadingRecipients.value = false
+  }
+}
+
+async function revoke(user: SharedUser) {
+  revokingUserId.value = user.user_id
+  errorMessage.value = ''
+  try {
+    await shareApi.revokeAccess(props.fileId, { target_user_id: user.user_id })
+    await loadRecipients()
+    emit('revoked', user.username)
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error, `Could not revoke ${user.username}'s access`)
+  } finally {
+    revokingUserId.value = null
+  }
+}
+
 onMounted(async () => {
+  loadRecipients()
   await nextTick()
   field.value?.focus()
 })
@@ -42,6 +86,8 @@ async function share() {
   errorMessage.value = ''
   try {
     await shareFileWithUsername(props.fileId, name)
+    targetUsername.value = ''
+    await loadRecipients()
     emit('shared', name)
   } catch (error) {
     // Unlocking is not a failure: the caller raises the passphrase dialog and the user
@@ -84,9 +130,52 @@ async function share() {
         own passphrase — never yours — and the server never sees the file's key.
       </p>
 
+      <div class="mb-5 pb-5 border-b border-border">
+        <p class="text-sm text-foreground mb-2">Currently shared with</p>
+
+        <div v-if="isLoadingRecipients" class="py-2 text-sm text-muted-foreground">
+          <Loader2 class="h-4 w-4 animate-spin" />
+        </div>
+
+        <p v-else-if="!others.length" class="text-sm text-muted-foreground">
+          Nobody yet — only you can open this file.
+        </p>
+
+        <ul v-else class="divide-y divide-border">
+          <li
+            v-for="user in others"
+            :key="user.user_id"
+            class="flex items-center justify-between gap-3 py-2"
+          >
+            <div class="min-w-0">
+              <p class="text-sm text-foreground truncate">{{ user.username }}</p>
+              <p class="text-xs text-muted-foreground">
+                Since {{ new Date(user.granted_at).toLocaleDateString() }}
+                <span v-if="!user.can_download"> · view only</span>
+              </p>
+            </div>
+            <button
+              type="button"
+              class="h-8 px-2 inline-flex items-center gap-1 rounded-md border border-destructive/40 text-destructive text-xs hover:bg-destructive/10 disabled:opacity-50"
+              :disabled="revokingUserId !== null"
+              @click="revoke(user)"
+            >
+              <Loader2 v-if="revokingUserId === user.user_id" class="h-3 w-3 animate-spin" />
+              <UserMinus v-else class="h-3 w-3" />
+              Revoke
+            </button>
+          </li>
+        </ul>
+
+        <p v-if="others.length" class="text-xs text-muted-foreground mt-3">
+          Revoking stops further access and removes the file from their list. It cannot
+          recover a copy they have already downloaded and decrypted.
+        </p>
+      </div>
+
       <form @submit.prevent="share">
         <label class="text-sm text-foreground mb-2 block">
-          Recipient's username <span class="text-destructive">*</span>
+          Share with someone else <span class="text-destructive">*</span>
         </label>
         <input
           ref="field"

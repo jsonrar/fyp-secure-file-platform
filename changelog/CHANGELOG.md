@@ -18,6 +18,17 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Taking a share back / 收回已经分享出去的权限
+
+- The share dialog now lists who currently holds the file and can revoke each of them. `GET /files/{id}/shared-users` and `POST /files/{id}/revoke` both existed and neither was ever called, so a share was invisible and irreversible from the interface: no way to see who held a file, and no way to take it back short of calling the API by hand.
+- 分享对话框现在会列出当前持有该文件的人，并可以逐个撤销。`GET /files/{id}/shared-users` 与 `POST /files/{id}/revoke` 两个接口早已存在且从未被调用过，因此一次分享在界面上既不可见也不可逆：既看不到谁持有这个文件，也无法收回——除非手工调用 API。
+- The owner's own grant is not offered for revocation; the server refuses it as the canonical owner, and showing the button would promise something it will not do.
+- 所有者自己的授权不提供撤销按钮；服务端会以"规范所有者"为由拒绝，把按钮摆出来等于承诺一件它不会做的事。
+- The dialog states what revoking does and does not do: it stops further access and removes the file from that person's list, and it cannot recover a copy they have already downloaded and decrypted. `docs/SECURITY_FLOWS.md` has always said so; the interface now says it at the moment it matters.
+- 对话框明确说明撤销做什么、不做什么：它会阻止后续访问并把文件从对方的列表中移除，但无法收回对方已经下载并解密的副本。`docs/SECURITY_FLOWS.md` 一直是这么写的；现在界面会在真正需要知道的那一刻说出来。
+- Sharing no longer closes the dialog. The list of holders is the confirmation that it worked, and closing the dialog would hide the thing that just changed.
+- 分享成功后不再关闭对话框。持有者列表本身就是"分享成功了"的确认，关掉对话框反而会把刚刚发生变化的那部分藏起来。
+
 ### Who opened this file, and when / 谁在什么时候打开了这个文件
 
 - Every file row now offers its access history: who did what to it, and at what time, rather than a count. `GET /audit-logs/file/{id}` authorizes against the live entitlement and then returns the complete trail for that file **including events performed by other people** — the account-wide listing deliberately does not, returning only rows where the caller is the actor or the target. Nothing in the app had ever called it, so "who downloaded the file I shared" was recorded in full and unreadable.

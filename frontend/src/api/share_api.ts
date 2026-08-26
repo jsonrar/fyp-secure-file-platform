@@ -29,11 +29,31 @@ export interface RevokeAccessPayload {
   target_user_id: string
 }
 
+/** One row of `GET /files/{id}/shared-users`. */
+export interface SharedUser {
+  user_id: string
+  username: string
+  key_id: string
+  can_download: boolean
+  can_share: boolean
+  is_owner: boolean
+  granted_at: string
+}
+
 export const shareApi = {
   shareFile(fileId: string, payload: ShareFilePayload) {
     return http.post<ApiEnvelope<ShareFileResult>>(`/files/${fileId}/share`, payload)
   },
+  /** Who currently holds a grant on this file, the owner included. */
+  sharedUsers(fileId: string) {
+    return http.get<ApiEnvelope<{ file_id: string; users: SharedUser[] }>>(
+      `/files/${fileId}/shared-users`,
+    )
+  },
   revokeAccess(fileId: string, payload: RevokeAccessPayload) {
-    return http.post(`/files/${fileId}/revoke`, payload)
+    return http.post<ApiEnvelope<{ file_id: string; target_user_id: string; revoked: boolean }>>(
+      `/files/${fileId}/revoke`,
+      payload,
+    )
   },
 }
