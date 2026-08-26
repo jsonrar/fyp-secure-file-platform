@@ -6,6 +6,7 @@ import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/a
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
+import { markSharesSeen, unseenSharedIds } from '@/utils/seen-shares'
 import UnlockDialog from '@/components/UnlockDialog.vue'
 import {
   downloadAndDecrypt,
@@ -79,7 +80,16 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   ownerName: file.owner_username ?? 'another account',
 })
 
-const sharedCount = computed(() => files.value.filter((file) => !file.owned).length)
+const sharedIds = computed(() => files.value.filter((file) => !file.owned).map((file) => file.id))
+const sharedCount = computed(() => sharedIds.value.length)
+const unseenCount = ref(0)
+
+/** Showing the shared list is what counts as having seen it. */
+const showShared = () => {
+  scope.value = 'shared'
+  markSharesSeen(sharedIds.value)
+  unseenCount.value = 0
+}
 const ownedCount = computed(() => files.value.filter((file) => file.owned).length)
 
 let requestId = 0
@@ -99,6 +109,10 @@ const loadFiles = async () => {
     if (thisRequest !== requestId) return
     const data = unwrapData(res)
     files.value = data.items.map(mapFile)
+    // Counted after each load, and cleared the moment the shared list is opened.
+    unseenCount.value =
+      scope.value === 'shared' ? 0 : unseenSharedIds(sharedIds.value).length
+    if (scope.value === 'shared') markSharesSeen(sharedIds.value)
     // `total` counts every file the caller can reach, not the ones on this page. Dropping
     // it is what let the list quietly stop at one page and still call that the total.
     total.value = data.total
@@ -332,9 +346,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 type="button"
                 class="h-8 px-3 rounded-md text-sm transition-colors"
                 :class="scope === 'shared' ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'"
-                @click="scope = 'shared'"
+                @click="showShared"
               >
                 Shared with me ({{ sharedCount }})
+                <span
+                  v-if="unseenCount > 0"
+                  class="ml-1 inline-flex items-center justify-center min-w-5 h-5 px-1 rounded-full bg-primary text-primary-foreground text-xs"
+                >{{ unseenCount }}</span>
               </button>
             </div>
             <p class="text-muted-foreground text-sm">

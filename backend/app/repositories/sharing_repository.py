@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import select
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import UserStatus
+from app.models.audit_log import AuditLog
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
 from app.models.file_key_wrapping import FileKeyWrapping
@@ -71,6 +73,27 @@ class SharingRepository:
 
     def get_user_by_uuid(self, user_uuid: UUID) -> User | None:
         return self.db.scalar(select(User).where(User.user_uuid == str(user_uuid)).limit(1))
+
+    def count_shares_since(self, since: datetime) -> int:
+        """How many shares have been recorded since `since`.
+
+        Used as the stand-in for "notifications sent today". One share sends at most one
+        notification, so this over-counts only when notifications were skipped or disabled --
+        which errs toward sending fewer, and that is the safe direction when the thing being
+        protected is verification-code delivery.
+        """
+        return int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(AuditLog)
+                .where(AuditLog.action == "FILE_SHARED", AuditLog.created_at >= since)
+            )
+            or 0
+        )
+
+    def get_user(self, user_id: int) -> User | None:
+        """The sender, so a notification can name them rather than say "someone"."""
+        return self.db.scalar(select(User).where(User.id == user_id).limit(1))
 
     def lock_user_wrappings(self, file_id: int, user_id: int) -> list[FileKeyWrapping]:
         return list(
