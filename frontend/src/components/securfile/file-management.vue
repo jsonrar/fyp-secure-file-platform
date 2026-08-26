@@ -24,6 +24,10 @@ interface EncryptedFile {
   encryptedSize: string
   encryptedAt: string
   status: 'verified' | 'modified' | 'pending'
+  /** False when someone else owns this file and shared it with the viewer. */
+  owned: boolean
+  /** Who uploaded it, shown when that is not the viewer. */
+  ownerName: string
 }
 
 interface StatusConfig {
@@ -35,6 +39,9 @@ interface StatusConfig {
 /** `GET /files` caps `page_size` at 100. Ask for the most the API will give per request. */
 const PAGE_SIZE = 100
 
+type FileScope = 'mine' | 'shared'
+
+const scope = ref<FileScope>('mine')
 const searchQuery = ref('')
 const files = ref<EncryptedFile[]>([])
 const isLoading = ref(false)
@@ -63,7 +70,15 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   // through mapFileStatus put every row on the fallback branch, so a damaged file looked
   // exactly like a healthy one.
   status: mapFileLifecycle(file.status),
+  // The API has always sent this and the page has never read it, so a file someone else
+  // shared with you sat in "My Encrypted Files" looking exactly like one you uploaded --
+  // as though you owned and managed it, which you do not.
+  owned: file.owner,
+  ownerName: file.owner_username ?? 'another account',
 })
+
+const sharedCount = computed(() => files.value.filter((file) => !file.owned).length)
+const ownedCount = computed(() => files.value.filter((file) => file.owned).length)
 
 let requestId = 0
 
@@ -139,8 +154,11 @@ onBeforeUnmount(() => {
   stopRelockListener()
 })
 
-// The server has already applied the filter; the rows on hand are the rows to show.
-const filteredFiles = computed(() => files.value)
+// The server has already applied the text search; the split by ownership is local, because
+// `GET /files` returns both in one list and only marks which is which.
+const filteredFiles = computed(() =>
+  files.value.filter((file) => (scope.value === 'mine' ? file.owned : !file.owned)),
+)
 
 const handleDelete = async (id: string) => {
   actionMessage.value = ''
@@ -292,7 +310,24 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       <div class="bg-card border border-border rounded-xl max-w-6xl mx-auto p-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
-            <h3 class="text-foreground text-lg font-semibold">My Encrypted Files</h3>
+            <div class="inline-flex rounded-lg border border-border p-1 mb-2">
+              <button
+                type="button"
+                class="h-8 px-3 rounded-md text-sm transition-colors"
+                :class="scope === 'mine' ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'"
+                @click="scope = 'mine'"
+              >
+                My Files ({{ ownedCount }})
+              </button>
+              <button
+                type="button"
+                class="h-8 px-3 rounded-md text-sm transition-colors"
+                :class="scope === 'shared' ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'"
+                @click="scope = 'shared'"
+              >
+                Shared with me ({{ sharedCount }})
+              </button>
+            </div>
             <p class="text-muted-foreground text-sm">
               <template v-if="searchQuery.trim()">{{ total }} {{ total === 1 ? 'match' : 'matches' }} for "{{ searchQuery.trim() }}"</template>
               <template v-else>Total {{ total }} encrypted {{ total === 1 ? 'file' : 'files' }}</template><span v-if="total > files.length">, showing {{ firstOnPage }}-{{ lastOnPage }}</span>
@@ -319,6 +354,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
 
         <div v-else-if="!filteredFiles.length" class="text-center py-12 text-muted-foreground">
           <template v-if="searchQuery.trim()">No file matches "{{ searchQuery.trim() }}".</template>
+          <template v-else-if="scope === 'shared'">No one has shared a file with you yet.</template>
           <template v-else>No encrypted files yet. Upload your first file to get started.</template>
         </div>
 
@@ -341,6 +377,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <div class="p-2 rounded-lg bg-secondary"><FileIcon class="h-4 w-4 text-primary" /></div>
                     <div>
                       <p class="text-foreground font-medium">{{ file.name }}</p>
+                      <p v-if="!file.owned" class="text-xs text-muted-foreground">Shared by {{ file.ownerName }}</p>
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
                     </div>
                   </div>
@@ -365,10 +402,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                       <Loader2 v-if="downloadingId === file.id" class="h-4 w-4 animate-spin" />
                       <Download v-else class="h-4 w-4" />
                     </button>
-                    <button class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
+                    <!-- Sharing and deleting belong to the owner. A recipient's grant carries
+                         can_share=false and can_manage=false, so these would only ever return
+                         a 404 -- showing them promises something the server will refuse. -->
+                    <button v-if="file.owned" class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
                       <Share2 class="h-4 w-4" />
                     </button>
-                    <button class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive" title="Delete" @click="handleDelete(file.id)">
+                    <button v-if="file.owned" class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive" title="Delete" @click="handleDelete(file.id)">
                       <Trash2 class="h-4 w-4" />
                     </button>
                   </div>

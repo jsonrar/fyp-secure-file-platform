@@ -18,6 +18,15 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Files shared with you are no longer disguised as your own / 别人分享给你的文件不再伪装成你自己的
+
+- The file list now separates "My Files" from "Shared with me". `GET /files` returns both in one list and has always marked which is which with an `owner` boolean — the page simply never read it, so a file someone else owned and shared sat in "My Encrypted Files" looking exactly like one you had uploaded, as though you owned and managed it.
+- 文件列表现在把「My Files」与「Shared with me」分开。`GET /files` 本来就把两者放在同一个列表返回，并一直用 `owner` 布尔字段标明区别——只是页面从未读取过它，因此别人拥有并分享给你的文件就躺在「My Encrypted Files」里，看起来和你自己上传的一模一样，仿佛由你拥有和管理。
+- A shared row names who shared it. `FileSummaryOut` gained `owner_username`, eager-loaded with the file so a page of a hundred rows does not become a hundred extra queries. "Shared with me" is not much use without saying who by.
+- 分享来的行会写明分享者。`FileSummaryOut` 新增 `owner_username`，与文件一起预加载，因此一页一百行不会变成一百次额外查询。「Shared with me」不写明是谁分享的就没什么用。
+- Share and delete are hidden on a file you do not own. A recipient's grant carries `can_share=false` and `can_manage=false` — both are hardcoded for non-owner grants — so those buttons could only ever produce a 404. Offering them promised something the server was always going to refuse.
+- 对于不属于你的文件，分享与删除按钮会隐藏。接收方的授权中 `can_share=false`、`can_manage=false`——这两项对非所有者授权是硬编码的——因此这些按钮只可能得到 404。把它们摆出来，等于承诺一件服务端注定会拒绝的事。
+
 ### Staging hardening / 预发布环境加固
 
 - Added nginx rate limits for secureview.tech. The application already throttles authentication — ten failures per account and fifty per IP inside fifteen minutes — but every attempt below that threshold still costs a database transaction and a full Argon2id verification at 64 MiB, which turns a deliberately expensive password hash into an amplifier. Credential routes now allow twelve requests a minute with a burst of eight; the rest of the API allows ten a second. Verified: nine requests pass and the tenth onward answer 429.

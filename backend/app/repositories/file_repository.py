@@ -5,7 +5,7 @@ from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import Select, and_, func, select, update
-from sqlalchemy.orm import Session
+from sqlalchemy.orm import Session, joinedload
 
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
@@ -173,6 +173,9 @@ class FileRepository:
         search: str | None = None,
     ) -> tuple[list[FileAccessRecord], int]:
         access_statement = self._active_access_statement(user_id)
+        # Eager-load the owner: the listing names whoever shared each file, and resolving
+        # that lazily would be one query per row on a page of up to a hundred.
+        access_statement = access_statement.options(joinedload(File.owner))
         if search:
             access_statement = access_statement.where(self._filename_contains(search))
         count_statement = select(func.count()).select_from(

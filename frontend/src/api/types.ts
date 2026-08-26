@@ -18,6 +18,8 @@ export interface FileSummaryOut {
   encryption_algorithm: string
   status: string
   owner: boolean
+  /** Who uploaded it. Null only for a row whose owner row could not be loaded. */
+  owner_username: string | null
   created_at: string
   updated_at: string
 }

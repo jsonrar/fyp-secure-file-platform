@@ -152,6 +152,9 @@ class FileSummaryOut(StrictFileModel):
     encryption_algorithm: str
     status: str
     owner: bool
+    # Who uploaded it. The listing mixes files you own with files shared with you, and
+    # "shared with me" is not much use without saying who by.
+    owner_username: str | None = None
     created_at: datetime
     updated_at: datetime
 
