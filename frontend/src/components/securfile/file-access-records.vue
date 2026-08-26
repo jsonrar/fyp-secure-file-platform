@@ -3,12 +3,15 @@ import { computed, onMounted, ref } from 'vue'
 import { Activity, Clock, Download, Eye, FileIcon, RefreshCw, User } from 'lucide-vue-next'
 import { auditApi } from '@/api/audit_api'
 import { unwrapData, type AuditLogOut } from '@/api/types'
+import { auditActionLabel, isDownloadAction } from '@/utils/audit-actions'
 
 interface AccessUser {
   id: string
   name: string
   accessTime: string
+  /** Human label, e.g. "Downloaded". The raw enum is kept separately for counting. */
   action: string
+  isDownload: boolean
   device: string
   location: string
 }
@@ -40,7 +43,8 @@ const mapLogToUser = (log: AuditLogOut, index: number): AccessUser => ({
   id: String(log.log_id ?? index),
   name: log.actor_username ?? 'Unknown user',
   accessTime: log.created_at ?? '-',
-  action: log.action ?? 'view',
+  action: auditActionLabel(log.action),
+  isDownload: isDownloadAction(log.action),
   device: log.device ?? 'Unknown device',
   location: log.location ?? 'Unknown',
 })
@@ -53,15 +57,15 @@ const groups = computed<AuditGroup[]>(() => {
     const user = mapLogToUser(log, index)
     if (existing) {
       existing.accessHistory.push(user)
-      if (user.action === 'download') existing.totalDownloads += 1
+      if (user.isDownload) existing.totalDownloads += 1
       else existing.totalViews += 1
     } else {
       grouped.set(fileId, {
         id: fileId,
         name: `File #${fileId}`,
         sharedAt: log.created_at ?? '-',
-        totalViews: user.action === 'download' ? 0 : 1,
-        totalDownloads: user.action === 'download' ? 1 : 0,
+        totalViews: user.isDownload ? 0 : 1,
+        totalDownloads: user.isDownload ? 1 : 0,
         accessHistory: [user],
       })
     }

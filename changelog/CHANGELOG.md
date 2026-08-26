@@ -29,6 +29,15 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 - The dialog points at the private key file first. Deleting is the last resort for someone locked out by a forgotten passphrase, not the first thing to try — the `.pem` saved at registration opens the files without the passphrase, and is worth ruling out before destroying anything.
 - 对话框会优先引导用户使用私钥文件。对于因遗忘 passphrase 而被锁在门外的用户，删除是最后手段而非首选——注册时保存的 `.pem` 无需 passphrase 即可打开文件，在销毁任何东西之前值得先排除这条路。
 
+### Audit log labels and the download counter / 审计日志标签与下载计数
+
+- Downloads were being recorded all along; the records page just could not see them. It compared `log.action` against the literal `'download'`, while the backend writes `FILE_DOWNLOAD_AUTHORIZED` when a download is served. So the Downloads stat read zero no matter how many files had been downloaded, every event fell through to being counted as a view, and the raw enum name was rendered to the user. Reported as "there is no access or download record" — the records existed and were complete.
+- 下载一直都有记录，只是访问记录页看不见它们。页面把 `log.action` 与字面量 `'download'` 比较，而后端在下载被授权时写入的是 `FILE_DOWNLOAD_AUTHORIZED`。因此无论下载过多少文件，"Downloads"统计恒为 0，所有事件都落到"view"分支被计为浏览，而且原始的枚举名被直接渲染给用户。此前被报告为"没有访问记录下载记录"——记录一直存在且完整。
+- Actions now carry human labels ("Downloaded", "Shared", "Access revoked") from one shared module, and an action the browser has no label for is titled rather than dropped: the vocabulary grows on the server side, and a record nobody can name is still a record of something that happened.
+- 各类操作现在由一个共享模块提供可读标签（"Downloaded"、"Shared"、"Access revoked"），浏览器不认识的操作会转成标题格式显示而非丢弃：这套词表在服务端会继续扩充，而一条叫不出名字的记录仍然是"发生过某件事"的记录。
+- A blocked download (`FILE_DOWNLOAD_INTEGRITY_FAILED`) is deliberately not counted as a download. It is a record of an access that did not happen.
+- 被拦截的下载（`FILE_DOWNLOAD_INTEGRITY_FAILED`）有意不计入下载数。它记录的是一次并未发生的访问。
+
 ### Session lifetime / 会话有效期
 
 - The browser now renews an expiring session instead of failing the next click. The access token lasts 30 minutes and the refresh token 7 days, but the refresh token was discarded at login and never presented — so a tab left open for half an hour answered a bare authorization error to the next action, with nothing on screen saying the session had ended or that signing in again was the fix. A 401 now triggers one refresh and a retry of the request that failed, transparently.
