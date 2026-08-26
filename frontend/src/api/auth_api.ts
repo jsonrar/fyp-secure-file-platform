@@ -65,6 +65,17 @@ export interface ResetPasswordData {
  */
 export type { ApiEnvelope } from './types'
 
+export interface DeleteAccountPayload {
+  password: string
+  /** The literal word, so a stray click cannot produce this request. */
+  confirmation: 'DELETE'
+}
+
+export interface DeleteAccountData {
+  files_deleted: number
+  sessions_revoked: number
+}
+
 export const authApi = {
   sendVerificationCode(payload: SendVerificationCodePayload) {
     return http.post<ApiEnvelope<SendVerificationCodeData>>(
@@ -86,5 +97,9 @@ export const authApi = {
   },
   me() {
     return http.get('/auth/me')
+  },
+  /** Close the account and destroy the files it owns. Not reversible. */
+  deleteAccount(payload: DeleteAccountPayload) {
+    return http.post<ApiEnvelope<DeleteAccountData>>('/auth/delete-account', payload)
   },
 }

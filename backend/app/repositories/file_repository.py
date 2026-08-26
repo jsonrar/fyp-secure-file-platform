@@ -197,6 +197,21 @@ class FileRepository:
             total,
         )
 
+    def lock_owned_files(self, owner_id: int) -> list[File]:
+        """Every file this account still owns, locked for deletion.
+
+        Used only by account deletion, which has to reach files the owner may never have
+        opened in this session, so it cannot go one `lock_owned_file` at a time from a list
+        the client supplied.
+        """
+        return list(
+            self.db.scalars(
+                select(File)
+                .where(File.owner_id == owner_id, File.status != "DELETED")
+                .with_for_update()
+            ).all()
+        )
+
     def revoke_file_access_rows(self, file_pk: int, *, revoked_at: datetime) -> None:
         grant_values: dict[str, object] = {
             "status": "REVOKED",

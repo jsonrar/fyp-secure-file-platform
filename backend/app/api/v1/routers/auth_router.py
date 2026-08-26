@@ -7,6 +7,7 @@ from fastapi import APIRouter, Depends, status
 from fastapi.responses import JSONResponse
 
 from app.api.dependencies import (
+    get_account_deletion_service,
     get_auth_service,
     get_current_actor,
     get_request_context,
@@ -16,6 +17,8 @@ from app.api.responses import AUTH_NO_STORE_HEADERS, ApiSuccessResponse, ok
 from app.core.config import Settings
 from app.domain.auth import ActorContext, RequestContext
 from app.schemas.auth_schema import (
+    DeleteAccountRequest,
+    DeleteAccountResponse,
     AuthMeResponse,
     AuthRefreshRequest,
     AuthRefreshResponse,
@@ -36,11 +39,15 @@ from app.schemas.auth_schema import (
     UserRegisterRequest,
     UserRegisterResponse,
 )
+from app.services.account_deletion_service import AccountDeletionService
 from app.services.auth_service import AuthService
 
 router = APIRouter()
 
 AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]
+AccountDeletionServiceDependency = Annotated[
+    AccountDeletionService, Depends(get_account_deletion_service)
+]
 ActorDependency = Annotated[ActorContext, Depends(get_current_actor)]
 RequestContextDependency = Annotated[RequestContext, Depends(get_request_context)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
@@ -182,6 +189,35 @@ def logout_all(
     return ok(
         message="All sessions logged out",
         data=response_data,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post("/delete-account", response_model=ApiSuccessResponse[DeleteAccountResponse])
+def delete_account(
+    payload: DeleteAccountRequest,
+    actor: ActorDependency,
+    context: RequestContextDependency,
+    service: AccountDeletionServiceDependency,
+) -> JSONResponse:
+    """Close the account and destroy the files it owns. Not reversible.
+
+    Exists because a forgotten encryption passphrase cannot be recovered or reset by design,
+    so starting over is the only remaining path -- and it should not require a teammate with
+    database access. The password is required again on top of the live session: this is the
+    one irreversible action in the application.
+    """
+    result = service.delete_account(
+        actor=actor,
+        password=payload.password,
+        context=context,
+    )
+    return ok(
+        message="Account deleted",
+        data=DeleteAccountResponse(
+            files_deleted=result.files_deleted,
+            sessions_revoked=result.sessions_revoked,
+        ),
         headers=AUTH_NO_STORE_HEADERS,
     )
 

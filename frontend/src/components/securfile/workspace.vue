@@ -1,9 +1,15 @@
 <script setup lang="ts">
 import { ChevronRight, FileIcon, Shield, Upload } from 'lucide-vue-next'
 import { onMounted, ref } from 'vue'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
 import { fileApi } from '@/api/file_api'
 import { formatFileSize, unwrapData, type FileSummaryOut } from '@/api/types'
+import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
+import { useAuthStore } from '@/stores/auth_store'
+
+const router = useRouter()
+const auth = useAuthStore()
+const showDelete = ref(false)
 
 const recent = ref<FileSummaryOut[]>([])
 const total = ref<number | null>(null)
@@ -26,6 +32,17 @@ onMounted(async () => {
     isLoading.value = false
   }
 })
+
+/**
+ * The account is gone server-side; clear the local session so the app does not keep
+ * rendering a signed-in shell against a user that no longer exists, and offer the only
+ * thing left to do -- register again.
+ */
+const onDeleted = () => {
+  showDelete.value = false
+  auth.logout()
+  router.push({ path: '/register', query: { deleted: '1' } })
+}
 
 const destinations = [
   {
@@ -112,6 +129,36 @@ const destinations = [
           </ul>
         </div>
       </div>
+
+      <div class="max-w-5xl mx-auto mt-12">
+        <details class="rounded-xl border border-border bg-card/50 p-4">
+          <summary class="text-sm text-muted-foreground cursor-pointer select-none">
+            Account options
+          </summary>
+          <div class="mt-4 pt-4 border-t border-border">
+            <p class="text-sm text-foreground mb-1">Delete this account</p>
+            <p class="text-xs text-muted-foreground mb-3 max-w-2xl text-pretty">
+              Removes the account and every file uploaded from it. There is no way to reverse
+              this and no way to recover the files afterwards. If you are locked out by a
+              forgotten passphrase, unlocking with your saved private key file is the thing to
+              try first — deleting is the last resort, not the first.
+            </p>
+            <button
+              type="button"
+              class="h-9 px-4 rounded-md border border-destructive/50 text-destructive hover:bg-destructive/10 transition-colors text-sm"
+              @click="showDelete = true"
+            >
+              Delete account
+            </button>
+          </div>
+        </details>
+      </div>
     </div>
+
+    <DeleteAccountDialog
+      v-if="showDelete"
+      @deleted="onDeleted"
+      @close="showDelete = false"
+    />
   </section>
 </template>
