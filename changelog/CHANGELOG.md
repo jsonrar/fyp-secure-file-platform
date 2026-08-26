@@ -18,6 +18,15 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Filenames in the audit log / 审计日志中的文件名
+
+- The records page now shows what each file is called instead of `File #<uuid>`. `GET /audit-logs` returns `file_id` and no filename, and the agreed resolution was for the browser to look it up rather than widen the audit response.
+- 访问记录页现在显示每个文件的真实名称，而不再是 `File #<uuid>`。`GET /audit-logs` 只返回 `file_id` 而不返回文件名，团队商定的方案是由浏览器自行查询，而不是扩大审计接口的响应。
+- Resolved with one list call before any per-file lookups. `GET /files` returns up to 100 summaries at once and covers essentially every file a person has audit entries for, so a user with eight files costs one request rather than eight; only ids that call misses — a file shared to them, most often — are fetched individually, deduplicated and at most four at a time.
+- 解析时先做一次列表查询，然后才逐个补齐。`GET /files` 单次最多返回 100 条摘要，基本覆盖了一个用户会有审计记录的全部文件，因此拥有八个文件的用户只需一次请求而不是八次；只有这次调用没覆盖到的 id（最常见的是别人分享给他的文件）才会单独查询，且会去重、并发上限为四。
+- Names are resolved after the rows are on screen rather than before. The history is readable without them, and a slow lookup should not hold it back. A file that has been deleted, or whose access was revoked, simply keeps a shortened id: audit entries outlive the files they describe, and what happened to a file is worth showing after the file is gone.
+- 文件名在记录渲染之后才解析，而不是之前。没有文件名时历史记录依然可读，一次缓慢的查询不应该拖住它。已被删除、或访问权限已被撤销的文件会保留一个缩短的 id：审计记录的存续时间长于它所描述的文件，而"这个文件发生过什么"在文件消失之后依然值得展示。
+
 ### Deleting your own account / 自助注销账户
 
 - Added `POST /auth/delete-account` and a "Delete account" control on the workspace. A forgotten encryption passphrase is unrecoverable by design — the offline recovery workflow cannot recover one, and `POST /keys/me/rewrap` cannot set a new one without the account master key, which is precisely what the forgotten passphrase protects. Starting over is therefore the only remaining path, and it should not require a teammate with database access to perform it by hand.
