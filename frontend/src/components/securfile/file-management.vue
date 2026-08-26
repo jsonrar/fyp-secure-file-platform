@@ -280,8 +280,13 @@ const closeShare = () => {
 }
 
 const onShared = (username: string) => {
-  shareFileId.value = null
+  // The dialog stays open: it now lists who holds the file, and seeing the new name appear
+  // is the confirmation. Closing it would hide the thing that just changed.
   actionMessage.value = `Shared with ${username}`
+}
+
+const onRevoked = (username: string) => {
+  actionMessage.value = `Revoked ${username}'s access`
 }
 
 /** The rewrap needs the account key open; stand the share down and raise the passphrase. */
@@ -466,6 +471,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       :filename="shareFilename"
       @close="closeShare"
       @shared="onShared"
+      @revoked="onRevoked"
       @needs-unlock="onShareNeedsUnlock"
     />
     <UnlockDialog
