@@ -18,6 +18,15 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Who opened this file, and when / 谁在什么时候打开了这个文件
+
+- Every file row now offers its access history: who did what to it, and at what time, rather than a count. `GET /audit-logs/file/{id}` authorizes against the live entitlement and then returns the complete trail for that file **including events performed by other people** — the account-wide listing deliberately does not, returning only rows where the caller is the actor or the target. Nothing in the app had ever called it, so "who downloaded the file I shared" was recorded in full and unreadable.
+- 现在每一行文件都可以查看它的访问记录：谁、在什么时间、做了什么，而不只是一个次数。`GET /audit-logs/file/{id}` 会先校验当前的有效授权，然后返回该文件的完整轨迹，**包含其他人执行的操作**——账户级的列表接口有意不这样做，它只返回调用者作为操作者或被操作者的记录。此前应用里从未调用过这个接口，因此"我分享出去的文件被谁下载了"被完整记录着，却无法读取。
+- The owner therefore sees the recipients' downloads with timestamps; a recipient opening the same view sees the same trail for a file they legitimately hold, which is what the server has always been willing to answer.
+- 因此所有者可以看到接收方的下载记录及其时间；接收方打开同一视图时，看到的是他确实持有的那个文件的同一份轨迹——这本来就是服务端一直愿意回答的内容。
+- Separators live inside the text rather than between elements. Vue trims whitespace between elements, which silently ran "Downloaded" and "137.36 KB" together into one word.
+- 分隔符放在文本内部，而不是元素之间。Vue 会裁剪元素之间的空白，这会悄无声息地把 "Downloaded" 和 "137.36 KB" 连成一个词。
+
 ### Files shared with you are no longer disguised as your own / 别人分享给你的文件不再伪装成你自己的
 
 - The file list now separates "My Files" from "Shared with me". `GET /files` returns both in one list and has always marked which is which with an `owner` boolean — the page simply never read it, so a file someone else owned and shared sat in "My Encrypted Files" looking exactly like one you had uploaded, as though you owned and managed it.
