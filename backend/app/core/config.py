@@ -77,6 +77,11 @@ class Settings(BaseSettings):
     # Tell a recipient by email that a file has been shared with them. Off by default so a
     # deployment without working mail does not queue messages nobody receives.
     SHARE_NOTIFICATION_EMAIL: bool = False
+    # Share notifications must never crowd out verification codes. A code that cannot be
+    # delivered blocks registration and password reset; a share notification that is not
+    # delivered is an inconvenience, and the recipient still finds the file in their list.
+    # This caps the nice-to-have so it can only ever consume a fraction of the day's quota.
+    SHARE_NOTIFICATION_DAILY_CAP: int = Field(default=40, ge=0, le=1000)
     RESEND_API_KEY: str = Field(default="", repr=False)
     RESEND_API_URL: str = "https://api.resend.com/emails"
     SMTP_HOST: str = ""

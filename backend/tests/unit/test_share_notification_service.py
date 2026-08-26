@@ -128,3 +128,58 @@ def test_an_unexpected_error_is_swallowed_too() -> None:
     )
 
     assert _notify(service) is False
+
+
+def test_stops_sending_once_the_daily_cap_is_reached() -> None:
+    # Verification codes share this allowance and are the ones that must get through: a code
+    # that cannot be sent blocks registration and password reset outright, while a missed
+    # share notification costs the recipient one glance at their file list.
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True, SHARE_NOTIFICATION_DAILY_CAP=3),
+        email=email,
+        sent_today=lambda: 3,
+    )
+
+    assert _notify(service) is False
+    assert email.sent == []
+
+
+def test_sends_while_under_the_cap() -> None:
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True, SHARE_NOTIFICATION_DAILY_CAP=3),
+        email=email,
+        sent_today=lambda: 2,
+    )
+
+    assert _notify(service) is True
+    assert len(email.sent) == 1
+
+
+def test_a_cap_of_zero_disables_notifications_entirely() -> None:
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True, SHARE_NOTIFICATION_DAILY_CAP=0),
+        email=email,
+        sent_today=lambda: 0,
+    )
+
+    assert _notify(service) is False
+
+
+def test_a_failure_to_count_skips_the_email_rather_than_guessing() -> None:
+    # If the count cannot be established, the safe direction is not to send: the thing being
+    # protected is the delivery of verification codes.
+    def explode() -> int:
+        raise RuntimeError("database unavailable")
+
+    email = FakeEmail()
+    service = ShareNotificationService(
+        settings=_settings(SHARE_NOTIFICATION_EMAIL=True),
+        email=email,
+        sent_today=explode,
+    )
+
+    assert _notify(service) is False
+    assert email.sent == []

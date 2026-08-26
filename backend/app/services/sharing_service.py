@@ -184,6 +184,10 @@ class SharingService:
         # one back. The notifier swallows its own delivery errors for the same reason.
         if self.notifier is not None:
             actor_user = self.repository.get_user(actor.user_id)
+            # Bound the notifier by what has already been sent today, so it can never eat
+            # the allowance verification codes depend on.
+            midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            self.notifier.sent_today = lambda: self.repository.count_shares_since(midnight)
             self.notifier.notify_shared(
                 recipient_email=target_user.email,
                 recipient_username=target_user.username,

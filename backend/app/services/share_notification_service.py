@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import logging
+from collections.abc import Callable
 
 from app.core.config import Settings
 from app.services.email_service import EmailDeliveryError, EmailService, OutboundEmail
@@ -22,9 +23,16 @@ class ShareNotificationService:
     would move metadata somewhere the design never accounted for.
     """
 
-    def __init__(self, *, settings: Settings, email: EmailService | None = None) -> None:
+    def __init__(
+        self,
+        *,
+        settings: Settings,
+        email: EmailService | None = None,
+        sent_today: Callable[[], int] | None = None,
+    ) -> None:
         self.settings = settings
         self.email = email or EmailService(settings=settings)
+        self.sent_today = sent_today
 
     def notify_shared(self, *, recipient_email: str, recipient_username: str, sender_username: str) -> bool:
         """Best effort, by design.
@@ -36,6 +44,22 @@ class ShareNotificationService:
         """
         if not self.settings.SHARE_NOTIFICATION_EMAIL:
             return False
+
+        # The provider's allowance is shared with verification codes, and those are the ones
+        # that must get through: a code that fails to send blocks registration and password
+        # reset outright, while a missed share notification costs the recipient a glance at
+        # their file list. Stop well short of the ceiling rather than race for it.
+        cap = self.settings.SHARE_NOTIFICATION_DAILY_CAP
+        if self.sent_today is not None and cap >= 0:
+            try:
+                if self.sent_today() >= cap:
+                    logger.info(
+                        "Share notification skipped: daily cap of %s reached", cap
+                    )
+                    return False
+            except Exception:  # pragma: no cover - counting must never break a share
+                logger.exception("Could not count today's share notifications")
+                return False
 
         try:
             self.email.send(self._compose(recipient_email, recipient_username, sender_username))
