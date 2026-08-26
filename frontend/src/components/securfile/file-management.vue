@@ -1,10 +1,11 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, Filter, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
+import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, Filter, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
+import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
 import UnlockDialog from '@/components/UnlockDialog.vue'
 import {
   downloadAndDecrypt,
@@ -47,6 +48,7 @@ const files = ref<EncryptedFile[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
+const historyFileId = ref<string | null>(null)
 const actionMessage = ref('')
 const page = ref(1)
 const total = ref(0)
@@ -271,6 +273,8 @@ const openShare = (id: string) => {
   shareFileId.value = id
 }
 
+const historyFile = computed(() => files.value.find((file) => file.id === historyFileId.value))
+
 const closeShare = () => {
   shareFileId.value = null
 }
@@ -405,6 +409,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <!-- Sharing and deleting belong to the owner. A recipient's grant carries
                          can_share=false and can_manage=false, so these would only ever return
                          a 404 -- showing them promises something the server will refuse. -->
+                    <button
+                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                      title="Access history"
+                      @click="historyFileId = file.id"
+                    >
+                      <Activity class="h-4 w-4" />
+                    </button>
                     <button v-if="file.owned" class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
                       <Share2 class="h-4 w-4" />
                     </button>
@@ -442,6 +453,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       </div>
     </div>
 
+    <FileHistoryDialog
+      v-if="historyFile"
+      :file-id="historyFile.id"
+      :filename="historyFile.name"
+      :owned="historyFile.owned"
+      @close="historyFileId = null"
+    />
     <ShareDialog
       v-if="shareFileId !== null"
       :file-id="shareFileId"
