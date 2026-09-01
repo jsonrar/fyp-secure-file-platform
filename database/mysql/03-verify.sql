@@ -443,7 +443,7 @@ ORDER BY table_name, deviation;
 SELECT
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(COLUMN_DEFAULT) = '0005_selectable_aes_key_length'
+         AND MAX(COLUMN_DEFAULT) = '0006_chacha20_poly1305'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS readiness_marker_default_status
@@ -759,7 +759,7 @@ SELECT
     GROUP_CONCAT(version_num ORDER BY version_num) AS alembic_revisions,
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(version_num) = '0005_selectable_aes_key_length'
+         AND MAX(version_num) = '0006_chacha20_poly1305'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_compatibility_status
@@ -783,14 +783,14 @@ SELECT
         AND head.last_log_id IS NULL
         AND head.current_hash =
             '0000000000000000000000000000000000000000000000000000000000000000'
-        AND head.schema_revision = '0005_selectable_aes_key_length'
+        AND head.schema_revision = '0006_chacha20_poly1305'
     ), 0) AS genesis_rows,
     COALESCE(SUM(
         head.id = 1
         AND audit_state.audit_log_rows > 0
         AND head.last_log_id = audit_state.max_log_id
         AND last_log.current_hash = head.current_hash
-        AND head.schema_revision = '0005_selectable_aes_key_length'
+        AND head.schema_revision = '0006_chacha20_poly1305'
     ), 0) AS live_rows,
     CASE
         WHEN COUNT(head.id) = 1
@@ -800,7 +800,7 @@ SELECT
              AND head.last_log_id IS NULL
              AND head.current_hash =
                  '0000000000000000000000000000000000000000000000000000000000000000'
-             AND head.schema_revision = '0005_selectable_aes_key_length'
+             AND head.schema_revision = '0006_chacha20_poly1305'
          ), 0) = 1
         THEN 'OK'
         WHEN COUNT(head.id) = 1
@@ -809,7 +809,7 @@ SELECT
              AND audit_state.audit_log_rows > 0
              AND head.last_log_id = audit_state.max_log_id
              AND last_log.current_hash = head.current_hash
-             AND head.schema_revision = '0005_selectable_aes_key_length'
+             AND head.schema_revision = '0006_chacha20_poly1305'
          ), 0) = 1
         THEN 'LIVE_DATA'
         ELSE 'REVIEW'

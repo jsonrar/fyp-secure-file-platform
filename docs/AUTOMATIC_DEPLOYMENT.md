@@ -26,8 +26,10 @@ The underlying release command serializes deployments, preserves the prior relea
 the application back when its post-switch health check fails. Automatic database handling is
 limited to backup and read-only production SQL verification. The runtime account cannot alter
 the schema, and the automatic deployment service has no MySQL administrator or migration
-credential. A schema change therefore requires a separately reviewed DBA SQL release, as
-described in [DEPLOYMENT.md](DEPLOYMENT.md).
+credential. A schema change therefore requires a separately reviewed DBA SQL release, and it must be
+applied to the database **before** the code that expects it is pushed — pushing first aborts
+the deploy and quarantines the SHA, which blocks every later commit behind it. See
+[Applying a schema revision to a running deployment](DEPLOYMENT.md#applying-a-schema-revision-to-a-running-deployment).
 
 The verifier distinguishes a fresh audit chain (`OK`) from a valid chain that already contains
 application events (`LIVE_DATA`). A live chain is accepted only when the singleton head keeps

@@ -362,3 +362,50 @@ update: 2026/9/1
 
 update: 2026/9/1
 
+---
+
+## CT-1.8 step 2 / 第二步
+
+### Scope / 范围
+
+- Wiring ChaCha20-Poly1305 through the registry, the envelope, the API schema, the database, and the upload page. Revision `0006_chacha20_poly1305`.
+- 把 ChaCha20-Poly1305 接入注册表、信封、API schema、数据库与上传页面。Revision 为 `0006_chacha20_poly1305`。
+
+### Changed / 变更
+
+- Replaced the flat key-length table with a suite table carrying key, nonce and tag lengths per algorithm. Every current suite uses a 12-byte nonce, but nothing assumes it any more -- `encryptFile` now draws its nonce from the suite rather than from the AES constant, so a future suite with a different nonce length cannot silently inherit the wrong one.
+- 已将原先扁平的密钥长度表替换为套件表，按算法记录密钥、nonce 与 tag 长度。当前所有套件都使用 12 字节 nonce，但代码不再假定这一点——`encryptFile` 现在从套件而非 AES 常量取 nonce 长度，因此未来若加入 nonce 长度不同的套件，不会静默继承错误的取值。
+- The construction is chosen in exactly two functions, `sealWith` and `openWith`. Everything above them -- the AAD, the detached tag, the length checks, the mandatory self-test -- is shared, so a third suite is added in one place.
+- 构造的选择只发生在 `sealWith` 与 `openWith` 两个函数中。它们之上的一切——AAD、分离式 tag、长度检查、强制自测——都是共用的，因此加入第三种套件只需改一处。
+- `NormalizedIdentity` now types its algorithm as `EncryptionAlgorithm` rather than `string`. The narrowing already happened inside `normalizeIdentity`; encoding it in the type means the dispatch needs no cast that could outlive the check.
+- `NormalizedIdentity` 现在把算法字段的类型标注为 `EncryptionAlgorithm` 而非 `string`。收窄本来就发生在 `normalizeIdentity` 内部，把它写进类型意味着分发处不需要一个可能比检查存活更久的类型断言。
+
+### The test that matters most / 最要紧的那条测试
+
+- `AES-256-GCM` and `ChaCha20-Poly1305` agree on every structural property: 32-byte key, 12-byte nonce, 16-byte tag, ciphertext the length of the plaintext. No length check can tell them apart, so the AAD binding is the sole separator. Two tests assert that a file written under either name fails authentication when opened as the other. Without them, removing the algorithm from AAD-3 would leave the whole suite green.
+- `AES-256-GCM` 与 `ChaCha20-Poly1305` 在每一项结构性质上都一致：32 字节密钥、12 字节 nonce、16 字节 tag、密文长度等于明文。没有任何长度检查能区分它们，因此 AAD 绑定是唯一的分隔手段。两条测试断言：以任一名称写出的文件，被当作另一种打开时必须认证失败。若没有它们，把算法名从 AAD-3 中移除会让整个测试套件依然全绿。
+
+### Found while testing / 测试中发现
+
+- `ck_files_encryption_envelope` compared the algorithm name case-insensitively, because the column collates as `utf8mb4_unicode_ci`. `aes-256-gcm` inserted cleanly. This predates ChaCha20-Poly1305 and predates CT-1.7 -- the original `= 'AES-256-GCM'` had the same property -- and was found only by probing the constraint directly rather than trusting that it read correctly. Fixed here because this revision rewrites the same constraint. It was never reachable through the API, so this is a defence-in-depth repair rather than a vulnerability fix.
+- `ck_files_encryption_envelope` 此前按大小写不敏感的方式比较算法名，因为该列的排序规则是 `utf8mb4_unicode_ci`，`aes-256-gcm` 可以直接插入。这个问题早于 ChaCha20-Poly1305、也早于 CT-1.7——原来的 `= 'AES-256-GCM'` 具有同样的性质——它是通过直接戳约束而非相信它「读起来正确」才被发现的。由于本 revision 正好重写同一条约束，因此在此一并修复。通过 API 永远走不到这一步，所以这属于纵深防御的修补，而非漏洞修复。
+
+### Verified / 验证
+
+- Frontend `233 passed | 18 skipped`, `vue-tsc --noEmit` clean; backend `269 passed`, Ruff clean on every file touched.
+- 前端 `233 passed | 18 skipped`，`vue-tsc --noEmit` 通过；后端 `269 passed`，本次触及的每个文件 Ruff 均通过。
+- Python generated the ChaCha20-Poly1305 envelope vectors first and the TypeScript reproduced them byte for byte, so the offline recovery path is known to open files written under the new suite -- the check that decides whether a file can ever be recovered.
+- ChaCha20-Poly1305 的信封向量由 Python 先生成，TypeScript 再逐字节复现，因此可以确认离线恢复路径能打开以新套件写出的文件——这是决定一个文件将来能否被恢复的那道检查。
+- On disposable MySQL 8.4: `0001 -> 0006`, a `0006 -> 0005 -> 0006` round trip, and `alembic check` parity. All four names insert; `chacha20-poly1305` is refused with error 3819; the downgrade guard refused while a ChaCha file existed. The production SQL path reports `schema_structure_status OK`, `readiness_marker_default_status OK`, `audit_singleton_status OK`, and `schema_compatibility_status OK` at `0006_chacha20_poly1305`.
+- 在一次性 MySQL 8.4 上：`0001 -> 0006`、`0006 -> 0005 -> 0006` 往返，以及 `alembic check` 一致。四个名称均可插入；`chacha20-poly1305` 被 3819 错误拒绝；存在 ChaCha 文件时降级保护拒绝执行。生产 SQL 路径报告 `schema_structure_status OK`、`readiness_marker_default_status OK`、`audit_singleton_status OK`，`schema_compatibility_status` 在 `0006_chacha20_poly1305` 上为 `OK`。
+
+### Limitations / 限制
+
+- The account key envelopes stay AES-256-GCM. They record no algorithm a reader could disagree with, so there is nothing to select and nothing to bind; giving them a choice would create a downgrade surface for no benefit.
+- 账户密钥信封仍为 AES-256-GCM。它们不记录任何读取方可能产生分歧的算法名，因此既无从选择也无需绑定；给它们加上选择只会凭空造出一个降级面，而没有任何收益。
+- A ChaCha key is a plain `Uint8Array`, not a non-extractable `CryptoKey`, because a library implementation must read the key material. Documented at the function in step 1; unchanged here.
+- ChaCha 的密钥是普通 `Uint8Array` 而非不可导出的 `CryptoKey`，因为库实现必须读取密钥材料。这一点在第一步已写在函数处，本步未改变。
+- There is still no per-account or per-role floor on the choice, and no record of who chose what beyond the file's own metadata.
+- 目前仍没有按账户或按角色的算法下限，除文件自身元数据外也没有记录谁选了什么。
+
+update: 2026/9/2

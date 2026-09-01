@@ -54,9 +54,11 @@ onMounted(async () => {
 })
 
 const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
-  'AES-256-GCM': 'Strongest. The default, and what the recovery path is tested against.',
-  'AES-192-GCM': 'Intermediate key length. Not available in every browser.',
-  'AES-128-GCM': 'Fastest. Still considered secure; the shortest key of the three.',
+  'AES-256-GCM': 'The default, and what the recovery path is tested against.',
+  'ChaCha20-Poly1305':
+    'A different construction, not a different key length: a stream cipher authenticated by Poly1305. Often faster on devices without AES hardware acceleration.',
+  'AES-192-GCM': 'AES at an intermediate key length. Not available in every browser.',
+  'AES-128-GCM': 'AES at the shortest of its three key lengths. Still considered secure.',
 }
 
 const toUploadedFile = (file: File): UploadedFile => ({

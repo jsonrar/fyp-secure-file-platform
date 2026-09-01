@@ -202,7 +202,7 @@ TEMPORARY_AUTH_DDL = (
         id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
         last_log_id BIGINT UNSIGNED NULL,
         current_hash CHAR(64) NOT NULL,
-        schema_revision VARCHAR(64) NOT NULL DEFAULT '0005_selectable_aes_key_length',
+        schema_revision VARCHAR(64) NOT NULL DEFAULT '0006_chacha20_poly1305',
         updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
@@ -215,7 +215,7 @@ def _create_temporary_auth_schema(connection: Connection) -> None:
     connection.exec_driver_sql(
         "INSERT INTO audit_chain_heads "
         "(id, last_log_id, current_hash, schema_revision) "
-        "VALUES (1, NULL, %s, '0005_selectable_aes_key_length')",
+        "VALUES (1, NULL, %s, '0006_chacha20_poly1305')",
         ("0" * 64,),
     )
     connection.commit()
@@ -310,8 +310,8 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
             text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
         )
 
-    assert revision == "0005_selectable_aes_key_length"
-    assert readiness_revision == "0005_selectable_aes_key_length"
+    assert revision == "0006_chacha20_poly1305"
+    assert readiness_revision == "0006_chacha20_poly1305"
     assert {
         "session_uuid",
         "access_token_hash",

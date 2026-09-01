@@ -316,6 +316,94 @@ without a scheme reaches `http://` once before the redirect. The `Strict-Transpo
 header then pins HTTPS for a year. Publish and share the URL as `https://secureview.tech` so
 that first hop never happens; some in-app browsers warn on it.
 
+## Applying a schema revision to a running deployment
+
+`mcs21-deploy` never changes the schema. It backs the database up and runs `03-verify.sql`
+read-only; its own help text says so, and the automatic deployment identity holds no MySQL
+administrator credential. A release that carries a new Alembic revision therefore has a
+manual step, and getting its **order** wrong takes the site down or quarantines the release.
+
+### Why the order is forced
+
+`GET /health/ready` compares `audit_chain_heads.schema_revision` against the running code's
+`EXPECTED_SCHEMA_REVISION` and requires them to be **exactly equal** — not "at least". So
+there is no ordering in which both halves are correct at once, and a window of `503
+schema_incompatible` is unavoidable. What differs is how the two orderings fail:
+
+- **Code first.** `verify_database()` greps the verification log for `REVIEW`, `MISSING` or
+  `UNEXPECTED` and calls `die` on a match, so the deploy aborts. The post-deploy health check
+  then fails, the release rolls back, and the SHA is quarantined — and
+  `mcs21-auto-deploy` does not retry a quarantined SHA, so every later commit is blocked
+  behind it too.
+- **Database first.** The running code briefly answers `503` while it expects the previous
+  revision. The next automatic deploy, two minutes later at most, brings the code forward and
+  the window closes on its own.
+
+**Change the database first.** The failure mode is a short outage rather than a stuck
+pipeline.
+
+Note also that a revision string appears in roughly thirty places — `config.py`,
+`audit_chain_head.py`, `02-schema.sql`, `03-verify.sql`, and several test files. Updating only
+some of them is what quarantined an earlier release; `tests/unit/test_migration_metadata.py`
+and `tests/unit/test_mysql_sql_deployment.py` exist to catch a half-finished rename, so run
+the backend unit suite before starting any of this.
+
+### Deriving the SQL
+
+Do not hand-write the statements. Render them from the revision itself, so what runs on the
+server is what the migration says:
+
+```bash
+cd backend
+.venv/bin/alembic upgrade <previous_revision>:<new_revision> --sql
+```
+
+Guard queries inside a migration cannot run in this mode — there is no connection to ask — so
+they are skipped, and the rendered script relies on the constraints themselves. Read the
+output before running it, and reproduce any guard as an explicit pre-check in step 2.
+
+### Procedure
+
+1. **Prepare the code but do not push.** Commit, merge to `main`, and stop before
+   `git push`. The push should be a single command ready to fire, because it is what closes
+   the `503` window.
+
+2. **Back up.** `sudo mcs21-deploy database` on the server. It also runs the read-only
+   verification against the *currently deployed* release, so it should pass; if it does not,
+   stop and diagnose rather than layering a schema change on top of an existing problem.
+
+3. **Pre-check, read-only.** Confirm the starting revision in both `alembic_version` and
+   `audit_chain_heads`, and confirm every row the new constraints will validate already
+   satisfies them. MySQL DDL commits per statement and cannot be rolled back, so a
+   `DROP CHECK` that succeeds followed by an `ADD CONSTRAINT` that fails leaves the table
+   with no constraint at all. The pre-check is what keeps that from happening.
+
+4. **Apply the SQL,** ending with the two readiness markers and `alembic_version`. Raise the
+   markers last: a failure part-way must never advertise a schema the database does not have.
+
+5. **Push immediately.** The site is answering `503` from this moment until the deploy
+   completes, normally two to three minutes.
+
+6. **Confirm.** `result=success` and `health=ok` in `journalctl -u mcs21-auto-deploy`, and
+   `{"status":"ready"}` from `https://secureview.tech/health/ready`.
+
+### Rolling back
+
+`sudo mcs21-deploy rollback` **changes the code release only and never the database**. Using
+it alone after a schema change leaves old code against a new schema, which is exactly the
+`503 schema_incompatible` state — so a rollback must revert both halves: the SQL, then
+`git revert` on the merge commit.
+
+Reversibility is also time-limited whenever a revision widens what a column may hold. Narrowing
+it again fails once a row uses the new value, and those rows are usually intact data rather
+than corruption — the guards in `0005` and `0006` refuse the downgrade for that reason rather
+than deleting them. Decide quickly, or accept that going back means re-encrypting or deleting
+real files.
+
+Restoring the backup from step 2 is the last resort, not the plan. It discards everything
+written since the dump — uploads, registrations, audit rows, sessions — while the ciphertext
+on disk remains, leaving the two out of step.
+
 ## Legacy and failed deployments
 
 The former `docs/init.sql` was a historical development bootstrap and has been deleted. A

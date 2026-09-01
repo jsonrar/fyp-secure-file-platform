@@ -260,6 +260,77 @@ Let's Encrypt 证书只覆盖 `secureview.tech` 与 `www.secureview.tech`，浏�
 分享链接时请一律写作 `https://secureview.tech`，即可完全避免这一跳——部分应用内置浏览器会
 在该跳转期间提示不安全。
 
+## 对运行中的部署应用 Schema Revision
+
+`mcs21-deploy` 从不修改 Schema。它只做数据库备份并以只读方式运行 `03-verify.sql`——脚本自己的
+帮助文本就是这么写的，而且自动部署身份不持有任何 MySQL 管理员凭据。因此，携带新 Alembic revision
+的发布必然包含一个手动步骤，而**顺序**弄错会导致站点不可用或发布被隔离。
+
+### 为什么顺序是被迫的
+
+`GET /health/ready` 会把 `audit_chain_heads.schema_revision` 与运行中代码的
+`EXPECTED_SCHEMA_REVISION` 比较，并要求二者**精确相等**——不是「不低于」。因此不存在两边同时正确
+的顺序，一段 `503 schema_incompatible` 的窗口无法避免。两种顺序的区别在于失败方式：
+
+- **先推代码。** `verify_database()` 会在核验日志中搜索 `REVIEW`、`MISSING` 或 `UNEXPECTED`，
+  命中即 `die`，部署当场中止。随后部署后健康检查失败、发布回滚、该 SHA 被隔离——而
+  `mcs21-auto-deploy` **不会重试被隔离的 SHA**，因此之后的每一个提交都会一起卡在它后面。
+- **先改数据库。** 运行中的代码会短暂返回 `503`，因为它仍期待上一个 revision。最多两分钟后的
+  下一次自动部署会把代码跟上，窗口自行关闭。
+
+**先改数据库。** 它的失败形态是一次短暂中断，而不是一条卡死的发布管线。
+
+另需注意：revision 字符串出现在大约三十处——`config.py`、`audit_chain_head.py`、
+`02-schema.sql`、`03-verify.sql` 以及若干测试文件。只更新其中一部分正是此前隔离过一次发布的原因；
+`tests/unit/test_migration_metadata.py` 与 `tests/unit/test_mysql_sql_deployment.py` 正是为
+捕捉这种「改了一半的重命名」而存在，因此在开始上述任何操作之前，先跑一遍后端单元测试。
+
+### 生成 SQL
+
+不要手写这些语句。从 revision 本身渲染出来，使服务器上运行的内容与迁移所述一致：
+
+```bash
+cd backend
+.venv/bin/alembic upgrade <上一个 revision>:<新 revision> --sql
+```
+
+迁移内部的保护性查询在该模式下无法执行——没有连接可供查询——因此会被跳过，渲染出的脚本依赖约束
+本身。运行前先读一遍输出，并把其中任何保护性检查作为显式的前置检查复现在第 3 步中。
+
+### 步骤
+
+1. **准备好代码但先不要推。** 提交、合并到 `main`，在 `git push` 之前停住。推送应当是一条随时
+   可以触发的命令，因为正是它关闭 `503` 窗口。
+
+2. **备份。** 在服务器上执行 `sudo mcs21-deploy database`。它同时会针对**当前已部署**的发布
+   运行只读核验，因此应当通过；若未通过，请停下排查，而不要在已有问题之上叠加 Schema 变更。
+
+3. **前置检查，只读。** 确认 `alembic_version` 与 `audit_chain_heads` 两处的起始 revision，
+   并确认新约束将要校验的每一行都已经满足它们。MySQL 的 DDL 按语句提交且无法回滚，因此
+   `DROP CHECK` 成功之后 `ADD CONSTRAINT` 失败，会让该表处于完全没有约束的状态。前置检查正是
+   为了避免走到那一步。
+
+4. **执行 SQL**，以两个就绪标记与 `alembic_version` 结尾。标记要放在最后抬升：中途失败绝不能
+   对外宣告一个数据库并不具备的 Schema。
+
+5. **立刻推送。** 从这一刻起站点返回 `503`，直到部署完成，通常为两到三分钟。
+
+6. **确认。** `journalctl -u mcs21-auto-deploy` 中出现 `result=success` 与 `health=ok`，且
+   `https://secureview.tech/health/ready` 返回 `{"status":"ready"}`。
+
+### 回退
+
+`sudo mcs21-deploy rollback` **只回退代码发布，从不改动数据库**。在 Schema 变更之后单独使用它，
+会造成旧代码对新 Schema 的局面，也就是 `503 schema_incompatible` 状态——因此回退必须同时撤销
+两半：先执行回退 SQL，再对合并提交执行 `git revert`。
+
+此外，只要某个 revision 放宽了列的取值范围，可回退性就是有时限的。一旦有数据行使用了新取值，
+再次收窄就会失败，而那些行通常是完好的数据而非损坏数据——`0005` 与 `0006` 中的保护正是因此拒绝
+降级，而不是删除它们。要么尽快决定，要么接受「回退意味着重新加密或删除真实文件」。
+
+恢复第 2 步的备份是最后手段，而非计划的一部分。它会丢弃自转储以来写入的一切——上传、注册、审计
+记录、会话——而磁盘上的密文仍然存在，导致两者失去对应关系。
+
 ## 后续非空生产数据库升级
 
 不得在非空生产数据库上重跑 `02-schema.sql`，也不得运行 Alembic。每次 Schema 变化必须提供
