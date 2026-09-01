@@ -207,10 +207,18 @@ describe.skipIf(!live)('the MVP, end to end', () => {
     await signIn(RECIPIENT!, RECIPIENT_PASSWORD!)
     const logs = unwrapData(await auditApi.listFileLogs(uploadedFileId)).logs
 
-    const actors = new Set(logs.map((log) => log.actor_username))
-    expect(actors.has(RECIPIENT!)).toBe(true)
-    // The owner's upload and share are not theirs to read.
-    expect(actors.has(SENDER!)).toBe(false)
+    expect(logs.length).toBeGreaterThan(0)
+    // Every row must be something they did or something done to them. "waldo shared this
+    // with you" names the sender as the actor and is theirs to read -- it is about them.
+    // What must not appear is a third party's activity: another recipient's download, or
+    // the owner's own upload.
+    for (const log of logs) {
+      const aboutThem =
+        log.actor_username === RECIPIENT || log.target_username === RECIPIENT
+      expect(aboutThem, `leaked: ${log.actor_username} ${log.action}`).toBe(true)
+    }
+    // Specifically, the owner's upload is not.
+    expect(logs.some((log) => log.action === 'FILE_UPLOADED')).toBe(false)
   })
 
   it('shows the owner the downloads their recipients made', async () => {
