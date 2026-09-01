@@ -27,7 +27,7 @@ The core Auth endpoints under `/api/v1` are:
 
 The `/keys`, `/files`, `/audit-logs`, `/recovery`, and `/admin` routers are also active and
 fully described by OpenAPI. `/health/live` checks the process; `/health/ready` additionally
-checks database access and schema revision `0004_email_verification_codes`.
+checks database access and schema revision `0005_selectable_aes_key_length`.
 
 Registration requires `username`, `email`, `password`, `verification_code`, and
 `key_material`. The client generates the account RSA key pair and both envelopes locally and

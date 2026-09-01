@@ -18,6 +18,19 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Choosing the AES key length / 选择 AES 密钥长度
+
+- Made the file encryption algorithm a real choice: `AES-128-GCM`, `AES-192-GCM`, or `AES-256-GCM`, with AES-256 still the default. The upload page had carried a selector offering `AES-128 / AES-192 / AES-256 / 3DES` that changed nothing at all — it was removed rather than honoured, because 3DES has a 64-bit block, is broken by Sweet32, and was withdrawn by NIST in 2023. The three that remain are one construction at three key lengths, so they share a nonce length, a tag length, and every byte of the envelope layout.
+- 文件加密算法现在是一个真实的选择：`AES-128-GCM`、`AES-192-GCM` 或 `AES-256-GCM`，默认仍为 AES-256。上传页此前那个 `AES-128 / AES-192 / AES-256 / 3DES` 下拉框完全不影响实际加密，当时选择删除而非实现它，因为 3DES 分组只有 64 位、已被 Sweet32 攻破，并已于 2023 年被 NIST 废止。保留的三者是同一构造的三种密钥长度，因此 nonce 长度、tag 长度以及信封布局的每一个字节都相同。
+- The algorithm name was already framed into AAD-3, so this needed no envelope version bump and no format change: ciphertext written under one algorithm cannot be relabelled as another without the tag failing. `decryptFile` now also refuses a DEK whose length disagrees with the algorithm the metadata names, turning what would surface as an opaque tag mismatch — indistinguishable from tampered ciphertext — into a statement of what is actually wrong.
+- 算法名此前就已经被 frame 进 AAD-3，因此本次无需提升信封版本、也不改变格式：某一算法下写出的密文无法被重新标注为另一种而不导致 tag 校验失败。`decryptFile` 现在还会拒绝长度与元数据所声明算法不符的 DEK，把原本表现为「tag 校验失败」（与密文被篡改无法区分）的情况，变成一条说明真实问题的报错。
+- The browser is probed for what it can actually do before the menu is drawn. AES-192 is specified but absent from some WebCrypto implementations, and an unsupported key length fails at encryption time with a bare `OperationError` — after the user has chosen it and picked their files. AES-256 is required rather than probed: without it there is no default to fall back to.
+- 菜单在绘制之前会先探测浏览器实际支持的算法。AES-192 虽有规范，但部分 WebCrypto 实现并未提供，而不受支持的密钥长度会在加密时以一个光秃秃的 `OperationError` 失败——此时用户已经选好算法并选好文件。AES-256 是必需项而非探测项：没有它就没有可回退的默认值。
+- Widened `ck_files_encryption_envelope` as revision `0005_selectable_aes_key_length`. Only the algorithm name widened; the nonce and tag length checks are unchanged, because all three algorithms use 12 and 16 bytes. The account key envelopes — the wrapped AMK and the encrypted private-key bundle — stay AES-256-GCM and their constraints are untouched: they record no algorithm a reader could disagree with, so there is nothing to select and nothing to bind. Downgrading refuses while any AES-128 or AES-192 file exists, rather than dropping rows that are perfectly decryptable.
+- 已以 revision `0005_selectable_aes_key_length` 放宽 `ck_files_encryption_envelope`。只放宽了算法名；nonce 与 tag 的长度检查未变，因为三种算法都是 12 和 16 字节。账户密钥信封（包装后的 AMK 与加密私钥包）仍为 AES-256-GCM，其约束未作改动：它们不记录任何读取方可能产生分歧的算法名，因此既无从选择，也无需绑定。只要还存在 AES-128 或 AES-192 的文件，降级就会拒绝执行，而不是删掉那些完全可解密的数据行。
+- Added AES-128-GCM and AES-192-GCM known-answer vectors to `docs/crypto/test_vectors.json`, generated with python-cryptography rather than by calling the browser code. This is the check that matters most: the offline recovery path is Python, and an algorithm the recovery script cannot decrypt would produce files nobody can ever get back. The suite 1 vectors are unchanged.
+- 已向 `docs/crypto/test_vectors.json` 增加 AES-128-GCM 与 AES-192-GCM 的已知答案向量，由 python-cryptography 生成，而非调用浏览器代码产生。这是最关键的一道检查：离线恢复路径是 Python 实现的，一个恢复脚本无法解密的算法会产生永远拿不回来的文件。suite 1 的原有向量未作改动。
+
 ### Header theme control and brand marks / 页头主题控件与品牌标识
 
 - Replaced the binary Light/Dark header toggle with a System / Light / Dark dropdown whose

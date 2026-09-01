@@ -56,7 +56,9 @@ def test_auth_models_expose_public_ids_and_rotation_history() -> None:
     assert audit_logs.c.created_at.type.fsp == 6
     assert audit_chain_heads.c.id.autoincrement is False
     assert audit_chain_heads.c.updated_at.type.fsp == 6
-    assert audit_chain_heads.c.schema_revision.server_default.arg == "0004_email_verification_codes"
+    assert (
+        audit_chain_heads.c.schema_revision.server_default.arg == "0005_selectable_aes_key_length"
+    )
 
 
 def test_client_key_custody_models_and_wrapping_invariants() -> None:

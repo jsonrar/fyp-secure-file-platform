@@ -256,3 +256,57 @@ update: 2026/8/20
 
 update: 2026/8/23
 
+---
+
+## CT-1.7
+
+### Baseline / 基线
+
+- Created `CT-1.7` from the merged `main` commit `8b0b4e5`.
+- 已从完成合并的 `main` 提交 `8b0b4e5` 创建 `CT-1.7`。
+
+### Scope / 范围
+
+- Turning the file content algorithm into a selectable parameter across all four layers that pin it: the browser, the API schema, the ORM model, and the database CHECK constraint. Key length only — no new construction, no new dependency.
+- 把文件内容算法变成一个可选参数，覆盖将其写死的全部四层：浏览器、API schema、ORM 模型、数据库 CHECK 约束。仅涉及密钥长度，不引入新构造，也不引入新依赖。
+
+### Added / 新增
+
+- An algorithm registry in `primitives.ts`: the legal names, their key lengths, a narrowing predicate, and `supportedEncryptionAlgorithms()`, which probes the browser rather than assuming.
+- `primitives.ts` 中的算法注册表：合法名称、对应密钥长度、收窄用的类型谓词，以及 `supportedEncryptionAlgorithms()`——它探测浏览器实际能力，而不做假设。
+- Alembic revision `0005_selectable_aes_key_length`, and the matching production `02-schema.sql` DDL.
+- Alembic revision `0005_selectable_aes_key_length`，以及配套的生产 `02-schema.sql` DDL。
+- Four cross-implementation vectors covering AES-128 and AES-192, including an empty file and a CJK filename.
+- 四组跨实现测试向量，覆盖 AES-128 与 AES-192，其中包含空文件与中文文件名两种情况。
+
+### Why it needed no format change / 为什么无需改变格式
+
+- AAD-3 already framed the algorithm name. That was designed in from the start, and it is what makes this extension safe: a relabelled file fails its tag rather than decrypting to something else. Had the name not been bound, adding a second algorithm would have required `aad_version = 2` and would have left every existing file on the old construction.
+- AAD-3 此前就已经把算法名 frame 了进去。这是一开始就设计好的，也正是本次扩展得以安全进行的原因：被重新标注的文件会 tag 校验失败，而不是解密成别的东西。如果当初没有绑定这个名字，增加第二种算法就必须提升到 `aad_version = 2`，并会把所有已有文件留在旧构造上。
+
+### Verified / 验证
+
+- Frontend `211 passed | 18 skipped`; backend `269 passed`; Ruff clean on every file this package touched.
+- 前端 `211 passed | 18 skipped`；后端 `269 passed`；本工作包触及的每个文件 Ruff 均通过。
+- On disposable MySQL 8.4: `0001 -> 0005` upgrade, a `0005 -> 0004 -> 0005` round trip, and `alembic check` parity. The constraint was exercised directly — AES-128 and AES-192 rows insert, `AES-512-GCM` is refused with error 3819 — and the downgrade guard refused while those rows existed, then succeeded once they were gone.
+- 在一次性 MySQL 8.4 上：`0001 -> 0005` 升级、`0005 -> 0004 -> 0005` 往返，以及 `alembic check` 一致性。约束本身也做了直接验证——AES-128 与 AES-192 数据行可以插入，`AES-512-GCM` 被 3819 错误拒绝——降级保护在这些数据行存在时拒绝执行，删除后则正常执行。
+- The production SQL path `01 -> 02 -> 03` reports `schema_structure_status OK`, `readiness_marker_default_status OK`, `audit_singleton_status OK`, and `schema_compatibility_status OK` at `0005_selectable_aes_key_length`.
+- 生产 SQL 路径 `01 -> 02 -> 03` 报告 `schema_structure_status OK`、`readiness_marker_default_status OK`、`audit_singleton_status OK`，`schema_compatibility_status` 在 `0005_selectable_aes_key_length` 上为 `OK`。
+- The Python vectors were generated first and the TypeScript matched them byte for byte, in that order. Generating them from the browser output would have proved only that the code agrees with itself.
+- Python 向量先生成，TypeScript 再逐字节匹配，顺序如此。若反过来由浏览器输出生成向量，就只能证明代码与自身一致。
+
+### Limitations / 限制
+
+- The choice is per upload and cannot be changed afterwards. Re-encrypting an existing file under a different algorithm would need a new envelope, because the algorithm name is inside the AAD.
+- 该选择按每次上传生效，事后无法更改。将已有文件改用其他算法重新加密需要新的信封，因为算法名位于 AAD 之内。
+- Nothing stops a user choosing AES-128 for material that warrants AES-256. There is no per-account or per-role floor, and no record of who chose what beyond the file's own metadata.
+- 目前没有任何机制阻止用户为需要 AES-256 的内容选择 AES-128。既没有按账户或按角色的下限，除文件自身元数据外也没有记录谁选了什么。
+- AES-192 availability is probed but not reported: a user on a browser without it simply sees two options rather than three, with no explanation.
+- AES-192 的可用性会被探测但不会被说明：在不支持它的浏览器上，用户只会看到两个选项而不是三个，且没有任何解释。
+- Key wrapping remains RSA-OAEP-SHA256 at every strength. The DEK is wrapped, not the plaintext, so the wrapping algorithm is unaffected by this choice.
+- 密钥包装在任何强度下仍是 RSA-OAEP-SHA256。被包装的是 DEK 而非明文，因此包装算法不受此选择影响。
+- ChaCha20-Poly1305 remains out of scope. WebCrypto does not provide it, so it needs a vetted third-party library; that is a team decision about dependencies, not a purely cryptographic one.
+- ChaCha20-Poly1305 仍不在范围内。WebCrypto 未提供该算法，需要引入经过审计的第三方库；这属于团队关于依赖的决策，而非纯粹的密码学问题。
+
+update: 2026/9/1
+

@@ -11,7 +11,11 @@ import { keyApi } from '@/api/key_api'
 import { recoveryApi } from '@/api/recovery_api'
 
 import { buildUploadPayload, encryptFile, type UploadPayload } from './file_envelope'
-import { publicKeyFingerprint } from './primitives'
+import {
+  DEFAULT_ENCRYPTION_ALGORITHM,
+  type EncryptionAlgorithm,
+  publicKeyFingerprint,
+} from './primitives'
 
 /** Mirrors the backend `MAX_UPLOAD_SIZE_BYTES` default so oversize files fail before work. */
 export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
@@ -83,6 +87,7 @@ export interface UploadableFile {
 export async function prepareUpload(params: {
   file: UploadableFile
   recipients: UploadRecipients
+  algorithm?: EncryptionAlgorithm
 }): Promise<UploadPayload> {
   const { file, recipients } = params
 
@@ -97,6 +102,7 @@ export async function prepareUpload(params: {
     plaintext,
     originalFilename: file.name,
     mimeType: resolveMimeType(file.type),
+    algorithm: params.algorithm ?? DEFAULT_ENCRYPTION_ALGORITHM,
   })
 
   return buildUploadPayload({
@@ -113,6 +119,7 @@ export interface UploadResult {
   originalFilename: string
   plaintextSize: number
   ciphertextSize: number
+  encryptionAlgorithm: string
   recoveryKeyFingerprint: string
 }
 
@@ -120,9 +127,10 @@ export interface UploadResult {
 export async function encryptAndUpload(
   file: UploadableFile,
   recipients?: UploadRecipients,
+  algorithm?: EncryptionAlgorithm,
 ): Promise<UploadResult> {
   const resolved = recipients ?? (await fetchUploadRecipients())
-  const payload = await prepareUpload({ file, recipients: resolved })
+  const payload = await prepareUpload({ file, recipients: resolved, algorithm })
 
   await fileApi.uploadEncrypted(payload)
 
@@ -131,6 +139,7 @@ export async function encryptAndUpload(
     originalFilename: payload.metadata.original_filename,
     plaintextSize: payload.metadata.plaintext_size,
     ciphertextSize: payload.ciphertext.length,
+    encryptionAlgorithm: payload.metadata.encryption_algorithm,
     recoveryKeyFingerprint: payload.recoveryKeyFingerprint,
   }
 }

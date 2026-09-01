@@ -19,7 +19,7 @@
 -- verified pre-deployment backup, then restart from 01-provision.sql.
 --
 -- The DDL below is the flattened final state represented by revisions
--- 0001_initial through 0004_email_verification_codes. Production deployment does not
+-- 0001_initial through 0005_selectable_aes_key_length. Production deployment does not
 -- run Alembic. The alembic_version row is retained only as a compatibility
 -- marker for development tooling and must be updated together with reviewed
 -- future root-executed SQL release scripts.
@@ -230,7 +230,7 @@ CREATE TABLE files (
         AND (encrypted_size_bytes IS NULL OR encrypted_size_bytes >= 0)
     ),
     CONSTRAINT ck_files_encryption_envelope CHECK (
-        encryption_algorithm = 'AES-256-GCM'
+        encryption_algorithm IN ('AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM')
         AND OCTET_LENGTH(iv) = 12
         AND OCTET_LENGTH(auth_tag) = 16
     ),
@@ -855,15 +855,15 @@ CREATE TABLE alembic_version (
   COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO alembic_version (version_num)
-VALUES ('0004_email_verification_codes');
+VALUES ('0005_selectable_aes_key_length');
 
 -- Restore final-schema default parity only after every prior install statement
 -- has succeeded. The row still advertises 0002 until the final UPDATE below.
 ALTER TABLE audit_chain_heads
-ALTER COLUMN schema_revision SET DEFAULT '0004_email_verification_codes';
+ALTER COLUMN schema_revision SET DEFAULT '0005_selectable_aes_key_length';
 
 -- This must be the final statement: readiness reads this marker rather than
 -- alembic_version because the runtime identity intentionally cannot read it.
 UPDATE audit_chain_heads
-SET schema_revision = '0004_email_verification_codes'
+SET schema_revision = '0005_selectable_aes_key_length'
 WHERE id = 1;

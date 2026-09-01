@@ -39,8 +39,8 @@ class AuditChainHead(Base):
     schema_revision: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
-        default="0004_email_verification_codes",
-        server_default="0004_email_verification_codes",
+        default="0005_selectable_aes_key_length",
+        server_default="0005_selectable_aes_key_length",
     )
     updated_at: Mapped[datetime] = mapped_column(
         mysql.DATETIME(fsp=6),

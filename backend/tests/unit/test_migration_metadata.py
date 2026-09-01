@@ -20,8 +20,9 @@ def test_migration_history_is_a_single_ordered_chain() -> None:
     scripts = ScriptDirectory.from_config(_alembic_config())
     revisions = list(scripts.walk_revisions())
 
-    assert scripts.get_heads() == ["0004_email_verification_codes"]
+    assert scripts.get_heads() == ["0005_selectable_aes_key_length"]
     assert [(revision.revision, revision.down_revision) for revision in revisions] == [
+        ("0005_selectable_aes_key_length", "0004_email_verification_codes"),
         ("0004_email_verification_codes", "0003_client_key_custody"),
         ("0003_client_key_custody", "0002_auth_identity_sessions"),
         ("0002_auth_identity_sessions", "0001_initial"),
@@ -57,6 +58,7 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     assert "SELECT 1, id, current_hash FROM audit_logs" not in rendered_sql
     assert "0002_auth_identity_sessions" in rendered_sql
     assert "0004_email_verification_codes" in rendered_sql
+    assert "0005_selectable_aes_key_length" in rendered_sql
     assert "CREATE TABLE user_key_protection_profiles" in rendered_sql
     assert "CREATE TABLE encrypted_private_key_bundles" in rendered_sql
     assert "LEGACY_EXTERNAL" in rendered_sql
@@ -68,12 +70,12 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     )
     final_structure_position = rendered_sql.index("CREATE INDEX idx_audit_logs_created_id")
     final_default_position = rendered_sql.index(
-        "ALTER COLUMN schema_revision SET DEFAULT '0004_email_verification_codes'"
+        "ALTER COLUMN schema_revision SET DEFAULT '0005_selectable_aes_key_length'"
     )
     completed_marker_position = rendered_sql.index(
-        "SET schema_revision = '0004_email_verification_codes' WHERE id = 1"
+        "SET schema_revision = '0005_selectable_aes_key_length' WHERE id = 1"
     )
-    alembic_marker_position = rendered_sql.index("SET version_num='0004_email_verification_codes'")
+    alembic_marker_position = rendered_sql.index("SET version_num='0005_selectable_aes_key_length'")
     assert initial_marker_position < final_structure_position < final_default_position
     assert final_default_position < completed_marker_position
     assert completed_marker_position < alembic_marker_position

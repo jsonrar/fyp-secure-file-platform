@@ -19,11 +19,22 @@ account-key envelopes because that mistake was made once.
 |---|---|
 | `envelope_version` | 1 |
 | `aad_version` | 1 |
-| `encryption_algorithm` | `AES-256-GCM` |
+| `encryption_algorithm` | `AES-128-GCM`, `AES-192-GCM`, or `AES-256-GCM`; `AES-256-GCM` by default |
 | `key_wrapping_algorithm` | `RSA-OAEP-SHA256`, SHA-256 MGF1, **empty label** |
-| DEK | 32 random bytes, fresh per file |
+| DEK | 16, 24, or 32 random bytes to match the algorithm, fresh per file |
 | Nonce | 12 random bytes, fresh per encryption, from a CSPRNG |
 | Tag | 16 bytes, stored **detached** from the ciphertext |
+
+The three algorithms are one construction at three key lengths, so they share a nonce length,
+a tag length, and every byte of the layout below. Only the name and the key length differ,
+and the name is framed into the AAD — so ciphertext written under one of them cannot be
+relabelled as another without the tag failing. A reader must take the algorithm from the
+file's own stored metadata and reject any name not in this table; it must never be assumed,
+and never inferred from the key length alone.
+
+The account-key envelopes — the wrapped AMK and the encrypted private-key bundle — are
+**always AES-256-GCM** and are not affected by this choice. They record no algorithm a reader
+could disagree with, so there is nothing to select and nothing to bind.
 
 Nonces must be random, never a counter. A counter cannot be coordinated across tabs or
 devices, and a repeated (key, nonce) pair under GCM discloses the XOR of both plaintexts and

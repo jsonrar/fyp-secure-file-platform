@@ -15,6 +15,15 @@ _MIME_TYPE_RE = re.compile(
 )
 _WRAPPED_KEY_LENGTHS = frozenset({256, 384, 512})
 
+# The AES-GCM strengths a file may be encrypted under. All three share a 12-byte nonce and a
+# 16-byte tag, so only the name and the key length differ, and the client commits to the name
+# in the AAD -- ciphertext written under one cannot be reinterpreted as another.
+#
+# Deliberately a Literal and not a str: the value is copied into a stored row and handed back
+# to every client that later decrypts the file, so the set of legal names is enforced here
+# rather than assumed. The account key envelope is unaffected and remains AES-256-GCM.
+EncryptionAlgorithm = Literal["AES-128-GCM", "AES-192-GCM", "AES-256-GCM"]
+
 
 def _decode_canonical_base64(value: str, *, field_name: str) -> bytes:
     if not value or value != value.strip() or any(character.isspace() for character in value):
@@ -47,7 +56,7 @@ class FileUploadMetadata(StrictFileModel):
     original_filename: Annotated[str, Field(min_length=1, max_length=255)]
     plaintext_size: Annotated[int, Field(ge=0)]
     mime_type: Annotated[str, Field(min_length=3, max_length=150)]
-    encryption_algorithm: Literal["AES-256-GCM"] = "AES-256-GCM"
+    encryption_algorithm: EncryptionAlgorithm = "AES-256-GCM"
     envelope_version: Literal[1] = 1
     aad_version: Literal[1] = 1
     nonce: str = Field(repr=False)
@@ -160,7 +169,7 @@ class FileSummaryOut(StrictFileModel):
 
 
 class FileCryptoEnvelopeOut(StrictFileModel):
-    encryption_algorithm: Literal["AES-256-GCM"]
+    encryption_algorithm: EncryptionAlgorithm
     envelope_version: int
     aad_version: int
     nonce: str
