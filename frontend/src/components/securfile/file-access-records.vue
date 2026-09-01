@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Activity, AlertTriangle, Clock, Download, Eye, FileIcon, RefreshCw, User } from 'lucide-vue-next'
+import { Activity, AlertTriangle, Clock, Download, FileIcon, RefreshCw, Share2, User } from 'lucide-vue-next'
 import { auditApi } from '@/api/audit_api'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
-import { auditActionLabel, auditSubjectFileId, isDownloadAction } from '@/utils/audit-actions'
+import {
+  auditActionLabel,
+  auditSubjectFileId,
+  isDownloadAction,
+  isShareAction,
+} from '@/utils/audit-actions'
 import { fallbackFileLabel, resolveFileNames } from '@/utils/file-names'
 
 interface AccessEvent {
@@ -14,6 +19,8 @@ interface AccessEvent {
   /** Human label, e.g. "Downloaded". */
   action: string
   isDownload: boolean
+  /** Sharing or revoking -- an action that changed who can reach the file. */
+  isShare: boolean
   /** SUCCESS, or the failure this row records. */
   succeeded: boolean
   /** "Shared with junyan", the size uploaded -- whatever this action has worth saying. */
@@ -26,13 +33,13 @@ interface AuditGroup {
   /** Account-level rows (sign-in, key changes) belong to no file and say so. */
   isAccount: boolean
   sharedAt: string
-  totalViews: number
   totalDownloads: number
+  totalShares: number
   accessHistory: AccessEvent[]
 }
 
 interface StatCard {
-  key: 'totalFiles' | 'totalViews' | 'totalDownloads' | 'uniqueUsers'
+  key: 'totalFiles' | 'totalDownloads' | 'totalShares' | 'uniqueUsers'
   label: string
   icon: typeof FileIcon
   wrapperClass: string
@@ -70,6 +77,7 @@ const mapLogToEvent = (log: AuditLogOut, index: number): AccessEvent => ({
   accessTime: formatTimestamp(log.created_at),
   action: auditActionLabel(log.action),
   isDownload: isDownloadAction(log.action),
+  isShare: isShareAction(log.action),
   succeeded: log.result === 'SUCCESS',
   detail: detailOf(log),
 })
@@ -87,7 +95,7 @@ const groups = computed<AuditGroup[]>(() => {
     if (existing) {
       existing.accessHistory.push(event)
       if (event.isDownload) existing.totalDownloads += 1
-      else existing.totalViews += 1
+      if (event.isShare) existing.totalShares += 1
     } else {
       grouped.set(key, {
         id: key,
@@ -96,8 +104,8 @@ const groups = computed<AuditGroup[]>(() => {
           : 'Account activity',
         isAccount: fileId === null,
         sharedAt: formatTimestamp(log.created_at),
-        totalViews: event.isDownload ? 0 : 1,
         totalDownloads: event.isDownload ? 1 : 0,
+        totalShares: event.isShare ? 1 : 0,
         accessHistory: [event],
       })
     }
@@ -110,16 +118,16 @@ const groups = computed<AuditGroup[]>(() => {
 
 const stats = computed(() => ({
   totalFiles: groups.value.filter((group) => !group.isAccount).length,
-  totalViews: groups.value.reduce((sum, f) => sum + f.totalViews, 0),
   totalDownloads: groups.value.reduce((sum, f) => sum + f.totalDownloads, 0),
+  totalShares: groups.value.reduce((sum, f) => sum + f.totalShares, 0),
   // Was counting row ids, so it only ever restated the number of log entries.
   uniqueUsers: new Set(groups.value.flatMap((f) => f.accessHistory.map((u) => u.actor))).size,
 }))
 
 const statCards: StatCard[] = [
   { key: 'totalFiles', label: 'Tracked Files', icon: FileIcon, wrapperClass: 'bg-primary/10', iconClass: 'text-primary' },
-  { key: 'totalViews', label: 'Total Views', icon: Eye, wrapperClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
   { key: 'totalDownloads', label: 'Downloads', icon: Download, wrapperClass: 'bg-primary/10', iconClass: 'text-primary' },
+  { key: 'totalShares', label: 'Shares', icon: Share2, wrapperClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
   { key: 'uniqueUsers', label: 'Unique Users', icon: User, wrapperClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
 ]
 
@@ -249,8 +257,8 @@ const toggle = (id: string) => {
                 </div>
               </div>
               <div class="hidden md:flex items-center gap-4 text-sm text-muted-foreground">
-                <span class="inline-flex items-center gap-1"><Eye class="h-4 w-4" /> {{ file.totalViews }}</span>
-                <span class="inline-flex items-center gap-1"><Download class="h-4 w-4" /> {{ file.totalDownloads }}</span>
+                <span class="inline-flex items-center gap-1" title="Downloads"><Download class="h-4 w-4" /> {{ file.totalDownloads }}</span>
+                <span class="inline-flex items-center gap-1" title="People involved"><User class="h-4 w-4" /> {{ new Set(file.accessHistory.map((e) => e.actor)).size }}</span>
               </div>
             </div>
           </button>

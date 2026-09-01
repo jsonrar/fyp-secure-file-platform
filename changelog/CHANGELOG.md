@@ -37,6 +37,23 @@ the product belong in [`work-packages/`](work-packages/) instead; see
   品牌蓝盾牌（`#006DC7`），不再随主题着色——favicon 无法继承页面颜色，固定蓝色在任何主题下都更
   可辨认。明细见 [`JY-changelog.md`](JY-changelog.md)。
 
+### Who may read the audit trail / 谁有权读取审计记录
+
+Reported from a live test: a recipient could read the whole history of a shared file, and the owner's own Access Records reported zero downloads. Both came from the same place — the rule deciding which rows a caller may see.
+
+来自一次真实测试的反馈：接收方能读取共享文件的完整历史，而所有者自己的访问记录却显示零次下载。两者出自同一处——决定调用方能看到哪些记录的那条规则。
+
+- **A recipient could see what other recipients did.** The file-scoped query skipped the visibility filter entirely, on the reasoning that entitlement had already been checked. But entitlement is not ownership: a recipient holds an ACTIVE grant, so any recipient could read the whole trail — learning that other recipients existed and when each of them downloaded, and continuing to read it after the owner revoked someone else. Owning the file is what earns the right to see who touched it.
+- **接收方能看到其他接收方的操作。** 按文件查询时完全跳过了可见性过滤，理由是"权限已经校验过了"。但**有权限不等于是所有者**：接收方持有一个有效授权，因此任何接收方都能读取完整轨迹——从而得知还存在哪些其他接收方、各自何时下载过，甚至在所有者撤销了别人之后仍能继续读到。是"拥有这个文件"才换来"看得见谁碰过它"的权利。
+- **An owner saw zero downloads of their own files.** The account-wide query matched only rows where the caller was the actor or the target, and a recipient's download is neither. The owner was blind to exactly the thing the page exists to show.
+- **所有者看到自己文件的下载数为零。** 账户级查询只匹配调用方作为操作者或被操作者的记录，而接收方的下载两者都不是。于是所有者恰恰看不见这个页面存在的意义所在。
+- Both are now one rule, applied identically whether or not a file is named: **you see what you did, what was done to you, and everything done to a file you own.** An administrator is still unrestricted.
+- 现在两者合并为一条规则，且无论是否指定文件都同样适用：**你能看到你做过的、别人对你做的、以及对你拥有的文件所做的一切。** 管理员仍不受限制。
+- **"Total Views" was not counting views.** There is no viewer in this product — you download and decrypt, or you do not — so the stat counted every non-download event as one: uploads, shares, revocations, even sign-ins. It is replaced by Downloads and Shares, which are things that actually happened, and each file row now shows its download count and how many people appear in its history.
+- **"Total Views" 统计的并不是浏览。** 这个产品里没有"查看器"——你要么下载并解密，要么不——因此该统计把所有非下载事件都算作一次浏览：上传、分享、撤销，甚至登录。现已替换为 Downloads 与 Shares 这两个真实发生过的动作，并且每一行文件会显示它的下载次数以及历史中出现过多少人。
+- The end-to-end suite gained both cases. Run against the deployment before the fix, they failed exactly as reported — the recipient saw the owner's actions, and the owner counted zero recipient downloads.
+- 端到端测试套件补上了这两种情况。在修复前对着线上运行，它们的失败方式与反馈完全一致——接收方看到了所有者的操作，所有者数到的接收方下载次数为零。
+
 ### A presentable notification email / 像样的通知邮件
 
 - The share notification is now a designed message rather than a stack of bare paragraphs: a branded header, the one sentence that matters set apart in a callout, a real button, and a muted footer. `email_templates.py` holds the shell so the verification-code email can adopt the same one later.

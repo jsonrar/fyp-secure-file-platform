@@ -7,7 +7,7 @@
  * every event fell through to being counted as a view, and the raw enum name was rendered
  * to the user. Read as "downloads are not being recorded" -- they were, all along.
  */
-export type AuditCategory = 'download' | 'view' | 'share' | 'other'
+export type AuditCategory = 'download' | 'share' | 'other'
 
 interface AuditActionInfo {
   label: string
@@ -18,7 +18,7 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   FILE_UPLOADED: { label: 'Uploaded', category: 'other' },
   FILE_DOWNLOAD_AUTHORIZED: { label: 'Downloaded', category: 'download' },
   FILE_DOWNLOAD_INTEGRITY_FAILED: { label: 'Download blocked: integrity check failed', category: 'download' },
-  FILE_INTEGRITY_CHECKED: { label: 'Integrity checked', category: 'view' },
+  FILE_INTEGRITY_CHECKED: { label: 'Integrity checked', category: 'other' },
   FILE_SHARED: { label: 'Shared', category: 'share' },
   FILE_ACCESS_REVOKED: { label: 'Access revoked', category: 'share' },
   FILE_DELETED: { label: 'Deleted', category: 'other' },
@@ -68,7 +68,7 @@ export function auditActionCategory(action: string | undefined): AuditCategory {
   return ACTIONS[action]?.category ?? 'other'
 }
 
-/** Only a served download counts. A blocked one is not an access that happened. */
+/** Whether this action handed the file to somebody. */
 export function isDownloadAction(action: string | undefined): boolean {
   return action === 'FILE_DOWNLOAD_AUTHORIZED'
 }
@@ -92,4 +92,9 @@ interface AuditSubject {
 export function auditSubjectFileId(log: AuditSubject): string | null {
   if (log.resource_type !== 'FILE' && log.resource_type !== 'SHARE') return null
   return log.resource_id || null
+}
+
+/** Whether this action changed who can reach the file. */
+export function isShareAction(action: string | undefined): boolean {
+  return action === 'FILE_SHARED' || action === 'FILE_ACCESS_REVOKED'
 }

@@ -200,6 +200,32 @@ describe.skipIf(!live)('the MVP, end to end', () => {
     }
   })
 
+  it('does not let a recipient see what other people did with the file', async () => {
+    // The privacy rule. A recipient holds an ACTIVE grant, which used to be enough to read
+    // the whole trail -- so one recipient could learn that other recipients existed and
+    // when each of them downloaded. Entitlement is not ownership.
+    await signIn(RECIPIENT!, RECIPIENT_PASSWORD!)
+    const logs = unwrapData(await auditApi.listFileLogs(uploadedFileId)).logs
+
+    const actors = new Set(logs.map((log) => log.actor_username))
+    expect(actors.has(RECIPIENT!)).toBe(true)
+    // The owner's upload and share are not theirs to read.
+    expect(actors.has(SENDER!)).toBe(false)
+  })
+
+  it('shows the owner the downloads their recipients made', async () => {
+    // The reported symptom on the account-wide page: zero downloads, because the filter
+    // matched only rows where the caller was the actor or the target -- and a recipient's
+    // download is neither.
+    await signIn(SENDER!, SENDER_PASSWORD!)
+    const logs = unwrapData(await auditApi.listLogs()).logs
+
+    const recipientDownloads = logs.filter(
+      (log) => log.actor_username === RECIPIENT && log.action === 'FILE_DOWNLOAD_AUTHORIZED',
+    )
+    expect(recipientDownloads.length).toBeGreaterThan(0)
+  })
+
   it('revokes the recipient', async () => {
     const res = await shareApi.revokeAccess(uploadedFileId, {
       target_user_id: unwrapData(await shareApi.sharedUsers(uploadedFileId)).users.find(
