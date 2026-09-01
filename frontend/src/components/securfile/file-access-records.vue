@@ -9,6 +9,7 @@ import {
   isDownloadAction,
   isShareAction,
 } from '@/utils/audit-actions'
+import { fetchAuditTrail } from '@/utils/audit-trail'
 import { fallbackFileLabel, resolveFileNames } from '@/utils/file-names'
 
 interface AccessEvent {
@@ -131,13 +132,15 @@ const statCards: StatCard[] = [
   { key: 'uniqueUsers', label: 'Unique Users', icon: User, wrapperClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
 ]
 
+const trailIsPartial = ref(false)
+
 const loadLogs = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const res = await auditApi.listLogs()
-    const data = unwrapData(res)
-    logs.value = data.logs ?? []
+    const trail = await fetchAuditTrail()
+    logs.value = trail.logs
+    trailIsPartial.value = trail.partial
 
     // The audit response carries file_id and no filename, so the names are resolved here.
     // Deliberately after the rows are on screen and not awaited into the loading state: the
@@ -233,6 +236,9 @@ const toggle = (id: string) => {
       </div>
 
       <p v-if="errorMessage" class="text-center text-sm text-destructive mb-4">{{ errorMessage }}</p>
+      <p v-if="trailIsPartial" class="text-center text-xs text-muted-foreground mb-4">
+        Showing the most recent {{ logs.length }} events; totals cover these only.
+      </p>
 
       <div v-if="isLoading && !groups.length" class="text-center py-12 text-muted-foreground">
         Loading audit logs...
