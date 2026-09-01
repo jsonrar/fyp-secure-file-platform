@@ -5,6 +5,8 @@
  * Envelope construction, AAD layout, and business rules live in the modules above this one.
  */
 
+import { chacha20poly1305 } from '@noble/ciphers/chacha.js'
+
 import { bytesToHex, fromBase64 } from './encoding'
 
 /**
@@ -96,6 +98,17 @@ export function supportedEncryptionAlgorithms(): Promise<EncryptionAlgorithm[]> 
   })()
   return supported
 }
+
+/**
+ * ChaCha20-Poly1305 parameters, from RFC 8439.
+ *
+ * Deliberately identical in shape to AES-GCM above: a 32-byte key, a 12-byte nonce, and a
+ * 16-byte tag. That is not a coincidence to rely on blindly, but it is what lets one stored
+ * column layout, one database CHECK constraint, and one envelope serve both constructions.
+ */
+export const CHACHA20_KEY_BYTES = 32
+export const CHACHA20_NONCE_BYTES = 12
+export const CHACHA20_TAG_BYTES = 16
 
 /** RSA-PSS salt length in **bytes**, matching the digest length. WebCrypto counts bytes. */
 export const RSA_PSS_SALT_BYTES = 32
@@ -206,6 +219,75 @@ export async function aesGcmEncryptDetached(params: {
     ciphertext: joined.slice(0, joined.length - AES_GCM_TAG_BYTES),
     authTag: joined.slice(joined.length - AES_GCM_TAG_BYTES),
   }
+}
+
+/**
+ * ChaCha20-Poly1305 encryption with the tag detached, mirroring {@link aesGcmEncryptDetached}.
+ *
+ * WebCrypto has no ChaCha20-Poly1305, so this uses @noble/ciphers — audited, dependency-free,
+ * and a pure TypeScript implementation of RFC 8439.
+ *
+ * **The key is raw bytes here, not a `CryptoKey`.** The AES path imports its key as
+ * non-extractable, so a later bug cannot serialise it into a log line or a request body; a
+ * library implementation cannot offer that, because it must read the key material to work.
+ * Keep a ChaCha key in a local as briefly as the AES path keeps its `CryptoKey`, and never
+ * put one anywhere a value could be inspected or persisted.
+ */
+export async function chacha20Poly1305EncryptDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  plaintext: Uint8Array
+  aad: Uint8Array
+}): Promise<AesGcmCiphertext> {
+  const { key, nonce, plaintext, aad } = params
+  if (key.length !== CHACHA20_KEY_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 key must be ${CHACHA20_KEY_BYTES} bytes`)
+  }
+  if (nonce.length !== CHACHA20_NONCE_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 nonce must be ${CHACHA20_NONCE_BYTES} bytes`)
+  }
+  // noble appends the tag, exactly as WebCrypto does, so the split below is the same.
+  const joined = chacha20poly1305(key, nonce, aad).encrypt(plaintext)
+  return {
+    ciphertext: joined.slice(0, joined.length - CHACHA20_TAG_BYTES),
+    authTag: joined.slice(joined.length - CHACHA20_TAG_BYTES),
+  }
+}
+
+/** ChaCha20-Poly1305 decryption, rejoining the detached tag before verification. */
+export async function chacha20Poly1305DecryptDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  ciphertext: Uint8Array
+  authTag: Uint8Array
+  aad: Uint8Array
+}): Promise<Uint8Array> {
+  const { key, nonce, ciphertext, authTag, aad } = params
+  if (key.length !== CHACHA20_KEY_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 key must be ${CHACHA20_KEY_BYTES} bytes`)
+  }
+  if (nonce.length !== CHACHA20_NONCE_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 nonce must be ${CHACHA20_NONCE_BYTES} bytes`)
+  }
+  if (authTag.length !== CHACHA20_TAG_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 tag must be ${CHACHA20_TAG_BYTES} bytes`)
+  }
+  const joined = concat(ciphertext, authTag)
+  try {
+    return chacha20poly1305(key, nonce, aad).decrypt(joined)
+  } catch {
+    // Raised as the same type the AES path raises, so callers handle one failure mode
+    // rather than two. As with GCM, a failure does not say which of a wrong key, a
+    // substituted envelope, or corrupt ciphertext caused it.
+    throw new AuthenticationFailure('ChaCha20-Poly1305 authentication failed')
+  }
+}
+
+function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const out = new Uint8Array(a.length + b.length)
+  out.set(a, 0)
+  out.set(b, a.length)
+  return out
 }
 
 /** AES-256-GCM decryption, rejoining the detached tag before verification. */

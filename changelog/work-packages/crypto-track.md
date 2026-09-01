@@ -310,3 +310,55 @@ update: 2026/8/23
 
 update: 2026/9/1
 
+---
+
+## CT-1.8
+
+### Baseline / 基线
+
+- Created `CT-1.8` from the merged `main` commit `e04f5fc`.
+- 已从完成合并的 `main` 提交 `e04f5fc` 创建 `CT-1.8`。
+
+### Scope / 范围
+
+- Step 1 of adding ChaCha20-Poly1305: bring in the library, wrap it as a primitive, and prove it agrees with an independent implementation. Nothing is wired into the envelope, the API, the database, or the UI yet, so this package ships no user-visible change and no CHANGELOG entry.
+- 加入 ChaCha20-Poly1305 的第一步：引入库、包装成原语、并证明它与独立实现一致。尚未接入信封、API、数据库或界面，因此本工作包没有用户可见的改动，也不写 CHANGELOG 条目。
+
+### Why a library at all / 为什么必须引入库
+
+- WebCrypto has no ChaCha20-Poly1305. Its only AEAD is AES-GCM; AES-CBC and AES-CTR are unauthenticated, and using one of those would discard the integrity guarantee the whole envelope rests on. So genuine algorithm diversity — as opposed to another AES key length — cannot be had from the platform alone.
+- WebCrypto 不提供 ChaCha20-Poly1305。它唯一的 AEAD 是 AES-GCM；AES-CBC 与 AES-CTR 不带认证，采用其中之一等于丢弃整个信封赖以成立的完整性保证。因此真正的算法多样性（区别于再加一种 AES 密钥长度）无法仅靠平台自身获得。
+- `@noble/ciphers@2.4.0` was chosen for having **zero transitive dependencies** — the supply-chain surface is one package — and for being audited, pure TypeScript, and free of WASM. The ChaCha20-Poly1305 path costs about 4.7 KB gzipped.
+- 选择 `@noble/ciphers@2.4.0` 的理由是它**没有任何传递依赖**——供应链面就这一个包——并且经过审计、纯 TypeScript、不含 WASM。ChaCha20-Poly1305 这条路径的体积代价约为 gzip 后 4.7 KB。
+
+### Added / 新增
+
+- `chacha20Poly1305EncryptDetached` and `chacha20Poly1305DecryptDetached`, deliberately mirroring the AES-GCM pair: same parameter names, same detached-tag split, and the same `AuthenticationFailure` on a bad tag, so callers handle one failure mode rather than two.
+- `chacha20Poly1305EncryptDetached` 与 `chacha20Poly1305DecryptDetached`，有意与 AES-GCM 那一对保持镜像：相同的参数名、相同的分离式 tag 切分方式、tag 校验失败时抛出同一个 `AuthenticationFailure`，使调用方只需处理一种失败模式而不是两种。
+- Vectors under `chacha20_poly1305_detached`, the first of which is **RFC 8439 section 2.8.2** — the standard's own test vector. python-cryptography reproduces it exactly, and the TypeScript then reproduces python-cryptography exactly, so the suite is anchored to the specification rather than to two implementations agreeing with each other.
+- `chacha20_poly1305_detached` 下的测试向量，其中第一组是 **RFC 8439 第 2.8.2 节**——标准自带的测试向量。python-cryptography 精确复现了它，TypeScript 又精确复现了 python-cryptography，因此整套向量锚定在规范上，而不是锚定在两个实现彼此一致上。
+
+### The shapes line up / 形状恰好一致
+
+- ChaCha20-Poly1305 takes a 32-byte key, a 12-byte nonce, and produces a 16-byte tag — the same as AES-256-GCM, and the ciphertext is the same length as the plaintext once the tag is detached. One stored column layout, one `ck_files_encryption_envelope` length check, and one envelope can therefore serve both constructions. A test asserts this rather than leaving it as a comment, because the next step depends on it.
+- ChaCha20-Poly1305 使用 32 字节密钥、12 字节 nonce，产生 16 字节 tag——与 AES-256-GCM 完全相同，且分离 tag 之后密文长度等于明文长度。因此一套存储列布局、一条 `ck_files_encryption_envelope` 长度检查、一个信封即可同时服务两种构造。这一点由测试断言而非仅写在注释里，因为下一步依赖于它。
+
+### A property that is genuinely lost / 一个确实失去的性质
+
+- The AES path imports its key as a **non-extractable** `CryptoKey`: once imported, the page can decrypt with it but can no longer read the bytes back out, so a later bug cannot serialise a key into a log line or a request body. A library implementation cannot offer that — it must read the key material to work — so a ChaCha key stays a plain `Uint8Array`. This is a real reduction in defence in depth, documented at the function rather than discovered later. It does not affect the confidentiality of the ciphertext itself.
+- AES 那条路径把密钥导入为**不可导出**的 `CryptoKey`：导入之后页面能用它解密，却再也读不出密钥字节，因此后续的 bug 无法把密钥序列化进日志或请求体。库实现做不到这一点——它必须读取密钥材料才能工作——所以 ChaCha 的密钥只能是普通的 `Uint8Array`。这是纵深防御上的实际削弱，已写在函数处而非留待日后发现。它不影响密文本身的机密性。
+
+### Verified / 验证
+
+- Frontend `222 passed | 18 skipped`, `vue-tsc --noEmit` clean, production build unchanged.
+- 前端 `222 passed | 18 skipped`，`vue-tsc --noEmit` 通过，生产构建产物未变。
+- The bundle is byte-identical to before, hash included: nothing in the application reaches this code yet, so it is tree-shaken away. The 4.7 KB will appear only when the next step wires it in.
+- 打包产物与之前逐字节相同，连 hash 都一样：目前应用代码还没有到达这段代码的路径，因此被 tree-shake 掉了。那 4.7 KB 只有在下一步接入后才会出现。
+
+### Next / 下一步
+
+- Add the algorithm to the registry, the AAD, the API `Literal`, and the database CHECK, following the shape CT-1.7 established. The database work is smaller than CT-1.7's: only the algorithm name widens, because the nonce and tag lengths already match.
+- 按 CT-1.7 建立的形态，把该算法加入注册表、AAD、API 的 `Literal` 以及数据库 CHECK。数据库改动比 CT-1.7 更小：只需放宽算法名，因为 nonce 与 tag 长度本就一致。
+
+update: 2026/9/1
+
