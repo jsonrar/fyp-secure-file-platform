@@ -416,3 +416,114 @@ describe('verifyDekOpensFile', () => {
     expect(await verifyDekOpensFile({ ...sealed, dek: wrongDek })).toBe(false)
   })
 })
+
+describe('selectable AES key length', () => {
+  const ALGORITHMS = ['AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM'] as const
+  const KEY_BYTES = { 'AES-128-GCM': 16, 'AES-192-GCM': 24, 'AES-256-GCM': 32 } as const
+
+  it('generates a DEK of the length the chosen algorithm requires', async () => {
+    for (const algorithm of ALGORITHMS) {
+      const envelope = await encryptFile({
+        plaintext: new TextEncoder().encode('quarterly numbers'),
+        originalFilename: 'q.txt',
+        mimeType: 'text/plain',
+        algorithm,
+      })
+      expect(envelope.dek.length).toBe(KEY_BYTES[algorithm])
+      expect(envelope.identity.encryptionAlgorithm).toBe(algorithm)
+      // The nonce and tag are the same shape at every strength, which is what lets one
+      // stored column and one CHECK constraint serve all three.
+      expect(envelope.nonce.length).toBe(12)
+      expect(envelope.authTag.length).toBe(16)
+    }
+  })
+
+  it('round trips at every strength', async () => {
+    const plaintext = new TextEncoder().encode('the quick brown fox')
+    for (const algorithm of ALGORITHMS) {
+      const envelope = await encryptFile({
+        plaintext,
+        originalFilename: 'fox.txt',
+        mimeType: 'text/plain',
+        algorithm,
+      })
+      const recovered = await decryptFile({
+        identity: envelope.identity,
+        dek: envelope.dek,
+        nonce: envelope.nonce,
+        ciphertext: envelope.ciphertext,
+        authTag: envelope.authTag,
+      })
+      expect(new TextDecoder().decode(recovered)).toBe('the quick brown fox')
+    }
+  })
+
+  it('will not decrypt a file under an algorithm it was not encrypted with', async () => {
+    // The whole point of naming the algorithm inside the AAD. A server that relabels a
+    // file -- to make a 256-bit file look like a 128-bit one, say -- must not be able to
+    // produce a readable result.
+    const envelope = await encryptFile({
+      plaintext: new TextEncoder().encode('confidential'),
+      originalFilename: 'c.txt',
+      mimeType: 'text/plain',
+      algorithm: 'AES-256-GCM',
+    })
+
+    await expect(
+      decryptFile({
+        identity: { ...envelope.identity, encryptionAlgorithm: 'AES-128-GCM' },
+        dek: envelope.dek,
+        nonce: envelope.nonce,
+        ciphertext: envelope.ciphertext,
+        authTag: envelope.authTag,
+      }),
+    ).rejects.toBeInstanceOf(RangeError)
+  })
+
+  it('produces a different AAD for each algorithm', async () => {
+    const base = {
+      fileId: '11111111-1111-4111-8111-111111111111',
+      originalFilename: 'a.txt',
+      plaintextSize: 0,
+      mimeType: 'text/plain',
+    }
+    const aads = ALGORITHMS.map((encryptionAlgorithm) =>
+      bytesToHex(fileContentAad({ ...base, encryptionAlgorithm })),
+    )
+    expect(new Set(aads).size).toBe(ALGORITHMS.length)
+  })
+
+  it('refuses an algorithm it does not implement rather than encoding the name', async () => {
+    await expect(
+      encryptFileWithMaterial({
+        plaintext: new Uint8Array(),
+        identity: {
+          fileId: '11111111-1111-4111-8111-111111111111',
+          originalFilename: 'a.txt',
+          plaintextSize: 0,
+          mimeType: 'text/plain',
+          encryptionAlgorithm: 'AES-512-GCM',
+        },
+        dek: new Uint8Array(32),
+        nonce: new Uint8Array(12),
+      }),
+    ).rejects.toBeInstanceOf(TypeError)
+  })
+
+  it('rejects a DEK whose length does not match the named algorithm', async () => {
+    await expect(
+      encryptFileWithMaterial({
+        plaintext: new Uint8Array(),
+        identity: {
+          fileId: '11111111-1111-4111-8111-111111111111',
+          originalFilename: 'a.txt',
+          plaintextSize: 0,
+          mimeType: 'text/plain',
+          encryptionAlgorithm: 'AES-128-GCM',
+        },
+        dek: new Uint8Array(32),
+        nonce: new Uint8Array(12),
+      }),
+    ).rejects.toBeInstanceOf(RangeError)
+  })
+})

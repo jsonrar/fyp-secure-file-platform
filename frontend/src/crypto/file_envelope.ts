@@ -26,10 +26,14 @@ import {
 } from './encoding'
 import {
   AES_GCM_NONCE_BYTES,
-  AES_KEY_BYTES,
+  DEFAULT_ENCRYPTION_ALGORITHM,
+  ENCRYPTION_ALGORITHMS,
+  type EncryptionAlgorithm,
   aesGcmDecryptDetached,
   aesGcmEncryptDetached,
   importAesGcmKey,
+  isEncryptionAlgorithm,
+  keyBytesForAlgorithm,
   importRsaOaepPublicKey,
   publicKeyFingerprint,
   randomBytes,
@@ -40,7 +44,8 @@ import {
 
 export const ENVELOPE_VERSION = 1
 export const AAD_VERSION = 1
-export const ENCRYPTION_ALGORITHM = 'AES-256-GCM'
+export { DEFAULT_ENCRYPTION_ALGORITHM, ENCRYPTION_ALGORITHMS, ENCRYPTION_KEY_BYTES } from './primitives'
+export type { EncryptionAlgorithm } from './primitives'
 export const KEY_WRAPPING_ALGORITHM = 'RSA-OAEP-SHA256'
 
 const AAD_LABEL = 'FYP-FILE-CONTENT'
@@ -98,6 +103,14 @@ export function normalizeIdentity(identity: FileIdentity): NormalizedIdentity {
     throw new RangeError('plaintext_size must be a non-negative integer')
   }
 
+  const encryptionAlgorithm = identity.encryptionAlgorithm ?? DEFAULT_ENCRYPTION_ALGORITHM
+  // The algorithm name is committed to by the AAD, so an unrecognised one must be refused
+  // here rather than encoded. Admitting it would put an arbitrary string into the AAD and
+  // produce a file this code can never open.
+  if (!isEncryptionAlgorithm(encryptionAlgorithm)) {
+    throw new TypeError(`Unsupported encryption algorithm: ${encryptionAlgorithm}`)
+  }
+
   return {
     fileId: identity.fileId,
     originalFilename: filename,
@@ -105,7 +118,7 @@ export function normalizeIdentity(identity: FileIdentity): NormalizedIdentity {
     mimeType,
     envelopeVersion: identity.envelopeVersion ?? ENVELOPE_VERSION,
     aadVersion: identity.aadVersion ?? AAD_VERSION,
-    encryptionAlgorithm: identity.encryptionAlgorithm ?? ENCRYPTION_ALGORITHM,
+    encryptionAlgorithm,
   }
 }
 
@@ -174,8 +187,11 @@ export async function encryptFileWithMaterial(params: {
   const { plaintext, dek, nonce } = params
   const identity = normalizeIdentity(params.identity)
 
-  if (dek.length !== AES_KEY_BYTES) {
-    throw new RangeError(`DEK must be ${AES_KEY_BYTES} bytes`)
+  const expectedKeyBytes = keyBytesForAlgorithm(identity.encryptionAlgorithm)
+  if (dek.length !== expectedKeyBytes) {
+    throw new RangeError(
+      `${identity.encryptionAlgorithm} needs a ${expectedKeyBytes}-byte DEK, received ${dek.length}`,
+    )
   }
   if (plaintext.length !== identity.plaintextSize) {
     throw new RangeError(
@@ -208,18 +224,23 @@ export async function encryptFile(params: {
   originalFilename: string
   mimeType: string
   fileId?: string
+  algorithm?: EncryptionAlgorithm
 }): Promise<EncryptedFileEnvelope> {
+  const algorithm = params.algorithm ?? DEFAULT_ENCRYPTION_ALGORITHM
   const identity: FileIdentity = {
     fileId: params.fileId ?? randomUuid(),
     originalFilename: params.originalFilename,
     plaintextSize: params.plaintext.length,
     mimeType: params.mimeType,
+    encryptionAlgorithm: algorithm,
   }
 
   const envelope = await encryptFileWithMaterial({
     plaintext: params.plaintext,
     identity,
-    dek: randomBytes(AES_KEY_BYTES),
+    // A fresh DEK of exactly the length this algorithm takes. Never derived from, or
+    // truncated out of, a key generated for a different strength.
+    dek: randomBytes(keyBytesForAlgorithm(algorithm)),
     nonce: randomBytes(AES_GCM_NONCE_BYTES),
   })
 
@@ -250,7 +271,16 @@ export async function decryptFile(params: {
   ciphertext: Uint8Array
   authTag: Uint8Array
 }): Promise<Uint8Array> {
-  const aad = fileContentAad(params.identity)
+  const identity = normalizeIdentity(params.identity)
+  const expectedKeyBytes = keyBytesForAlgorithm(identity.encryptionAlgorithm)
+  if (params.dek.length !== expectedKeyBytes) {
+    // The metadata says one strength and the unwrapped key is another. Decryption would
+    // fail anyway, but as an opaque tag mismatch that reads like tampered ciphertext.
+    throw new RangeError(
+      `${identity.encryptionAlgorithm} needs a ${expectedKeyBytes}-byte DEK, received ${params.dek.length}`,
+    )
+  }
+  const aad = fileContentAad(identity)
   const key = await importAesGcmKey(params.dek)
   return aesGcmDecryptDetached({
     key,
@@ -263,19 +293,28 @@ export async function decryptFile(params: {
 
 /** Wrap a DEK to a recipient's PEM public key with RSA-OAEP-SHA256. */
 export async function wrapDekTo(publicKeyPem: string, dek: Uint8Array): Promise<Uint8Array> {
-  if (dek.length !== AES_KEY_BYTES) {
-    throw new RangeError(`DEK must be ${AES_KEY_BYTES} bytes`)
-  }
+  assertLegalDekLength(dek.length)
   return rsaOaepWrap(await importRsaOaepPublicKey(publicKeyPem), dek)
 }
 
-/** Unwrap a DEK with the holder's private key. */
+/**
+ * Unwrap a DEK with the holder's private key.
+ *
+ * Accepts any length a supported algorithm uses, because rewrapping a key for a share moves
+ * bytes without knowing which algorithm the file used. The length is checked against the
+ * file's declared algorithm in {@link decryptFile}, where that algorithm is known.
+ */
 export async function unwrapDek(privateKey: CryptoKey, wrapped: Uint8Array): Promise<Uint8Array> {
   const dek = await rsaOaepUnwrap(privateKey, wrapped)
-  if (dek.length !== AES_KEY_BYTES) {
-    throw new Error(`Unwrapped DEK is ${dek.length} bytes, expected ${AES_KEY_BYTES}`)
-  }
+  assertLegalDekLength(dek.length, 'Unwrapped DEK')
   return dek
+}
+
+function assertLegalDekLength(length: number, subject = 'DEK'): void {
+  const legal = ENCRYPTION_ALGORITHMS.map((a) => keyBytesForAlgorithm(a))
+  if (!legal.includes(length)) {
+    throw new RangeError(`${subject} is ${length} bytes; expected one of ${legal.join(', ')}`)
+  }
 }
 
 /** The JSON metadata part of a `POST /files` multipart upload. */

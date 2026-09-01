@@ -7,10 +7,95 @@
 
 import { bytesToHex, fromBase64 } from './encoding'
 
+/**
+ * The account key envelope size. The AMK and the private-key bundle are always AES-256-GCM;
+ * only file content has a selectable strength, because only a file carries the algorithm it
+ * was encrypted under in its own metadata.
+ */
 export const AES_KEY_BYTES = 32
 export const AES_GCM_NONCE_BYTES = 12
 export const AES_GCM_TAG_BYTES = 16
 export const AES_GCM_TAG_BITS = AES_GCM_TAG_BYTES * 8
+
+/**
+ * The AES-GCM key lengths a file may be encrypted under, strongest first.
+ *
+ * All three are the same construction at three key sizes, so they share a nonce length, a
+ * tag length, and this module's code paths. The name is what differs, and the name is what
+ * `fileContentAad` commits to -- so ciphertext written under one of these cannot be
+ * reinterpreted as another without the tag failing.
+ *
+ * AES-192 is the odd one out in practice: it is specified and it is what NIST published,
+ * but some WebCrypto implementations never shipped it. Never assume it is available --
+ * ask {@link supportedEncryptionAlgorithms}.
+ */
+export const ENCRYPTION_ALGORITHMS = ['AES-256-GCM', 'AES-192-GCM', 'AES-128-GCM'] as const
+
+export type EncryptionAlgorithm = (typeof ENCRYPTION_ALGORITHMS)[number]
+
+/** The raw key length each algorithm requires, in bytes. */
+export const ENCRYPTION_KEY_BYTES: Readonly<Record<EncryptionAlgorithm, number>> = Object.freeze({
+  'AES-128-GCM': 16,
+  'AES-192-GCM': 24,
+  'AES-256-GCM': 32,
+})
+
+/** What an upload uses unless the user chooses otherwise. */
+export const DEFAULT_ENCRYPTION_ALGORITHM: EncryptionAlgorithm = 'AES-256-GCM'
+
+/**
+ * Narrow an arbitrary string to a known algorithm.
+ *
+ * Stored metadata is the server's word for what a file was encrypted under, and it reaches
+ * the AAD. Anything unrecognised must be refused rather than passed through: an unknown name
+ * cannot be decrypted, and admitting one would put attacker-chosen bytes into the AAD.
+ */
+export function isEncryptionAlgorithm(value: string): value is EncryptionAlgorithm {
+  return (ENCRYPTION_ALGORITHMS as readonly string[]).includes(value)
+}
+
+/** The key length for an algorithm name, rejecting anything not in the table. */
+export function keyBytesForAlgorithm(algorithm: string): number {
+  if (!isEncryptionAlgorithm(algorithm)) {
+    throw new RangeError(`Unsupported encryption algorithm: ${algorithm}`)
+  }
+  return ENCRYPTION_KEY_BYTES[algorithm]
+}
+
+/** Every key length any supported algorithm accepts. */
+const LEGAL_KEY_BYTES: readonly number[] = Object.values(ENCRYPTION_KEY_BYTES)
+
+let supported: Promise<EncryptionAlgorithm[]> | undefined
+
+/**
+ * The algorithms this browser can actually perform, strongest first.
+ *
+ * Probed rather than assumed. AES-192 is absent from some WebCrypto implementations, and a
+ * key length the browser rejects surfaces as a bare `OperationError` at encryption time --
+ * after the user has chosen it and picked a file. Offering only what works avoids presenting
+ * a choice that cannot be honoured. Cached: the answer cannot change within a page.
+ */
+export function supportedEncryptionAlgorithms(): Promise<EncryptionAlgorithm[]> {
+  supported ??= (async () => {
+    const usable = await Promise.all(
+      ENCRYPTION_ALGORITHMS.map(async (algorithm) => {
+        try {
+          await importAesGcmKey(new Uint8Array(ENCRYPTION_KEY_BYTES[algorithm]))
+          return algorithm
+        } catch {
+          return undefined
+        }
+      }),
+    )
+    const available = usable.filter((a): a is EncryptionAlgorithm => a !== undefined)
+    // AES-256 is required, not optional: without it there is no default to fall back to.
+    if (!available.includes(DEFAULT_ENCRYPTION_ALGORITHM)) {
+      throw new Error('This browser cannot perform AES-256-GCM; encryption is unavailable')
+    }
+    return available
+  })()
+  return supported
+}
 
 /** RSA-PSS salt length in **bytes**, matching the digest length. WebCrypto counts bytes. */
 export const RSA_PSS_SALT_BYTES = 32
@@ -70,8 +155,10 @@ export async function sha256Hex(data: Uint8Array): Promise<string> {
  * imported key from becoming a second copy.
  */
 export async function importAesGcmKey(raw: Uint8Array, extractable = false): Promise<CryptoKey> {
-  if (raw.length !== AES_KEY_BYTES) {
-    throw new RangeError(`AES-256 key must be ${AES_KEY_BYTES} bytes, received ${raw.length}`)
+  if (!LEGAL_KEY_BYTES.includes(raw.length)) {
+    throw new RangeError(
+      `AES-GCM key must be ${LEGAL_KEY_BYTES.join(', ')} bytes, received ${raw.length}`,
+    )
   }
   return subtle().importKey('raw', raw as BufferSource, 'AES-GCM', extractable, [
     'encrypt',

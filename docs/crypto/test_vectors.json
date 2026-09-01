@@ -1,6 +1,6 @@
 {
-  "$comment": "Known-answer vectors for the browser cryptography library. Generated with python-cryptography (an independent implementation) so the TypeScript side is checked against something other than itself. Regenerating these is a deliberate specification change, not a way to make a failing test pass.",
-  "suite_version": 1,
+  "$comment": "Known-answer vectors for the browser cryptography library. Generated with python-cryptography (an independent implementation) so the TypeScript side is checked against something other than itself. Regenerating these is a deliberate specification change, not a way to make a failing test pass. Suite 2 adds AES-128-GCM and AES-192-GCM file envelopes; the suite 1 vectors are unchanged.",
+  "suite_version": 2,
   "generated_with": "python-cryptography 50.0.0",
   "aes_256_gcm_detached": [
     {
@@ -172,6 +172,70 @@
       "aad_hex": "4659502d46494c452d434f4e54454e5400013f2a1b4c5d6e4f708192a3b4c5d6e7f8000000010000000b4145532d3235362d47434d000000000000000000000009656d7074792e62696e000000186170706c69636174696f6e2f6f637465742d73747265616d",
       "ciphertext_hex": "",
       "auth_tag_hex": "022a98524ba4a2ff785a620b1ca93191"
+    },
+    {
+      "case": "report-aes-128",
+      "file_id": "3f2b1c0d-9e8a-4f76-b5c4-1d2e3f4a5b6c",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-128-GCM",
+      "plaintext_size": 32,
+      "original_filename": "report.pdf",
+      "mime_type": "application/pdf",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f",
+      "nonce_hex": "101112131415161718191a1b",
+      "plaintext_hex": "517561727465726c79206e756d626572732c20636f6e666964656e7469616c2e",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400013f2b1c0d9e8a4f76b5c41d2e3f4a5b6c000000010000000b4145532d3132382d47434d00000000000000200000000a7265706f72742e7064660000000f6170706c69636174696f6e2f706466",
+      "ciphertext_hex": "955b62dd7b2ac4836efd3380aa458e4c499054e4599a0dd6e1ae47650e647d83",
+      "auth_tag_hex": "2e5a5c742c484140f90fb2fa630c0872"
+    },
+    {
+      "case": "report-aes-192",
+      "file_id": "7a6b5c4d-3e2f-4109-8877-665544332211",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-192-GCM",
+      "plaintext_size": 32,
+      "original_filename": "report.pdf",
+      "mime_type": "application/pdf",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce_hex": "101112131415161718191a1b",
+      "plaintext_hex": "517561727465726c79206e756d626572732c20636f6e666964656e7469616c2e",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400017a6b5c4d3e2f41098877665544332211000000010000000b4145532d3139322d47434d00000000000000200000000a7265706f72742e7064660000000f6170706c69636174696f6e2f706466",
+      "ciphertext_hex": "6722466777edb19499a6b1f93dbe4c9ff5c119f244436169d3df44c4c2164fa8",
+      "auth_tag_hex": "c3c19e8b0918f6102071a972bae391e3"
+    },
+    {
+      "case": "empty-aes-128",
+      "file_id": "11112222-3333-4444-8555-666677778888",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-128-GCM",
+      "plaintext_size": 0,
+      "original_filename": "empty.bin",
+      "mime_type": "application/octet-stream",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f",
+      "nonce_hex": "101112131415161718191a1b",
+      "plaintext_hex": "",
+      "aad_hex": "4659502d46494c452d434f4e54454e54000111112222333344448555666677778888000000010000000b4145532d3132382d47434d000000000000000000000009656d7074792e62696e000000186170706c69636174696f6e2f6f637465742d73747265616d",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "40477e88433d94e7c8fa1bc28db091f0"
+    },
+    {
+      "case": "cjk-filename-aes-192",
+      "file_id": "99998888-7777-4666-a555-444433332222",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-192-GCM",
+      "plaintext_size": 12,
+      "original_filename": "季度报告.txt",
+      "mime_type": "text/plain",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f1011121314151617",
+      "nonce_hex": "101112131415161718191a1b",
+      "plaintext_hex": "e5ada3e5baa6e68aa5e5918a",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400019999888877774666a555444433332222000000010000000b4145532d3139322d47434d000000000000000c00000010e5ada3e5baa6e68aa5e5918a2e7478740000000a746578742f706c61696e",
+      "ciphertext_hex": "d3fa84f0b92e257245634e06",
+      "auth_tag_hex": "471bad0244262b8b5c279a2aba1a19c7"
     }
   ]
 }

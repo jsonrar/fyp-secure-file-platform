@@ -149,8 +149,18 @@ describe('AES-256-GCM with a detached tag', () => {
     ).rejects.toBeInstanceOf(RangeError)
   })
 
-  it('rejects a key that is not 256 bits', async () => {
-    await expect(importAesGcmKey(randomBytes(16))).rejects.toBeInstanceOf(RangeError)
+  it('accepts every key length a supported algorithm uses', async () => {
+    for (const bytes of [16, 24, 32]) {
+      await expect(importAesGcmKey(randomBytes(bytes))).resolves.toBeDefined()
+    }
+  })
+
+  it('rejects a key length no supported algorithm uses', async () => {
+    // 20 and 64 are the shapes a truncation or a concatenation bug produces. WebCrypto
+    // rejects them too, but as an opaque OperationError at first use rather than here.
+    for (const bytes of [0, 8, 20, 31, 33, 64]) {
+      await expect(importAesGcmKey(randomBytes(bytes))).rejects.toBeInstanceOf(RangeError)
+    }
   })
 })
 

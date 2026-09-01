@@ -1,9 +1,14 @@
 <script setup lang="ts">
 import { Check, FileIcon, Lock, RefreshCw, Upload, X } from 'lucide-vue-next'
-import { ref } from 'vue'
+import { onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiErrorMessage } from '@/api/http'
 import { formatFileSize } from '@/api/types'
+import {
+  DEFAULT_ENCRYPTION_ALGORITHM,
+  type EncryptionAlgorithm,
+  supportedEncryptionAlgorithms,
+} from '@/crypto/primitives'
 import {
   encryptAndUpload,
   fetchUploadRecipients,
@@ -29,6 +34,30 @@ const isEncrypted = ref(false)
 const errorMessage = ref('')
 const dragActive = ref(false)
 const recoveryFingerprint = ref('')
+const algorithm = ref<EncryptionAlgorithm>(DEFAULT_ENCRYPTION_ALGORITHM)
+const algorithmChoices = ref<EncryptionAlgorithm[]>([DEFAULT_ENCRYPTION_ALGORITHM])
+
+/**
+ * Offer only what this browser can actually do.
+ *
+ * AES-192-GCM is specified but absent from some WebCrypto implementations, and an
+ * unsupported key length fails at encryption time with an opaque error -- after the user has
+ * chosen it and picked their files. Probing first keeps the menu honest.
+ */
+onMounted(async () => {
+  try {
+    algorithmChoices.value = await supportedEncryptionAlgorithms()
+  } catch {
+    // Leaving the default in place is right: if the probe cannot run, encryption itself
+    // will fail with a message that explains far more than a broken dropdown would.
+  }
+})
+
+const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
+  'AES-256-GCM': 'Strongest. The default, and what the recovery path is tested against.',
+  'AES-192-GCM': 'Intermediate key length. Not available in every browser.',
+  'AES-128-GCM': 'Fastest. Still considered secure; the shortest key of the three.',
+}
 
 const toUploadedFile = (file: File): UploadedFile => ({
   raw: file,
@@ -98,7 +127,7 @@ const handleEncrypt = async () => {
     file.status = 'encrypting'
     file.error = ''
     try {
-      await encryptAndUpload(file.raw, recipients)
+      await encryptAndUpload(file.raw, recipients, algorithm.value)
       file.status = 'done'
     } catch (error) {
       failures += 1
@@ -170,9 +199,18 @@ const goToFiles = () => {
             <label class="text-foreground mb-4 block text-lg font-medium">Encryption</label>
             <div class="space-y-4">
               <div class="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
-                <div class="flex justify-between text-sm">
-                  <span class="text-muted-foreground">File contents</span>
-                  <span class="font-semibold text-primary">AES-256-GCM</span>
+                <div class="flex justify-between text-sm items-center gap-3">
+                  <label for="content-algorithm" class="text-muted-foreground">File contents</label>
+                  <select
+                    id="content-algorithm"
+                    v-model="algorithm"
+                    :disabled="isEncrypting"
+                    class="font-semibold text-primary bg-transparent border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                  >
+                    <option v-for="choice in algorithmChoices" :key="choice" :value="choice">
+                      {{ choice }}
+                    </option>
+                  </select>
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">File key wrapping</span>
@@ -184,8 +222,14 @@ const goToFiles = () => {
                 </div>
               </div>
               <p class="text-xs text-muted-foreground">
-                A fresh 256-bit key is generated per file and wrapped to your public key and to
-                the recovery key. Neither key nor plaintext leaves this browser.
+                {{ ALGORITHM_NOTES[algorithm] }} A fresh key is generated per file and wrapped to
+                your public key and to the recovery key. Neither key nor plaintext leaves this
+                browser.
+              </p>
+              <p class="text-xs text-muted-foreground">
+                The choice is recorded with the file and is covered by its authentication tag, so
+                each file is always read back under the algorithm it was written with. Files
+                already uploaded are unaffected.
               </p>
               <div v-if="recoveryFingerprint" class="p-3 rounded-lg bg-secondary/50 border border-border">
                 <p class="text-xs text-muted-foreground mb-1">

@@ -36,7 +36,7 @@ class File(Base):
             name="ck_files_nonnegative_sizes",
         ),
         CheckConstraint(
-            "encryption_algorithm = 'AES-256-GCM' "
+            "encryption_algorithm IN ('AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM') "
             "AND OCTET_LENGTH(iv) = 12 AND OCTET_LENGTH(auth_tag) = 16",
             name="ck_files_encryption_envelope",
         ),
