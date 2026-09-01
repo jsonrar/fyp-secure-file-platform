@@ -15,14 +15,24 @@ _MIME_TYPE_RE = re.compile(
 )
 _WRAPPED_KEY_LENGTHS = frozenset({256, 384, 512})
 
-# The AES-GCM strengths a file may be encrypted under. All three share a 12-byte nonce and a
-# 16-byte tag, so only the name and the key length differ, and the client commits to the name
-# in the AAD -- ciphertext written under one cannot be reinterpreted as another.
+# The suites a file may be encrypted under. Every one is an AEAD with a 12-byte nonce and a
+# 16-byte tag, which is why one set of columns and one CHECK constraint serve them all. The
+# client commits to the name in the AAD, so ciphertext written under one cannot be
+# reinterpreted as another.
+#
+# ChaCha20-Poly1305 is a different construction rather than another key length: a stream
+# cipher authenticated by Poly1305, where AES-GCM is a block cipher authenticated by GHASH.
 #
 # Deliberately a Literal and not a str: the value is copied into a stored row and handed back
 # to every client that later decrypts the file, so the set of legal names is enforced here
-# rather than assumed. The account key envelope is unaffected and remains AES-256-GCM.
-EncryptionAlgorithm = Literal["AES-128-GCM", "AES-192-GCM", "AES-256-GCM"]
+# rather than assumed. Nothing unauthenticated may join this list. The account key envelope is
+# unaffected and remains AES-256-GCM.
+EncryptionAlgorithm = Literal[
+    "AES-128-GCM",
+    "AES-192-GCM",
+    "AES-256-GCM",
+    "ChaCha20-Poly1305",
+]
 
 
 def _decode_canonical_base64(value: str, *, field_name: str) -> bytes:

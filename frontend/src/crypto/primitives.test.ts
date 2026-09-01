@@ -9,8 +9,12 @@ import {
   AES_GCM_NONCE_BYTES,
   AES_GCM_TAG_BYTES,
   AuthenticationFailure,
+  CHACHA20_NONCE_BYTES,
+  CHACHA20_TAG_BYTES,
   aesGcmDecryptDetached,
   aesGcmEncryptDetached,
+  chacha20Poly1305DecryptDetached,
+  chacha20Poly1305EncryptDetached,
   importAesGcmKey,
   importRsaOaepPublicKey,
   publicKeyFingerprint,
@@ -34,6 +38,15 @@ const vectorsPath = path.resolve(
 )
 const vectors = JSON.parse(readFileSync(vectorsPath, 'utf8')) as {
   aes_256_gcm_detached: {
+    case: string
+    key_hex: string
+    nonce_hex: string
+    aad_hex: string
+    plaintext_hex: string
+    ciphertext_hex: string
+    auth_tag_hex: string
+  }[]
+  chacha20_poly1305_detached: {
     case: string
     key_hex: string
     nonce_hex: string
@@ -266,5 +279,110 @@ describe('RSA-PSS-SHA256 signatures', () => {
     const otherDigest = Uint8Array.from(digest)
     otherDigest[0] ^= 0x01
     expect(await rsaPssVerify(pair.publicKey, otherDigest, signature)).toBe(false)
+  })
+})
+
+describe('ChaCha20-Poly1305 with a detached tag', () => {
+  // The first case is RFC 8439 section 2.8.2, so this suite is anchored to the standard
+  // rather than only to two implementations agreeing with each other.
+  it.each(vectors.chacha20_poly1305_detached)(
+    'encrypts $case to the reference ciphertext',
+    async (vector) => {
+      const { ciphertext, authTag } = await chacha20Poly1305EncryptDetached({
+        key: hexToBytes(vector.key_hex),
+        nonce: hexToBytes(vector.nonce_hex),
+        plaintext: hexToBytes(vector.plaintext_hex),
+        aad: hexToBytes(vector.aad_hex),
+      })
+      expect(bytesToHex(ciphertext)).toBe(vector.ciphertext_hex)
+      expect(bytesToHex(authTag)).toBe(vector.auth_tag_hex)
+      // Like GCM, the ciphertext is the same length as the plaintext once the tag is
+      // detached. This is what lets one stored column layout serve both constructions.
+      expect(ciphertext.length).toBe(hexToBytes(vector.plaintext_hex).length)
+    },
+  )
+
+  it.each(vectors.chacha20_poly1305_detached)(
+    'decrypts $case back to the plaintext',
+    async (vector) => {
+      const plaintext = await chacha20Poly1305DecryptDetached({
+        key: hexToBytes(vector.key_hex),
+        nonce: hexToBytes(vector.nonce_hex),
+        ciphertext: hexToBytes(vector.ciphertext_hex),
+        authTag: hexToBytes(vector.auth_tag_hex),
+        aad: hexToBytes(vector.aad_hex),
+      })
+      expect(bytesToHex(plaintext)).toBe(vector.plaintext_hex)
+    },
+  )
+
+  it('rejects a tampered tag, ciphertext, or AAD as an authentication failure', async () => {
+    const key = randomBytes(32)
+    const nonce = randomBytes(CHACHA20_NONCE_BYTES)
+    const aad = new TextEncoder().encode('FYP-FILE-CONTENT')
+    const plaintext = new TextEncoder().encode('confidential')
+    const sealed = await chacha20Poly1305EncryptDetached({ key, nonce, plaintext, aad })
+
+    const flipFirstByte = (b: Uint8Array) => {
+      const copy = b.slice()
+      copy[0] ^= 0x01
+      return copy
+    }
+
+    for (const altered of [
+      { ...sealed, authTag: flipFirstByte(sealed.authTag) },
+      { ...sealed, ciphertext: flipFirstByte(sealed.ciphertext) },
+    ]) {
+      await expect(
+        chacha20Poly1305DecryptDetached({ key, nonce, aad, ...altered }),
+      ).rejects.toBeInstanceOf(AuthenticationFailure)
+    }
+
+    // A changed AAD must fail too: that is the property the whole envelope relies on.
+    await expect(
+      chacha20Poly1305DecryptDetached({ key, nonce, ...sealed, aad: flipFirstByte(aad) }),
+    ).rejects.toBeInstanceOf(AuthenticationFailure)
+
+    // And a different key, which is what a substituted wrapping would produce.
+    await expect(
+      chacha20Poly1305DecryptDetached({ key: randomBytes(32), nonce, aad, ...sealed }),
+    ).rejects.toBeInstanceOf(AuthenticationFailure)
+  })
+
+  it('rejects key, nonce and tag lengths that are not the specified ones', async () => {
+    const key = randomBytes(32)
+    const nonce = randomBytes(CHACHA20_NONCE_BYTES)
+    const args = { plaintext: new Uint8Array(), aad: new Uint8Array() }
+
+    for (const badKey of [16, 24, 31, 33]) {
+      await expect(
+        chacha20Poly1305EncryptDetached({ ...args, key: randomBytes(badKey), nonce }),
+      ).rejects.toBeInstanceOf(RangeError)
+    }
+    for (const badNonce of [8, 11, 13, 24]) {
+      await expect(
+        chacha20Poly1305EncryptDetached({ ...args, key, nonce: randomBytes(badNonce) }),
+      ).rejects.toBeInstanceOf(RangeError)
+    }
+    await expect(
+      chacha20Poly1305DecryptDetached({
+        key,
+        nonce,
+        ciphertext: new Uint8Array(),
+        authTag: randomBytes(CHACHA20_TAG_BYTES - 1),
+        aad: new Uint8Array(),
+      }),
+    ).rejects.toBeInstanceOf(RangeError)
+  })
+
+  it('produces the same shapes AES-GCM does, which is why one envelope serves both', async () => {
+    const sealed = await chacha20Poly1305EncryptDetached({
+      key: randomBytes(32),
+      nonce: randomBytes(CHACHA20_NONCE_BYTES),
+      plaintext: new TextEncoder().encode('same shape as AES-GCM'),
+      aad: new Uint8Array(),
+    })
+    expect(sealed.authTag.length).toBe(AES_GCM_TAG_BYTES)
+    expect(CHACHA20_NONCE_BYTES).toBe(AES_GCM_NONCE_BYTES)
   })
 })

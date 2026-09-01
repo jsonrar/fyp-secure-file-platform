@@ -4,7 +4,7 @@ import { fileURLToPath } from 'node:url'
 
 import { describe, expect, it } from 'vitest'
 
-import { bytesToHex, fromBase64, hexToBytes } from './encoding'
+import { bytesToHex, fromBase64, hexToBytes, toBase64 } from './encoding'
 import {
   buildUploadPayload,
   decryptFile,
@@ -525,5 +525,125 @@ describe('selectable AES key length', () => {
         nonce: new Uint8Array(12),
       }),
     ).rejects.toBeInstanceOf(RangeError)
+  })
+})
+
+describe('ChaCha20-Poly1305 as a second construction', () => {
+  const plaintext = new TextEncoder().encode('quarterly numbers, confidential')
+
+  it('round trips, with the same shapes AES-GCM produces', async () => {
+    const envelope = await encryptFile({
+      plaintext,
+      originalFilename: 'q.pdf',
+      mimeType: 'application/pdf',
+      algorithm: 'ChaCha20-Poly1305',
+    })
+    expect(envelope.identity.encryptionAlgorithm).toBe('ChaCha20-Poly1305')
+    expect(envelope.dek.length).toBe(32)
+    expect(envelope.nonce.length).toBe(12)
+    expect(envelope.authTag.length).toBe(16)
+    expect(envelope.ciphertext.length).toBe(plaintext.length)
+
+    const recovered = await decryptFile({
+      identity: envelope.identity,
+      dek: envelope.dek,
+      nonce: envelope.nonce,
+      ciphertext: envelope.ciphertext,
+      authTag: envelope.authTag,
+    })
+    expect(bytesToHex(recovered)).toBe(bytesToHex(plaintext))
+  })
+
+  it('cannot be opened as AES-256-GCM, which only the AAD can catch', async () => {
+    // The one case the length checks cannot see. AES-256-GCM and ChaCha20-Poly1305 both take
+    // a 32-byte key and a 12-byte nonce and both produce a 16-byte tag, so every structural
+    // check passes and only the algorithm name framed into the AAD separates them. If that
+    // binding were ever dropped, this test is what would notice.
+    const envelope = await encryptFile({
+      plaintext,
+      originalFilename: 'q.pdf',
+      mimeType: 'application/pdf',
+      algorithm: 'ChaCha20-Poly1305',
+    })
+
+    await expect(
+      decryptFile({
+        identity: { ...envelope.identity, encryptionAlgorithm: 'AES-256-GCM' },
+        dek: envelope.dek,
+        nonce: envelope.nonce,
+        ciphertext: envelope.ciphertext,
+        authTag: envelope.authTag,
+      }),
+    ).rejects.toBeInstanceOf(AuthenticationFailure)
+  })
+
+  it('and an AES-256-GCM file cannot be opened as ChaCha20-Poly1305', async () => {
+    const envelope = await encryptFile({
+      plaintext,
+      originalFilename: 'q.pdf',
+      mimeType: 'application/pdf',
+      algorithm: 'AES-256-GCM',
+    })
+
+    await expect(
+      decryptFile({
+        identity: { ...envelope.identity, encryptionAlgorithm: 'ChaCha20-Poly1305' },
+        dek: envelope.dek,
+        nonce: envelope.nonce,
+        ciphertext: envelope.ciphertext,
+        authTag: envelope.authTag,
+      }),
+    ).rejects.toBeInstanceOf(AuthenticationFailure)
+  })
+
+  it('produces different ciphertext from AES-256-GCM for the same key, nonce and plaintext', async () => {
+    const identityBase = {
+      fileId: '5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170',
+      originalFilename: 'q.pdf',
+      plaintextSize: plaintext.length,
+      mimeType: 'application/pdf',
+    }
+    const dek = new Uint8Array(32).fill(7)
+    const nonce = new Uint8Array(12).fill(9)
+
+    const [aes, chacha] = await Promise.all(
+      (['AES-256-GCM', 'ChaCha20-Poly1305'] as const).map((encryptionAlgorithm) =>
+        encryptFileWithMaterial({
+          plaintext,
+          identity: { ...identityBase, encryptionAlgorithm },
+          dek,
+          nonce,
+        }),
+      ),
+    )
+    expect(bytesToHex(aes.ciphertext)).not.toBe(bytesToHex(chacha.ciphertext))
+    expect(bytesToHex(aes.authTag)).not.toBe(bytesToHex(chacha.authTag))
+  })
+
+  it('wraps and unwraps its DEK like any other', async () => {
+    const envelope = await encryptFile({
+      plaintext,
+      originalFilename: 'q.pdf',
+      mimeType: 'application/pdf',
+      algorithm: 'ChaCha20-Poly1305',
+    })
+    // Sharing rewraps DEK bytes without knowing the construction, so this must not care.
+    const pair = (await globalThis.crypto.subtle.generateKey(
+      {
+        name: 'RSA-OAEP',
+        modulusLength: 2048,
+        publicExponent: new Uint8Array([0x01, 0x00, 0x01]),
+        hash: 'SHA-256',
+      },
+      true,
+      ['encrypt', 'decrypt'],
+    )) as CryptoKeyPair
+    const spki = new Uint8Array(await globalThis.crypto.subtle.exportKey('spki', pair.publicKey))
+    const body = toBase64(spki).replace(/(.{64})/g, '$1\n')
+    const pem = `-----BEGIN PUBLIC KEY-----\n${body}\n-----END PUBLIC KEY-----\n`
+
+    const unwrapped = await unwrapDek(pair.privateKey, await wrapDekTo(pem, envelope.dek))
+    expect(bytesToHex(unwrapped)).toBe(bytesToHex(envelope.dek))
+    expect(await verifyDekOpensFile({ ...envelope, dek: unwrapped })).toBe(true)
   })
 })

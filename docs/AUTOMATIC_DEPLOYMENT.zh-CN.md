@@ -23,7 +23,10 @@ MCS21 预发布 VPS 会在新提交合并到 GitHub `main` 后自动部署。由
 底层发布命令会锁定并串行执行部署、保留上一版本，并在切换后的健康检查失败时回滚应用。
 自动数据库步骤只包括备份和生产 SQL 只读核验。运行账户不能修改 Schema，自动部署服务也
 没有 MySQL 管理员或迁移凭据。因此，Schema 变化必须按照
-[DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md) 单独提供并评审 DBA SQL 发布。
+[DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md) 单独提供并评审 DBA SQL 发布，并且必须在推送依赖
+它的代码**之前**先应用到数据库——先推代码会导致部署中止并隔离该 SHA，之后的每一个提交都会卡在
+它后面。参见
+[对运行中的部署应用 Schema Revision](DEPLOYMENT.zh-CN.md#对运行中的部署应用-schema-revision)。
 
 核验器会区分全新审计链（`OK`）与已经包含应用事件、但状态一致的在线审计链
 （`LIVE_DATA`）。在线状态只有在单例链头保留准确的发布 Schema 标记、指向最新审计记录，

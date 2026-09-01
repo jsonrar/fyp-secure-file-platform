@@ -25,16 +25,18 @@ import {
   uuidToBytes,
 } from './encoding'
 import {
-  AES_GCM_NONCE_BYTES,
   DEFAULT_ENCRYPTION_ALGORITHM,
   ENCRYPTION_ALGORITHMS,
   type EncryptionAlgorithm,
   aesGcmDecryptDetached,
   aesGcmEncryptDetached,
+  chacha20Poly1305DecryptDetached,
+  chacha20Poly1305EncryptDetached,
   importAesGcmKey,
+  importRsaOaepPublicKey,
   isEncryptionAlgorithm,
   keyBytesForAlgorithm,
-  importRsaOaepPublicKey,
+  nonceBytesForAlgorithm,
   publicKeyFingerprint,
   randomBytes,
   randomUuid,
@@ -44,7 +46,12 @@ import {
 
 export const ENVELOPE_VERSION = 1
 export const AAD_VERSION = 1
-export { DEFAULT_ENCRYPTION_ALGORITHM, ENCRYPTION_ALGORITHMS, ENCRYPTION_KEY_BYTES } from './primitives'
+export {
+  DEFAULT_ENCRYPTION_ALGORITHM,
+  ENCRYPTION_ALGORITHMS,
+  ENCRYPTION_KEY_BYTES,
+  ENCRYPTION_SUITES,
+} from './primitives'
 export type { EncryptionAlgorithm } from './primitives'
 export const KEY_WRAPPING_ALGORITHM = 'RSA-OAEP-SHA256'
 
@@ -64,7 +71,10 @@ export interface FileIdentity {
   encryptionAlgorithm?: string
 }
 
-type NormalizedIdentity = Required<FileIdentity>
+type NormalizedIdentity = Omit<Required<FileIdentity>, 'encryptionAlgorithm'> & {
+  /** Narrowed by `normalizeIdentity`, so downstream dispatch needs no cast. */
+  encryptionAlgorithm: EncryptionAlgorithm
+}
 
 /**
  * Apply the same normalization and rejection rules as `FileUploadMetadata`.
@@ -171,6 +181,51 @@ export interface EncryptedFileEnvelope {
   aad: Uint8Array
 }
 
+
+/**
+ * Seal under whichever AEAD the identity names.
+ *
+ * The two branches are the only place the construction is chosen. Everything above this --
+ * the AAD, the detached tag, the length checks, the self-test -- is identical for both,
+ * because both take a 12-byte nonce and produce a 16-byte tag over a ciphertext the same
+ * length as the plaintext.
+ */
+async function sealWith(params: {
+  algorithm: EncryptionAlgorithm
+  dek: Uint8Array
+  nonce: Uint8Array
+  plaintext: Uint8Array
+  aad: Uint8Array
+}): Promise<{ ciphertext: Uint8Array; authTag: Uint8Array }> {
+  const { algorithm, dek, nonce, plaintext, aad } = params
+  if (algorithm === 'ChaCha20-Poly1305') {
+    return chacha20Poly1305EncryptDetached({ key: dek, nonce, plaintext, aad })
+  }
+  return aesGcmEncryptDetached({ key: await importAesGcmKey(dek), nonce, plaintext, aad })
+}
+
+/** Open under whichever AEAD the identity names. Raises `AuthenticationFailure` either way. */
+async function openWith(params: {
+  algorithm: EncryptionAlgorithm
+  dek: Uint8Array
+  nonce: Uint8Array
+  ciphertext: Uint8Array
+  authTag: Uint8Array
+  aad: Uint8Array
+}): Promise<Uint8Array> {
+  const { algorithm, dek, nonce, ciphertext, authTag, aad } = params
+  if (algorithm === 'ChaCha20-Poly1305') {
+    return chacha20Poly1305DecryptDetached({ key: dek, nonce, ciphertext, authTag, aad })
+  }
+  return aesGcmDecryptDetached({
+    key: await importAesGcmKey(dek),
+    nonce,
+    ciphertext,
+    authTag,
+    aad,
+  })
+}
+
 /**
  * Encrypt with caller-supplied key material.
  *
@@ -199,9 +254,21 @@ export async function encryptFileWithMaterial(params: {
     )
   }
 
+  const expectedNonceBytes = nonceBytesForAlgorithm(identity.encryptionAlgorithm)
+  if (nonce.length !== expectedNonceBytes) {
+    throw new RangeError(
+      `${identity.encryptionAlgorithm} needs a ${expectedNonceBytes}-byte nonce, received ${nonce.length}`,
+    )
+  }
+
   const aad = fileContentAad(identity)
-  const key = await importAesGcmKey(dek)
-  const { ciphertext, authTag } = await aesGcmEncryptDetached({ key, nonce, plaintext, aad })
+  const { ciphertext, authTag } = await sealWith({
+    algorithm: identity.encryptionAlgorithm,
+    dek,
+    nonce,
+    plaintext,
+    aad,
+  })
 
   // file_service rejects an upload whose ciphertext length differs from plaintext_size.
   // Catching it here costs nothing and turns a confusing 422 into a local failure.
@@ -241,7 +308,7 @@ export async function encryptFile(params: {
     // A fresh DEK of exactly the length this algorithm takes. Never derived from, or
     // truncated out of, a key generated for a different strength.
     dek: randomBytes(keyBytesForAlgorithm(algorithm)),
-    nonce: randomBytes(AES_GCM_NONCE_BYTES),
+    nonce: randomBytes(nonceBytesForAlgorithm(algorithm)),
   })
 
   const roundTripped = await decryptFile({
@@ -281,9 +348,9 @@ export async function decryptFile(params: {
     )
   }
   const aad = fileContentAad(identity)
-  const key = await importAesGcmKey(params.dek)
-  return aesGcmDecryptDetached({
-    key,
+  return openWith({
+    algorithm: identity.encryptionAlgorithm,
+    dek: params.dek,
     nonce: params.nonce,
     ciphertext: params.ciphertext,
     authTag: params.authTag,

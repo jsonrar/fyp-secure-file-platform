@@ -5,6 +5,8 @@
  * Envelope construction, AAD layout, and business rules live in the modules above this one.
  */
 
+import { chacha20poly1305 } from '@noble/ciphers/chacha.js'
+
 import { bytesToHex, fromBase64 } from './encoding'
 
 /**
@@ -18,27 +20,48 @@ export const AES_GCM_TAG_BYTES = 16
 export const AES_GCM_TAG_BITS = AES_GCM_TAG_BYTES * 8
 
 /**
- * The AES-GCM key lengths a file may be encrypted under, strongest first.
+ * The suites a file may be encrypted under, strongest-and-safest first.
  *
- * All three are the same construction at three key sizes, so they share a nonce length, a
- * tag length, and this module's code paths. The name is what differs, and the name is what
- * `fileContentAad` commits to -- so ciphertext written under one of these cannot be
- * reinterpreted as another without the tag failing.
+ * Two constructions, not one family. AES-GCM is a block cipher in counter mode authenticated
+ * by GHASH; ChaCha20-Poly1305 is a stream cipher authenticated by Poly1305 (RFC 8439). They
+ * fail differently and rest on different assumptions, which is the point of offering both --
+ * the three AES entries differ only in key length.
  *
- * AES-192 is the odd one out in practice: it is specified and it is what NIST published,
- * but some WebCrypto implementations never shipped it. Never assume it is available --
- * ask {@link supportedEncryptionAlgorithms}.
+ * Every suite here is an AEAD. Nothing unauthenticated may be added: AES-CBC and AES-CTR are
+ * available in WebCrypto and would discard the integrity guarantee the whole envelope rests
+ * on. 3DES is excluded for the same reason plus its own -- it is not an AEAD at all, its
+ * 8-byte block would break the shared nonce and tag lengths below, and NIST withdrew it for
+ * encryption in 2023.
+ *
+ * The name is what `fileContentAad` commits to, so ciphertext written under one suite cannot
+ * be reinterpreted as another without the tag failing.
  */
-export const ENCRYPTION_ALGORITHMS = ['AES-256-GCM', 'AES-192-GCM', 'AES-128-GCM'] as const
+export const ENCRYPTION_SUITES = Object.freeze({
+  'AES-256-GCM': Object.freeze({ keyBytes: 32, nonceBytes: 12, tagBytes: 16, platform: true }),
+  'ChaCha20-Poly1305': Object.freeze({
+    keyBytes: 32,
+    nonceBytes: 12,
+    tagBytes: 16,
+    // Provided by @noble/ciphers rather than WebCrypto, so unlike the AES entries it is
+    // available wherever this code runs and needs no capability probe.
+    platform: false,
+  }),
+  'AES-192-GCM': Object.freeze({ keyBytes: 24, nonceBytes: 12, tagBytes: 16, platform: true }),
+  'AES-128-GCM': Object.freeze({ keyBytes: 16, nonceBytes: 12, tagBytes: 16, platform: true }),
+})
 
-export type EncryptionAlgorithm = (typeof ENCRYPTION_ALGORITHMS)[number]
+export const ENCRYPTION_ALGORITHMS = Object.freeze(
+  Object.keys(ENCRYPTION_SUITES) as EncryptionAlgorithm[],
+)
+
+export type EncryptionAlgorithm = keyof typeof ENCRYPTION_SUITES
 
 /** The raw key length each algorithm requires, in bytes. */
-export const ENCRYPTION_KEY_BYTES: Readonly<Record<EncryptionAlgorithm, number>> = Object.freeze({
-  'AES-128-GCM': 16,
-  'AES-192-GCM': 24,
-  'AES-256-GCM': 32,
-})
+export const ENCRYPTION_KEY_BYTES: Readonly<Record<EncryptionAlgorithm, number>> = Object.freeze(
+  Object.fromEntries(
+    Object.entries(ENCRYPTION_SUITES).map(([name, suite]) => [name, suite.keyBytes]),
+  ) as Record<EncryptionAlgorithm, number>,
+)
 
 /** What an upload uses unless the user chooses otherwise. */
 export const DEFAULT_ENCRYPTION_ALGORITHM: EncryptionAlgorithm = 'AES-256-GCM'
@@ -54,12 +77,22 @@ export function isEncryptionAlgorithm(value: string): value is EncryptionAlgorit
   return (ENCRYPTION_ALGORITHMS as readonly string[]).includes(value)
 }
 
-/** The key length for an algorithm name, rejecting anything not in the table. */
-export function keyBytesForAlgorithm(algorithm: string): number {
+/** The suite parameters for an algorithm name, rejecting anything not in the table. */
+export function suiteFor(algorithm: string): (typeof ENCRYPTION_SUITES)[EncryptionAlgorithm] {
   if (!isEncryptionAlgorithm(algorithm)) {
     throw new RangeError(`Unsupported encryption algorithm: ${algorithm}`)
   }
-  return ENCRYPTION_KEY_BYTES[algorithm]
+  return ENCRYPTION_SUITES[algorithm]
+}
+
+/** The key length for an algorithm name, rejecting anything not in the table. */
+export function keyBytesForAlgorithm(algorithm: string): number {
+  return suiteFor(algorithm).keyBytes
+}
+
+/** The nonce length for an algorithm name. Every current suite uses 12, but none assumes it. */
+export function nonceBytesForAlgorithm(algorithm: string): number {
+  return suiteFor(algorithm).nonceBytes
 }
 
 /** Every key length any supported algorithm accepts. */
@@ -70,15 +103,17 @@ let supported: Promise<EncryptionAlgorithm[]> | undefined
 /**
  * The algorithms this browser can actually perform, strongest first.
  *
- * Probed rather than assumed. AES-192 is absent from some WebCrypto implementations, and a
- * key length the browser rejects surfaces as a bare `OperationError` at encryption time --
- * after the user has chosen it and picked a file. Offering only what works avoids presenting
- * a choice that cannot be honoured. Cached: the answer cannot change within a page.
+ * Probed rather than assumed, for the suites that come from the platform. AES-192 is absent
+ * from some WebCrypto implementations -- Chromium never shipped it -- and a key length the
+ * browser rejects surfaces as a bare `OperationError` at encryption time, after the user has
+ * chosen it and picked a file. ChaCha20-Poly1305 is not probed: it is a library, so it works
+ * wherever this code runs. Cached, because the answer cannot change within a page.
  */
 export function supportedEncryptionAlgorithms(): Promise<EncryptionAlgorithm[]> {
   supported ??= (async () => {
     const usable = await Promise.all(
       ENCRYPTION_ALGORITHMS.map(async (algorithm) => {
+        if (!ENCRYPTION_SUITES[algorithm].platform) return algorithm
         try {
           await importAesGcmKey(new Uint8Array(ENCRYPTION_KEY_BYTES[algorithm]))
           return algorithm
@@ -96,6 +131,17 @@ export function supportedEncryptionAlgorithms(): Promise<EncryptionAlgorithm[]> 
   })()
   return supported
 }
+
+/**
+ * ChaCha20-Poly1305 parameters, from RFC 8439.
+ *
+ * Deliberately identical in shape to AES-GCM above: a 32-byte key, a 12-byte nonce, and a
+ * 16-byte tag. That is not a coincidence to rely on blindly, but it is what lets one stored
+ * column layout, one database CHECK constraint, and one envelope serve both constructions.
+ */
+export const CHACHA20_KEY_BYTES = 32
+export const CHACHA20_NONCE_BYTES = 12
+export const CHACHA20_TAG_BYTES = 16
 
 /** RSA-PSS salt length in **bytes**, matching the digest length. WebCrypto counts bytes. */
 export const RSA_PSS_SALT_BYTES = 32
@@ -206,6 +252,75 @@ export async function aesGcmEncryptDetached(params: {
     ciphertext: joined.slice(0, joined.length - AES_GCM_TAG_BYTES),
     authTag: joined.slice(joined.length - AES_GCM_TAG_BYTES),
   }
+}
+
+/**
+ * ChaCha20-Poly1305 encryption with the tag detached, mirroring {@link aesGcmEncryptDetached}.
+ *
+ * WebCrypto has no ChaCha20-Poly1305, so this uses @noble/ciphers — audited, dependency-free,
+ * and a pure TypeScript implementation of RFC 8439.
+ *
+ * **The key is raw bytes here, not a `CryptoKey`.** The AES path imports its key as
+ * non-extractable, so a later bug cannot serialise it into a log line or a request body; a
+ * library implementation cannot offer that, because it must read the key material to work.
+ * Keep a ChaCha key in a local as briefly as the AES path keeps its `CryptoKey`, and never
+ * put one anywhere a value could be inspected or persisted.
+ */
+export async function chacha20Poly1305EncryptDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  plaintext: Uint8Array
+  aad: Uint8Array
+}): Promise<AesGcmCiphertext> {
+  const { key, nonce, plaintext, aad } = params
+  if (key.length !== CHACHA20_KEY_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 key must be ${CHACHA20_KEY_BYTES} bytes`)
+  }
+  if (nonce.length !== CHACHA20_NONCE_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 nonce must be ${CHACHA20_NONCE_BYTES} bytes`)
+  }
+  // noble appends the tag, exactly as WebCrypto does, so the split below is the same.
+  const joined = chacha20poly1305(key, nonce, aad).encrypt(plaintext)
+  return {
+    ciphertext: joined.slice(0, joined.length - CHACHA20_TAG_BYTES),
+    authTag: joined.slice(joined.length - CHACHA20_TAG_BYTES),
+  }
+}
+
+/** ChaCha20-Poly1305 decryption, rejoining the detached tag before verification. */
+export async function chacha20Poly1305DecryptDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  ciphertext: Uint8Array
+  authTag: Uint8Array
+  aad: Uint8Array
+}): Promise<Uint8Array> {
+  const { key, nonce, ciphertext, authTag, aad } = params
+  if (key.length !== CHACHA20_KEY_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 key must be ${CHACHA20_KEY_BYTES} bytes`)
+  }
+  if (nonce.length !== CHACHA20_NONCE_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 nonce must be ${CHACHA20_NONCE_BYTES} bytes`)
+  }
+  if (authTag.length !== CHACHA20_TAG_BYTES) {
+    throw new RangeError(`ChaCha20-Poly1305 tag must be ${CHACHA20_TAG_BYTES} bytes`)
+  }
+  const joined = concat(ciphertext, authTag)
+  try {
+    return chacha20poly1305(key, nonce, aad).decrypt(joined)
+  } catch {
+    // Raised as the same type the AES path raises, so callers handle one failure mode
+    // rather than two. As with GCM, a failure does not say which of a wrong key, a
+    // substituted envelope, or corrupt ciphertext caused it.
+    throw new AuthenticationFailure('ChaCha20-Poly1305 authentication failed')
+  }
+}
+
+function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
+  const out = new Uint8Array(a.length + b.length)
+  out.set(a, 0)
+  out.set(b, a.length)
+  return out
 }
 
 /** AES-256-GCM decryption, rejoining the detached tag before verification. */

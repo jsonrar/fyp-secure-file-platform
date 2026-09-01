@@ -12,6 +12,7 @@
     "typecheck": "vue-tsc --noEmit"
   },
   "dependencies": {
+    "@noble/ciphers": "^2.4.0",
     "@vitejs/plugin-vue": "^6.0.7",
     "axios": "^1.18.1",
     "hash-wasm": "^4.12.0",

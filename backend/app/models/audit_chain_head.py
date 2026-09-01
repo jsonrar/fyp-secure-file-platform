@@ -39,8 +39,8 @@ class AuditChainHead(Base):
     schema_revision: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
-        default="0005_selectable_aes_key_length",
-        server_default="0005_selectable_aes_key_length",
+        default="0006_chacha20_poly1305",
+        server_default="0006_chacha20_poly1305",
     )
     updated_at: Mapped[datetime] = mapped_column(
         mysql.DATETIME(fsp=6),
