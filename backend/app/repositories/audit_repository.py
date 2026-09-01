@@ -41,14 +41,23 @@ class AuditRepository:
             .outerjoin(actor_user, actor_user.id == AuditLog.actor_user_id)
             .outerjoin(target_user, target_user.id == AuditLog.target_user_id)
         )
-        # File-scoped callers are authorized against the live file entitlement by
-        # AuditQueryService before reaching this query.  Once authorized, return
-        # the complete file trail (including events performed by other users).
-        if not admin and resource_id is None:
+        # One rule, applied the same way whether or not a file was named:
+        #
+        #   you see what you did, what was done to you, and everything done to a file you
+        #   own.
+        #
+        # The file-scoped query used to skip this filter entirely on the reasoning that
+        # AuditQueryService had already checked entitlement. But entitlement is not
+        # ownership: a recipient holds an ACTIVE grant, so any recipient could read the
+        # whole trail -- learning that other recipients existed and when each of them
+        # downloaded. Owning the file is what earns the right to see who touched it.
+        if not admin:
+            owned_files = select(File.file_uuid).where(File.owner_id == actor_user_id)
             statement = statement.where(
                 or_(
                     AuditLog.actor_user_id == actor_user_id,
                     AuditLog.target_user_id == actor_user_id,
+                    AuditLog.resource_id.in_(owned_files),
                 )
             )
         if resource_id is not None:

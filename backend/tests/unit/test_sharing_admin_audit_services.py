@@ -622,7 +622,7 @@ class CapturingAuditDb:
         return []
 
 
-def test_file_scoped_audit_query_includes_recovery_and_complete_file_trail() -> None:
+def test_file_scoped_audit_query_keeps_the_recovery_and_file_type_filters() -> None:
     db = CapturingAuditDb()
     repository = AuditRepository(db)  # type: ignore[arg-type]
 
@@ -643,9 +643,58 @@ def test_file_scoped_audit_query_includes_recovery_and_complete_file_trail() -> 
     assert "'RECOVERY_REQUEST_CREATED'" in where
     assert "'RECOVERY_REQUEST_EXECUTED'" in where
     assert f"audit_logs.resource_id = '{FILE_ID}'" in where
-    assert "audit_logs.actor_user_id = 7" not in where
-    assert "audit_logs.target_user_id = 7" not in where
     assert "RECOVERY_KEY_REGISTERED" not in where
+
+
+def test_a_file_scoped_query_is_still_scoped_to_what_the_caller_may_see() -> None:
+    """The visibility filter applies to file-scoped queries too.
+
+    It used to be skipped for them, on the reasoning that the service had already checked
+    entitlement. But entitlement is not ownership: a recipient holds an ACTIVE grant, so any
+    recipient could read the whole trail of a shared file -- learning that other recipients
+    existed and when each of them downloaded it.
+    """
+    db = CapturingAuditDb()
+    repository = AuditRepository(db)  # type: ignore[arg-type]
+
+    repository.list_logs(
+        actor_user_id=7,
+        admin=False,
+        limit=51,
+        offset=0,
+        resource_id=str(FILE_ID),
+    )
+
+    where = _where_clause(db.statements[-1])
+    assert "audit_logs.actor_user_id = 7" in where
+    assert "audit_logs.target_user_id = 7" in where
+    # ...plus everything on a file this caller owns, which is what lets an owner see the
+    # downloads their recipients made.
+    assert "files.owner_id = 7" in where
+
+
+def test_an_admin_is_not_narrowed_at_all() -> None:
+    db = CapturingAuditDb()
+    repository = AuditRepository(db)  # type: ignore[arg-type]
+
+    repository.list_logs(actor_user_id=7, admin=True, limit=51, offset=0, resource_id=None)
+
+    # No filter at all for an unscoped admin query, so there is no WHERE clause to inspect.
+    sql = str(db.statements[-1].compile(compile_kwargs={"literal_binds": True}))
+    assert "WHERE" not in sql
+
+
+def test_the_account_wide_query_also_reaches_files_the_caller_owns() -> None:
+    # The reported symptom: an owner's Access Records showed zero downloads, because the
+    # filter only matched rows where they were the actor or the target -- and a download by
+    # a recipient is neither.
+    db = CapturingAuditDb()
+    repository = AuditRepository(db)  # type: ignore[arg-type]
+
+    repository.list_logs(actor_user_id=7, admin=False, limit=51, offset=0, resource_id=None)
+
+    where = _where_clause(db.statements[-1])
+    assert "files.owner_id = 7" in where
 
 
 class FileAuditAccessRepository:

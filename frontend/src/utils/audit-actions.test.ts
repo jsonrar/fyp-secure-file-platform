@@ -5,6 +5,7 @@ import {
   auditActionLabel,
   auditSubjectFileId,
   isDownloadAction,
+  isShareAction,
 } from './audit-actions'
 
 describe('audit action labels', () => {
@@ -78,5 +79,21 @@ describe('auditSubjectFileId', () => {
   it('does not invent a file when the id is missing', () => {
     expect(auditSubjectFileId({ resource_type: 'FILE', resource_id: null })).toBeNull()
     expect(auditSubjectFileId({ resource_type: 'FILE', resource_id: '' })).toBeNull()
+  })
+})
+
+describe('isShareAction', () => {
+  it('counts granting and withdrawing access', () => {
+    expect(isShareAction('FILE_SHARED')).toBe(true)
+    expect(isShareAction('FILE_ACCESS_REVOKED')).toBe(true)
+  })
+
+  it('does not count anything else as a change to who can reach the file', () => {
+    // The stat this feeds used to be "Total Views", which counted every non-download event
+    // -- uploads, shares, even sign-ins -- as somebody viewing a file. Nothing did.
+    expect(isShareAction('FILE_UPLOADED')).toBe(false)
+    expect(isShareAction('FILE_DOWNLOAD_AUTHORIZED')).toBe(false)
+    expect(isShareAction('AUTH_LOGIN_SUCCEEDED')).toBe(false)
+    expect(isShareAction(undefined)).toBe(false)
   })
 })
