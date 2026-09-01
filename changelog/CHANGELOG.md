@@ -51,6 +51,8 @@ Reported from a live test: a recipient could read the whole history of a shared 
 - 现在两者合并为一条规则，且无论是否指定文件都同样适用：**你能看到你做过的、别人对你做的、以及对你拥有的文件所做的一切。** 管理员仍不受限制。
 - **"Total Views" was not counting views.** There is no viewer in this product — you download and decrypt, or you do not — so the stat counted every non-download event as one: uploads, shares, revocations, even sign-ins. It is replaced by Downloads and Shares, which are things that actually happened, and each file row now shows its download count and how many people appear in its history.
 - **"Total Views" 统计的并不是浏览。** 这个产品里没有"查看器"——你要么下载并解密，要么不——因此该统计把所有非下载事件都算作一次浏览：上传、分享、撤销，甚至登录。现已替换为 Downloads 与 Shares 这两个真实发生过的动作，并且每一行文件会显示它的下载次数以及历史中出现过多少人。
+- The privacy assertion is written as the rule itself: **every row a recipient can see must be something they did or something done to them.** A first attempt asserted that the sender's name must not appear at all, which is too strong — "waldo shared this with you" and "waldo revoked your access" name the sender as the actor and are the recipient's to read, because they are about the recipient. What must not appear is a third party's activity: another recipient's download, or the owner's own upload.
+- 隐私断言直接写成规则本身：**接收方能看到的每一条记录，必须是他做的、或是别人对他做的。** 第一版断言写成"发送方的名字完全不能出现"，这过强了——"waldo 把文件分享给你"和"waldo 撤销了你的权限"都以发送方为操作者，但它们讲的是接收方，本就该让他看到。真正不该出现的是第三方的活动：另一个接收方的下载，或所有者自己的上传。
 - The end-to-end suite gained both cases. Run against the deployment before the fix, they failed exactly as reported — the recipient saw the owner's actions, and the owner counted zero recipient downloads.
 - 端到端测试套件补上了这两种情况。在修复前对着线上运行，它们的失败方式与反馈完全一致——接收方看到了所有者的操作，所有者数到的接收方下载次数为零。
 
