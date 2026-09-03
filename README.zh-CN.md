@@ -6,7 +6,9 @@
 
 ## 预发布环境
 
-当前版本运行在 **https://secureview.tech**。
+当前版本运行在 **https://secureview.tech**。线上 API 可通过
+[Swagger UI](https://secureview.tech/docs) 查看和演示，机器可读契约位于
+[OpenAPI JSON](https://secureview.tech/openapi.json)。
 
 对外书写与分享链接时请**一律带 `https://` 前缀**。`.tech` 不在浏览器 HSTS 预加载名单中，
 直接输入裸域名的访客会先经过一次 `http://` 才被跳转，部分应用内置浏览器（含微信）会在这一跳
@@ -21,7 +23,7 @@ HTTPS 不只关系到地址栏那把锁，而是产品能否运行的前提：�
 
 本项目重点关注：
 
-- 客户端 AES-256-GCM 文件加密
+- 客户端 AES-GCM（128/192/256 位密钥）与 ChaCha20-Poly1305 文件加密
 - 基于 RSA 的文件密钥封装
 - 受控共享与撤销
 - 基于角色和文件级别的访问控制
@@ -36,12 +38,16 @@ API 均已实现。服务器只持久化公钥、加密私钥包、密文和已�
 passphrase、KEK、AMK、明文私钥、文件 DEK 和文件明文都不得出现在 API 请求或数据库记录中。
 注册及文件／密钥流程详见 [SECURITY_FLOWS.zh-CN.md](docs/SECURITY_FLOWS.zh-CN.md)。
 
-前端登录页已调用真实 Auth 端点，后端响应缺少访问令牌时会直接判定登录失败；原型阶段的
-硬编码凭据绕过和演示令牌回退已经移除。不过，浏览器端的账户密钥登记、私钥解锁、文件
-加解密及 DEK 重包装仍未实现，refresh、过期和已撤销会话处理也仍需生产级加固。因此，
-后端完成并不代表当前浏览器 UI 已经具备完整的客户端密码学流程。
+浏览器 MVP 已端到端可运行：邮箱验证码注册与重置登录密码、客户端账户密钥登记、使用
+passphrase 或私钥文件解锁、空闲自动上锁、上传前认证加密、下载后本地解密、文件名搜索、将
+文件密钥重新包装给接收者的共享、撤销、逐文件访问历史、静默刷新会话、登出及注销账户。
+每个文件可选择 AES-128/192/256-GCM 或 ChaCha20-Poly1305，默认仍为 AES-256-GCM；旧有硬编码
+凭据和演示 token 后备均已移除。
 
-项目按优先级排列的实施待办事项记录在 [TODO.zh-CN.md](TODO.zh-CN.md)。
+剩余工作属于生产级加固，而非基础演示尚未闭环：强制 CI/MySQL 8.4 门禁、修改 passphrase 与
+后继密钥 UI、完整管理/恢复专员页面、加密异地备份与恢复演练、定时对账、可观测性及正式安全
+评审。优先级摘要见 [TODO.zh-CN.md](TODO.zh-CN.md)，带验收标准的可执行工作统一放在
+[GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)。
 
 ## HTTP 方法策略
 
@@ -60,7 +66,7 @@ passphrase、KEK、AMK、明文私钥、文件 DEK 和文件明文都不得出�
 | 后端 | FastAPI |
 | 数据库 | MySQL 8.4 |
 | 文件存储 | 用于 FYP 演示的本地加密文件存储 |
-| 文件加密 | AES-256-GCM |
+| 文件加密 | AES-128/192/256-GCM 与 ChaCha20-Poly1305（默认 AES-256-GCM） |
 | 密钥封装 | 使用 SHA-256 的 RSA-OAEP |
 | 密码哈希 | Argon2id（`pwdlib`） |
 
@@ -117,11 +123,22 @@ fyp-secure-file-platform/
 分工作包的记录存放在 [`changelog/work-packages/`](changelog/work-packages/)。添加条目前请先读
 [`changelog/README.md`](changelog/README.md)，其中写明了哪类记录该写进哪一份。
 
+## 团队工作流与唯一事实来源
+
+- `changelog/CHANGELOG.md`：已经交付了什么，以及为什么重要。
+- GitHub Issues：剩余可执行工作、负责人、讨论及验收标准。
+- `TODO.zh-CN.md`：链接到 Issues 的优先级摘要，不再维护第二套独立 backlog。
+- `README.zh-CN.md`：面向用户的当前能力、设置步骤与部署入口。
+
+每个 Pull Request 都必须检查以上四处，更新受影响的记录；若不适用则说明 `N/A`。运行时改动不能
+在 merge 时就算完成：`main` 部署后还必须记录线上 SHA，并验证健康检查和实际受影响页面。仓库的
+Pull Request 模板已包含该清单。
+
 ## 本地设置
 
 所有后端业务路由均已可用。存活检查、readiness 和 OpenAPI 也已启用；受保护路由要求
 Bearer 身份认证，管理及恢复路由执行 RBAC。Readiness 会检查数据库连接及精确的
-`0004_email_verification_codes` Schema revision。
+`0006_chacha20_poly1305` Schema revision。
 
 `MAX_REQUEST_BODY_BYTES` 限制普通 JSON／form 请求体（默认 1 MiB，配置上限 8 MiB）。加密
 multipart 上传另受 `MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` 独立上限
@@ -163,7 +180,7 @@ sudo mysql < database/mysql/03-verify.sql
 ```
 
 部署时应把唯一一次生成的 `fyp_user` 密码直接写入 secret store。`02-schema.sql` 是只接受
-空数据库的非幂等安装器：它创建 15 张应用表，对其中 13 张普通状态表授予 CRUD，
+空数据库的非幂等安装器：它创建 17 张表，对其中 14 张普通状态表授予 CRUD，
 对 `audit_logs` 仅授予 `SELECT`／`INSERT`，并把 `audit_chain_heads` 的更新权限限制在
 `last_log_id`、`current_hash` 和 `updated_at` 三列，使运行时账户无法修改
 `schema_revision`；应用也无权访问 `alembic_version`。`03-verify.sql` 只读核验精确 Schema
@@ -180,7 +197,8 @@ Compose 差异及未来非空数据库升级规则详见
 流程、队员操作命令、失败 SHA 隔离和凭据边界详见
 [AUTOMATIC_DEPLOYMENT.zh-CN.md](docs/AUTOMATIC_DEPLOYMENT.zh-CN.md)。
 
-OpenAPI：<http://localhost:8000/docs>
+OpenAPI：本地为 <http://localhost:8000/docs>，公网预发布为
+<https://secureview.tech/docs>。
 
 在 `backend/` 目录中运行后端质量检查：
 
@@ -206,12 +224,9 @@ npm run dev
 
 ## 重要安全说明
 
-本项目仍是 FYP 原型。内置的密码拒绝列表有意保持较小，并非持续维护的已泄露密码语料库。
-登录密码与仅由客户端处理的加密 passphrase 相互独立；用户通常只需记住加密 passphrase，
-因为服务端保存的是可重新获取的加密私钥包。但若遗忘该 passphrase，且没有独立安全保存的
-可用密钥副本，服务器目前无法重置或恢复它。现有恢复流程只治理单个文件 DEK 向已登记活跃
-公钥的重新包装，不会恢复 passphrase、AMK 或解密私钥包。
-
-忘记登录密码恢复、电子邮件验证、多因素认证（MFA）以及外部身份提供商也需要可信的带外
-服务，目前尚未实现。生产部署还需要通过 KMS／HSM 加强密钥保管、强化运维、在外部锚定
-审计检查点，并接受专业安全审查。
+本项目仍是 FYP 原型。邮箱验证和忘记**登录密码**后的验证码重置已经实现，但 MFA 与外部身份
+提供商尚未实现。加密 passphrase 与登录密码相互独立，且永不发送到服务器；遗忘 passphrase
+时仍需用户另行保存的私钥文件，现有恢复不会重置已存储的 passphrase。内置密码拒绝列表有意
+保持较小，并非持续维护的已泄露密码语料库。生产部署还需要加密异地备份与恢复演练、通过
+KMS/HSM 或等效离线控制加强恢复密钥托管、在数据库外锚定审计 checkpoint，并接受独立专业
+安全评审。

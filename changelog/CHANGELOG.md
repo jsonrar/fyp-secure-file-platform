@@ -18,6 +18,34 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### One current status, not six drifting versions / 一份当前状态，而非六份漂移版本
+
+- Rebuilt both READMEs and TODOs from `main`, the full shared changelog, current tests, and the
+  live deployment. The old documents still called browser decryption, sharing, session refresh,
+  key-file unlock, typechecking, cleanup, email verification, and password reset unfinished
+  after all had shipped; they also reported schema revision 0004 and August test counts while
+  the code had reached revision 0006. The refreshed files describe the working browser MVP,
+  record the 2026-09-03 verification results including skipped suites and current Ruff failure,
+  and link the live Swagger evaluator.
+- 已根据 `main`、完整共享 changelog、当前测试和线上部署重建中英文 README/TODO。旧文档在浏览器
+  解密、共享、会话刷新、密钥文件解锁、typecheck、清理、邮箱验证及密码重置均已交付后，仍把它们
+  写成未完成；同时代码已到 revision 0006，文档却仍报告 0004 与八月测试数字。新版本现准确描述
+  可运行的浏览器 MVP，记录包含 skipped suite 与当前 Ruff 失败在内的 2026-09-03 核验结果，并
+  链接线上 Swagger 评审入口。
+- Created the repository's first executable GitHub backlog: Issues #52–#61, grouped under the
+  Post-MVP hardening milestone with P0/P1/P2 and area labels. Each Issue has concrete acceptance
+  criteria; TODO is now a linked priority index instead of an unowned duplicate backlog.
+- 已建立仓库首套可执行 GitHub backlog：Issues #52–#61，统一归入 Post-MVP hardening milestone，
+  并带 P0/P1/P2 与功能域标签。每个 Issue 均有明确验收标准；TODO 现在是带链接的优先级索引，
+  不再是无人负责的重复 backlog。
+- Added a pull-request evidence checklist and repository instructions that require every change
+  to review changelog, README/TODO, Issues, tests, migrations, secrets, and deployment impact.
+  Runtime work closes only after the exact merged SHA and affected live flow are verified, so
+  "merged" can no longer be recorded as though it meant "deployed".
+- 已增加 Pull Request 证据清单和仓库规则，要求每次变更检查 changelog、README/TODO、Issues、
+  测试、migration、Secret 及部署影响。运行时工作只有在准确 merge SHA 与受影响线上流程均核验后
+  才能关闭，避免再把“已 merge”写成“已部署”。
+
 ### Swagger UI for team and supervisor evaluation / 面向团队与导师评审的 Swagger UI
 
 - Fixed the white page that appeared after Swagger was enabled. FastAPI serves a small HTML

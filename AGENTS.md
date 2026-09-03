@@ -34,3 +34,19 @@ These rules apply to the entire repository.
   that both shipped a change and closed a package belongs in both; they answer different
   questions and are not duplicates.
 - See `changelog/README.md` for the full convention.
+
+## Project-status synchronization
+
+- Treat GitHub Issues as the executable backlog. `TODO.md` and `TODO.zh-CN.md` are prioritized
+  summaries and must link to Issues rather than maintain independent work lists.
+- Keep `README.md` and `README.zh-CN.md` aligned with current user-visible capabilities,
+  schema/runtime requirements, and staging entry points. Do not leave a shipped feature
+  described as missing.
+- Every pull request must review changelog, README, TODO, linked Issues, tests, migrations,
+  secrets, and deployment impact. Update the affected records or state why each is `N/A`.
+- A runtime change is not complete when it merges. Verify that automatic deployment reaches
+  the exact merged SHA, check health and the affected user flow, then link that evidence before
+  closing its Issue.
+- Use `.github/pull_request_template.md` for the evidence checklist. Never claim a skipped
+  integration suite passed, and never close an Issue on merge alone when deployment evidence
+  is required.
