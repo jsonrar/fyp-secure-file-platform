@@ -34,6 +34,14 @@ files in the deployment secret store, not in Git or shell history. The normal pr
 settings also apply: set an appropriate `APP_ENV`, use `APP_DEBUG=false`, provide a
 non-default `SECRET_KEY` of at least 32 characters, and configure explicit CORS origins.
 
+`APP_DOCS_ENABLED` is an explicit deployment choice. It remains `true` for local development.
+The SecureView public staging host also sets it to `true` because the live Swagger UI is a
+team and supervisor evaluation deliverable. Requests made from Swagger receive no special
+privilege: HTTPS, nginx request limits, application authentication, authorization, and audit
+controls remain in force. A production deployment that does not need public API evaluation
+should set it to `false`, which unmounts `/docs`, `/redoc`, and `/openapi.json` and makes them
+return 404.
+
 No deployment-only administrator, migration, or account-host environment variables are used
 or should be reintroduced. `MYSQL_ROOT_PASSWORD` and `MYSQL_PORT` in `.env.example` are
 local-Compose settings only; production administrator credentials never enter the application
@@ -304,6 +312,10 @@ issue for IP addresses, and an IP has no name to validate.
 Use `https://secureview.tech`. `http://103.233.0.105/<path>` redirects there, which is the
 supported way in: the API docs, for instance, are reachable by typing the IP and landing on
 `https://secureview.tech/docs`.
+
+For presentations and supervisor review, use the canonical Swagger URL directly:
+`https://secureview.tech/docs`. Do not share an HTTPS URL containing the bare IP: the TLS
+certificate proves the domain name, not the address.
 
 Before this redirect existed, the bare IP over HTTP answered `404` from nginx for every path
 but the two loopback probes. That page is easy to read as a dead backend when it is really
