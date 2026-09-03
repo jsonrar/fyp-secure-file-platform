@@ -20,6 +20,17 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ### Swagger UI for team and supervisor evaluation / 面向团队与导师评审的 Swagger UI
 
+- Fixed the white page that appeared after Swagger was enabled. FastAPI serves a small HTML
+  shell whose JavaScript and CSS come from jsDelivr and whose bootstrap is inline; the main
+  site's self-only Content Security Policy correctly blocked both. `/docs` and `/redoc` now
+  receive a narrowly scoped documentation policy while the file, passphrase, and decryption
+  pages keep the strict original policy. All other security headers are repeated explicitly
+  because nginx stops inheriting server-level headers when a location defines one.
+- 已修复 Swagger 开启后出现的白屏。FastAPI 返回的 HTML 外壳从 jsDelivr 加载 JavaScript/CSS，
+  且使用内联脚本启动；主站仅允许同源资源的 CSP 因而正确地拦截了两者。现在仅 `/docs` 与
+  `/redoc` 使用范围受限的文档策略，文件、passphrase 与解密页面继续使用原有严格策略。由于
+  nginx 在 location 定义任一响应头后不再继承 server 级响应头，文档路由显式重复了其余全部
+  安全响应头。
 - The public staging deployment now explicitly enables `/docs`, `/redoc`, and
   `/openapi.json` so every team member and the project supervisor can inspect and demonstrate
   the live API without needing a VPS account. HTTPS, nginx request limits, application
