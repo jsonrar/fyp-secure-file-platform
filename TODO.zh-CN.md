@@ -1,282 +1,87 @@
-# 项目待办清单
+# SecureView 优先级 Backlog
 
-[English](TODO.md) | 简体中文
+[English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
-最后审查日期：2026-08-21
+本文件于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境重新核对。
+GitHub Issues 是可执行 backlog；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
-优先级：
+## 已交付 MVP 基线
 
-- **P0：** 阻塞可信发布或演示。
-- **P1：** 为已实现后端契约补齐浏览器体验。
-- **P2：** CI、运维及生产加固。
+- [x] 邮箱验证码注册与重置登录密码、真实登录/登出、refresh 轮换、会话失效、注销账户、限流、
+  Argon2id 密码哈希与 RBAC。
+- [x] 浏览器持有的账户密钥登记、passphrase/私钥文件解锁、空闲自动上锁及历史密钥 bundle
+  获取；明文私钥不会提交到服务器。
+- [x] 浏览器端 AES-128/192/256-GCM 与 ChaCha20-Poly1305 文件加密、RSA-OAEP-SHA256 DEK
+  包装、认证下载/解密、完整性失败提示及密文存储。
+- [x] 文件名搜索、分页、所有者/被分享文件分区、接收者密钥重包装共享、接收者列表、撤销、通知、
+  逐文件历史，以及基于所有权的正确审计可见性。
+- [x] 条件恢复与管理 API、防篡改审计链、MySQL 最小权限生产 SQL、HTTPS、nginx 限流、
+  fail2ban、受保护自动部署及对账实现。
+- [x] 公网预发布与评审入口：[应用](https://secureview.tech)、
+  [Swagger UI](https://secureview.tech/docs)、
+  [OpenAPI JSON](https://secureview.tech/openapi.json)。
 
-## 已验证基线
+已交付行为的原因和证据统一写在
+[`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
 
-### 后端与密码学契约
+## 2026-09-03 同步前已核验基线
 
-- [x] 后端已经实现认证、账户密钥托管/轮换、加密文件、共享/撤销、完整性、审计查询/验证、
-  受治理恢复及管理员状态控制；业务端点均使用真实处理器。
-- [x] 账户密码学采用客户端托管边界：
-  - 登录密码与加密 passphrase 相互独立；
-  - 客户端生成 RSA 密钥及随机 AMK；
-  - Argon2id 派生 KEK，再用 AES-256-GCM 包装 AMK；
-  - 使用 AMK/HKDF 派生密钥和 AES-256-GCM 加密 PKCS8-DER 私钥包；
-  - 后端不接收 passphrase、明文私钥、AMK、明文 DEK 或文件明文。
-- [x] 文件加/解密和共享重包装由客户端执行；后端存储/校验密文，并保存每个接收者专属的
-  RSA-OAEP-SHA256 DEK 包装。
-- [x] 恢复私钥的使用位于 Web 服务之外。API 提供执行 package，只接收离线/HSM 生成、
-  由目标密钥包装的 DEK。
-- [x] 应用路由与客户端只使用 `GET` 和 `POST`；状态变更采用显式 `POST` 动作路径，CORS
-  也仅允许这两种方法。
-- [x] 敏感账户密钥变更要求持有最新当前私钥：后继密钥添加和保护配置重包装除 Bearer 认证外，
-  都使用服务器定义的规范 32-byte 摘要和客户端 RSA-PSS-SHA256 签名。
-- [x] 注册与重置登录密码均由一次性邮箱验证码把关。验证码只以带密钥摘要形式存储，会过期、
-  只能用一次、有尝试次数上界，并按邮箱与 IP 双重限流；发送端点不会泄露某地址是否已注册。
-  重置绝不触碰密钥保护配置与私钥包，因此不会让账户失去对已加密文件的访问能力。
+| 门禁 | 结果 | 含义 |
+| --- | --- | --- |
+| 后端 Pytest | 317 passed, 21 skipped, 1 warning | 单元/API 通过；真实 MySQL 覆盖未运行 |
+| 前端 Vitest | 233 passed, 18 skipped | 离线套件通过；集成覆盖被跳过 |
+| 前端 typecheck | 通过 | `vue-tsc --noEmit` 可正常运行 |
+| 前端 production build | 通过 | Vite 生产 bundle 构建成功 |
+| Ruff format/check | **失败** | 4 个文件需格式化，3 个 import block 不合规 |
+| GitHub Actions | **不存在** | 当前没有 required CI gate 保护 `main` |
+| Schema 基线 | `0006_chacha20_poly1305` | 生产 SQL 共 17 张表 |
+| 线上预发布 | `a085ae4`（PR #51，本次文档同步前） | `/`、health、docs、schema、ReDoc 均为 200 |
 
-### 浏览器密码学（CT-1.2 至 CT-1.5）
+带 integration skip 的测试只证明离线子集，不得表述为发布通过。
 
-- [x] 浏览器密码学原语及跨实现测试向量：`frontend/src/crypto/primitives.ts` 与
-  `encoding.ts`。
-- [x] 规范化的文件加密信封：`docs/crypto/FILE_ENVELOPE.md` 及锁定的 `test_vectors.json`，
-  由 `frontend/src/crypto/file_envelope.ts` 实现。服务器从不计算该 AAD，因此规范与向量是
-  防止第二个实现出现分歧的唯一手段。
-- [x] 上传路径已真正加密。`frontend/src/crypto/upload.ts` 获取所有者与活跃恢复公钥，用全新
-  DEK/nonce 加密，把 DEK 包装给两者，并组装路由要求的 `file` + `metadata` multipart 载荷。
-  未接任何逻辑的算法下拉框与「服务端加密」文案均已移除。
-- [x] 客户端账户密钥登记已取代旧注册 UX（`frontend/src/utils/account-crypto.ts`）：收集独立
-  的强 passphrase 且从不发送，本地生成 RSA 密钥与 AMK，并在注册前对两个信封做自测。自测验证
-  两个信封可重新打开并还原出同一份 PKCS#8 字节；尚未从解密后的私钥独立推导公钥以校验公私钥
-  对应关系。
-- [x] 恢复密钥配置：`backend/scripts/register_recovery_key.py` 生成密钥对，以 600 权限在本地
-  写出私钥，仅通过 ADMIN 路由注册公钥，拒绝覆盖已存在的私钥文件，并将 API 返回的指纹与本地
-  计算结果比对。
-- [x] 独立端到端验证：已用离线恢复私钥解密一个已存储文件，且仅凭持久化的元数据在 Python 侧
-  重建 AAD-3。该路径完全不经过 TypeScript，因此独立确认了 AAD 字节布局与恢复包装 —— 后者是
-  任何客户端都无法自检的唯一信封。
+## P0 — 发布与数据保护阻塞项
 
-### 数据库、部署与文档
+- [ ] [#52 建立 required CI 门禁并修复当前 Ruff 基线](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
+  ——每个 PR 都必须运行后端/前端检查并保护 `main`。
+- [ ] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
+  ——MySQL 测试被跳过时必须失败，并覆盖 migration/生产 SQL 一致性。
+- [ ] [#56 自动化加密异地备份并证明可在洁净主机恢复](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
+  ——定义 RPO/RTO，协调数据库/密文备份并保留恢复证据。
+- [x] [#61 保持 README、TODO、Issues、changelog、PR 与部署同步](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
+  ——本次同步 PR 建立统一记录与证据清单；后续变更沿用同一规则。
 
-- [x] Alembic head 与应用 readiness marker 均为 `0004_email_verification_codes`。经评审的
-  空库 SQL 包含 16 张应用表，对 14 张普通状态表授予 CRUD，对审计表使用更窄权限。
-- [x] 生产 SQL 路径与开发迁移路径均已在一次性 MySQL 8.4 上验证：`01/02/03` 全部状态为
-  `OK` 且无偏差行；`0001 -> 0004` 升级通过、`alembic check` 一致，并可干净地经 `0003`
-  往返。
-- [x] staging 已在 nginx 后通过 HTTPS 提供服务，裸 IP 会重定向到规范源；共享测试账号通过
-  真实注册路径完成播种。
-- [x] 中英文 API、架构、安全流程、Schema、部署及项目范围文档均描述当前方案及元数据/
-  威胁边界。
+## P1 — 补全已有后端能力与运维
 
-### 当前本地验证（2026-08-21）
+- [ ] [#54 完成浏览器修改 passphrase 与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  ——使用带签名的后端契约，并发布规范化账户信封文档。
+- [ ] [#55 完成管理员、恢复专员及审计验证流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
+  ——通过角色感知 UI 演示现有 RBAC/恢复/审计 API。
+- [ ] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
+  ——启用定时删除前必须审查 report-only 输出。
+- [ ] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
+  ——把跳过/依赖线上环境的覆盖转成必跑、可重复证据。
+- [ ] [#59 增加脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
+  ——让运维和审计失败可见，同时不泄露 Secret。
 
-- [x] 后端：未设置 `AUTH_TEST_DATABASE_URL` 时为 `235 passed, 5 skipped`。这 5 项跳过的是
-  一次性 MySQL 8.4 集成测试；带此类跳过的运行不得视为发布通过。
-- [x] 前端：`110 passed, 3 skipped`。3 项跳过的是 `upload.integration.test.ts`，仅在设置
-  `E2E_API_BASE` 时运行，使 `npm test` 默认保持离线。
-- [x] 前端生产 build 通过。
-- [ ] 前端 typecheck 根本无法运行：`vue-tsc` 在 `typescript/lib/tsc` 上报
-  `ERR_PACKAGE_PATH_NOT_EXPORTED`，原因是 `package.json` 将两者都固定为 `latest`，解析出的
-  版本组合不兼容；且没有 `typecheck` 脚本。
-- [ ] 仓库仍然没有 CI 工作流，上述所有门禁都靠本地手动执行。
+## P2 — 正式安全保障
 
-## P0 — 发布与演示阻塞项
+- [ ] [#60 完成正式威胁模型与独立安全评审](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
+  ——覆盖账户信封、Argon2id、token/密钥托管、metadata、恢复、CSP、依赖及残余信任边界，
+  且不得声称已经认证。
 
-### 下载与解密（缺此项则演示无法闭环）
+## 每个 Issue 的完成定义
 
-- [ ] 实现真正的下载路径。`file-management.vue` 目前调用 `fileApi.download(id)` 后丢弃返回的
-  密文，只提示「Download request sent」，从未执行任何解密，因此已上传的文件无法通过界面
-  读回。
-- [ ] 解开调用者专属的 DEK，严格按 `docs/crypto/FILE_ENVELOPE.md` 的定义从文件元数据重建
-  AAD，在本地认证/解密并保存明文，不做持久暂存。
-- [ ] 处理历史密钥情形：包装给已被取代密钥的文件需要 `GET /keys/me/{key_id}` 及该 bundle 的
-  私钥，而非当前私钥。
-- [ ] 将认证 tag 失败明确呈现为完整性失败，与网络错误、授权错误区分开。
+- 实现与测试满足 Issue 验收标准。
+- 经过评审的 PR 链接 Issue，并更新双语 changelog。
+- 当功能描述改变时同步 README/TODO 和设计文档；不适用则在 PR 中说明 `N/A`。
+- 合并前通过 Secret 与生成物检查。
+- 运行时改动必须由自动部署到达准确 merge SHA，并验证健康检查与受影响用户流程；仅 merge
+  不代表部署完成。
+- 上述证据全部链接后才关闭 Issue。
 
-### 浏览器私钥托管与解锁
+## 当前 FYP 明确延期项
 
-- [ ] 确定并实现注册之后私钥如何回到浏览器。当前 `RegisterPage.vue` 只提供一次性明文 PEM
-  下载，且没有任何位置把它导入回来；`GET /keys/me` 返回加密 bundle，但没有 passphrase 解锁
-  UX。除上传外的所有客户端操作都被此项阻塞。
-- [ ] 实现解锁流程：按存储的保护配置执行 Argon2id、解包 AMK、解密私钥 bundle，得到仅存于内存
-  的会话级密钥句柄，并在登出、关闭标签页及空闲超时时显式清除。
-- [ ] 使用 `GET /keys/me`、`POST /keys/me/rewrap/signing-payload`、最新当前私钥的本地
-  RSA-PSS-SHA256 签名及 `POST /keys/me/rewrap` 实现修改 passphrase，包括乐观 revision/当前
-  密钥冲突、两次调用严格复用同一拟议字段及安全内存清理。
-- [ ] 使用 `POST /keys/add/signing-payload`、本地 RSA-PSS-SHA256 签名、`POST /keys/add` 及
-  `GET /keys/me/{key_id}` 历史 bundle 取回实现后继密钥轮换；不得把它描述成 AMK/passphrase
-  重置。
-- [ ] 防止 passphrase、明文私钥、AMK、DEK、令牌值及解密内容进入日志、分析、崩溃报告、
-  URL、持久浏览器存储或 Service Worker cache。
-
-### 浏览器会话生命周期
-
-- [ ] 替换当前会话处理。`auth_store.ts` 只把 access token 放进 `localStorage`，没有 refresh
-  轮换、没有 `/auth/me` 恢复、不调用服务端登出、也不处理 `401`，令牌过期后界面会停在一个
-  已损坏的「已登录」状态。
-- [ ] 制定并记录明确的 access/refresh 存储威胁模型。
-- [ ] 使用 `/auth/me` 恢复、串行化 refresh 轮换并避免 `401` 循环。
-- [ ] 调用服务端登出并清除已撤销/过期状态。
-- [ ] 增加全部登出、密码修改、会话列表/撤销和按角色导航；路由目前只判断「是否存在令牌」。
-
-### 前端契约与工具链
-
-- [ ] 修复当前完全不可用的共享功能：`ShareDialog.vue` 提交 `{target_username}`，而后端要求
-  目标用户 UUID 及包装给接收者的 DEK。完整流程见 P1 共享条目。
-- [ ] 让其余前端 API 类型和视图匹配已实现的 UUID 后端契约：
-  - 统一响应/错误信封及稳定错误码；
-  - 规范 Base64 密码学信封及乐观 revision；
-  - 流式密文下载；
-  - 目标用户/密钥 UUID 共享契约；
-  - 文件、审计、恢复及管理的有界分页。
-- [ ] 用确切版本替换 `latest` 依赖，恢复可运行的 `vue-tsc` typecheck，补上 `typecheck`
-  脚本，并使用 `npm ci`。
-- [ ] 从 OpenAPI 生成或契约测试 TypeScript 类型，防止漂移。
-- [ ] 在现有单元测试之外，增加前端 lint、组件及浏览器 E2E 门禁。
-
-### MySQL 8.4 与发布核验
-
-- [ ] 把一次性 MySQL 8.4 门禁接入自动化。两条路径都已在本地跑通，但集成测试在缺少
-  `AUTH_TEST_DATABASE_URL` 时会静默跳过，因此目前没有任何机制阻止在「从未执行」的运行上发布。
-- [ ] 在自动化中证明 ORM/Alembic/生产 SQL Schema 奇偶一致。
-- [ ] 保持明确的升级 fixture 处于测试之中：`0001 -> 0002 -> 0003`、`alembic current`、
-  `alembic check`，以及 revision 0003 对不兼容旧数据的预检拒绝。
-- [ ] 保持生产路径断言处于测试之中：精确表结构、索引、CHECK、外键、CRUD 矩阵、窄审计权限、
-  无 migrator/提权授权、两个 revision-0003 标记、非空库拒绝、远程 Host 一致替换及旧 migrator
-  检出。必须检查结果集，而不只看客户端退出码。
-- [ ] 记录并演练部分 DDL 恢复、排空写入、升级串行化、有限 metadata-lock 等待和备份恢复。
-- [ ] 决定每个未受管理旧数据库的处理：重建一次性实例，或采用独立评审的接管/DBA 升级；
-  不得盲目 stamp 或重跑空库安装脚本来绕过保护。
-
-## P1 — 已实现后端流程的浏览器补全
-
-### 加密文件
-
-- [x] 后端：有界 multipart 密文上传、安全 metadata 校验、活跃所有者/恢复密钥校验、暂存
-  发布/补偿、metadata/授权/包装事务及审计追加。
-- [x] 后端：经过授权的文件分页与 metadata，返回调用者专属包装 DEK。
-- [x] 后端：验证存储哈希后仅下载密文，使用安全 disposition/no-store；不向服务端提交私钥。
-- [x] 后端：所有者软删除、授权/包装撤销、幂等对象清理及显式完整性检查结果。
-- [x] 前端：使用新的 AES-256-GCM DEK/nonce 及稳定带版本 AAD 加密，把 DEK 包装给所有者与恢复
-  公钥，上传密文并逐文件报告结果。界面显示的恢复密钥指纹由本地从 PEM 重算，绝不读取 API
-  响应字段。
-- [ ] 前端：按上文 P0 条目实现下载解密。
-- [ ] 前端：替换占位文件表（`components/FileTable.vue`），在 `file-management.vue` 中用真实
-  加密大小与时间戳取代 `-` 占位，并把删除与完整性检查结果接入界面。
-- [ ] 前端：把来自服务端限制的上传拒绝与本地 25 MiB 预检拒绝区分呈现。
-
-### 共享与撤销
-
-- [x] 后端：SHARE/REVOKE 授权同时要求活跃授权与包装，并校验目标公钥归属及 RSA 密文长度。
-- [x] 后端：共享原子创建/重新激活目标授权及包装；撤销同时撤销二者、可安全重试，且禁止撤销
-  规范所有者。
-- [x] 后端：委托分享能力会衰减至行为者自身授权；规范所有者授权不可变，且只有 manager 或
-  已有授权的原 `granted_by` 才能更新/重新激活已有非所有者授权。
-- [x] 后端：共享用户列表返回公开 UUID 及有界能力字段。
-- [ ] 前端：将接收者解析为用户 UUID，用 `GET /keys/users/{user_id}/active` 取得其活跃公钥，
-  在本地解开 DEK 并重新包装给接收者，提交共享能力、列出接收者并提供带确认的撤销控制。此项
-  依赖私钥解锁。
-- [ ] 前端：共享前展示接收者密钥指纹，使被替换的公钥对用户可见。
-- [ ] 为共享/撤销拒绝增加安全遥测，但不泄露不可访问的文件、用户或密钥是否存在。
-
-### 审计与恢复
-
-- [x] 后端：密文 SHA-256 完整性历史、按行为者/文件限定且脱敏的审计查询，以及 ADMIN 使用
-  规范持久 payload 进行完整链/链头验证。
-- [x] 后端：ADMIN 恢复公钥登记/轮换/撤销；默认 24 小时条件恢复请求；请求人/复核人隔离；
-  批准/拒绝/取消；execution package；相同结果的幂等执行。
-- [x] 后端：恢复创建/package/执行均要求实时可下载授权及活跃用户包装（所有者也一样）；执行只
-  改变目标包装，绝不创建、复活或提升已撤销/降权的授权。撤销前缓存的 package 无法追回，仍属
-  运维托管边界。
-- [ ] 前端：审计页目前仅按日志动作统计查看/下载次数，没有链验证界面；需接入
-  `POST /audit-logs/verify-chain` 及按文件的日志视图。
-- [ ] 前端/管理员 UX：类型化恢复申请和复核流程、隔离 execution package 传输、状态/过期展示
-  及安全错误处理。
-- [ ] 运维：将恢复私钥迁入离线/HSM 保管，为旧文件包装保留历史密钥，认证操作员并演练恢复。
-  轮换不会重新包装已有文件，因此每一把被取代的私钥都必须保留。
-- [ ] 运维：把 `register_recovery_key.py` 纳入环境配置流程。没有活跃恢复密钥时，API 会返回
-  `No active recovery public key is configured`，任何上传都不会成功 —— 浏览器端加密上线后，
-  staging 正是卡在这里。
-
-### 管理与 RBAC
-
-- [x] 后端：显式 ADMIN/RECOVERY_OFFICER 依赖、有界用户/文件视图、账户启用/禁用、禁用时
-  撤销会话及审计事件。
-- [ ] 前端：`AdminPage.vue` 目前只有三张静态卡片和一个恢复请求计数。需替换为类型化的用户、
-  文件、审计及恢复视图，并在导航与路由守卫中执行与后端一致的角色策略，而不只是检查令牌是否
-  存在。
-
-## P2 — 质量、运维与加固
-
-### 测试与 CI
-
-- [ ] 增加 CI：后端 format/lint/test、OpenAPI 方法策略、migration drift、生产 SQL 核验/
-  奇偶校验，以及前端 build/type/lint/test。
-- [ ] 当 MySQL 集成测试被跳过时让 CI 失败，而不是报告通过。
-- [ ] 增加真实多连接 MySQL 测试，覆盖限流锁、refresh 重放、会话上限、密钥新增竞争、共享/
-  恢复竞争及审计链串行化。
-- [ ] 增加存储发布/清理、事务回滚、无效信封/签名、乐观 revision 冲突和恢复幂等的故障注入。
-- [ ] 增加前端组件和浏览器 E2E，覆盖登记、登录/刷新、解锁、上传/下载、密钥轮换、共享/撤销、
-  恢复及角色拒绝。密码学模块已有单元测试覆盖，但围绕它们的流程尚无测试。
-- [ ] 在 CI 中针对一次性后端运行 `upload.integration.test.ts`，使线上路径被真正覆盖而非跳过。
-- [ ] 增加带评审阈值的覆盖率；跳过集成测试不算发布通过。
-
-### 运维与数据保护
-
-- [x] 已有 `/health/live` 与 `/health/ready`；readiness 检查数据库连通性及精确
-  `0004_email_verification_codes` 应用 Schema marker，不执行 migration。
-- [x] staging 已完成 TLS 终止及规范源重定向。
-- [ ] 信任 forwarded IP 前增加边缘限流及可信代理边界。
-- [ ] 为过期会话/refresh/限流桶、陈旧暂存对象、孤儿密文和过期恢复请求增加清理/对账任务。
-- [ ] 自动化加密数据库/对象备份、保留、恢复演练及 RPO/RTO；数据库泄露可用于离线猜测
-  passphrase，也会暴露 metadata。
-- [ ] 定义 API、前端、TLS 终止、持久密文存储、secret、恢复托管及存储备份/恢复的生产部署；
-  Compose 仍只用于本地 MySQL。
-- [ ] 增加结构化脱敏日志、指标、告警和运行手册，覆盖认证滥用、存储故障、Schema 漂移、
-  恢复操作及审计链验证。
-- [ ] 拒绝空生产数据库密码，并从 secret manager 获取高熵 secret。
-- [ ] 在应用数据库外发布签名/HMAC 审计 checkpoint。
-
-### 安全评审
-
-- [ ] 参照 `docs/crypto/FILE_ENVELOPE.md` 编写规范化的账户信封文档并锁定测试向量。AMK 包装与
-  私钥 bundle 的 AAD 目前只存在于 `account-crypto.ts` 中，而本项目已经出现过三种互不兼容的
-  账户信封 AAD 构造。
-- [x] 文件信封 AAD 及其字节编码已有规范，并由测试向量锁定。
-- [ ] 扩展登记自测：从解密后的私钥重新推导公钥，使不匹配的密钥对在注册前即被发现。
-- [ ] 在支持的客户端上基准测试 Argon2id 参数，并记录最低 passphrase UX。
-- [ ] 决定注册页明文 PEM 下载的去留：或改为依靠 passphrase 解锁而移除，或将其明确记录为由用户
-  自行保管的托管选择，并写明保管要求。
-- [ ] 增加客户端指纹/revision 固定或独立信任锚，以发现恶意公钥/bundle 回滚和替换。
-- [ ] 决定是否把文件名/MIME 移入加密 manifest；当前 metadata、大小、时间戳、共享关系及
-  流量模式仍可见。
-- [ ] 完成正式威胁模型与外部评审，覆盖浏览器令牌/密钥托管、离线猜测、恶意客户端信封、
-  上传滥用、恢复运维、metadata 泄露、存储对账及日志脱敏。
-
-## 完成定义
-
-- [x] 后端传输契约使用公开 UUID，并排除明文秘密/内部 ID。
-- [x] 计划路由所需的后端认证、角色、资源策略、统一拒绝、事务所有权、存储补偿、条件/幂等
-  命令、审计耦合及稳定领域错误已经实现。
-- [x] 保护配置重包装和后继密钥添加均要求规范的当前私钥授权；仅窃取 Bearer Session 无法执行
-  这两种密钥变更。
-- [x] 中英文设计/安全/Schema/部署文档与客户端加密边界同步。
-- [x] 浏览器按规范且被向量锁定的信封在上传前完成加密，且其密文已在 TypeScript 实现之外被
-  独立解密验证。
-- [ ] 通过浏览器上传的文件能够通过浏览器下载并解密。
-- [ ] 必需的 MySQL 8.4 集成、并发、生产 SQL 和奇偶校验在 CI 中通过。
-- [ ] 前端不含演示后备，真实实现密码学/API 契约，并通过 type、lint、unit、component、build
-  及浏览器 E2E 门禁。
-- [ ] 发布运维、监控、备份/恢复、离线恢复托管及安全评审已有文档并完成演练。
-
-## 当前 FYP 范围外的明确延期项
-
-客户端文件加/解密、客户端持有私钥的操作，以及每个接收者的 DEK 重包装均**属于当前范围**。
-加密与上传已端到端实现；解密与重包装在浏览器侧仍未完成。除非范围变化，以下项目继续延期：
-
-- metadata 隐藏/匿名，以及没有独立客户端信任锚时抵御主动恶意服务端；
-- 遗忘加密 passphrase 后的安全新 AMK 重置/版本迁移；
-- 生产 KMS/HSM 实现及自动化洁净恢复基础设施；
-- Google Drive 式协作、实时编辑、加密全文搜索及大规模云存储优化；
-- 保证支持 1 GB 以上超大文件；
-- 强制删除接收者已复制数据，或 DRM/不可移除水印；
-- 在缺少可信外部通道时实现密码重置、邮箱验证、MFA 及外部身份联合。
+- Google Drive 式协同编辑、加密全文搜索及大规模对象存储优化。
+- 保证支持 1 GB 以上文件。
+- 阻止接收者继续使用已经复制的数据等 DRM 能力。
+- 正式生产 KMS/HSM 实现和独立认证；其设计与托管要求仍属于安全评审范围。

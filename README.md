@@ -6,7 +6,9 @@ Final Year Project architecture for a secure file encryption and sharing platfor
 
 ## Staging Deployment
 
-The current build runs at **https://secureview.tech**.
+The current build runs at **https://secureview.tech**. The live API can be inspected and
+demonstrated in [Swagger UI](https://secureview.tech/docs); the machine-readable contract is
+at [OpenAPI JSON](https://secureview.tech/openapi.json).
 
 Always write and share the URL **with the `https://` prefix**. `.tech` is not on the browser
 HSTS preload list, so a visitor who types the bare domain reaches `http://` once before the
@@ -25,7 +27,7 @@ security-sensitive actions in a tamper-evident audit log.
 
 The project focuses on:
 
-- Client-side AES-256-GCM file encryption
+- Client-side AES-GCM (128/192/256-bit keys) and ChaCha20-Poly1305 file encryption
 - RSA-based file-key wrapping
 - Controlled sharing and revocation
 - Role-based and file-level access control
@@ -42,11 +44,19 @@ vault passphrase, KEK, AMK, plaintext private key, file DEK, and plaintext file 
 in an API request or database row. Registration and file/key flows are documented in
 [SECURITY_FLOWS.md](docs/SECURITY_FLOWS.md).
 
-The frontend login page now uses the real Auth endpoint and rejects responses without an
-access token; the former hard-coded credential bypass and demo-token fallback are gone. Its
-browser refresh, expiry, and revoked-session handling still require production hardening.
+The browser MVP is operational end to end: emailed-code registration and password reset,
+client-held account-key enrolment, passphrase or private-key-file unlock, idle relock,
+authenticated encryption before upload, local decryption after download, filename search,
+sharing by rewrapping the file key to the recipient, revocation, per-file access history,
+silent session refresh, logout, and account deletion. AES-128/192/256-GCM and
+ChaCha20-Poly1305 are selectable per file; AES-256-GCM remains the default. The former
+hard-coded credential and demo-token fallbacks are gone.
 
-The prioritized implementation backlog is tracked in [TODO.md](TODO.md).
+The remaining work is production hardening rather than an unfinished basic demo: required CI
+and MySQL 8.4 gates, passphrase-change and successor-key UI, complete admin/recovery-officer
+screens, encrypted off-server backup/restore drills, scheduled reconciliation, observability,
+and formal security review. The prioritized summary is in [TODO.md](TODO.md), and executable
+work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues).
 
 ## HTTP Method Policy
 
@@ -67,7 +77,7 @@ is infrastructure behavior rather than an application API operation.
 | Backend | FastAPI |
 | Database | MySQL 8.4 |
 | File Storage | Local encrypted file storage for the FYP demo |
-| File Encryption | AES-256-GCM |
+| File Encryption | AES-128/192/256-GCM and ChaCha20-Poly1305 (default: AES-256-GCM) |
 | Key Wrapping | RSA-OAEP with SHA-256 |
 | Password Hashing | Argon2id (`pwdlib`) |
 
@@ -126,6 +136,18 @@ Everything the team has changed, and why, is recorded in
 [`changelog/README.md`](changelog/README.md) before adding an entry: it says which of the two
 a given entry belongs in.
 
+## Team Workflow and Sources of Truth
+
+- `changelog/CHANGELOG.md`: what shipped and why it mattered.
+- GitHub Issues: executable remaining work, ownership, discussion, and acceptance criteria.
+- `TODO.md`: prioritized summary linked to those Issues, not a second independent backlog.
+- `README.md`: current user-facing capabilities, setup, and deployment entry points.
+
+Every pull request must review all four, update the affected records, and explain any
+intentional `N/A`. Runtime changes are not complete at merge: after `main` deploys, record the
+deployed SHA and verify health plus the changed user-visible path. The repository pull-request
+template carries this checklist.
+
 ## Local Setup
 
 All backend business routers are operational. Health, readiness, and OpenAPI are available;
@@ -174,8 +196,8 @@ sudo mysql < database/mysql/03-verify.sql
 ```
 
 Capture the one generated `fyp_user` password directly into the deployment secret store.
-`02-schema.sql` is a non-idempotent empty-database installer: it creates the schema, grants
-CRUD on thirteen ordinary state tables, grants only `SELECT`/`INSERT` on `audit_logs`, and
+`02-schema.sql` is a non-idempotent empty-database installer: it creates 17 tables, grants
+CRUD on fourteen ordinary state tables, grants only `SELECT`/`INSERT` on `audit_logs`, and
 limits `audit_chain_heads` updates to `last_log_id`, `current_hash`, and `updated_at` so the
 runtime account cannot alter `schema_revision`. It has no access to `alembic_version`.
 `03-verify.sql` is read-only and must also show that the retired
@@ -191,7 +213,8 @@ The staging VPS automatically deploys an exact commit after a reviewed pull requ
 into `main`. See [AUTOMATIC_DEPLOYMENT.md](docs/AUTOMATIC_DEPLOYMENT.md) for the server-pull
 workflow, operator commands, failure quarantine, and credential boundary.
 
-OpenAPI: <http://localhost:8000/docs>
+OpenAPI: <http://localhost:8000/docs> locally, or
+<https://secureview.tech/docs> on the public staging deployment.
 
 Run backend quality checks from `backend/`:
 
@@ -218,9 +241,12 @@ Frontend: <http://localhost:5173>
 
 ## Important Security Note
 
-This remains an FYP prototype. Its built-in password deny-list is deliberately small and is
-not a maintained breached-password corpus. Forgotten-password recovery, email verification,
-MFA, and external identity providers also require trusted out-of-band services and are not
-implemented. A production deployment additionally needs stronger key custody through a
-KMS/HSM, hardened operations, externally anchored audit checkpoints, and professional
+This remains an FYP prototype. Email verification and forgotten **login-password** reset are
+implemented through one-time codes, but MFA and external identity providers are not.
+The encryption passphrase is separate and never reaches the server: forgetting it still
+requires the user's separately retained private-key file, and recovery does not reset the
+stored passphrase. The built-in password deny-list is deliberately small and is not a
+maintained breached-password corpus. A production deployment additionally needs encrypted
+off-server backup/restore drills, stronger recovery-key custody through a KMS/HSM or equivalent
+offline controls, externally anchored audit checkpoints, and independent professional
 security review.
