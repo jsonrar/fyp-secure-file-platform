@@ -38,6 +38,12 @@ Alembic revision 仍用于开发与 CI 中编写、评审及验证 Schema；生�
 非开发环境还必须设置 `APP_DEBUG=false`、不少于 32 个字符的非默认 `SECRET_KEY`，并明确
 列出允许的 CORS origin。
 
+`APP_DOCS_ENABLED` 是部署时必须明确决定的开关。本地开发保持为 `true`；SecureView 公网预发布
+主机同样设为 `true`，因为线上 Swagger UI 是供团队与导师评审、演示的交付内容。从 Swagger 发出
+的请求不会获得任何额外权限，仍受 HTTPS、nginx 请求限流、应用登录、授权和审计控制约束。不需要
+公开 API 评审的正式生产环境应设为 `false`，此时 `/docs`、`/redoc` 与 `/openapi.json` 会被卸载并
+返回 404。
+
 `MYSQL_ROOT_PASSWORD` 和 `MYSQL_PORT` 仅供根目录 Compose 本地开发使用，不是生产管理员
 配置。生产不使用任何部署专用的管理员、迁移或账户 Host 环境变量。
 
@@ -249,6 +255,9 @@ Let's Encrypt 证书只覆盖 `secureview.tech` 与 `www.secureview.tech`，浏�
 
 请统一使用 `https://secureview.tech`。`http://103.233.0.105/<路径>` 会跳转过去，这才是受支持
 的入口：例如直接输入 IP 访问 API 文档，会落到 `https://secureview.tech/docs`。
+
+团队演示与导师评审请直接使用规范地址：`https://secureview.tech/docs`。不要分享包含裸 IP 的
+HTTPS 地址，因为 TLS 证书验证的是域名，而不是该 IP 地址。
 
 在这个跳转存在之前，以 HTTP 访问裸 IP 时，除两个回环探针外的所有路径都由 nginx 返回 `404`。
 那个页面很容易被读成"后端挂了"，而实际上只是明文请求找不到可跳转的名称而被拒绝。

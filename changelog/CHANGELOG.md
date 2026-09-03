@@ -18,6 +18,23 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Swagger UI for team and supervisor evaluation / 面向团队与导师评审的 Swagger UI
+
+- The public staging deployment now explicitly enables `/docs`, `/redoc`, and
+  `/openapi.json` so every team member and the project supervisor can inspect and demonstrate
+  the live API without needing a VPS account. HTTPS, nginx request limits, application
+  authentication, authorization, and audit controls still apply to requests made from the UI;
+  publishing the schema does not grant access to protected data.
+- 公网预发布环境现已明确开启 `/docs`、`/redoc` 与 `/openapi.json`，让所有团队成员及项目导师无需
+  VPS 账号即可查看并演示线上 API。通过该界面发出的请求仍受 HTTPS、nginx 请求限流、应用登录、
+  授权与审计控制约束；公开 schema 并不会授予受保护数据的访问权限。
+- The deployment guide now records `APP_DOCS_ENABLED` as an explicit environment decision and
+  names `https://secureview.tech/docs` as the canonical presentation URL. This closes the gap
+  where the guide promised Swagger while staging deliberately returned 404.
+- 部署指南现将 `APP_DOCS_ENABLED` 记录为必须明确决定的环境开关，并把
+  `https://secureview.tech/docs` 指定为演示入口，修复了文档声称 Swagger 可用、预发布环境却刻意
+  返回 404 的不一致。
+
 ### Writing down how a schema change actually reaches the server / 把 Schema 变更如何真正上线写下来
 
 - Documented the manual procedure a release carrying a new Alembic revision needs, in both `DEPLOYMENT.md` files. `mcs21-deploy` never changes the schema — it backs up and verifies read-only — so the step is manual, and its order is forced rather than a matter of taste: `/health/ready` requires the code's `EXPECTED_SCHEMA_REVISION` and the stored marker to be **exactly equal**, so some window of `503` is unavoidable. Pushing the code first makes `verify_database` abort the deploy and quarantine the SHA, and a quarantined SHA is never retried, so every later commit queues behind it. Changing the database first costs a two-to-three minute outage that closes by itself.
