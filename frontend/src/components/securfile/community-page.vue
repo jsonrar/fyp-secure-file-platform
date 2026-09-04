@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { BookOpen, FlaskConical, GraduationCap, Layers } from 'lucide-vue-next'
+import { BookOpen, Clapperboard, FlaskConical, GraduationCap, Layers } from 'lucide-vue-next'
 import AlgorithmExplorer from '@/components/education/AlgorithmExplorer.vue'
 import CryptoPlayground from '@/components/education/CryptoPlayground.vue'
 import KnowledgeSearch from '@/components/education/KnowledgeSearch.vue'
+import SoftwareGuide from '@/components/education/SoftwareGuide.vue'
 
-type SectionId = 'algorithms' | 'playground' | 'knowledge'
+type SectionId = 'algorithms' | 'software' | 'playground' | 'knowledge'
 
 const activeSection = ref<SectionId>('algorithms')
 
@@ -13,7 +14,7 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
   {
     id: 'algorithms',
     label: 'Algorithm Explorer',
-    description: 'Learn how AES, RSA, SHA, DES/3DES, ChaCha20, and Argon2id work step by step.',
+    description: 'Learn AES-128, AES-256, RSA, SHA, ChaCha20, and Argon2id with animated demos.',
     icon: Layers,
   },
   {
@@ -28,13 +29,18 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
     description: 'Search articles on encryption basics, keys, and best practices.',
     icon: BookOpen,
   },
+  {
+    id: 'software',
+    label: 'How to Use',
+    description: 'Video walkthroughs that show how to encrypt, upload, and share in SecureView.',
+    icon: Clapperboard,
+  },
 ]
 </script>
 
 <template>
   <section class="py-16 md:py-24">
     <div class="container mx-auto px-4">
-      <!-- Hero -->
       <div class="text-center mb-12 max-w-3xl mx-auto">
         <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-5">
           <GraduationCap class="h-4 w-4 text-primary" />
@@ -42,13 +48,12 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
         </div>
         <h1 class="text-3xl md:text-5xl font-bold text-foreground mb-4 text-balance">Learn How Encryption Works</h1>
         <p class="text-muted-foreground text-lg text-pretty">
-          Explore algorithms, try hands-on encryption demos, and search our knowledge library — all in one place.
+          Explore algorithms, watch how SecureView is used, try hands-on demos, and search the knowledge library.
         </p>
       </div>
 
-      <!-- Section tabs -->
       <div class="max-w-6xl mx-auto mb-10">
-        <div class="grid sm:grid-cols-3 gap-3">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
           <button
             v-for="section in sections"
             :key="section.id"
@@ -72,9 +77,9 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
         </div>
       </div>
 
-      <!-- Content panels -->
       <div class="max-w-6xl mx-auto">
         <AlgorithmExplorer v-if="activeSection === 'algorithms'" />
+        <SoftwareGuide v-else-if="activeSection === 'software'" />
         <CryptoPlayground v-else-if="activeSection === 'playground'" />
         <KnowledgeSearch v-else-if="activeSection === 'knowledge'" />
       </div>

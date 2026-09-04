@@ -20,6 +20,7 @@
 | GET | `/auth/me` | Bearer 访问令牌 |
 | POST | `/auth/logout` | Bearer 访问令牌 |
 | POST | `/auth/logout-all` | Bearer 访问令牌 |
+| POST | `/auth/delete-account` | Bearer 访问令牌 + 登录密码确认 |
 | POST | `/auth/change-password` | Bearer 访问令牌 |
 | GET | `/auth/sessions` | Bearer 访问令牌 |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer 访问令牌 |
@@ -30,9 +31,9 @@
 
 这些 API 采用客户端密钥托管边界：服务器只保存公钥、加密私钥包、密文及包装密钥，不接收
 加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。浏览器前端已实现账户密钥登记
-（本地生成密钥对、Argon2id 派生 KEK、包装 AMK 并加密私钥，提交前自测信封可重新打开）；
-私钥解锁、文件加解密和 DEK 重包装仍未实现，因此后端路由完成仍不等于现有 UI 已具备完整
-客户端密码学能力。
+（本地生成密钥对、Argon2id 派生 KEK、包装 AMK 并加密私钥，提交前自测信封可重新打开）、
+passphrase／私钥文件解锁、上传前加密、下载后本地解密，以及分享时把 DEK 重包装给接收者。
+尚未补全的是浏览器端修改 passphrase、后继账户密钥轮换，以及完整的管理/恢复专员操作界面。
 
 注册与忘记登录密码重置均由发往所声明邮箱的一次性验证码把关，注册同时将账户邮箱标记为已验证。
 验证码只以带密钥摘要形式存储，会过期、只能用一次、有尝试次数上界，并按邮箱与 IP 双重限流；
@@ -43,11 +44,12 @@
 会改变状态的动作使用 `POST`。不得新增 `PUT`、`PATCH` 或 `DELETE` 路由；CORS 方法配置也
 仅允许 `GET` 和 `POST`。
 
-登录密码策略使用 Unicode NFC 进行规范化，要求长度为 15 至 128 个字符，拒绝由账户信息
-派生的值和常见值，并使用 Argon2id 进行哈希。有效的旧版 bcrypt 哈希会被透明升级；当配置
-的单工作进程容量已满时，内存密集型操作会快速失败。随附的常见密码列表只是一套小型本地
-安全基线，并非持续维护的已泄露密码语料库。忘记登录密码重置、电子邮件验证、多因素认证
-（MFA）和外部身份登录尚未实现；每项功能都需要可信的带外投递或身份通道。
+登录密码策略使用 Unicode NFC 进行规范化，要求长度为 8 至 128 个字符，并至少组合大写字母、
+小写字母、数字和符号四类中的两类；同时拒绝由账户信息派生的值和常见值，再使用 Argon2id
+哈希。独立且仅存在于客户端的加密 passphrase 仍保留 15 字符下限。有效的旧版 bcrypt 哈希会
+被透明升级；当配置的单工作进程容量已满时，内存密集型操作会快速失败。随附的常见密码列表只是
+小型本地安全基线，并非持续维护的已泄露密码语料库。邮箱验证与忘记登录密码重置已经实现；
+MFA 和外部身份登录尚未实现。
 
 加密 passphrase 与登录密码相互独立，只在客户端用于派生 KEK。用户通常只需记住该
 passphrase，服务端则保存加密私钥包；但若 passphrase 遗失且没有独立安全保存的可用密钥
@@ -178,8 +180,8 @@ sudo mysql < database/mysql/03-verify.sql
 
 `01-provision.sql` 只创建固定数据库和带 `REQUIRE SSL` 的 `fyp_user`，并为新账户返回一个
 随机密码；密码必须直接写入 secret store。仅接受空库的 `02-schema.sql` 会安装完整的
-15 张应用表及精确运行时权限：13 张普通状态表拥有 CRUD，`audit_logs` 只有
-`SELECT`／`INSERT`，而 `audit_chain_heads` 的 `UPDATE` 仅限 `last_log_id`、
+16 张应用表及 1 张 `alembic_version` 兼容表，并设置精确运行时权限：14 张普通状态表拥有
+CRUD，`audit_logs` 只有 `SELECT`／`INSERT`，而 `audit_chain_heads` 的 `UPDATE` 仅限 `last_log_id`、
 `current_hash` 和 `updated_at` 三列，明确排除 `schema_revision`；应用也无权访问
 `alembic_version`。只读的 `03-verify.sql` 必须核验精确 Schema 和权限，并确认不存在旧版
 `fyp_migrator` 账户。全部核验通过后，应用才通过标准 `DB_*` 以 `fyp_user` 启动；root 凭据

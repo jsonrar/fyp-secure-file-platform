@@ -21,6 +21,7 @@ The core Auth endpoints under `/api/v1` are:
 | GET | `/auth/me` | Bearer access token |
 | POST | `/auth/logout` | Bearer access token |
 | POST | `/auth/logout-all` | Bearer access token |
+| POST | `/auth/delete-account` | Bearer access token + password confirmation |
 | POST | `/auth/change-password` | Bearer access token |
 | GET | `/auth/sessions` | Bearer access token |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer access token |
@@ -66,11 +67,13 @@ Application HTTP endpoints use only `GET` for reads and `POST` for creation, upd
 deletion, revocation, and other state-changing actions. Do not add `PUT`, `PATCH`, or
 `DELETE` routes. CORS method configuration is restricted to `GET` and `POST`.
 
-The password policy normalizes with Unicode NFC, requires 15 to 128 characters, rejects
-account-derived/common values, and hashes with Argon2id. Valid legacy bcrypt hashes are
-transparently upgraded; memory-hard operations fail fast when the configured per-worker
-capacity is full. The included common-password list is a small local safety baseline, not a
-maintained breached-password corpus.
+The login-password policy normalizes with Unicode NFC, requires 8 to 128 characters and at
+least two of uppercase, lowercase, number, and symbol classes, rejects account-derived/common
+values, and hashes with Argon2id. The separate client-only encryption passphrase retains its
+15-character minimum. Valid legacy bcrypt hashes are transparently upgraded; memory-hard
+operations fail fast when the configured per-worker capacity is full. The included
+common-password list is a small local safety baseline, not a maintained breached-password
+corpus.
 
 Registration and forgotten-login-password reset are gated by a one-time code emailed to the
 address being claimed, which also marks the account's email verified. Codes are stored only
@@ -228,10 +231,10 @@ sudo mysql < database/mysql/03-verify.sql
 ```
 
 Capture the one generated `fyp_user` password in the deployment secret store. The empty-only
-`02-schema.sql` installs the complete schema and exact runtime grants: CRUD on thirteen
-ordinary state tables, `SELECT`/`INSERT` on `audit_logs`, and column-limited `UPDATE` on
-`audit_chain_heads` that excludes `schema_revision`; `alembic_version` is not exposed to the
-application. The read-only
+`02-schema.sql` installs sixteen application tables plus the `alembic_version` compatibility
+table and exact runtime grants: CRUD on fourteen ordinary state tables, `SELECT`/`INSERT` on
+`audit_logs`, and column-limited `UPDATE` on `audit_chain_heads` that excludes
+`schema_revision`; `alembic_version` is not exposed to the application. The read-only
 `03-verify.sql` must report the exact expected schema and grants and no legacy
 `fyp_migrator` account. Start the application only after verification, using `fyp_user`
 through the standard `DB_*` settings. Account provisioning, remote-host customization,

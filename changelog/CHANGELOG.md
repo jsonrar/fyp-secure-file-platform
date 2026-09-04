@@ -18,6 +18,28 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Signed-in profile avatar / 登录后个人头像
+
+- Added a circular profile avatar at the top-left of the header for signed-in users, using username initials and linking to the dashboard. Without a visible account mark, a signed-in session looked the same as a guest session in the brand corner; the avatar makes the active identity obvious at a glance.
+- 已在页头左上角为登录用户加入圆形个人头像（用户名首字母），并链到 Dashboard。此前品牌角上看不出是否已登录；头像让当前身份一眼可辨。
+
+### Education algorithms and software demos / 教育页算法与软件演示
+
+- Removed DES/3DES from Algorithm Explorer because NIST withdrew 3DES in 2023, dropped AES-192 from the teaching set for now, and split AES into separate AES-128 and AES-256 topics under an AES family group. Algorithm Explorer now opens with a video/animation frame for how each algorithm works, and Education gains a How to Use tag for SecureView walkthrough clips so learners see both the crypto and the product flow.
+- 已从 Algorithm Explorer 移除 DES/3DES（NIST 于 2023 年撤销 3DES），教学集合暂时去掉 AES-192，并将 AES 拆成 AES 分组下的 AES-128 与 AES-256 两个知识点。Algorithm Explorer 内容头部新增算法工作原理的视频/动画展示框，Education 页新增 How to Use 标签用于 SecureView 操作演示，让学习者同时看到密码学与产品流程。
+
+### Team page mosaic / 团队页拼贴布局
+
+- Replaced the scroll-driven team carousel with a mosaic/collage layout: each tile keeps the member name and sticker on the left and the intro on the right, and hovering a tile for 2 seconds (or tapping) opens an enlarged profile popup. The roster now leads with project supervisor Asad Malik, then the four student engineers. The old carousel buried the bios behind 3D motion; the collage makes every member readable at a glance while still giving a focused close-up on demand, without popups firing on accidental mouse passes.
+- 已将滚动驱动的团队轮播改为马赛克/拼贴布局：每块贴片左侧保留成员姓名与贴图、右侧为简介，在名片上悬停满 2 秒（或点击）才会打开放大的资料弹窗。成员名单以项目导师 Asad Malik 为首，其后为四位学生工程师。旧轮播把简介藏在三维动效之后；拼贴让每位成员一眼可读，需要时仍能放大细看，也不会因鼠标扫过就误弹窗。
+
+### Documentation status and operator guide / 文档状态与操作指南
+
+- Synchronized the root, backend, and frontend READMEs with the implemented browser cryptography, authentication, routes, password policy, schema revision, and table grants. These files are the entry point for evaluators and teammates, so stale statements that working encryption, password reset, or sharing were still missing gave a materially wrong picture of the product.
+- 已按现有浏览器密码学、认证、路由、密码策略、Schema revision 与表权限同步根目录、后端及前端 README。这些文件是评审者与队员了解项目的入口，因此仍声称可用的加密、密码重置或分享尚未实现，会实质性误导对产品完成度的判断。
+- Added a step-by-step website guide, role boundaries, a FastAPI request/layer walkthrough, and a map of the changelog's main work streams. The new explanations connect user actions to the trust and transaction boundaries behind them, making the repository usable as both an operating guide and a technical handover rather than only a setup sheet.
+- 新增逐步网站操作指南、角色边界、FastAPI 请求/分层流程及 Changelog 主要工作线索引。这些说明把用户操作与背后的信任边界、事务边界连接起来，使仓库既能作为操作指南，也能用于技术交接，而不只是一张安装清单。
+
 ### One current status, not six drifting versions / 一份当前状态，而非六份漂移版本
 
 - Rebuilt both READMEs and TODOs from `main`, the full shared changelog, current tests, and the
@@ -506,9 +528,9 @@ Reported from a live test: a recipient could read the whole history of a shared 
 - Moved the changelog out of `CT_Logs/` into `changelog/`, and split it in two. `CT_Logs` was named for one track but had become the project's only change log, and nothing in the repository linked to it, so it was neither obviously shared nor easy to find. `changelog/CHANGELOG.md` is now the project-wide record every one of us writes to; per-work-package records moved to `changelog/work-packages/crypto-track.md`, keeping their text unchanged. `changelog/README.md` states which of the two a given entry belongs in, both READMEs link to the folder, and `AGENTS.md` carries the rule. `git log --follow` traces both files through the move.
 - 已将更改日志从 `CT_Logs/` 迁至 `changelog/`，并拆分为两份。`CT_Logs` 以某一条线命名，实际上却成了项目唯一的更改日志，而仓库中没有任何位置链接到它——既看不出是共享的，也不容易找到。现在 `changelog/CHANGELOG.md` 是我们每个人共同书写的项目级记录；分工作包的记录迁至 `changelog/work-packages/crypto-track.md`，正文一字未改。`changelog/README.md` 写明了哪类条目该写进哪一份，两份 README 都已链接到该目录，`AGENTS.md` 中也加入了相应规则。两个文件都可以用 `git log --follow` 追溯到迁移之前。
 
-### Scope note / 范围说明
+### Scope note for the original changelog migration / 原 Changelog 迁移的范围说明
 
-- No application or cryptographic implementation code was changed in this update.
-- 本次更新未修改应用程序代码或密码学实现代码。
+- The original move from `CT_Logs/` into this shared changelog changed no application or cryptographic implementation code; this note applies only to that historical migration, not to every entry above it.
+- 最初从 `CT_Logs/` 迁移到这份共享 Changelog 时没有修改应用程序或密码学实现代码；本说明只适用于那次历史迁移，并不适用于上方所有条目。
 
 update:2026/8/15 02:40

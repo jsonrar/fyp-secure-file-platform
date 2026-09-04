@@ -58,6 +58,46 @@ screens, encrypted off-server backup/restore drills, scheduled reconciliation, o
 and formal security review. The prioritized summary is in [TODO.md](TODO.md), and executable
 work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues).
 
+## Using the Website
+
+### Standard user flow
+
+1. **Register:** At `/register`, provide a username, email, login password, and a separate
+   encryption passphrase, then complete email-code verification. The browser generates the
+   RSA key pair, AMK, and sealed private-key bundle locally. Move the one-time `.pem` private
+   key out of Downloads and store it safely. The login password authenticates the account;
+   the encryption passphrase unlocks files, and neither replaces the other.
+2. **Sign in and open the workspace:** `/login` leads to `/dashboard`. When an access token
+   expires, the frontend rotates the one-time refresh token and retries the interrupted
+   request. It clears the session and returns to sign-in only when renewal cannot succeed.
+3. **Encrypt and upload:** At `/upload`, choose a file and algorithm. The browser generates a
+   per-file DEK, performs authenticated encryption locally, and wraps the DEK to the account
+   RSA public key. The server receives ciphertext, public metadata, and wrapped keys—not the
+   plaintext file or plaintext DEK.
+4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me".
+   Download first verifies the server-side ciphertext SHA-256, then the browser unwraps the
+   DEK, authenticates the AEAD tag, and saves the plaintext. A failed authentication never
+   saves a partial file.
+5. **Share and revoke:** The owner enters an existing user's exact username. The browser
+   rewraps the same DEK to the recipient's public key, and the recipient opens it with their
+   own passphrase; the server never learns the DEK. Revocation stops future server-mediated
+   access but cannot recover a copy the recipient already downloaded and decrypted.
+6. **Audit and account actions:** `/audit-logs` shows sign-in, upload, download, share, and
+   revocation events. Owners can inspect activity on their files, recipients see only events
+   involving themselves, and ADMIN can verify the full hash chain. An emailed code resets a
+   forgotten login password; a forgotten encryption passphrase requires the separately
+   retained `.pem` key to unlock the current session.
+
+### Roles and administration
+
+- `USER` uses upload, download, sharing, revocation, and personal audit features.
+- `ADMIN` can use backend APIs to manage users/files, verify the audit chain, register recovery
+  public keys, and review recovery requests.
+- `RECOVERY_OFFICER` can review recovery requests but cannot approve a request they created.
+- `/admin` currently provides a limited recovery-request overview. The complete admin and
+  recovery-officer UI remains in the backlog, so some operations currently require an
+  authorized API/OpenAPI client.
+
 ## HTTP Method Policy
 
 Application APIs use only `GET` and `POST`. `GET` is reserved for read-only operations;
@@ -80,6 +120,50 @@ is infrastructure behavior rather than an application API operation.
 | File Encryption | AES-128/192/256-GCM and ChaCha20-Poly1305 (default: AES-256-GCM) |
 | Key Wrapping | RSA-OAEP with SHA-256 |
 | Password Hashing | Argon2id (`pwdlib`) |
+
+## FastAPI Backend Overview
+
+FastAPI is this project's HTTP/API framework; it does not decrypt users' files. It validates
+requests, authenticates and authorizes actors, dispatches use cases, manages database
+transactions, accesses encrypted object storage, and generates the OpenAPI contract. The
+entry point is `backend/app/main.py`. Its application factory wires settings, the SQLAlchemy
+engine/session factory, password manager, middleware, exception handlers, and `/api/v1`
+routers, then disposes the connection pool during shutdown.
+
+A typical request follows this path:
+
+```text
+Browser Axios request
+  -> FastAPI middleware (body limits, CORS)
+  -> Router (path, Pydantic request/response, Depends)
+  -> Identity/RBAC dependency (Bearer token -> ActorContext)
+  -> Service (use case, transaction, audit, storage compensation)
+  -> Repository / SQLAlchemy Session + encrypted object storage
+  -> Consistent JSON response
+```
+
+Layer responsibilities:
+
+- `api/v1/routers/` defines Auth, Keys, Files, Sharing, Audit, Recovery, and Admin endpoints.
+  Routers handle HTTP input/output and contain no direct SQL or filesystem operations.
+- `api/dependencies.py` creates a request-scoped database session, resolves bearer tokens,
+  applies ADMIN/recovery-reviewer checks, and constructs services.
+- `schemas/` uses Pydantic for strict transport DTO validation and drives OpenAPI/Swagger.
+- `services/` owns each use-case transaction and coordinates repositories, ciphertext
+  storage, domain policy, and audit appends.
+- `repositories/` and `models/` isolate persistence operations and SQLAlchemy models.
+  Repositories may query, add, and `flush`, but never own `commit`.
+- `core/` centralizes environment settings, database composition, and security primitives
+  such as Argon2id and bearer-session handling.
+
+Business APIs are mounted under `/api/v1`. Verification, registration, login, password reset,
+and refresh are the main public endpoints. Other endpoints require a bearer token through
+`Depends`, with role or resource authorization added for sensitive actions. Successful
+responses use the `success/status/message/data/code` envelope, while centralized handlers
+map domain failures to stable HTTP responses. `/health/live` checks the process;
+`/health/ready` also queries MySQL and requires the stored schema revision to equal
+`0006_chacha20_poly1305`. Local development exposes `/docs`, `/redoc`, and `/openapi.json`;
+a deployment can unmount all three with `APP_DOCS_ENABLED`.
 
 ## Repository Structure
 
@@ -121,20 +205,51 @@ fyp-secure-file-platform/
 |   |-- DATABASE_SCHEMA.md
 |   |-- DEPLOYMENT.md
 |   |-- AUTOMATIC_DEPLOYMENT.md
+|   |-- E2E_TESTING.md
 |   |-- SECURITY_FLOWS.md
-|   `-- PROJECT_SCOPE.md
+|   |-- PROJECT_SCOPE.md
+|   `-- crypto/
+|       |-- FILE_ENVELOPE.md
+|       `-- test_vectors.json
+|-- recovery_keys/
+|-- TODO.md
+|-- TODO.zh-CN.md
 |-- .env.example
 |-- .gitignore
 `-- docker-compose.yml
 ```
 
-## Change Log
+## Change Log: What It Records and How to Maintain It
 
-Everything the team has changed, and why, is recorded in
-[`changelog/CHANGELOG.md`](changelog/CHANGELOG.md). Per-work-package records live in
-[`changelog/work-packages/`](changelog/work-packages/). Read
-[`changelog/README.md`](changelog/README.md) before adding an entry: it says which of the two
-a given entry belongs in.
+The changelog uses two complementary records:
+
+- [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) records **what changed in the product and
+  why it mattered**, such as a new endpoint, security fix, contract change, or deployment
+  behavior. Current entries are under `[Unreleased] / [未发布]`, normally newest first.
+- [`changelog/work-packages/`](changelog/work-packages/) records **how a piece of work was
+  carried out**, including its starting commit, scope, verification, and deliberately retained
+  limitations. Work that both progresses a package and changes the product belongs in both;
+  they are not duplicate records.
+
+The existing changelog's main work streams are:
+
+1. **Client cryptography:** account-key enrolment, AES-GCM/ChaCha20-Poly1305 file envelopes,
+   browser decryption, `.pem` unlock, sharing DEK rewrap, and cross-language vectors.
+2. **Authentication and account security:** emailed codes, password reset, Argon2id policy,
+   refresh rotation, session invalidation, and account deletion.
+3. **Files and sharing UX:** paging/search, owner/recipient separation, integrity states,
+   notifications, revocation, and per-file history.
+4. **Audit and privacy:** hash chaining, audit contracts and labels, filename resolution, and
+   the visibility rule that users see their own activity plus activity on files they own.
+5. **Database and operations:** least-privilege MySQL SQL, schema revisions, reconciliation,
+   HTTPS, nginx/fail2ban, guarded deployment, failed-SHA quarantine, and release safeguards.
+6. **UI and development environment:** signed-in navigation, theme/branding, the team page,
+   dependency pinning, type checking, and test baselines.
+
+Before adding an entry, read [`changelog/README.md`](changelog/README.md). Add paired English
+and Simplified Chinese lines under the relevant topic and explain why the change mattered
+rather than repeating the diff. Historical entries describe the state at that time; when a
+newer entry closes an old limitation, prefer the newer entry, the current README, and code.
 
 ## Team Workflow and Sources of Truth
 
@@ -152,6 +267,13 @@ template carries this checklist.
 
 All backend business routers are operational. Health, readiness, and OpenAPI are available;
 protected routes require bearer authentication and the admin/recovery routes enforce RBAC.
+Readiness checks both database connectivity and the exact
+`0006_chacha20_poly1305` schema revision.
+
+`MAX_REQUEST_BODY_BYTES` limits ordinary JSON/form bodies (1 MiB by default, configurable up
+to 8 MiB). Encrypted multipart upload has a separate
+`MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` cap, so increasing the ordinary
+body limit does not increase the permitted ciphertext size.
 
 ### Backend
 

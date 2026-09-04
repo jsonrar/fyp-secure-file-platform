@@ -20,23 +20,31 @@ npm run dev
 | `/` | 落地页（主视觉区 + 功能介绍） |
 | `/login` | 登录 |
 | `/register` | 注册 + 显示私钥 |
+| `/forgot-password` | 使用邮箱验证码重置登录密码 |
+| `/dashboard` | 登录后工作台 |
 | `/upload` | 文件加密上传（需要身份认证） |
 | `/files` | 文件管理（需要身份认证） |
 | `/audit-logs` | 审计访问记录（需要身份认证） |
-| `/admin` | 管理面板（需要身份认证） |
-| `/community` | 教育页面 |
+| `/admin` | 有限的管理/恢复概览（需要身份认证） |
+| `/education` | 教育页面 |
 | `/team` | 开发团队页面 |
 
 ## 结构
 
 - `src/components/securfile/` — 从 SecurFile 迁移的 UI
 - `src/api/` — 与后端 `/api/v1` 对齐的 Axios 客户端
+- `src/crypto/` — 认证文件加解密及分享密钥重包装
 - `src/stores/` — Pinia 身份认证／文件状态
-- `src/composables/useTheme.ts` — 明亮／暗色主题
+- `src/composables/useTheme.ts` — 系统／明亮／暗色主题
+
+浏览器已经实现账户密钥登记、passphrase／私钥文件解锁、加密上传、认证下载与本地解密、分享
+密钥重包装、撤销、搜索、审计历史、refresh 轮换、登出及注销账户。修改 passphrase、后继密钥
+轮换及完整的角色感知管理/恢复界面仍属于 backlog。
 
 ## 环境变量
 
-复制 `.env` 并按需调整：
+默认 API 地址已是 `http://localhost:8000/api/v1`。如需覆盖，请创建不纳入版本管理的
+`frontend/.env.local`：
 
 ```env
 VITE_API_BASE_URL=http://localhost:8000/api/v1

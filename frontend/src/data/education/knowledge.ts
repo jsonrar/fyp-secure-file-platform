@@ -82,24 +82,44 @@ Think of the public key as an open padlock you give to others — they can lock 
 • Public keys can be published on key servers or embedded in certificates`,
   },
   {
-    id: 'aes-explained',
-    title: 'How AES Encryption Works',
+    id: 'aes-128-explained',
+    title: 'How AES-128 Works',
     category: 'symmetric',
-    tags: ['AES', 'AES-256', 'symmetric', 'block cipher', 'file encryption'],
-    summary: 'AES encrypts data in 128-bit blocks using a secret key through multiple transformation rounds.',
-    content: `AES (Advanced Encryption Standard) is the most widely used symmetric encryption algorithm today.
+    tags: ['AES', 'AES-128', 'symmetric', 'block cipher'],
+    summary: 'AES-128 encrypts 128-bit blocks with a 128-bit key through 10 transformation rounds.',
+    content: `AES-128 is the Advanced Encryption Standard configured with a **128-bit key**.
 
-**Key sizes:** 128, 192, or 256 bits. AES-256 provides the strongest security and is used by SecureView.
+**Key size:** 128 bits (16 bytes).
+**Block size:** Always 128 bits — the same for every AES variant.
+**Rounds:** 10.
 
-**Block size:** Always 128 bits (16 bytes). Data longer than one block is processed in multiple blocks, often with a mode like GCM or CBC.
-
-**Round structure (AES-256 has 14 rounds):**
+Each round applies:
 1. **SubBytes** — Replace each byte using a lookup table (S-box)
 2. **ShiftRows** — Rotate rows of the state matrix
-3. **MixColumns** — Mix column data (skipped in final round)
+3. **MixColumns** — Mix column data (skipped in the final round)
 4. **AddRoundKey** — XOR the state with a round key derived from the main key
 
-**Why AES is trusted:** Over 20 years of cryptanalysis have found no practical attacks against the full algorithm. It is approved by NIST and used by governments worldwide.`,
+AES-128 remains NIST-approved and is widely used (for example in many TLS suites). SecureView’s education materials cover it as a distinct topic from AES-256. **AES-192 is intentionally omitted for now.**
+
+**Note on DES / 3DES:** Those older block ciphers are not taught here. NIST removed 3DES from its recommendations in 2023; use AES instead.`,
+  },
+  {
+    id: 'aes-256-explained',
+    title: 'How AES-256 Works',
+    category: 'symmetric',
+    tags: ['AES', 'AES-256', 'symmetric', 'block cipher', 'file encryption', 'SecureView'],
+    summary: 'AES-256 uses a 256-bit key and 14 rounds — SecureView’s default for encrypting files in the browser.',
+    content: `AES-256 is the Advanced Encryption Standard configured with a **256-bit key**.
+
+**Key size:** 256 bits (32 bytes).
+**Block size:** 128 bits (same as AES-128).
+**Rounds:** 14 — four more than AES-128, which increases the security margin.
+
+Round operations are the same family as AES-128 (SubBytes, ShiftRows, MixColumns, AddRoundKey), but the longer key schedule and extra rounds make exhaustive search far harder.
+
+**In SecureView:** Files are encrypted in the browser with **AES-256-GCM** so the server only stores authenticated ciphertext. AES-192 is out of scope on this education page for now.
+
+**Why not DES / 3DES?** NIST deprecated and removed 3DES from approved algorithms in 2023. Modern systems should use AES (or ChaCha20-Poly1305), not triple-DES.`,
   },
   {
     id: 'rsa-explained',

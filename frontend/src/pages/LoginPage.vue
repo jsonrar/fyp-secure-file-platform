@@ -31,7 +31,10 @@ async function login() {
       throw new Error('Login response did not contain an access token')
     }
     // The refresh token is what keeps the session alive past the access token's 30 minutes.
-    auth.setSession(token, res.data?.data?.refresh_token ?? '')
+    const loggedInAs =
+      (typeof res.data?.data?.user?.username === 'string' && res.data.data.user.username) ||
+      username.value.trim()
+    auth.setSession(token, res.data?.data?.refresh_token ?? '', loggedInAs)
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : HOME_AFTER_LOGIN
     router.push(redirect)
   } catch (error) {
