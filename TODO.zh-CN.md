@@ -3,8 +3,9 @@
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
 本文件于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境重新核对，
-并于 2026-09-04 再次对照当前工作树检查。GitHub Issues 是可执行 backlog；本文件只提供带链接
-的优先级摘要，不再成为另一份会漂移的清单。
+并于 2026-09-04 再次对照当前工作树检查。GitHub Issues 是可执行 backlog，团队通过
+[SecureView Development Board](https://github.com/users/Waldo0926/projects/1) 共用 Kanban
+视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
 下方已交付 MVP 能力继续保持勾选。当前工作树尚未完整满足任何未勾选 Issue #52–#60 的整体
 验收目标：其中部分已有基础实现，但仍缺 CI、运维证据或角色感知 UI，因此不会把“部分完成”

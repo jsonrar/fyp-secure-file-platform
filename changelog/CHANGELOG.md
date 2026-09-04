@@ -44,6 +44,19 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 - Added a step-by-step website guide, role boundaries, a FastAPI request/layer walkthrough, and a map of the changelog's main work streams. The new explanations connect user actions to the trust and transaction boundaries behind them, making the repository usable as both an operating guide and a technical handover rather than only a setup sheet.
 - 新增逐步网站操作指南、角色边界、FastAPI 请求/分层流程及 Changelog 主要工作线索引。这些说明把用户操作与背后的信任边界、事务边界连接起来，使仓库既能作为操作指南，也能用于技术交接，而不只是一张安装清单。
 
+### Shared Kanban delivery board / 团队共用 Kanban 交付看板
+
+- Created the private [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
+  with Backlog, Ready, In progress, In review, and Done columns; added Priority (P0/P1/P2) and
+  Estimate fields; imported Issues #52–#61; placed the three open P0 release blockers in Ready,
+  the remaining open hardening work in Backlog, and completed synchronization Issue #61 in Done.
+  Jason (`jsonrar`), Junyan (`jlii0421`), and Chen Tai (`Charter888`) have writer access.
+- 已建立私有 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)，
+  配置 Backlog、Ready、In progress、In review 与 Done 五列，并增加 Priority（P0/P1/P2）和
+  Estimate 字段；Issues #52–#61 已全部导入，三个开放 P0 发布阻塞项进入 Ready，其余开放加固项
+  进入 Backlog，已完成的同步 Issue #61 进入 Done。Jason（`jsonrar`）、Junyan（`jlii0421`）及
+  Chen Tai（`Charter888`）拥有编辑权限。
+
 ### One current status, not six drifting versions / 一份当前状态，而非六份漂移版本
 
 - Rebuilt both READMEs and TODOs from `main`, the full shared changelog, current tests, and the

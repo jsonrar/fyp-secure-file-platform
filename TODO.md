@@ -4,8 +4,10 @@
 
 Updated 2026-09-03 from GitHub `main`, the shared changelog, the repository tests, and the
 live staging deployment; rechecked against the current worktree on 2026-09-04. GitHub Issues
-are the executable backlog; this file is the prioritized summary and must link to them rather
-than becoming a second, drifting list.
+are the executable backlog, and the
+[SecureView Development Board](https://github.com/users/Waldo0926/projects/1) is the shared
+Kanban view; this file is the prioritized summary and must link to them rather than becoming
+a second, drifting list.
 
 The shipped MVP capabilities below remain checked. The current worktree does not yet satisfy
 the complete acceptance goal of any unchecked Issue #52–#60: some have foundations in place,
