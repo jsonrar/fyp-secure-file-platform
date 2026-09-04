@@ -44,6 +44,23 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 - Added a step-by-step website guide, role boundaries, a FastAPI request/layer walkthrough, and a map of the changelog's main work streams. The new explanations connect user actions to the trust and transaction boundaries behind them, making the repository usable as both an operating guide and a technical handover rather than only a setup sheet.
 - 新增逐步网站操作指南、角色边界、FastAPI 请求/分层流程及 Changelog 主要工作线索引。这些说明把用户操作与背后的信任边界、事务边界连接起来，使仓库既能作为操作指南，也能用于技术交接，而不只是一张安装清单。
 
+### Shared Kanban delivery board / 团队共用 Kanban 交付看板
+
+- Created the private [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
+  with six filtered views and Status, Priority, Estimate, Category, Completion, and Record fields.
+  Imported Issues #52–#61 and all 49 relevant PRs, then audited the proposal into 24 WBS work
+  packages, seven milestones, seven acceptance criteria, and nine direct CT work packages. The
+  resulting 106 records show 89 Done, five In progress, two In review, three Ready, and seven
+  Backlog; `docs/PROPOSAL_TRACEABILITY.md` records the evidence and non-evidence for every proposal
+  item. Jason (`jsonrar`), Junyan (`jlii0421`), and Chen Tai (`Charter888`) have writer access.
+- 已建立私有 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)，
+  建立六个筛选视图，并配置 Status、Priority、Estimate、Category、Completion 与 Record 字段。
+  Issues #52–#61 及 49 条相关 PR 已全部导入，提案内容另拆为 24 个 WBS 工作包、7 个里程碑、
+  7 条验收标准和 9 个未走 PR 的 CT 直接工作包。最终 106 条记录包括 89 个 Done、5 个
+  In progress、2 个 In review、3 个 Ready 及 7 个 Backlog；
+  `docs/PROPOSAL_TRACEABILITY.md` 逐项记录证据与尚缺证据。Jason（`jsonrar`）、Junyan
+  （`jlii0421`）及 Chen Tai（`Charter888`）拥有编辑权限。
+
 ### One current status, not six drifting versions / 一份当前状态，而非六份漂移版本
 
 - Rebuilt both READMEs and TODOs from `main`, the full shared changelog, current tests, and the

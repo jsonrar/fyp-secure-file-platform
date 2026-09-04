@@ -47,7 +47,8 @@ passphrase 或私钥文件解锁、空闲自动上锁、上传前认证加密、
 剩余工作属于生产级加固，而非基础演示尚未闭环：强制 CI/MySQL 8.4 门禁、修改 passphrase 与
 后继密钥 UI、完整管理/恢复专员页面、加密异地备份与恢复演练、定时对账、可观测性及正式安全
 评审。优先级摘要见 [TODO.zh-CN.md](TODO.zh-CN.md)，带验收标准的可执行工作统一放在
-[GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)。
+[GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues) 与团队共用的
+[SecureView Development Board](https://github.com/users/Waldo0926/projects/1)。
 
 ## 网站如何使用
 
@@ -223,6 +224,11 @@ Changelog 使用两条互补的记录：
 
 - `changelog/CHANGELOG.md`：已经交付了什么，以及为什么重要。
 - GitHub Issues：剩余可执行工作、负责人、讨论及验收标准。
+- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)：分别展示当前
+  backlog、提案 WBS、里程碑、验收标准、PR 证据和 CT 直接工作包，并按 Backlog、Ready、
+  In progress、In review 与 Done 管理。
+- [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：从提案承诺到仓库及部署
+  证据的带日期追踪表。
 - `TODO.zh-CN.md`：链接到 Issues 的优先级摘要，不再维护第二套独立 backlog。
 - `README.zh-CN.md`：面向用户的当前能力、设置步骤与部署入口。
 

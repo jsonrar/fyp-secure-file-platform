@@ -56,7 +56,8 @@ The remaining work is production hardening rather than an unfinished basic demo:
 and MySQL 8.4 gates, passphrase-change and successor-key UI, complete admin/recovery-officer
 screens, encrypted off-server backup/restore drills, scheduled reconciliation, observability,
 and formal security review. The prioritized summary is in [TODO.md](TODO.md), and executable
-work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues).
+work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)
+and the team's [SecureView Development Board](https://github.com/users/Waldo0926/projects/1).
 
 ## Using the Website
 
@@ -255,6 +256,11 @@ newer entry closes an old limitation, prefer the newer entry, the current README
 
 - `changelog/CHANGELOG.md`: what shipped and why it mattered.
 - GitHub Issues: executable remaining work, ownership, discussion, and acceptance criteria.
+- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1): separate views
+  for active backlog, the proposal WBS, milestones, acceptance criteria, PR evidence, and direct
+  CT work packages through Backlog, Ready, In progress, In review, and Done.
+- [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): the dated evidence map from
+  proposal commitments to repository and deployment results.
 - `TODO.md`: prioritized summary linked to those Issues, not a second independent backlog.
 - `README.md`: current user-facing capabilities, setup, and deployment entry points.
 
