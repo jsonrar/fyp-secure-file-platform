@@ -3,12 +3,19 @@
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
 Updated 2026-09-03 from GitHub `main`, the shared changelog, the repository tests, and the
-live staging deployment. GitHub Issues are the executable backlog; this file is the
-prioritized summary and must link to them rather than becoming a second, drifting list.
+live staging deployment; rechecked against the current worktree on 2026-09-04. GitHub Issues
+are the executable backlog; this file is the prioritized summary and must link to them rather
+than becoming a second, drifting list.
+
+The shipped MVP capabilities below remain checked. The current worktree does not yet satisfy
+the complete acceptance goal of any unchecked Issue #52–#60: some have foundations in place,
+but CI, operational evidence, or the remaining role-aware UI is still missing. Partial work is
+therefore not marked complete.
 
 ## Shipped MVP baseline
 
-- [x] Email-code registration and login-password reset, real login/logout, refresh rotation,
+- [x] Email-code registration and login-password reset, login plus local browser logout,
+  backend session-revocation endpoints, refresh rotation,
   session invalidation, account deletion, throttling, Argon2id password hashing, and RBAC.
 - [x] Browser-held account-key enrolment, passphrase/private-key-file unlock, idle relock, and
   historical key-bundle retrieval without sending plaintext private keys to the server.

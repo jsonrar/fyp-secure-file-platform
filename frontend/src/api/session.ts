@@ -8,6 +8,7 @@
  */
 const ACCESS_TOKEN_KEY = 'access_token'
 const REFRESH_TOKEN_KEY = 'refresh_token'
+const USERNAME_KEY = 'auth_username'
 
 export interface SessionTokens {
   accessToken: string
@@ -20,6 +21,19 @@ export function readAccessToken(): string {
 
 export function readRefreshToken(): string {
   return localStorage.getItem(REFRESH_TOKEN_KEY) || ''
+}
+
+export function readUsername(): string {
+  return localStorage.getItem(USERNAME_KEY) || ''
+}
+
+export function writeUsername(username: string): void {
+  const trimmed = username.trim()
+  if (trimmed) {
+    localStorage.setItem(USERNAME_KEY, trimmed)
+  } else {
+    localStorage.removeItem(USERNAME_KEY)
+  }
 }
 
 export function writeSession(tokens: SessionTokens): void {
@@ -36,6 +50,7 @@ export function writeSession(tokens: SessionTokens): void {
 export function clearSession(): void {
   localStorage.removeItem(ACCESS_TOKEN_KEY)
   localStorage.removeItem(REFRESH_TOKEN_KEY)
+  localStorage.removeItem(USERNAME_KEY)
 }
 
 /**

@@ -1,10 +1,43 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { ArrowRight, CheckCircle2, Info, Shield } from 'lucide-vue-next'
-import { algorithms, type AlgorithmId } from '@/data/education/algorithms'
+import {
+  algorithms,
+  algorithmFamilyLabels,
+  type AlgorithmFamily,
+  type AlgorithmId,
+  type AlgorithmInfo,
+} from '@/data/education/algorithms'
+import AlgorithmDemoPanel from '@/components/education/AlgorithmDemoPanel.vue'
 
-const selectedId = ref<AlgorithmId>('aes')
+type SidebarEntry =
+  | { kind: 'family'; family: AlgorithmFamily; label: string; items: AlgorithmInfo[] }
+  | { kind: 'item'; algo: AlgorithmInfo }
+
+const selectedId = ref<AlgorithmId>('aes256')
 const selected = computed(() => algorithms.find((a) => a.id === selectedId.value)!)
+
+const sidebar = computed<SidebarEntry[]>(() => {
+  const entries: SidebarEntry[] = []
+  const seenFamilies = new Set<AlgorithmFamily>()
+
+  for (const algo of algorithms) {
+    if (algo.family) {
+      if (seenFamilies.has(algo.family)) continue
+      seenFamilies.add(algo.family)
+      entries.push({
+        kind: 'family',
+        family: algo.family,
+        label: algorithmFamilyLabels[algo.family],
+        items: algorithms.filter((a) => a.family === algo.family),
+      })
+      continue
+    }
+    entries.push({ kind: 'item', algo })
+  }
+
+  return entries
+})
 
 const typeBadge: Record<string, string> = {
   symmetric: 'Symmetric',
@@ -12,44 +45,82 @@ const typeBadge: Record<string, string> = {
   hash: 'Hash Function',
   kdf: 'Key Derivation',
 }
+
+const roundsHint = computed(() => {
+  if (selected.value.id === 'aes128') return 'AES-128 · 10 rounds'
+  if (selected.value.id === 'aes256') return 'AES-256 · 14 rounds'
+  return selected.value.demo.posterLabel
+})
 </script>
 
 <template>
   <div class="grid lg:grid-cols-[240px_1fr] gap-6">
     <aside class="space-y-2">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 mb-3">Select Algorithm</p>
-      <button
-        v-for="algo in algorithms"
-        :key="algo.id"
-        type="button"
-        class="w-full text-left rounded-lg border px-4 py-3 transition-colors"
-        :class="
-          selectedId === algo.id
-            ? 'border-primary bg-primary/10 text-foreground'
-            : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
-        "
-        @click="selectedId = algo.id"
-      >
-        <span class="font-semibold block">{{ algo.shortLabel }}</span>
-        <span class="text-xs mt-0.5 block opacity-80">{{ typeBadge[algo.type] }}</span>
-      </button>
+
+      <template v-for="entry in sidebar" :key="entry.kind === 'family' ? entry.family : entry.algo.id">
+        <div v-if="entry.kind === 'family'" class="rounded-lg border border-border bg-card overflow-hidden">
+          <p class="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+            {{ entry.label }}
+          </p>
+          <button
+            v-for="algo in entry.items"
+            :key="algo.id"
+            type="button"
+            class="w-full text-left px-4 py-2.5 transition-colors border-t border-border/70"
+            :class="
+              selectedId === algo.id
+                ? 'bg-primary/10 text-foreground'
+                : 'text-muted-foreground hover:bg-secondary/50 hover:text-foreground'
+            "
+            @click="selectedId = algo.id"
+          >
+            <span class="font-semibold block">{{ algo.shortLabel }}</span>
+            <span class="text-xs mt-0.5 block opacity-80">{{ typeBadge[algo.type] }}</span>
+          </button>
+        </div>
+
+        <button
+          v-else
+          type="button"
+          class="w-full text-left rounded-lg border px-4 py-3 transition-colors"
+          :class="
+            selectedId === entry.algo.id
+              ? 'border-primary bg-primary/10 text-foreground'
+              : 'border-border bg-card text-muted-foreground hover:border-primary/40 hover:text-foreground'
+          "
+          @click="selectedId = entry.algo.id"
+        >
+          <span class="font-semibold block">{{ entry.algo.shortLabel }}</span>
+          <span class="text-xs mt-0.5 block opacity-80">{{ typeBadge[entry.algo.type] }}</span>
+        </button>
+      </template>
     </aside>
 
-    <article class="rounded-xl border border-border bg-card p-6 md:p-8">
+    <article class="rounded-xl border border-border bg-card p-6 md:p-8 flex flex-col">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <span class="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full mb-3">
             <Shield class="h-3.5 w-3.5" />
             {{ typeBadge[selected.type] }}
+            <template v-if="selected.family"> · {{ algorithmFamilyLabels[selected.family] }}</template>
           </span>
           <h3 class="text-2xl font-bold text-foreground">{{ selected.name }}</h3>
           <p class="text-muted-foreground mt-2 max-w-2xl">{{ selected.tagline }}</p>
         </div>
       </div>
 
-      <p class="text-sm text-foreground leading-relaxed mb-8">{{ selected.summary }}</p>
+      <p class="text-sm text-foreground leading-relaxed mb-6">{{ selected.summary }}</p>
 
-      <div class="mb-8">
+      <div class="my-4 flex min-h-[14rem] w-full flex-1 items-center justify-center">
+        <AlgorithmDemoPanel
+          :demo="selected.demo"
+          :algorithm-id="selected.id"
+          :rounds-hint="roundsHint"
+        />
+      </div>
+
+      <div class="mb-8 mt-6">
         <h4 class="text-sm font-semibold text-foreground mb-4 flex items-center gap-2">
           <ArrowRight class="h-4 w-4 text-primary" />
           How It Works

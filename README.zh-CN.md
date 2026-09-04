@@ -49,6 +49,36 @@ passphrase 或私钥文件解锁、空闲自动上锁、上传前认证加密、
 评审。优先级摘要见 [TODO.zh-CN.md](TODO.zh-CN.md)，带验收标准的可执行工作统一放在
 [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)。
 
+## 网站如何使用
+
+### 普通用户流程
+
+1. **注册**：在 `/register` 填写用户名、邮箱、登录密码和独立的加密 passphrase，并通过邮箱
+   验证码。浏览器本地生成 RSA 密钥对、AMK 和加密私钥包；注册完成时应立即把一次性提供的
+   `.pem` 私钥文件移出下载目录并安全保存。登录密码用于认证，加密 passphrase 用于解锁文件，
+   两者不能互相替代。
+2. **登录与工作台**：在 `/login` 登录后进入 `/dashboard`。Access token 即将失效时，前端会
+   使用一次性轮换的 refresh token 自动续期；无法续期时才清除会话并返回登录页。
+3. **加密上传**：在 `/upload` 选择文件和算法。浏览器先生成每文件 DEK，再在本地执行认证加密，
+   用账户 RSA 公钥包装 DEK；服务器收到的是密文、公开元数据和包装后的密钥，不会收到明文文件
+   或明文 DEK。
+4. **文件管理**：在 `/files` 搜索或翻页查看“我的文件”和“分享给我的文件”。下载时先校验服务端
+   密文 SHA-256，再由浏览器解包 DEK、验证 AEAD tag 并保存明文；认证失败时不会保存残缺文件。
+5. **分享与撤销**：所有者输入现有用户的准确用户名。浏览器使用接收者公钥重新包装同一个 DEK，
+   接收者随后用自己的 passphrase 解密；服务器始终看不到 DEK。撤销只阻止今后的服务器介导访问，
+   无法收回接收者已经下载并解密的副本。
+6. **审计与账户操作**：`/audit-logs` 展示登录、上传、下载、分享、撤销等记录。所有者可以查看
+   自己文件上的活动，接收者只能查看与自己有关的记录，ADMIN 可以验证完整哈希链。忘记登录密码
+   可通过邮箱验证码重置；忘记加密 passphrase 时只能使用注册时另存的 `.pem` 解锁当前会话。
+
+### 角色与管理流程
+
+- `USER` 使用上传、下载、分享、撤销和个人审计功能。
+- `ADMIN` 可通过后端 API 管理用户/文件、验证审计链、登记恢复公钥并复核恢复请求。
+- `RECOVERY_OFFICER` 可参与恢复复核，但不能批准自己创建的请求。
+- `/admin` 当前只提供有限的恢复请求概览；完整管理员与恢复专员操作界面仍在 backlog 中，因此
+  现阶段需要通过经授权的 API/OpenAPI 客户端完成部分管理操作。
+
 ## HTTP 方法策略
 
 应用 API 只使用 `GET` 和 `POST`。`GET` 仅用于只读操作；新增、更新、删除、撤销及其他所有
@@ -69,6 +99,44 @@ passphrase 或私钥文件解锁、空闲自动上锁、上传前认证加密、
 | 文件加密 | AES-128/192/256-GCM 与 ChaCha20-Poly1305（默认 AES-256-GCM） |
 | 密钥封装 | 使用 SHA-256 的 RSA-OAEP |
 | 密码哈希 | Argon2id（`pwdlib`） |
+
+## FastAPI 后端概览
+
+FastAPI 是本项目的 HTTP/API 框架，不负责浏览器端文件解密。它负责校验请求、认证和授权、组织
+业务用例、管理数据库事务、访问密文存储，并生成 OpenAPI 契约。应用入口是
+`backend/app/main.py`，应用工厂在启动时装配配置、SQLAlchemy Engine/Session 工厂、密码哈希
+管理器、中间件、异常处理器和 `/api/v1` 路由；关闭时释放数据库连接池。
+
+一次典型请求按以下方向流动：
+
+```text
+浏览器 Axios 请求
+  -> FastAPI 中间件（请求体上限、CORS）
+  -> Router（路径、Pydantic 请求/响应、Depends）
+  -> 身份/RBAC 依赖（Bearer token -> ActorContext）
+  -> Service（用例、事务、审计、存储补偿）
+  -> Repository / SQLAlchemy Session + 加密对象存储
+  -> 统一 JSON 响应
+```
+
+各层职责如下：
+
+- `api/v1/routers/`：定义 Auth、Keys、Files、Sharing、Audit、Recovery 和 Admin 端点；只处理
+  HTTP 输入输出，不直接写 SQL 或操作文件系统。
+- `api/dependencies.py`：为每个请求创建数据库 Session，解析 Bearer token，并提供 ADMIN／恢复
+  复核角色检查和各类 Service。
+- `schemas/`：使用 Pydantic 严格校验传输 DTO，同时驱动 OpenAPI/Swagger 文档。
+- `services/`：拥有一个用例的事务边界，协调 repository、密文存储、领域规则和审计追加。
+- `repositories/` 与 `models/`：分别封装数据库操作和 SQLAlchemy 持久化模型；repository 可以
+  查询、添加和 `flush`，但不自行 `commit`。
+- `core/`：集中管理环境配置、数据库连接和 Argon2id/Bearer 等安全基础能力。
+
+业务 API 统一挂载在 `/api/v1`。公开端点主要是验证码、注册、登录、密码重置和 refresh；其余
+端点通过 `Depends` 要求有效 Bearer token，敏感操作再执行角色或资源级授权。成功响应使用
+`success/status/message/data/code` 信封；领域异常由统一处理器映射为稳定 HTTP 响应。
+`/health/live` 只检查进程是否存活，`/health/ready` 还会执行数据库查询并要求数据库保存的
+Schema revision 精确等于 `0006_chacha20_poly1305`。本地默认提供 `/docs`、`/redoc` 和
+`/openapi.json`，部署环境可通过 `APP_DOCS_ENABLED` 整体卸载这些路由。
 
 ## 仓库结构
 
@@ -110,18 +178,46 @@ fyp-secure-file-platform/
 |   |-- DATABASE_SCHEMA.md
 |   |-- DEPLOYMENT.md
 |   |-- AUTOMATIC_DEPLOYMENT.md
+|   |-- E2E_TESTING.md
 |   |-- SECURITY_FLOWS.md
-|   `-- PROJECT_SCOPE.md
+|   |-- PROJECT_SCOPE.md
+|   `-- crypto/
+|       |-- FILE_ENVELOPE.md
+|       `-- test_vectors.json
+|-- recovery_keys/
+|-- TODO.md
+|-- TODO.zh-CN.md
 |-- .env.example
 |-- .gitignore
 `-- docker-compose.yml
 ```
 
-## 更改日志
+## 更改日志：记录什么、怎样维护
 
-团队做过的所有变更及其原因，都记录在 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)；
-分工作包的记录存放在 [`changelog/work-packages/`](changelog/work-packages/)。添加条目前请先读
-[`changelog/README.md`](changelog/README.md)，其中写明了哪类记录该写进哪一份。
+Changelog 使用两条互补的记录：
+
+- [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 记录**产品已经发生的变化以及为什么重要**，
+  例如新增端点、修复安全缺陷、改变 API 契约、部署行为变化。当前内容位于
+  `[Unreleased] / [未发布]`，通常越靠上越新。
+- [`changelog/work-packages/`](changelog/work-packages/) 记录**一项工作怎样推进**，包括起始
+  commit、范围、验证方法和有意保留的限制。已交付功能同时改变了产品时，两边都要写，它们不是
+  重复记录。
+
+现有 Changelog 的主要工作线包括：
+
+1. **客户端密码学**：账户密钥登记、AES-GCM/ChaCha20-Poly1305 文件信封、下载解密、`.pem`
+   解锁、分享时 DEK 重包装及跨语言测试向量。
+2. **认证和账户安全**：邮箱验证码、密码重置、Argon2id 策略、refresh 轮换、会话失效及账户注销。
+3. **文件与共享体验**：分页/搜索、所有者与接收文件分区、完整性状态、分享通知、撤销和逐文件历史。
+4. **审计与隐私**：哈希链、审计字段契约、可读标签、文件名解析，以及“只能看见自己相关活动或
+   自己拥有文件的活动”的可见性规则。
+5. **数据库和运维**：MySQL 最小权限 SQL、Schema revision、对账清理、HTTPS、nginx/fail2ban、
+   自动部署、失败 SHA 隔离及备份/上线约束。
+6. **界面与开发环境**：登录后导航、主题/品牌、团队页，以及依赖锁定、typecheck 和测试基线。
+
+新增记录前先阅读 [`changelog/README.md`](changelog/README.md)：在对应主题下写英文与简体中文
+成对条目，说明“为什么重要”，而不只是复述 diff。历史条目描述的是当时状态；若后续条目修复了
+旧限制，应以更新的条目、当前 README 和代码为准。
 
 ## 团队工作流与唯一事实来源
 

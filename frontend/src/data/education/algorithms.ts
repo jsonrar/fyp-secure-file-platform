@@ -1,16 +1,32 @@
-export type AlgorithmId = 'aes' | 'rsa' | 'sha' | 'des3des' | 'chacha20' | 'argon2id'
+export type AlgorithmId = 'aes128' | 'aes256' | 'rsa' | 'sha' | 'chacha20' | 'argon2id'
 
 export type AlgorithmType = 'symmetric' | 'asymmetric' | 'hash' | 'kdf'
+
+export type AlgorithmFamily = 'aes'
 
 export interface AlgorithmStep {
   title: string
   description: string
 }
 
+/** Optional video URL; when absent the explorer plays a built-in CSS animation. */
+export interface AlgorithmDemo {
+  kind: 'animation' | 'video'
+  title: string
+  description: string
+  /** Built-in animation scene id rendered by AlgorithmExplorer. */
+  animationId: 'aes-rounds' | 'rsa-keys' | 'sha-digest' | 'chacha-stream' | 'argon2-memory'
+  /** Optional hosted video (mp4/webm). Leave empty until a clip is ready. */
+  videoSrc?: string
+  posterLabel: string
+}
+
 export interface AlgorithmInfo {
   id: AlgorithmId
   name: string
   shortLabel: string
+  /** When set, sidebar groups this topic under a family heading (e.g. AES). */
+  family?: AlgorithmFamily
   type: AlgorithmType
   tagline: string
   summary: string
@@ -19,39 +35,99 @@ export interface AlgorithmInfo {
   strengths: string[]
   limitations: string[]
   keyFacts: string[]
+  demo: AlgorithmDemo
+}
+
+export const algorithmFamilyLabels: Record<AlgorithmFamily, string> = {
+  aes: 'AES',
 }
 
 export const algorithms: AlgorithmInfo[] = [
   {
-    id: 'aes',
-    name: 'AES (Advanced Encryption Standard)',
-    shortLabel: 'AES',
+    id: 'aes128',
+    name: 'AES-128',
+    shortLabel: 'AES-128',
+    family: 'aes',
     type: 'symmetric',
-    tagline: 'Industry-standard symmetric encryption for files and data at rest.',
+    tagline: '128-bit key AES — fast, NIST-approved, and still considered secure for most uses.',
     summary:
-      'AES uses the same secret key to encrypt and decrypt data. It processes data in fixed-size blocks (128 bits) through multiple rounds of substitution and permutation, making brute-force attacks impractical at 256-bit key sizes.',
+      'AES-128 uses a 128-bit secret key and always processes data in 128-bit blocks. It runs 10 transformation rounds (SubBytes, ShiftRows, MixColumns, AddRoundKey). SecureView does not currently expose AES-128 for uploads, but it remains an important standard to understand alongside AES-256.',
     howItWorks: [
       {
-        title: 'Key setup',
-        description: 'A shared secret key (128, 192, or 256 bits) is agreed upon by sender and receiver before any data is encrypted.',
+        title: '128-bit key setup',
+        description: 'Sender and receiver share a 128-bit (16-byte) secret. The key schedule expands it into 11 round keys (one for the initial AddRoundKey plus 10 rounds).',
       },
       {
-        title: 'Block division',
-        description: 'Plaintext is split into 128-bit blocks. Each block is transformed through the AES round function.',
+        title: '10 encryption rounds',
+        description: 'Each 128-bit block passes through 10 rounds. Rounds 1–9 use all four transformations; the final round skips MixColumns.',
       },
       {
-        title: 'Round transformations',
-        description: 'Each round applies SubBytes, ShiftRows, MixColumns, and AddRoundKey using derived round keys.',
+        title: 'Block transformations',
+        description: 'SubBytes substitutes bytes, ShiftRows permutes rows, MixColumns mixes columns, and AddRoundKey XORs a round key into the state.',
       },
       {
         title: 'Decryption',
-        description: 'The receiver applies inverse round operations in reverse order with the same secret key.',
+        description: 'Inverse operations run in reverse order with the same 128-bit key. Security rests on keeping that key secret — the algorithm itself is public.',
       },
     ],
-    useCases: ['File encryption on SecureView', 'Database encryption', 'VPN tunnels', 'Disk encryption (BitLocker, FileVault)'],
-    strengths: ['Very fast on modern hardware', 'Well-studied and widely trusted', 'Supports large files efficiently'],
-    limitations: ['Both parties must securely share the same key', 'Key compromise exposes all encrypted data'],
-    keyFacts: ['AES-256 is used by SecureView for file encryption', 'NIST approved in 2001', 'No practical attacks against full AES-256'],
+    useCases: ['TLS cipher suites', 'Lightweight device encryption', 'Teaching AES round structure', 'Systems that need AES with shorter keys'],
+    strengths: ['Fewer rounds than AES-256 — often faster', 'Still no practical attack against full AES-128', 'Widely hardware-accelerated (AES-NI)'],
+    limitations: ['Smaller security margin than AES-256', 'Same key-sharing problem as any symmetric cipher', 'Not the default for SecureView file encryption'],
+    keyFacts: [
+      'Key length: 128 bits · Rounds: 10 · Block size: 128 bits',
+      'AES-192 is omitted here for now — SecureView focuses on 128 and 256',
+      'NIST approved AES in 2001; AES-128 remains approved for many uses',
+    ],
+    demo: {
+      kind: 'animation',
+      title: 'AES-128 round flow',
+      description: 'Watch a 128-bit block move through the 10-round AES pipeline.',
+      animationId: 'aes-rounds',
+      posterLabel: 'AES-128 · 10 rounds',
+    },
+  },
+  {
+    id: 'aes256',
+    name: 'AES-256',
+    shortLabel: 'AES-256',
+    family: 'aes',
+    type: 'symmetric',
+    tagline: '256-bit key AES — SecureView’s default for encrypting files in the browser.',
+    summary:
+      'AES-256 uses a 256-bit secret key with the same 128-bit block size as other AES variants, but runs 14 rounds instead of 10. The larger key and extra rounds give a higher security margin. SecureView encrypts file content with AES-256-GCM in the browser before upload.',
+    howItWorks: [
+      {
+        title: '256-bit key setup',
+        description: 'A 256-bit (32-byte) secret is expanded into 15 round keys. SecureView keeps this key client-side; the server only stores ciphertext.',
+      },
+      {
+        title: '14 encryption rounds',
+        description: 'Each block goes through 14 rounds of SubBytes, ShiftRows, MixColumns, and AddRoundKey — four more rounds than AES-128.',
+      },
+      {
+        title: 'Authenticated mode (GCM)',
+        description: 'SecureView uses AES-GCM so encryption also produces an authentication tag. Tampering is detected on decrypt, not only confidentiality.',
+      },
+      {
+        title: 'Decryption',
+        description: 'Inverse rounds with the same 256-bit key recover plaintext only if the GCM tag verifies. Wrong keys or altered ciphertext fail closed.',
+      },
+    ],
+    useCases: ['SecureView file encryption', 'Disk encryption', 'Government and enterprise at-rest data', 'Long-term archival of sensitive files'],
+    strengths: ['Largest AES key size in common use', 'Extra rounds increase security margin', 'Hardware accelerated on modern CPUs'],
+    limitations: ['Slightly more computation than AES-128', 'Both parties must protect the same secret key', 'Key compromise exposes all data under that key'],
+    keyFacts: [
+      'Key length: 256 bits · Rounds: 14 · Block size: 128 bits',
+      'AES-256-GCM is SecureView’s default file encryption suite',
+      'AES-192 is out of scope on this education page for now',
+    ],
+    demo: {
+      kind: 'animation',
+      title: 'AES-256 round flow',
+      description: 'Watch a block move through the longer 14-round AES-256 pipeline used by SecureView.',
+      animationId: 'aes-rounds',
+      posterLabel: 'AES-256 · 14 rounds',
+    },
   },
   {
     id: 'rsa',
@@ -68,7 +144,7 @@ export const algorithms: AlgorithmInfo[] = [
       },
       {
         title: 'Encryption with public key',
-        description: 'Anyone encrypts using the recipient\'s public key. Only the matching private key can decrypt.',
+        description: "Anyone encrypts using the recipient's public key. Only the matching private key can decrypt.",
       },
       {
         title: 'Digital signatures',
@@ -83,6 +159,13 @@ export const algorithms: AlgorithmInfo[] = [
     strengths: ['No pre-shared secret needed for key delivery', 'Enables digital signatures', 'Foundation of PKI infrastructure'],
     limitations: ['Slow for large files', 'Vulnerable if key size is too small', 'Requires secure key storage'],
     keyFacts: ['Minimum 2048-bit keys recommended today', 'Often paired with AES in hybrid encryption', 'Used in SecureView for wrapping file keys'],
+    demo: {
+      kind: 'animation',
+      title: 'RSA key exchange sketch',
+      description: 'See how a public key locks data that only the matching private key can open.',
+      animationId: 'rsa-keys',
+      posterLabel: 'RSA · public / private',
+    },
   },
   {
     id: 'sha',
@@ -114,37 +197,13 @@ export const algorithms: AlgorithmInfo[] = [
     strengths: ['Deterministic and fast', 'Collision-resistant in practice', 'Fixed output size regardless of input'],
     limitations: ['Not encryption — cannot decrypt a hash', 'Rainbow tables without salt (passwords)', 'Not a substitute for AES/RSA'],
     keyFacts: ['SHA-256 output is always 64 hex characters', 'Used for file hash verification in SecureView', 'Part of the SHA-2 family (SHA-224/256/384/512)'],
-  },
-  {
-    id: 'des3des',
-    name: 'DES / 3DES',
-    shortLabel: 'DES / 3DES',
-    type: 'symmetric',
-    tagline: 'Historical block ciphers — DES is obsolete; 3DES extended its life but is now deprecated.',
-    summary:
-      'DES (Data Encryption Standard) uses a 56-bit key and 64-bit blocks. 3DES applies DES three times with two or three keys (112/168-bit effective strength). Both are largely replaced by AES due to small key sizes and performance.',
-    howItWorks: [
-      {
-        title: 'DES block structure',
-        description: 'Each 64-bit block passes through 16 Feistel rounds with substitution (S-boxes) and permutation.',
-      },
-      {
-        title: 'Key schedule',
-        description: 'The 56-bit key generates 16 round subkeys used in each Feistel round.',
-      },
-      {
-        title: '3DES triple application',
-        description: '3DES encrypts with Key1, decrypts with Key2, encrypts again with Key3 (EDE mode): E(K1) → D(K2) → E(K3).',
-      },
-      {
-        title: 'Why deprecated',
-        description: '56-bit DES keys are brute-forced in hours. 3DES is slow and offers only 112-bit security — NIST deprecated it in 2023.',
-      },
-    ],
-    useCases: ['Legacy banking systems (being phased out)', 'Historical reference', 'Understanding Feistel cipher design'],
-    strengths: ['Simple Feistel structure taught in textbooks', '3DES was a practical DES upgrade for decades', 'Influenced modern block cipher design'],
-    limitations: ['DES key space is far too small today', '3DES is slow compared to AES', 'Officially deprecated — use AES instead'],
-    keyFacts: ['DES published in 1977, broken by brute force in 1998', '3DES effective key: 112 bits (meet-in-the-middle attack)', 'NIST recommends AES for all new systems'],
+    demo: {
+      kind: 'animation',
+      title: 'SHA digest flow',
+      description: 'Any input collapses to a fixed-length fingerprint — change one bit and the digest changes completely.',
+      animationId: 'sha-digest',
+      posterLabel: 'SHA · one-way digest',
+    },
   },
   {
     id: 'chacha20',
@@ -176,6 +235,13 @@ export const algorithms: AlgorithmInfo[] = [
     strengths: ['Fast in software without AES-NI hardware', 'Resistant to timing side-channel attacks', 'Simple, auditable design'],
     limitations: ['Nonce must never be reused with the same key', 'Less hardware acceleration than AES on some platforms', 'Requires Poly1305 for integrity in practice'],
     keyFacts: ['Designed by Daniel Bernstein (2008)', 'Used in Chrome HTTPS and Android', 'RFC 8439 standardizes ChaCha20-Poly1305'],
+    demo: {
+      kind: 'animation',
+      title: 'ChaCha20 keystream XOR',
+      description: 'A keystream is generated, then XORed with plaintext to produce ciphertext.',
+      animationId: 'chacha-stream',
+      posterLabel: 'ChaCha20 · stream XOR',
+    },
   },
   {
     id: 'argon2id',
@@ -207,6 +273,13 @@ export const algorithms: AlgorithmInfo[] = [
     strengths: ['Memory-hard — defeats GPU/ASIC brute force', 'Argon2id resists both side-channel and GPU attacks', 'Configurable cost parameters scale with hardware'],
     limitations: ['Higher memory use than bcrypt', 'Wrong parameters can be too fast or too slow', 'Not for encrypting files directly — use for passwords/KDF'],
     keyFacts: ['Winner of Password Hashing Competition (2015)', 'Argon2id = hybrid of Argon2i and Argon2d', 'Recommended by OWASP for password hashing'],
+    demo: {
+      kind: 'animation',
+      title: 'Argon2id memory-hard pass',
+      description: 'Password and salt fill a large memory region before a compact hash is emitted.',
+      animationId: 'argon2-memory',
+      posterLabel: 'Argon2id · memory-hard',
+    },
   },
 ]
 
