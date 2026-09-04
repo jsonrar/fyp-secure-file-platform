@@ -24,14 +24,30 @@ function readStoredPreference(): ThemePreference {
   return isThemePreference(saved) ? saved : 'system'
 }
 
+function applyTheme(nextTheme: ResolvedTheme) {
+  document.documentElement.classList.toggle('dark', nextTheme === 'dark')
+}
+
+/**
+ * One preference for the whole app, held at module scope.
+ *
+ * The header, the account menu, and the settings page all read and write this. Given a ref
+ * created per call, changing the theme on the settings page would leave the header's copy
+ * showing the old value -- two controls for one setting, disagreeing about what it is.
+ */
+const preference = ref<ThemePreference>(readStoredPreference())
+const resolvedTheme = computed(() => resolveTheme(preference.value))
+
+watch(
+  preference,
+  (next) => {
+    applyTheme(resolveTheme(next))
+    localStorage.setItem(STORAGE_KEY, next)
+  },
+  { immediate: true },
+)
+
 export function useTheme() {
-  const preference = ref<ThemePreference>(readStoredPreference())
-  const resolvedTheme = computed(() => resolveTheme(preference.value))
-
-  const applyTheme = (nextTheme: ResolvedTheme) => {
-    document.documentElement.classList.toggle('dark', nextTheme === 'dark')
-  }
-
   const setPreference = (next: ThemePreference) => {
     preference.value = next
   }
@@ -52,15 +68,6 @@ export function useTheme() {
   onBeforeUnmount(() => {
     mediaQuery?.removeEventListener('change', onSystemChange)
   })
-
-  watch(
-    preference,
-    (next) => {
-      applyTheme(resolveTheme(next))
-      localStorage.setItem(STORAGE_KEY, next)
-    },
-    { immediate: true },
-  )
 
   return { preference, resolvedTheme, setPreference }
 }

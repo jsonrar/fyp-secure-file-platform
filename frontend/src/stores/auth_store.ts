@@ -1,32 +1,32 @@
 import { defineStore } from 'pinia'
 
-import {
-  clearSession,
-  readAccessToken,
-  readUsername,
-  writeSession,
-  writeUsername,
-} from '@/api/session'
+import { authApi, type AuthUserOut } from '@/api/auth_api'
+import { clearSession, readAccessToken, writeSession } from '@/api/session'
 import { forgetUnlockedKeys } from '@/crypto/download'
 import { forgetSeenShares } from '@/utils/seen-shares'
+
+/**
+ * Two letters for the avatar. `jlii0421` has no second word to take an initial from, so a
+ * single-word name falls back to its first two characters rather than rendering one lonely
+ * letter in a circle sized for two.
+ */
+function toInitials(username: string): string {
+  const parts = username.split(/[^A-Za-z0-9]+/).filter(Boolean)
+  if (parts.length === 0) return '?'
+  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
+  return (parts[0][0] + parts[1][0]).toUpperCase()
+}
 
 export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: readAccessToken(),
-    username: readUsername(),
+    user: null as AuthUserOut | null,
   }),
   getters: {
     isAuthed: (state) => Boolean(state.accessToken),
-    /** One or two letters for the header avatar when no photo is available. */
-    avatarInitials: (state) => {
-      const name = state.username.trim()
-      if (!name) return '?'
-      const parts = name.split(/[\s._-]+/).filter(Boolean)
-      if (parts.length >= 2) {
-        return `${parts[0]![0] ?? ''}${parts[1]![0] ?? ''}`.toUpperCase()
-      }
-      return name.slice(0, 2).toUpperCase()
-    },
+    /** The header renders before `/auth/me` answers, so this has to survive a null user. */
+    displayName: (state) => state.user?.username ?? 'Account',
+    initials: (state) => (state.user ? toInitials(state.user.username) : '?'),
   },
   actions: {
     /**
@@ -35,25 +35,40 @@ export const useAuthStore = defineStore('auth', {
      * The refresh token was previously dropped on the floor at login, which is why a
      * session died 30 minutes in: the credential that exists to renew it was never stored.
      */
-    setSession(accessToken: string, refreshToken: string, username = '') {
+    setSession(accessToken: string, refreshToken: string) {
       this.accessToken = accessToken
       writeSession({ accessToken, refreshToken })
-      if (username.trim()) {
-        this.setUsername(username)
-      }
-    },
-    setUsername(username: string) {
-      this.username = username.trim()
-      writeUsername(this.username)
     },
     /** Adopt a token the refresh interceptor has already written to storage. */
     syncFromStorage() {
       this.accessToken = readAccessToken()
-      this.username = readUsername()
+    },
+    /**
+     * Who is signed in, for the avatar and the profile page.
+     *
+     * Cached, because every authenticated screen wants the same answer and the identity does
+     * not change mid-session. A failure leaves `user` null instead of throwing: the account
+     * menu is navigation chrome, and it must not be the thing that breaks a working page.
+     */
+    async loadUser(force = false) {
+      if (!this.accessToken) {
+        this.user = null
+        return null
+      }
+      if (this.user && !force) return this.user
+      try {
+        const response = await authApi.me()
+        this.user = response.data?.data?.user ?? null
+      } catch {
+        this.user = null
+      }
+      return this.user
     },
     logout() {
       this.accessToken = ''
-      this.username = ''
+      // Otherwise the next account to sign in at this machine inherits the previous one's
+      // name and email in the avatar menu until `/auth/me` answers.
+      this.user = null
       clearSession()
       // The unwrapped account key outlives the token otherwise: the next person at this
       // machine would sign in and find the previous session's files already decryptable.
