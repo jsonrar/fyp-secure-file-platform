@@ -11,6 +11,10 @@
 验收目标：其中部分已有基础实现，但仍缺 CI、运维证据或角色感知 UI，因此不会把“部分完成”
 误标为完成。
 
+提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：
+24 个 WBS 工作包中 20 个 Done、3 个 In progress、1 个 Backlog；7 条产品验收标准中 6 条
+Done，剩余的分阶段进度提示为 In progress。
+
 ## 已交付 MVP 基线
 
 - [x] 邮箱验证码注册与重置登录密码、登录与浏览器本地登出、后端会话撤销端点、refresh 轮换、

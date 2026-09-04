@@ -14,6 +14,11 @@ the complete acceptance goal of any unchecked Issue #52–#60: some have foundat
 but CI, operational evidence, or the remaining role-aware UI is still missing. Partial work is
 therefore not marked complete.
 
+The proposal audit is recorded in
+[`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): 20 of 24 WBS packages are
+Done, three are In progress, and one is Backlog. Six of seven product acceptance criteria are
+Done; the remaining progress-pipeline criterion is In progress.
+
 ## Shipped MVP baseline
 
 - [x] Email-code registration and login-password reset, login plus local browser logout,

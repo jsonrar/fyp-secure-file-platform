@@ -224,8 +224,11 @@ Changelog 使用两条互补的记录：
 
 - `changelog/CHANGELOG.md`：已经交付了什么，以及为什么重要。
 - GitHub Issues：剩余可执行工作、负责人、讨论及验收标准。
-- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)：将这些 Issue
-  按 Backlog、Ready、In progress、In review 与 Done 展示的团队 Kanban 看板。
+- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)：分别展示当前
+  backlog、提案 WBS、里程碑、验收标准、PR 证据和 CT 直接工作包，并按 Backlog、Ready、
+  In progress、In review 与 Done 管理。
+- [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：从提案承诺到仓库及部署
+  证据的带日期追踪表。
 - `TODO.zh-CN.md`：链接到 Issues 的优先级摘要，不再维护第二套独立 backlog。
 - `README.zh-CN.md`：面向用户的当前能力、设置步骤与部署入口。
 

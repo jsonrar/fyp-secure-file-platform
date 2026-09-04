@@ -47,15 +47,19 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 ### Shared Kanban delivery board / 团队共用 Kanban 交付看板
 
 - Created the private [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
-  with Backlog, Ready, In progress, In review, and Done columns; added Priority (P0/P1/P2) and
-  Estimate fields; imported Issues #52–#61; placed the three open P0 release blockers in Ready,
-  the remaining open hardening work in Backlog, and completed synchronization Issue #61 in Done.
-  Jason (`jsonrar`), Junyan (`jlii0421`), and Chen Tai (`Charter888`) have writer access.
+  with six filtered views and Status, Priority, Estimate, Category, Completion, and Record fields.
+  Imported Issues #52–#61 and all 49 relevant PRs, then audited the proposal into 24 WBS work
+  packages, seven milestones, seven acceptance criteria, and nine direct CT work packages. The
+  resulting 106 records show 89 Done, five In progress, two In review, three Ready, and seven
+  Backlog; `docs/PROPOSAL_TRACEABILITY.md` records the evidence and non-evidence for every proposal
+  item. Jason (`jsonrar`), Junyan (`jlii0421`), and Chen Tai (`Charter888`) have writer access.
 - 已建立私有 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)，
-  配置 Backlog、Ready、In progress、In review 与 Done 五列，并增加 Priority（P0/P1/P2）和
-  Estimate 字段；Issues #52–#61 已全部导入，三个开放 P0 发布阻塞项进入 Ready，其余开放加固项
-  进入 Backlog，已完成的同步 Issue #61 进入 Done。Jason（`jsonrar`）、Junyan（`jlii0421`）及
-  Chen Tai（`Charter888`）拥有编辑权限。
+  建立六个筛选视图，并配置 Status、Priority、Estimate、Category、Completion 与 Record 字段。
+  Issues #52–#61 及 49 条相关 PR 已全部导入，提案内容另拆为 24 个 WBS 工作包、7 个里程碑、
+  7 条验收标准和 9 个未走 PR 的 CT 直接工作包。最终 106 条记录包括 89 个 Done、5 个
+  In progress、2 个 In review、3 个 Ready 及 7 个 Backlog；
+  `docs/PROPOSAL_TRACEABILITY.md` 逐项记录证据与尚缺证据。Jason（`jsonrar`）、Junyan
+  （`jlii0421`）及 Chen Tai（`Charter888`）拥有编辑权限。
 
 ### One current status, not six drifting versions / 一份当前状态，而非六份漂移版本
 
