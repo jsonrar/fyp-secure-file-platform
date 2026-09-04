@@ -11,6 +11,8 @@ import AuditLogPage from '@/pages/AuditLogPage.vue'
 import AdminPage from '@/pages/AdminPage.vue'
 import CommunityPage from '@/pages/CommunityPage.vue'
 import TeamPage from '@/pages/TeamPage.vue'
+import ProfilePage from '@/pages/ProfilePage.vue'
+import SettingsPage from '@/pages/SettingsPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -27,6 +29,8 @@ const router = createRouter({
     { path: '/files', component: FileListPage, meta: { requiresAuth: true } },
     { path: '/audit-logs', component: AuditLogPage, meta: { requiresAuth: true } },
     { path: '/admin', component: AdminPage, meta: { requiresAuth: true } },
+    { path: '/profile', component: ProfilePage, meta: { requiresAuth: true } },
+    { path: '/settings', component: SettingsPage, meta: { requiresAuth: true } },
     { path: '/education', component: CommunityPage },
     { path: '/team', component: TeamPage },
   ],

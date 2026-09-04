@@ -18,10 +18,14 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
-### Signed-in profile avatar / 登录后个人头像
+### Account avatar menu, profile, and settings / 账户头像菜单、个人资料与设置
 
-- Added a circular profile avatar at the top-left of the header for signed-in users, using username initials and linking to the dashboard. Without a visible account mark, a signed-in session looked the same as a guest session in the brand corner; the avatar makes the active identity obvious at a glance.
-- 已在页头左上角为登录用户加入圆形个人头像（用户名首字母），并链到 Dashboard。此前品牌角上看不出是否已登录；头像让当前身份一眼可辨。
+- Added a circular account avatar in the header for signed-in users. Hovering opens a menu carrying theme selection, Settings, and Log out; clicking the avatar opens the new `/profile` page. The header previously spent its right-hand corner on a standalone theme dropdown plus a bare "Log Out" button, and there was no way at all to see which account you were signed in as — the app knew, and never said.
+- 已为登录用户在页头加入圆形账户头像。悬停展开菜单，内含主题选择、设置与登出；点击头像进入新的 `/profile` 页面。此前页头右上角被独立的主题下拉框和一个孤立的 "Log Out" 按钮占据，而且完全无法看出当前登录的是哪个账户——应用知道，却从不说出来。
+- Added `/profile` and `/settings`, both behind the auth guard, reading identity from `GET /auth/me` through a new cached `user` in the auth store. The store clears that user on logout, because otherwise the next account to sign in on the same machine would inherit the previous one's name and email in the avatar until the request came back.
+- 已新增 `/profile` 与 `/settings` 两个受登录守卫保护的页面，通过 auth store 中新增的带缓存 `user` 状态读取 `GET /auth/me` 的身份信息。登出时会清空该用户，否则同一台机器上下一个登录的账户会在请求返回之前，在头像中沿用上一位用户的用户名与邮箱。
+- Made `useTheme` hold its preference at module scope instead of creating a ref per call. The header, the avatar menu, and the settings page are now three controls for one setting; with a ref each, changing the theme in settings would have left the header displaying the value it no longer had.
+- 已将 `useTheme` 的偏好设置提升到模块作用域，而不再每次调用都新建 ref。页头、头像菜单与设置页现在是同一项设置的三个入口；若各持一份 ref，在设置页切换主题会让页头继续显示它已经不再持有的值。
 
 ### Education algorithms and software demos / 教育页算法与软件演示
 

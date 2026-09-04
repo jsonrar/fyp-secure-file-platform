@@ -1,9 +1,9 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ChevronDown, Menu, Monitor, Moon, Sun, X } from 'lucide-vue-next'
+import { ChevronDown, Menu, Monitor, Moon, Settings, Sun, UserRound, X } from 'lucide-vue-next'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import SecureViewMark from '@/components/brand/SecureViewMark.vue'
-import { authApi } from '@/api/auth_api'
+import UserMenu from '@/components/UserMenu.vue'
 import { useAuthStore } from '@/stores/auth_store'
 import type { ThemePreference } from '@/composables/useTheme'
 
@@ -107,28 +107,8 @@ function onDocumentPointerDown(event: PointerEvent) {
   closeThemeMenus()
 }
 
-function handleLogout() {
-  auth.logout()
-  emit('close-mobile-menu')
-  router.push('/login')
-}
-
-async function hydrateUsername() {
-  if (!auth.isAuthed || auth.username) return
-  try {
-    const res = await authApi.me()
-    const name = res.data?.data?.user?.username
-    if (typeof name === 'string' && name.trim()) {
-      auth.setUsername(name)
-    }
-  } catch {
-    // Avatar can fall back to "?" until the next successful login.
-  }
-}
-
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
-  void hydrateUsername()
 })
 
 onBeforeUnmount(() => {
@@ -136,42 +116,30 @@ onBeforeUnmount(() => {
 })
 
 watch(
-  () => auth.isAuthed,
-  (authed) => {
-    if (authed) void hydrateUsername()
-  },
-)
-
-watch(
   () => props.isMobileMenuOpen,
   (open) => {
     if (!open) closeThemeMenus()
   },
 )
+
+function handleLogout() {
+  auth.logout()
+  emit('close-mobile-menu')
+  router.push('/login')
+}
 </script>
 
 <template>
   <header :class="`border-b border-border bg-card/50 backdrop-blur-sm sticky z-50 transition-all duration-500 ${isScrolled ? 'top-4 mx-4 rounded-2xl shadow-lg' : 'top-0'}`">
     <div class="container mx-auto px-4 py-4">
       <div class="flex items-center justify-between">
-        <div class="flex items-center gap-3 min-w-0">
-          <RouterLink
-            v-if="auth.isAuthed"
-            to="/dashboard"
-            class="profile-avatar shrink-0"
-            :title="auth.username || 'Your profile'"
-            :aria-label="auth.username ? `Open dashboard for ${auth.username}` : 'Open dashboard'"
-          >
-            <span aria-hidden="true">{{ auth.avatarInitials }}</span>
-          </RouterLink>
-          <RouterLink
-            to="/"
-            :class="`inline-flex items-center min-w-0 ${headerText}`"
-            aria-label="SecureView home"
-          >
-            <SecureViewMark variant="logo" class="h-9" />
-          </RouterLink>
-        </div>
+        <RouterLink
+          to="/"
+          :class="`inline-flex items-center ${headerText}`"
+          aria-label="SecureView home"
+        >
+          <SecureViewMark variant="logo" class="h-9" />
+        </RouterLink>
 
         <nav class="hidden md:flex items-center gap-6">
           <RouterLink
@@ -186,7 +154,9 @@ watch(
         </nav>
 
         <div class="hidden md:flex items-center gap-3">
-          <div ref="desktopThemeRoot" class="relative shrink-0">
+          <!-- Signed in, the theme control lives in the avatar menu instead: one account
+               dropdown rather than two adjacent dropdowns in the same corner. -->
+          <div v-if="!auth.isAuthed" ref="desktopThemeRoot" class="relative shrink-0">
             <button
               type="button"
               :class="themeTriggerClass"
@@ -245,12 +215,10 @@ watch(
             >
               Dashboard
             </RouterLink>
-            <button
-              :class="`h-9 px-4 rounded-md ${headerText} hover:bg-secondary transition-colors`"
-              @click="handleLogout"
-            >
-              Log Out
-            </button>
+            <UserMenu
+              :theme-preference="themePreference"
+              @set-theme-preference="emit('set-theme-preference', $event)"
+            />
           </template>
         </div>
 
@@ -345,6 +313,23 @@ watch(
             >
               Dashboard
             </RouterLink>
+            <!-- Touch has no hover, so the avatar dropdown's destinations are listed here. -->
+            <RouterLink
+              to="/profile"
+              :class="`h-9 px-4 rounded-md inline-flex items-center gap-2 ${headerText} hover:bg-secondary transition-colors`"
+              @click="emit('close-mobile-menu')"
+            >
+              <UserRound class="h-4 w-4 shrink-0" />
+              Profile
+            </RouterLink>
+            <RouterLink
+              to="/settings"
+              :class="`h-9 px-4 rounded-md inline-flex items-center gap-2 ${headerText} hover:bg-secondary transition-colors`"
+              @click="emit('close-mobile-menu')"
+            >
+              <Settings class="h-4 w-4 shrink-0" />
+              Settings
+            </RouterLink>
             <button
               :class="`h-9 px-4 rounded-md text-left ${headerText} hover:bg-secondary transition-colors`"
               @click="handleLogout"
@@ -357,28 +342,3 @@ watch(
     </div>
   </header>
 </template>
-
-<style scoped>
-.profile-avatar {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
-  border-radius: 999px;
-  border: 2px solid color-mix(in oklab, var(--primary) 45%, var(--border));
-  background: color-mix(in oklab, var(--primary) 14%, var(--card));
-  color: var(--primary);
-  font-size: 0.75rem;
-  font-weight: 700;
-  letter-spacing: 0.02em;
-  line-height: 1;
-  transition: border-color 0.2s ease, background 0.2s ease, transform 0.2s ease;
-}
-
-.profile-avatar:hover {
-  border-color: var(--primary);
-  background: color-mix(in oklab, var(--primary) 22%, var(--card));
-  transform: scale(1.04);
-}
-</style>

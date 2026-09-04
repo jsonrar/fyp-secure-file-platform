@@ -28,16 +28,24 @@ export interface RegisterPayload {
   key_material: ClientKeyMaterial
 }
 
+/** Mirrors the backend `AuthUserResponse`, which is what `/auth/me` and login both return. */
+export interface AuthUserOut {
+  id: string
+  username: string
+  email: string
+  role: string
+  status: string
+  email_verified: boolean
+  created_at: string
+  last_login_at: string | null
+}
+
+export interface AuthMeData {
+  user: AuthUserOut
+}
+
 export interface RegisterData {
-  user: {
-    id: string
-    username: string
-    email: string
-    role: string
-    status: string
-    email_verified: boolean
-    created_at: string
-  }
+  user: AuthUserOut
   key_id: string
   public_key_fingerprint: string
 }
@@ -96,7 +104,7 @@ export const authApi = {
     return http.post('/auth/logout')
   },
   me() {
-    return http.get('/auth/me')
+    return http.get<ApiEnvelope<AuthMeData>>('/auth/me')
   },
   /** Close the account and destroy the files it owns. Not reversible. */
   deleteAccount(payload: DeleteAccountPayload) {
