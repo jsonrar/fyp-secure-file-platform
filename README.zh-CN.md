@@ -226,7 +226,8 @@ Changelog 使用两条互补的记录：
 - GitHub Issues：剩余可执行工作、负责人、讨论及验收标准。
 - [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)：分别展示当前
   backlog、提案 WBS、里程碑、验收标准、PR 证据和 CT 直接工作包，并按 Backlog、Ready、
-  In progress、In review 与 Done 管理。
+  In progress、In review 与 Done 管理。历史上直接进入 `main` 的工作通过明确的 Contributor
+  与 Commit evidence 字段记录，不会虚构追溯 PR。
 - [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：从提案承诺到仓库及部署
   证据的带日期追踪表。
 - `TODO.zh-CN.md`：链接到 Issues 的优先级摘要，不再维护第二套独立 backlog。

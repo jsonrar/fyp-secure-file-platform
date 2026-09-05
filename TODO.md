@@ -3,7 +3,7 @@
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
 Updated 2026-09-03 from GitHub `main`, the shared changelog, the repository tests, and the
-live staging deployment; rechecked against the current worktree on 2026-09-04. GitHub Issues
+live staging deployment; rechecked against the current worktree on 2026-09-05. GitHub Issues
 are the executable backlog, and the
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1) is the shared
 Kanban view; this file is the prioritized summary and must link to them rather than becoming
@@ -17,7 +17,9 @@ therefore not marked complete.
 The proposal audit is recorded in
 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): 20 of 24 WBS packages are
 Done, three are In progress, and one is Backlog. Six of seven product acceptance criteria are
-Done; the remaining progress-pipeline criterion is In progress.
+Done; the remaining progress-pipeline criterion is In progress. Milestone M3 is Done based on
+the supervisor-reviewed and signed MVP/UI checkpoint; the supervisor's 70–80% whole-project
+assessment describes that historical checkpoint rather than an exact current completion value.
 
 ## Shipped MVP baseline
 
