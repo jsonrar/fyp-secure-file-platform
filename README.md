@@ -258,7 +258,9 @@ newer entry closes an old limitation, prefer the newer entry, the current README
 - GitHub Issues: executable remaining work, ownership, discussion, and acceptance criteria.
 - [SecureView Development Board](https://github.com/users/Waldo0926/projects/1): separate views
   for active backlog, the proposal WBS, milestones, acceptance criteria, PR evidence, and direct
-  CT work packages through Backlog, Ready, In progress, In review, and Done.
+  CT work packages through Backlog, Ready, In progress, In review, and Done. Historical
+  direct-to-main work uses explicit Contributor and Commit evidence fields rather than a
+  fabricated retroactive PR.
 - [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): the dated evidence map from
   proposal commitments to repository and deployment results.
 - `TODO.md`: prioritized summary linked to those Issues, not a second independent backlog.

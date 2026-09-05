@@ -18,6 +18,13 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### CT contribution evidence and supervisor checkpoint / CT 贡献证据与导师检查点
+
+- Reconciled all nine Chen Tai work packages with their original direct-to-`main` commits and exposed both Contributor and Commit evidence on the shared board. CT-1.0 is now accurately described as environment/documentation preparation and CT-1.1 as a baseline audit; implementation begins at CT-1.2. All nine commits are already ancestors of current `main`, so no duplicate merge or invented retroactive PR is needed. The current targeted regression suites pass 147 frontend cryptography tests and 10 backend schema tests.
+- 已将 Chen Tai 的 9 个工作包逐项绑定原始直接进入 `main` 的 commit，并在共用看板展示 Contributor 与 Commit evidence。CT-1.0 已准确更正为环境/文档准备，CT-1.1 为既有基线审计，实际实现从 CT-1.2 开始。9 个 commit 均已存在于当前 `main` 的祖先历史中，因此无需重复合并，也不会虚构追溯 PR；当前针对性回归套件通过 147 个前端密码学测试及 10 个后端 Schema 测试。
+- Corrected milestone M3 from In review to Done using the team's confirmed historical evidence: the supervisor reviewed the MVP/UI demonstration, signed the submitted material, accepted the checkpoint, and assessed the whole project as approximately 70–80% complete at that time. That percentage records the historical checkpoint and is not presented as an exact current completion measurement.
+- 已根据团队确认的历史证据，将 M3 从 In review 更正为 Done：导师已查看 MVP/UI 演示、签署提交材料、接受该检查点，并在当时判断整个项目约完成 70–80%。该比例仅记录历史检查点，不作为当前完成度的精确测量。
+
 ### Account avatar menu, profile, and settings / 账户头像菜单、个人资料与设置
 
 - Added a circular account avatar in the header for signed-in users. Hovering opens a menu carrying theme selection, Settings, and Log out; clicking the avatar opens the new `/profile` page. The header previously spent its right-hand corner on a standalone theme dropdown plus a bare "Log Out" button, and there was no way at all to see which account you were signed in as — the app knew, and never said.
@@ -48,16 +55,16 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 - Created the private [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
   with six filtered views and Status, Priority, Estimate, Category, Completion, and Record fields.
-  Imported Issues #52–#61 and all 49 relevant PRs, then audited the proposal into 24 WBS work
+  Imported Issues #52–#61 and the relevant PRs, then audited the proposal into 24 WBS work
   packages, seven milestones, seven acceptance criteria, and nine direct CT work packages. The
-  resulting 106 records show 89 Done, five In progress, two In review, three Ready, and seven
+  board now carries 107 records showing 91 Done, five In progress, one In review, three Ready, and seven
   Backlog; `docs/PROPOSAL_TRACEABILITY.md` records the evidence and non-evidence for every proposal
   item. Jason (`jsonrar`), Junyan (`jlii0421`), and Chen Tai (`Charter888`) have writer access.
 - 已建立私有 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)，
   建立六个筛选视图，并配置 Status、Priority、Estimate、Category、Completion 与 Record 字段。
-  Issues #52–#61 及 49 条相关 PR 已全部导入，提案内容另拆为 24 个 WBS 工作包、7 个里程碑、
-  7 条验收标准和 9 个未走 PR 的 CT 直接工作包。最终 106 条记录包括 89 个 Done、5 个
-  In progress、2 个 In review、3 个 Ready 及 7 个 Backlog；
+  Issues #52–#61 及相关 PR 已导入，提案内容另拆为 24 个 WBS 工作包、7 个里程碑、
+  7 条验收标准和 9 个未走 PR 的 CT 直接工作包。看板现有 107 条记录，包括 91 个 Done、5 个
+  In progress、1 个 In review、3 个 Ready 及 7 个 Backlog；
   `docs/PROPOSAL_TRACEABILITY.md` 逐项记录证据与尚缺证据。Jason（`jsonrar`）、Junyan
   （`jlii0421`）及 Chen Tai（`Charter888`）拥有编辑权限。
 

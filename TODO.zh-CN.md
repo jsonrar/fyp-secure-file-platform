@@ -3,7 +3,7 @@
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
 本文件于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境重新核对，
-并于 2026-09-04 再次对照当前工作树检查。GitHub Issues 是可执行 backlog，团队通过
+并于 2026-09-05 再次对照当前工作树检查。GitHub Issues 是可执行 backlog，团队通过
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1) 共用 Kanban
 视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
@@ -14,6 +14,8 @@
 提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：
 24 个 WBS 工作包中 20 个 Done、3 个 In progress、1 个 Backlog；7 条产品验收标准中 6 条
 Done，剩余的分阶段进度提示为 In progress。
+M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师所说的全项目约 70–80%
+是该历史检查点的判断，不是对当前完成度的精确测量。
 
 ## 已交付 MVP 基线
 

@@ -1,6 +1,6 @@
 # Proposal-to-Delivery Traceability
 
-Audited on **2026-09-04** against the FIT3161 MCS21 Project Proposal Report, GitHub `main`,
+Audited on **2026-09-05** against the FIT3161 MCS21 Project Proposal Report, GitHub `main`,
 all pull requests and commits, current repository tests, and the public staging deployment.
 This is an evidence map, not a claim that every completed implementation has received final
 academic or independent-security approval.
@@ -8,8 +8,10 @@ academic or independent-security approval.
 The live source of truth is the
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1). Its views separate
 active backlog, proposal WBS, milestones, acceptance criteria, PR evidence, and direct CT work
-packages. The audit imported **49 PR records** (48 merged and one open), retained the ten active
-Issue records, and added proposal/commit traceability for work that was not represented by a PR.
+packages. The board currently contains **107 records**: 56 pull requests (52 merged, one open,
+and three closed without merge), ten Issues, and proposal/commit traceability records for work
+that was not represented by a PR. Historical direct-to-main work is attributed through the
+board's Contributor and Commit evidence fields rather than being given a fabricated PR history.
 
 ## Status rules
 
@@ -21,17 +23,16 @@ Issue records, and added proposal/commit traceability for work that was not repr
 | In review | Implementation exists, but an explicit review/sign-off artefact is missing | 90% |
 | Done | Repository/deployment evidence satisfies the stated work package | 100% |
 
-Commits are evidence for work packages; they are not treated as 150 independent tasks. GitHub
-Issues and PRs share one number sequence, so the repository currently has **52 PRs**, not 62:
-48 merged, one open, and three closed without merge. `main` contains 150 commits, including 89
-non-merge commits.
+Commits are evidence for work packages; they are not treated as independent tasks. GitHub
+Issues and PRs share one number sequence, so the repository currently has **56 PRs**, not 65:
+52 merged, one open, and three closed without merge. `main` contains 159 commits.
 
 ## Proposal WBS audit
 
 | WBS | Work package | Status | Primary evidence or remaining gap |
 | --- | --- | --- | --- |
 | 1.1 | Functional and non-functional requirements | Done | Proposal Sections 3–4; `docs/PROJECT_SCOPE.md`; PR #62 |
-| 1.2 | Scope definition and supervisor review | Done | Assessed proposal and maintained scope; meeting/verbal evidence remains outside GitHub |
+| 1.2 | Scope definition and supervisor review | Done | Supervisor reviewed the MVP demonstration, signed the submitted proposal material, accepted the checkpoint, and assessed the whole project as approximately 70–80% complete at that time |
 | 1.3 | Goals and core vision | Done | README goal and deployed product |
 | 2.1 | Competitive analysis | Done | Proposal background study and selected differentiators |
 | 2.2 | Privacy and OWASP threat modelling | In progress | Implemented controls; formal assessment and independent review remain in Issue #60 |
@@ -64,11 +65,39 @@ non-merge commits.
 | --- | --- | --- |
 | M1 Scope finalised | Done | Assessed proposal and maintained scope artefacts |
 | M2 REST API contract | Done | Documented and live OpenAPI contract |
-| M3 Figma prototypes reviewed | In review | Interfaces are implemented; attach/export the Figma and explicit sign-off evidence |
+| M3 Figma prototypes reviewed | Done | Supervisor reviewed the MVP/UI demonstration, signed the submitted material, accepted the checkpoint, and assessed the whole project as approximately 70–80% complete at that time; the interfaces are now also implemented and deployed |
 | M4 Core cryptographic modules | Done | AES, RSA, SHA/integrity, Argon2id and ChaCha20 implementations/tests |
 | M5 Feature freeze | Done | Browser MVP complete; remaining work explicitly classified as hardening/assurance |
 | M6 Full system integration | Done | Public HTTPS stack and live two-account MVP test |
 | M7 Final demo readiness | In progress | Close/accept P0 CI, MySQL and backup blockers; complete usability and progress-pipeline evidence |
+
+**Milestone summary:** 6 Done and 1 In progress. The supervisor's 70–80% assessment is evidence
+for the completed historical checkpoint, not a claim that the current repository has an exact
+70–80% completion value.
+
+## Chen Tai cryptography contribution traceability
+
+The nine CT work packages were delivered directly to `main` before the team adopted reviewed
+pull requests. They are already ancestors of current `main`; they must not be cherry-picked or
+merged again. The Development Board now attributes every item to **Chen Tai** and exposes its
+full commit URL in the **Commit evidence** field.
+
+| Package | Verified scope | Commit |
+| --- | --- | --- |
+| CT-1.0 | Prepared the cryptography development environment and documentation; no application or cryptography implementation changed | [`9593e753`](https://github.com/jsonrar/fyp-secure-file-platform/commit/9593e753ecadfcc37f3afb56c5f1f92bf3aaea29) |
+| CT-1.1 | Audited the existing cryptography baseline and recorded limitations; no new primitive was implemented | [`99e2f972`](https://github.com/jsonrar/fyp-secure-file-platform/commit/99e2f972862c55d5f39d066152bb491cac8164bc) |
+| CT-1.2 | Implemented browser cryptographic primitives | [`415202e6`](https://github.com/jsonrar/fyp-secure-file-platform/commit/415202e661b8c8da30b40458424a8361d6febdb5) |
+| CT-1.3 | Defined and validated the encrypted-file envelope | [`9f89ea56`](https://github.com/jsonrar/fyp-secure-file-platform/commit/9f89ea56867ec086f1d2a721942a10c4868a128d) |
+| CT-1.4 | Completed encrypted browser upload | [`8e174c6e`](https://github.com/jsonrar/fyp-secure-file-platform/commit/8e174c6e10ff601e06b8f60243ec8b64e8369380) |
+| CT-1.5 | Provisioned recovery-key wrapping | [`f3c36a20`](https://github.com/jsonrar/fyp-secure-file-platform/commit/f3c36a20aa88fd8395b224a9b495d745dc1be62e) |
+| CT-1.6 | Connected the encrypted-file list | [`aa4e8589`](https://github.com/jsonrar/fyp-secure-file-platform/commit/aa4e858965c61af06e2390bff2a8d55092abfd84) |
+| CT-1.7 | Added selectable AES key lengths | [`e04f5fcd`](https://github.com/jsonrar/fyp-secure-file-platform/commit/e04f5fcdd170e1dad2c62b91139af93a02da97fe) |
+| CT-1.8 | Added ChaCha20-Poly1305 | [`6c8821a5`](https://github.com/jsonrar/fyp-secure-file-platform/commit/6c8821a5dd00edc58b8c6dce7ef7a5bad749b4a9) |
+
+Current-code regression evidence is stronger than the historical commit messages alone: the
+targeted frontend primitive, envelope, upload, download and sharing suite passes **147 tests**,
+and the targeted backend migration/model/production-SQL suite passes **10 tests**. This does not
+replace the remaining required CI, browser E2E, MySQL or independent-security evidence.
 
 ## Product acceptance audit
 
@@ -88,7 +117,6 @@ non-merge commits.
 2. Prove encrypted off-server backup plus clean-host restore (Issue #56).
 3. Conduct and document non-expert usability testing (WBS 5.4).
 4. Implement the exact four-stage, dismissible processing feedback required by AC7.
-5. Attach the Figma/supervisor-review artefact before changing M3 from In review to Done.
 
 These records should be updated in the same PR that changes their evidence. A runtime change is
 not Done until the merged SHA is deployed and the affected live path is verified.
