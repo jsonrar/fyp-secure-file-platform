@@ -3,7 +3,8 @@
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
 Updated 2026-09-03 from GitHub `main`, the shared changelog, the repository tests, and the
-live staging deployment; rechecked against the current worktree on 2026-09-05. GitHub Issues
+live staging deployment; rechecked against the current worktree on 2026-09-05 after the Help
+page, header wayfinding, and landing polish landed on the frontend line. GitHub Issues
 are the executable backlog, and the
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1) is the shared
 Kanban view; this file is the prioritized summary and must link to them rather than becoming
@@ -23,6 +24,19 @@ assessment describes that historical checkpoint rather than an exact current com
 
 ## Shipped MVP baseline
 
+Local preview for review: How it works now has a six-step, annotated screenshot guide
+with manual navigation, optional playback, and enlargement. See
+[walkthrough notes](changelog/CHANGELOG.md#homepage-screenshot-walkthrough--首页截图操作引导).
+The capture script uses backend fixtures; this does not close
+[#58 browser E2E coverage](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
+or provide deployment evidence.
+
+Current local update (deployment pending): Core Features now loops continuously without
+the wide-screen boundary gap, preserves hover pause, and shows all cards statically for
+reduced motion. See [implementation notes](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨).
+This UI fix does not close [#58 browser E2E coverage](https://github.com/jsonrar/fyp-secure-file-platform/issues/58);
+live deployment and repeatable browser coverage remain separate acceptance work.
+
 - [x] Email-code registration and login-password reset, login plus local browser logout,
   backend session-revocation endpoints, refresh rotation,
   session invalidation, account deletion, throttling, Argon2id password hashing, and RBAC.
@@ -39,6 +53,11 @@ assessment describes that historical checkpoint rather than an exact current com
 - [x] Public staging and evaluation endpoints:
   [application](https://secureview.tech), [Swagger UI](https://secureview.tech/docs), and
   [OpenAPI JSON](https://secureview.tech/openapi.json).
+- [x] Public product pages and signed-in account chrome: landing `/`, Education
+  (`/education`: algorithms, playground, knowledge), Help (`/help`: How to Use walkthroughs),
+  Development Team mosaic under Contact us (`/team`), header active-tab theme colour, and the avatar menu with
+  `/profile` and `/settings`. Evidence and rationale live in
+  [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) under `[Unreleased]`.
 
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.
@@ -89,6 +108,35 @@ not a release pass.
 - [ ] [#60 Complete the formal threat model and independent security review](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
   — cover account envelopes, Argon2id, token/key custody, metadata, recovery, CSP, dependencies,
   and residual trust boundaries without claiming certification.
+
+## P3 — planned product UX (Issues not opened yet)
+
+Recorded 2026-09-05 as follow-on product work. These items are **not** in progress and must
+not be treated as closed by nearby UI polish. Open a GitHub Issue (and board card) before
+starting each one so acceptance criteria stay executable under [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61).
+
+- [ ] Confirm destructive actions twice before they run
+  — e.g. delete file / revoke share / delete account: a dedicated confirm dialog stating what
+  is lost, not a one-click icon.
+- [ ] Let users preview or download the ciphertext as stored
+  — optional “encrypted blob” view/download so a first-time user can see that the uploaded
+  object is not the plaintext file.
+- [ ] Folders (file shelves) and move-into-folder in My Files
+  — create shelves and move owned files between them without changing encryption or share
+  semantics.
+- [ ] Account settings entry to reset the encryption passphrase with the saved key file
+  — require the registration `.pem` (or equivalent private-key file) before replacing the
+  passphrase; complements [#54](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  and must not send plaintext keys to the server.
+- [ ] i18n language switching
+  — user-selectable locale for the product chrome (at least English / 简体中文), persisted with
+  the theme preference.
+- [ ] Avatar upload
+  — replace initials-only avatar with an optional user-uploaded image on profile / header,
+  with size and type limits.
+- [ ] Mobile layout and interaction fixes
+  — repair phone/narrow-viewport regressions across the landing, header, walkthrough, file
+  flows, and account chrome so the product is usable without a desktop browser.
 
 ## Definition of done for each Issue
 

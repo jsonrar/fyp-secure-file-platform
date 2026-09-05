@@ -1,12 +1,11 @@
 <script setup lang="ts">
 import { ref } from 'vue'
-import { BookOpen, Clapperboard, FlaskConical, GraduationCap, Layers } from 'lucide-vue-next'
+import { BookOpen, FlaskConical, GraduationCap, Layers } from 'lucide-vue-next'
 import AlgorithmExplorer from '@/components/education/AlgorithmExplorer.vue'
 import CryptoPlayground from '@/components/education/CryptoPlayground.vue'
 import KnowledgeSearch from '@/components/education/KnowledgeSearch.vue'
-import SoftwareGuide from '@/components/education/SoftwareGuide.vue'
 
-type SectionId = 'algorithms' | 'software' | 'playground' | 'knowledge'
+type SectionId = 'algorithms' | 'playground' | 'knowledge'
 
 const activeSection = ref<SectionId>('algorithms')
 
@@ -29,12 +28,6 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
     description: 'Search articles on encryption basics, keys, and best practices.',
     icon: BookOpen,
   },
-  {
-    id: 'software',
-    label: 'How to Use',
-    description: 'Video walkthroughs that show how to encrypt, upload, and share in SecureView.',
-    icon: Clapperboard,
-  },
 ]
 </script>
 
@@ -48,12 +41,12 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
         </div>
         <h1 class="text-3xl md:text-5xl font-bold text-foreground mb-4 text-balance">Learn How Encryption Works</h1>
         <p class="text-muted-foreground text-lg text-pretty">
-          Explore algorithms, watch how SecureView is used, try hands-on demos, and search the knowledge library.
+          Explore algorithms, try hands-on demos, and search the knowledge library.
         </p>
       </div>
 
       <div class="max-w-6xl mx-auto mb-10">
-        <div class="grid sm:grid-cols-2 lg:grid-cols-4 gap-3">
+        <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <button
             v-for="section in sections"
             :key="section.id"
@@ -79,7 +72,6 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
 
       <div class="max-w-6xl mx-auto">
         <AlgorithmExplorer v-if="activeSection === 'algorithms'" />
-        <SoftwareGuide v-else-if="activeSection === 'software'" />
         <CryptoPlayground v-else-if="activeSection === 'playground'" />
         <KnowledgeSearch v-else-if="activeSection === 'knowledge'" />
       </div>

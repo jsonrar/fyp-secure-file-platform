@@ -18,6 +18,38 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 
 ## [Unreleased] / [未发布]
 
+### Homepage screenshot walkthrough / 首页截图操作引导
+
+- Replaced the static How it works cards with a six-step screenshot slideshow captured from the actual upload, file list, share, unlock, and recipient screens using fabricated local data. Numbered outlines, literal button names, and expected outcomes help a first-time visitor follow the product, including re-entering the recipient after unlocking. Autoplay starts at 8 seconds per step; visitors can pause, enlarge images, or use the mobile crops. Playback pauses off-screen and stops at the final step.
+- 将静态 How it works 卡片替换为六步截图幻灯片，使用虚构本地数据从实际上传、文件列表、分享、解锁及接收者页面截图。数字定位框、实际按钮名称与预期结果帮助新用户照着操作，也明确说明解锁后需要重新填写接收者。默认每步 8 秒自动播放；用户可暂停、放大图片或使用手机裁切图。离开可视区域暂停，最后一步停止播放。
+- Finished the remaining guide polish: dedicated mobile crops for Share and Unlock, autoplay on by default at 8 seconds per step with a visible progress bar (Pause / manual navigation turns it off), checkmarks on completed steps, cross-fade copy/image transitions, keyboard focus on the shell, and swipe between steps on phones. Help now leads with a link to `/#how-it-works` so video placeholders are no longer the only onboarding path.
+- 补齐剩余引导打磨：Share/Unlock 独立手机裁切图、默认每步 8 秒自动播放并显示进度条（Pause / 手动切换可关闭）、已完成步骤勾选、文案/图片交叉淡入、幻灯外壳可键盘聚焦，以及手机滑动换步。Help 页优先链到 `/#how-it-works`，视频占位不再是唯一上手路径。
+- Added an isolated screenshot refresh script so illustrations can be regenerated when the UI changes. Its backend responses are fixtures and do not constitute integration or live-deployment evidence. This preview is local and can be reverted independently of the Core Features and brand work.
+- 新增隔离的截图更新脚本，方便界面变化后重新生成图片。脚本使用模拟后端响应，不作为集成测试或线上部署证据。本版为本地预览，可独立于 Core Features 与品牌改动回退。
+
+### Contact us page with feedback preview / Contact us 页与反馈预览
+
+- Renamed the Development Team nav label to **Contact us**, and placed a demo feedback form (name, email, topic, message) above the team mosaic on `/team`. The form only validates and shows a local success state — nothing is emailed — so the contact flow can be reviewed before a real inbox exists. The roster remains below under “Meet the people”.
+- 已将导航标签 Development Team 改为 **Contact us**，并在 `/team` 团队拼贴上方加入演示用反馈表单（姓名、邮箱、主题、留言）。表单仅做校验并显示本地成功状态，不会发信，便于在真实收件箱接通前预览联系流程；团队名单仍保留在下方的 “Meet the people” 区块。
+
+### Help page for product walkthroughs / 产品操作帮助页
+
+- Moved How to Use out of Education into a dedicated `/help` route, and placed a Help nav item between Education and Development Team. Product walkthroughs are not cryptography lessons, and burying them inside Education made both destinations harder to find; Help keeps usage guidance on its own tab while Education stays focused on algorithms, playground, and knowledge.
+- 已将 How to Use 从 Education 拆到独立的 `/help` 路由，并在 Education 与 Development Team 之间新增 Help 导航项。产品操作演示不属于密码学课程，埋在 Education 里会让两边都更难找；Help 单独承载使用指引，Education 继续专注算法、演练场与知识库。
+
+### Header navigation wayfinding / 页头导航定位
+
+- Active header tabs now use the theme primary colour, and the logo plus nav labels sit left-aligned with wider spacing. Without a colour change, a signed-in user could not tell Product, Education, Help, and Development Team apart at a glance; the active colour and left cluster make the current destination obvious while keeping actions on the right.
+- 当前所在页头标签改为使用主题主色，Logo 与导航标签左对齐并加大间距。原先仅靠字重区分时，登录用户很难一眼分清 Product、Education、Help 与 Development Team；主色高亮加左侧聚合后，当前页面一目了然，右侧操作区保持不动。
+
+### Landing hero and feature marquee polish / 首页主标题与功能滚动条打磨
+
+- Fixed the Core Features loop boundary: three identical groups now move by exactly one group's width, including its trailing gap, inside a bounded viewport. Two groups could expose empty space on wider screens before snapping back. Opposing directions and hover pause remain; reduced-motion mode shows all six features without animated or duplicated cards.
+- 修复 Core Features 周期交界处的跳闪：在限定宽度的显示区域内使用三组相同内容，每次精确移动一组宽度（含末尾间距）。原先两组内容在较宽屏幕上可能露出空白后突然补回。保留双向滚动与悬停暂停；减少动态效果模式静态展示全部六项功能，不播放动画或展示重复卡片。
+
+- Simplified the landing hero to a static centred title **"Encryption and Sharing"** (matching the Development Team title treatment) and kept the Core Features dual-row marquee with softer rounded cards, extra vertical room for hover, and a lighter hover shadow. The previous scroll-driven title handoff and clipped hover effects made the first screen harder to scan and hid the card interaction.
+- 首页主视觉改为静态居中标题 **"Encryption and Sharing"**（字重与 Development Team 一致），并保留 Core Features 双向横向滚动，卡片更圆润、上下留白更大、悬停阴影更轻。原先滚动切换大标题与被裁切的悬停效果，会让首屏更难扫读，也看不清卡片交互。
+
 ### CT contribution evidence and supervisor checkpoint / CT 贡献证据与导师检查点
 
 - Reconciled all nine Chen Tai work packages with their original direct-to-`main` commits and exposed both Contributor and Commit evidence on the shared board. CT-1.0 is now accurately described as environment/documentation preparation and CT-1.1 as a baseline audit; implementation begins at CT-1.2. All nine commits are already ancestors of current `main`, so no duplicate merge or invented retroactive PR is needed. The current targeted regression suites pass 147 frontend cryptography tests and 10 backend schema tests.
@@ -160,6 +192,15 @@ the product belong in [`work-packages/`](work-packages/) instead; see
 - 已向 `docs/crypto/test_vectors.json` 增加 AES-128-GCM 与 AES-192-GCM 的已知答案向量，由 python-cryptography 生成，而非调用浏览器代码产生。这是最关键的一道检查：离线恢复路径是 Python 实现的，一个恢复脚本无法解密的算法会产生永远拿不回来的文件。suite 1 的原有向量未作改动。
 
 ### Header theme control and brand marks / 页头主题控件与品牌标识
+
+- Unified the site's header/footer logo and standalone brand icon with the outlined favicon: a white shield, black border and eye, and transparent surroundings. Kept the wordmark theme-aware so its lettering remains readable on light and dark pages.
+- 将网站页头、页脚 Logo 及独立品牌图标统一为与 favicon 一致的黑边白色盾牌、黑色眼形和透明外围；字标继续跟随明暗主题，保证文字在两种页面背景上均清晰可读。
+
+- Changed only the browser favicon to a white shield with a black outline, black eye details, and a white keyhole on a transparent background. Versioned its HTML reference so browsers request the new icon instead of reusing the cached version; page logos keep their existing colours.
+- 仅将浏览器标签页图标改为透明背景的黑边白色盾牌，保留黑色眼形细节与白色钥匙孔。为 HTML 图标引用增加版本参数，让浏览器请求新版而非复用缓存版本；页面内 Logo 保持现有配色。
+
+- Refined the existing shield, eye, and keyhole logo with softer shield corners, more balanced eye spacing, and a single keyhole silhouette. Synchronized the wordmark symbol, standalone icon, and blue favicon while retaining outlined lettering and theme-aware colour so the identity remains consistent at small sizes and in both themes.
+- 微调现有盾牌、眼睛与钥匙孔标识：盾牌边角更圆润，眼形留白更均衡，钥匙孔统一为一体轮廓。同步完整字标中的符号、独立图标及蓝色 favicon，并保留矢量文字与主题跟随颜色，使小尺寸及明暗主题下的品牌形象保持一致。
 
 - Replaced the binary Light/Dark header toggle with a System / Light / Dark dropdown whose
   trigger stays a fixed width, so choosing an option cannot shove neighbouring Sign In /

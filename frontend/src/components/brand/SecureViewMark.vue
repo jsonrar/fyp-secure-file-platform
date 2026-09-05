@@ -1,7 +1,8 @@
 <script setup lang="ts">
 /**
- * Inline brand SVGs so `currentColor` tracks the surrounding text colour
- * (and therefore Light/Dark). A plain <img src="...svg"> cannot do that.
+ * Inline brand SVGs so the wordmark's `currentColor` tracks Light/Dark.
+ * The shield stays white with black details in both themes.
+ * A plain <img src="...svg"> cannot inherit the surrounding text colour.
  *
  * Mask / title ids are rewritten with Vue's useId so header + footer can both
  * mount the logo without one stealing the other's mask reference.

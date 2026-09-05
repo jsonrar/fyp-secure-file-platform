@@ -27,7 +27,8 @@ Backend should be running at `http://localhost:8000`.
 | `/audit-logs` | Audit access records (auth required) |
 | `/admin` | Limited admin/recovery overview (auth required) |
 | `/education` | Education page |
-| `/team` | Development team page |
+| `/help` | Product help — links to homepage picture guide; video placeholders |
+| `/team` | Contact us — feedback form preview + development team |
 
 ## Structure
 

@@ -1,7 +1,14 @@
 <script setup lang="ts">
 import { FileCheck, Key, Settings, Share2, ShieldCheck, Upload } from 'lucide-vue-next'
+import type { Component } from 'vue'
 
-const features = [
+interface FeatureItem {
+  icon: Component
+  title: string
+  description: string
+}
+
+const features: FeatureItem[] = [
   {
     icon: Upload,
     title: 'File Upload',
@@ -45,7 +52,7 @@ const secondRow = features.slice(splitIndex)
 </script>
 
 <template>
-  <section id="features" class="py-20 bg-transparent">
+  <section id="features" class="bg-transparent py-20">
     <div class="container mx-auto px-4">
       <div class="mb-16 text-center">
         <h2 class="mb-4 text-3xl font-bold text-foreground md:text-4xl">Core Features</h2>
@@ -54,36 +61,52 @@ const secondRow = features.slice(splitIndex)
         </p>
       </div>
 
-      <div class="space-y-8">
-        <div class="marquee-lane overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+      <div class="mx-auto max-w-6xl space-y-8">
+        <!-- Three equal groups cover the viewport even at the one-group loop boundary.
+             Keep the trailing gap inside each group so every seam has the same spacing. -->
+        <div class="marquee-lane overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
           <div class="marquee-track marquee-right">
-            <article
-              v-for="(feature, index) in [...firstRow, ...firstRow]"
-              :key="`row-1-${feature.title}-${index}`"
-              class="feature-card group"
+            <div
+              v-for="copy in 3"
+              :key="`row-1-copy-${copy}`"
+              class="marquee-group"
+              :aria-hidden="copy > 1 ? true : undefined"
             >
-              <div class="mb-3 w-fit rounded-2xl bg-primary/10 p-3 transition-colors group-hover:bg-primary/20">
-                <component :is="feature.icon" class="h-6 w-6 text-primary" />
-              </div>
-              <h3 class="mb-2 font-semibold text-foreground">{{ feature.title }}</h3>
-              <p class="text-sm leading-relaxed text-muted-foreground">{{ feature.description }}</p>
-            </article>
+              <article
+                v-for="feature in firstRow"
+                :key="`row-1-${copy}-${feature.title}`"
+                class="feature-card group"
+              >
+                <div class="mb-3 w-fit rounded-2xl bg-primary/10 p-3 transition-colors group-hover:bg-primary/20">
+                  <component :is="feature.icon" class="h-6 w-6 text-primary" />
+                </div>
+                <h3 class="mb-2 font-semibold text-foreground">{{ feature.title }}</h3>
+                <p class="text-sm leading-relaxed text-muted-foreground">{{ feature.description }}</p>
+              </article>
+            </div>
           </div>
         </div>
 
-        <div class="marquee-lane overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_10%,black_90%,transparent)]">
+        <div class="marquee-lane overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
           <div class="marquee-track marquee-left">
-            <article
-              v-for="(feature, index) in [...secondRow, ...secondRow]"
-              :key="`row-2-${feature.title}-${index}`"
-              class="feature-card group"
+            <div
+              v-for="copy in 3"
+              :key="`row-2-copy-${copy}`"
+              class="marquee-group"
+              :aria-hidden="copy > 1 ? true : undefined"
             >
-              <div class="mb-3 w-fit rounded-2xl bg-primary/10 p-3 transition-colors group-hover:bg-primary/20">
-                <component :is="feature.icon" class="h-6 w-6 text-primary" />
-              </div>
-              <h3 class="mb-2 font-semibold text-foreground">{{ feature.title }}</h3>
-              <p class="text-sm leading-relaxed text-muted-foreground">{{ feature.description }}</p>
-            </article>
+              <article
+                v-for="feature in secondRow"
+                :key="`row-2-${copy}-${feature.title}`"
+                class="feature-card group"
+              >
+                <div class="mb-3 w-fit rounded-2xl bg-primary/10 p-3 transition-colors group-hover:bg-primary/20">
+                  <component :is="feature.icon" class="h-6 w-6 text-primary" />
+                </div>
+                <h3 class="mb-2 font-semibold text-foreground">{{ feature.title }}</h3>
+                <p class="text-sm leading-relaxed text-muted-foreground">{{ feature.description }}</p>
+              </article>
+            </div>
           </div>
         </div>
       </div>
@@ -100,15 +123,23 @@ const secondRow = features.slice(splitIndex)
 .marquee-track {
   display: flex;
   width: max-content;
+  will-change: transform;
+}
+
+.marquee-group {
+  display: flex;
+  flex-shrink: 0;
   gap: 1.5rem;
+  /* Trailing gap matches card gap so the loop seam is identical to every other gap. */
+  padding-inline-end: 1.5rem;
 }
 
 .marquee-left {
-  animation: marquee-left 30s linear infinite;
+  animation: marquee-left 40s linear infinite;
 }
 
 .marquee-right {
-  animation: marquee-right 30s linear infinite;
+  animation: marquee-right 40s linear infinite;
 }
 
 .marquee-lane:hover .marquee-track {
@@ -138,26 +169,26 @@ const secondRow = features.slice(splitIndex)
 
 @keyframes marquee-left {
   from {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
   to {
-    transform: translateX(-50%);
+    transform: translate3d(calc(-100% / 3), 0, 0);
   }
 }
 
 @keyframes marquee-right {
   from {
-    transform: translateX(-50%);
+    transform: translate3d(calc(-100% / 3), 0, 0);
   }
   to {
-    transform: translateX(0);
+    transform: translate3d(0, 0, 0);
   }
 }
 
 @media (max-width: 768px) {
   .marquee-left,
   .marquee-right {
-    animation-duration: 22s;
+    animation-duration: 28s;
   }
 
   .feature-card {
@@ -171,6 +202,31 @@ const secondRow = features.slice(splitIndex)
   .marquee-left,
   .marquee-right {
     animation: none;
+  }
+
+  .marquee-track {
+    transform: none !important;
+    width: 100%;
+  }
+
+  .marquee-group[aria-hidden="true"] {
+    display: none;
+  }
+
+  .marquee-group {
+    width: 100%;
+    flex-wrap: wrap;
+    justify-content: center;
+    padding-inline-end: 0;
+  }
+
+  .feature-card {
+    min-width: 0;
+    width: 100%;
+  }
+
+  .marquee-lane {
+    mask-image: none;
   }
 }
 </style>

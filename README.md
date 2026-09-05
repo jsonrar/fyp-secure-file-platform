@@ -52,6 +52,25 @@ silent session refresh, logout, and account deletion. AES-128/192/256-GCM and
 ChaCha20-Poly1305 are selectable per file; AES-256-GCM remains the default. The former
 hard-coded credential and demo-token fallbacks are gone.
 
+Public product pages sit beside the authenticated workspace: `/` is the marketing landing
+("Encryption and Sharing" hero plus scrolling Core Features), `/education` teaches algorithms
+with demos and a knowledge base, `/help` points to the homepage picture guide and keeps video
+placeholders for longer clips, and `/team` (**Contact us**) shows a feedback form preview plus
+the development roster.
+Signed-in users get a header avatar menu with theme control, `/profile`, and `/settings`; the
+active nav label uses the theme primary colour so the current tab is obvious.
+
+Core Features now uses a seamless dual-row loop, with hover-to-pause and a static,
+complete card layout for reduced-motion preferences. This is a local frontend update;
+deployment has not yet been verified. See the
+[landing polish changelog](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨).
+
+The homepage's How it works section offers six annotated screenshots from the real UI under
+`/#how-it-works`, covering file selection, encryption, sharing, unlock, and recipient download.
+Visitors can pause, enlarge images, swipe on phones, or let 8-second autoplay run with a visible
+progress bar. Completed steps show a check. The pictures use fabricated data and
+mobile crops; this local preview is not yet verified on staging.
+
 The remaining work is production hardening rather than an unfinished basic demo: required CI
 and MySQL 8.4 gates, passphrase-change and successor-key UI, complete admin/recovery-officer
 screens, encrypted off-server backup/restore drills, scheduled reconciliation, observability,
@@ -87,7 +106,14 @@ and the team's [SecureView Development Board](https://github.com/users/Waldo0926
    revocation events. Owners can inspect activity on their files, recipients see only events
    involving themselves, and ADMIN can verify the full hash chain. An emailed code resets a
    forgotten login password; a forgotten encryption passphrase requires the separately
-   retained `.pem` key to unlock the current session.
+   retained `.pem` key to unlock the current session. Account identity and preferences live
+   under the header avatar: `/profile` shows the signed-in account, and `/settings` covers
+   theme and account actions including deletion.
+7. **Learn and get help without signing in:** `/education` covers Algorithm Explorer,
+   Playground, and Knowledge Base. The homepage `#how-it-works` slideshow is the fastest first
+   share guide; `/help` links to it and keeps video placeholders. `/team` is labelled
+   **Contact us**: a demo feedback form sits above the team roster. The header highlights the
+   active tab in the theme colour.
 
 ### Roles and administration
 
@@ -244,8 +270,9 @@ The existing changelog's main work streams are:
    the visibility rule that users see their own activity plus activity on files they own.
 5. **Database and operations:** least-privilege MySQL SQL, schema revisions, reconciliation,
    HTTPS, nginx/fail2ban, guarded deployment, failed-SHA quarantine, and release safeguards.
-6. **UI and development environment:** signed-in navigation, theme/branding, the team page,
-   dependency pinning, type checking, and test baselines.
+6. **UI and development environment:** signed-in navigation and account menu, theme/branding,
+   Education / Help / Team public pages, the landing hero and feature marquee, dependency
+   pinning, type checking, and test baselines.
 
 Before adding an entry, read [`changelog/README.md`](changelog/README.md). Add paired English
 and Simplified Chinese lines under the relevant topic and explain why the change mattered

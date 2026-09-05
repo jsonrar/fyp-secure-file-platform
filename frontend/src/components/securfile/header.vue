@@ -30,7 +30,8 @@ const auth = useAuthStore()
 const guestLinks = [
   { to: '/upload', label: 'Product', match: ['/upload', '/files', '/audit-logs'] },
   { to: '/education', label: 'Education', match: ['/education'] },
-  { to: '/team', label: 'Development Team', match: ['/team'] },
+  { to: '/help', label: 'Help', match: ['/help'] },
+  { to: '/team', label: 'Contact us', match: ['/team'] },
 ]
 
 const authedLinks = [
@@ -38,7 +39,8 @@ const authedLinks = [
   { to: '/files', label: 'My Files', match: ['/files'] },
   { to: '/audit-logs', label: 'Access Records', match: ['/audit-logs'] },
   { to: '/education', label: 'Education', match: ['/education'] },
-  { to: '/team', label: 'Development Team', match: ['/team'] },
+  { to: '/help', label: 'Help', match: ['/help'] },
+  { to: '/team', label: 'Contact us', match: ['/team'] },
 ]
 
 const navLinks = computed(() => (auth.isAuthed ? authedLinks : guestLinks))
@@ -50,7 +52,9 @@ const homeActive = computed(() => route.path === '/')
 /** Header chrome text: black in Light, white in Dark — not the muted theme token. */
 const headerText = 'text-black dark:text-white'
 const headerNavLink = (active: boolean) =>
-  active ? `${headerText} font-medium` : `${headerText} opacity-70 hover:opacity-100`
+  active
+    ? 'text-primary font-medium'
+    : `${headerText} opacity-70 hover:opacity-100 hover:text-primary`
 
 /**
  * Fixed trigger width sized for the longest label ("System") so switching Light/Dark/System
@@ -131,29 +135,31 @@ function handleLogout() {
 
 <template>
   <header :class="`border-b border-border bg-card/50 backdrop-blur-sm sticky z-50 transition-all duration-500 ${isScrolled ? 'top-4 mx-4 rounded-2xl shadow-lg' : 'top-0'}`">
-    <div class="container mx-auto px-4 py-4">
-      <div class="flex items-center justify-between">
-        <RouterLink
-          to="/"
-          :class="`inline-flex items-center ${headerText}`"
-          aria-label="SecureView home"
-        >
-          <SecureViewMark variant="logo" class="h-9" />
-        </RouterLink>
-
-        <nav class="hidden md:flex items-center gap-6">
+    <div class="w-full py-4 pl-2 pr-4 sm:pl-3 sm:pr-5 lg:pl-4 lg:pr-6">
+      <div class="flex items-center justify-between gap-4">
+        <div class="flex min-w-0 items-center gap-5 md:gap-8">
           <RouterLink
-            v-for="link in navLinks"
-            :key="link.to"
-            :to="link.to"
-            class="transition-opacity"
-            :class="headerNavLink(isActive(link.match))"
+            to="/"
+            :class="`inline-flex shrink-0 items-center ${headerText}`"
+            aria-label="SecureView home"
           >
-            {{ link.label }}
+            <SecureViewMark variant="logo" class="h-9" />
           </RouterLink>
-        </nav>
 
-        <div class="hidden md:flex items-center gap-3">
+          <nav class="hidden md:flex items-center gap-7 lg:gap-9">
+            <RouterLink
+              v-for="link in navLinks"
+              :key="link.to"
+              :to="link.to"
+              class="transition-colors whitespace-nowrap"
+              :class="headerNavLink(isActive(link.match))"
+            >
+              {{ link.label }}
+            </RouterLink>
+          </nav>
+        </div>
+
+        <div class="hidden md:flex items-center gap-3 shrink-0">
           <!-- Signed in, the theme control lives in the avatar menu instead: one account
                dropdown rather than two adjacent dropdowns in the same corner. -->
           <div v-if="!auth.isAuthed" ref="desktopThemeRoot" class="relative shrink-0">
@@ -234,7 +240,7 @@ function handleLogout() {
       <nav v-if="isMobileMenuOpen" class="md:hidden mt-4 pb-4 flex flex-col gap-4">
         <RouterLink
           to="/"
-          class="transition-opacity py-2"
+          class="transition-colors py-2"
           :class="headerNavLink(homeActive)"
           @click="emit('close-mobile-menu')"
         >
@@ -244,7 +250,7 @@ function handleLogout() {
           v-for="link in navLinks"
           :key="`mobile-${link.to}`"
           :to="link.to"
-          class="transition-opacity py-2"
+          class="transition-colors py-2"
           :class="headerNavLink(isActive(link.match))"
           @click="emit('close-mobile-menu')"
         >
