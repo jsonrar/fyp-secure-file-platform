@@ -3,7 +3,7 @@ import { Check, FileIcon, Lock, RefreshCw, Upload, X } from 'lucide-vue-next'
 import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { fileApi } from '@/api/file_api'
-import { formatFileSize } from '@/api/types'
+import { MAX_UPLOAD_SIZE_BYTES, formatFileSize } from '@/api/types'
 
 interface UploadedFile {
   raw: File
@@ -11,6 +11,8 @@ interface UploadedFile {
   size: number
   type: string
 }
+
+const maxUploadLabel = formatFileSize(MAX_UPLOAD_SIZE_BYTES)
 
 const router = useRouter()
 const files = ref<UploadedFile[]>([])
@@ -86,7 +88,7 @@ const goToFiles = () => {
     <div class="container mx-auto px-4">
       <div class="text-center mb-16">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Encrypt Your Files</h2>
-        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Upload files and encrypt with one click. Server-side encryption uses AES-256-GCM.</p>
+        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Upload files and encrypt with one click. Server-side encryption uses AES-256-GCM. Files up to {{ maxUploadLabel }} are supported.</p>
       </div>
       <div class="max-w-4xl mx-auto rounded-xl bg-card border border-border p-6">
         <div class="grid lg:grid-cols-2 gap-8">
@@ -106,6 +108,7 @@ const goToFiles = () => {
                 <input type="file" multiple class="hidden" @change="handleFileInput" />
                 <span>Select Files</span>
               </label>
+              <p class="text-muted-foreground text-xs mt-4">Up to {{ maxUploadLabel }} per file</p>
             </div>
             <div v-if="files.length" class="mt-4 space-y-2">
               <div v-for="(file, index) in files" :key="`${file.name}-${index}`" class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">

@@ -27,6 +27,12 @@ export function unwrapData<T>(response: { data: ApiEnvelope<T> }): T {
   return response.data.data
 }
 
+/**
+ * Upload ceiling shown to users. Mirrors MAX_UPLOAD_SIZE_BYTES in
+ * backend/app/core/config.py — the server rejects anything larger with a 413.
+ */
+export const MAX_UPLOAD_SIZE_BYTES = 500 * 1024 * 1024
+
 export function formatFileSize(bytes: number): string {
   if (bytes === 0) return '0 Bytes'
   const k = 1024
