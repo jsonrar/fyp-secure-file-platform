@@ -75,7 +75,7 @@ class Settings(BaseSettings):
     CORS_ORIGINS: list[str] = Field(default_factory=lambda: _LOCAL_CORS_ORIGINS.copy())
     CORS_ALLOW_CREDENTIALS: bool = True
     MAX_REQUEST_BODY_BYTES: int = Field(default=1024 * 1024, gt=0, le=8 * 1024 * 1024)
-    MAX_UPLOAD_SIZE_BYTES: int = Field(default=25 * 1024 * 1024, gt=0)
+    MAX_UPLOAD_SIZE_BYTES: int = Field(default=500 * 1024 * 1024, gt=0)
     MAX_UPLOAD_REQUEST_OVERHEAD_BYTES: int = Field(default=256 * 1024, ge=128 * 1024)
     LOG_LEVEL: str = "INFO"
 

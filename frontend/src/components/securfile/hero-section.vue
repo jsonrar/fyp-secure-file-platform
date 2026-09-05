@@ -2,12 +2,15 @@
 import { ArrowRight, ChevronDown, Sparkles } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { RouterLink } from 'vue-router'
+import { MAX_UPLOAD_SIZE_BYTES, formatFileSize } from '@/api/types'
+
+const maxUploadLabel = formatFileSize(MAX_UPLOAD_SIZE_BYTES).replace(' ', '')
 
 const highlights = [
   { value: 'AES & RSA', label: 'Encryption' },
   { value: '100%', label: 'Local Encryption' },
   { value: 'Easy Use', label: 'Architecture' },
-  { value: '100GB', label: 'File Size' },
+  { value: maxUploadLabel, label: 'Max File Size' },
 ]
 
 const TITLE_END = 0.42
