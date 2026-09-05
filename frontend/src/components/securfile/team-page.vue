@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Code, GraduationCap, LockKeyhole, Palette, Server, X } from 'lucide-vue-next'
+import { Code, GraduationCap, LockKeyhole, Palette, Send, Server, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 
@@ -84,6 +84,33 @@ const members: TeamMember[] = [
   },
 ]
 
+/** Demo-only contact form — nothing is sent to a server yet. */
+const feedbackName = ref('')
+const feedbackEmail = ref('')
+const feedbackTopic = ref('feedback')
+const feedbackMessage = ref('')
+const feedbackSubmitted = ref(false)
+const feedbackError = ref('')
+
+function submitFeedback() {
+  feedbackError.value = ''
+  if (!feedbackName.value.trim() || !feedbackEmail.value.trim() || !feedbackMessage.value.trim()) {
+    feedbackError.value = 'Please fill in your name, email, and message.'
+    return
+  }
+  // Placeholder only: pretend the note was accepted so the UI can be reviewed.
+  feedbackSubmitted.value = true
+}
+
+function resetFeedback() {
+  feedbackName.value = ''
+  feedbackEmail.value = ''
+  feedbackTopic.value = 'feedback'
+  feedbackMessage.value = ''
+  feedbackSubmitted.value = false
+  feedbackError.value = ''
+}
+
 const HOVER_OPEN_MS = 2000
 const hoveredId = ref<string | null>(null)
 const pinnedId = ref<string | null>(null)
@@ -156,14 +183,110 @@ onBeforeUnmount(() => {
     <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_42%),radial-gradient(circle_at_88%_78%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_46%)]" />
 
     <div class="container relative mx-auto px-4">
-      <div class="mb-10 max-w-3xl md:mb-14">
+      <div class="mb-10 max-w-3xl md:mb-12">
         <p class="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-primary">SecureView</p>
         <h1 class="text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-          Development
-          <span class="text-primary"> Team</span>
+          Contact
+          <span class="text-primary"> us</span>
         </h1>
         <p class="mt-4 max-w-2xl text-base text-muted-foreground md:text-lg">
-          A mosaic of the people behind encrypted collaboration — hover any tile for 2 seconds to enlarge their profile.
+          Send feedback or a suggestion, then meet the people behind SecureView.
+        </p>
+      </div>
+
+      <div class="mb-14 max-w-3xl rounded-3xl border border-border bg-card/90 p-6 shadow-[0_10px_28px_color-mix(in_oklab,var(--foreground)_5%,transparent)] md:mb-16 md:p-8">
+        <div class="mb-6">
+          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Feedback</p>
+          <h2 class="mt-2 text-2xl font-semibold tracking-tight text-foreground">Share a note with the team</h2>
+          <p class="mt-2 text-sm text-muted-foreground">
+            Tell us what worked, what did not, or what you would like next. We read every message.
+          </p>
+        </div>
+
+        <div
+          v-if="feedbackSubmitted"
+          class="rounded-2xl border border-primary/25 bg-primary/10 px-5 py-6"
+        >
+          <p class="text-base font-medium text-foreground">Feedback submitted successfully.</p>
+          <p class="mt-2 text-sm text-muted-foreground">
+            Thank you for your note. Our team has received it and will review it shortly.
+          </p>
+          <button
+            type="button"
+            class="mt-5 inline-flex h-10 items-center rounded-full border border-border bg-card px-5 text-sm text-foreground transition-colors hover:bg-secondary"
+            @click="resetFeedback"
+          >
+            Submit another message
+          </button>
+        </div>
+
+        <form v-else class="space-y-5" @submit.prevent="submitFeedback">
+          <div class="grid gap-5 sm:grid-cols-2">
+            <label class="block space-y-2">
+              <span class="text-sm font-medium text-foreground">Name</span>
+              <input
+                v-model="feedbackName"
+                type="text"
+                autocomplete="name"
+                placeholder="Your name"
+                class="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              />
+            </label>
+            <label class="block space-y-2">
+              <span class="text-sm font-medium text-foreground">Email</span>
+              <input
+                v-model="feedbackEmail"
+                type="email"
+                autocomplete="email"
+                placeholder="you@example.com"
+                class="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+              />
+            </label>
+          </div>
+
+          <label class="block space-y-2">
+            <span class="text-sm font-medium text-foreground">Topic</span>
+            <select
+              v-model="feedbackTopic"
+              class="h-11 w-full rounded-2xl border border-border bg-background px-4 text-sm text-foreground outline-none transition-colors focus:border-primary"
+            >
+              <option value="feedback">General feedback</option>
+              <option value="suggestion">Feature suggestion</option>
+              <option value="bug">Bug report</option>
+              <option value="other">Other</option>
+            </select>
+          </label>
+
+          <label class="block space-y-2">
+            <span class="text-sm font-medium text-foreground">Message</span>
+            <textarea
+              v-model="feedbackMessage"
+              rows="5"
+              placeholder="Tell us what worked, what did not, or what you would like next…"
+              class="w-full resize-y rounded-2xl border border-border bg-background px-4 py-3 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary"
+            />
+          </label>
+
+          <p v-if="feedbackError" class="text-sm text-destructive">{{ feedbackError }}</p>
+
+          <button
+            type="submit"
+            class="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
+          >
+            <Send class="h-4 w-4" />
+            Send feedback
+          </button>
+        </form>
+      </div>
+
+      <div class="mb-8 max-w-3xl md:mb-10">
+        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.32em] text-primary">Development Team</p>
+        <h2 class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
+          Meet the
+          <span class="text-primary"> people</span>
+        </h2>
+        <p class="mt-3 max-w-2xl text-base text-muted-foreground md:text-lg">
+          We are a team of builders united by encrypted collaboration. Each member is a unique piece of the puzzle, crafting secure, decentralized solutions together.
         </p>
       </div>
 

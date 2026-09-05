@@ -10,13 +10,17 @@ import FileListPage from '@/pages/FileListPage.vue'
 import AuditLogPage from '@/pages/AuditLogPage.vue'
 import AdminPage from '@/pages/AdminPage.vue'
 import CommunityPage from '@/pages/CommunityPage.vue'
+import HelpPage from '@/pages/HelpPage.vue'
 import TeamPage from '@/pages/TeamPage.vue'
 import ProfilePage from '@/pages/ProfilePage.vue'
 import SettingsPage from '@/pages/SettingsPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
-  scrollBehavior() {
+  scrollBehavior(to) {
+    if (to.hash) {
+      return { el: to.hash, top: 96, behavior: 'smooth' }
+    }
     return { top: 0, left: 0 }
   },
   routes: [
@@ -32,6 +36,7 @@ const router = createRouter({
     { path: '/profile', component: ProfilePage, meta: { requiresAuth: true } },
     { path: '/settings', component: SettingsPage, meta: { requiresAuth: true } },
     { path: '/education', component: CommunityPage },
+    { path: '/help', component: HelpPage },
     { path: '/team', component: TeamPage },
   ],
 })

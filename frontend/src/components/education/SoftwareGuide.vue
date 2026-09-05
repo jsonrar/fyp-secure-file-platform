@@ -3,7 +3,7 @@ import { computed, ref } from 'vue'
 import { Clapperboard } from 'lucide-vue-next'
 
 /**
- * Software-usage videos for the Education page.
+ * Software-usage videos for the Help page.
  * Set `videoSrc` when a walkthrough clip is ready.
  */
 const guides = [

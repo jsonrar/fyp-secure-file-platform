@@ -6,7 +6,8 @@ const productLinks = [
   { label: 'Home', to: '/' },
   { label: 'Product', to: '/upload' },
   { label: 'Education', to: '/education' },
-  { label: 'Development Team', to: '/team' },
+  { label: 'Help', to: '/help' },
+  { label: 'Contact us', to: '/team' },
 ]
 const supportLinks = ['Help Center', 'Contact Us', 'Privacy Policy', 'Terms of Service']
 const socialLinks = ['GitHub', 'X', 'Discord']

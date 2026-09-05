@@ -3,7 +3,8 @@
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
 本文件于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境重新核对，
-并于 2026-09-05 再次对照当前工作树检查。GitHub Issues 是可执行 backlog，团队通过
+并于 2026-09-05 在 Help 页、页头导航定位与首页打磨进入前端线后再次对照当前工作树检查。
+GitHub Issues 是可执行 backlog，团队通过
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1) 共用 Kanban
 视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
@@ -19,6 +20,17 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 ## 已交付 MVP 基线
 
+待评审的本地预览：How it works 新增六步带定位标记的截图引导，支持手动切换、可选播放和放大。
+详见 [截图引导记录](changelog/CHANGELOG.md#homepage-screenshot-walkthrough--首页截图操作引导)。
+截图脚本使用模拟后端响应，不代表
+[#58 浏览器 E2E 覆盖](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
+已完成，也不构成部署证据。
+
+当前本地更新（待部署）：Core Features 已修复宽屏周期交界处的空白跳闪，保留悬停暂停，
+并在减少动态效果模式下静态展示全部卡片。详见 [实现记录](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨)。
+此 UI 修复不代表 [#58 浏览器 E2E 覆盖](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
+已经完成；线上部署核验与可重复的浏览器覆盖仍按各自验收条件推进。
+
 - [x] 邮箱验证码注册与重置登录密码、登录与浏览器本地登出、后端会话撤销端点、refresh 轮换、
   会话失效、注销账户、限流、
   Argon2id 密码哈希与 RBAC。
@@ -33,6 +45,10 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 公网预发布与评审入口：[应用](https://secureview.tech)、
   [Swagger UI](https://secureview.tech/docs)、
   [OpenAPI JSON](https://secureview.tech/openapi.json)。
+- [x] 公开产品页与登录后账户壳层：落地页 `/`、Education（`/education`：算法、演练场、知识库）、
+  Help（`/help`：How to Use 操作演示）、Contact us（`/team`：反馈表单预览 + 团队拼贴）、页头当前标签主题色高亮，
+  以及含 `/profile` 与 `/settings` 的头像菜单。证据与理由见
+  [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 的 `[Unreleased]`。
 
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
@@ -81,6 +97,29 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [ ] [#60 完成正式威胁模型与独立安全评审](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
   ——覆盖账户信封、Argon2id、token/密钥托管、metadata、恢复、CSP、依赖及残余信任边界，
   且不得声称已经认证。
+
+## P3 — 计划中的产品 UX（尚未开 Issue）
+
+于 2026-09-05 记入，作为后续产品跟进项。**当前未开工**；邻近的 UI 打磨不得视为这些项已完成。
+按 [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61) 的规则，开工前须先开
+GitHub Issue（并挂看板），写明验收标准后再实现。
+
+- [ ] 高危操作二次确认
+  ——如删除文件 / 撤销分享 / 注销账户：独立确认弹窗写明损失，而不是一点图标即生效。
+- [ ] 允许直接预览或下载已加密密文
+  ——可选的“加密后文件”预览/下载，让新用户直观看到上传对象不是明文。
+- [ ] 文件管理中的文件架（文件夹）与移动
+  ——创建文件架，并在其间移动自己的文件；不改变加密与分享语义。
+- [ ] 账号管理中增加重置加密 passphrase 入口（需提供密钥文件）
+  ——须先提供注册时保存的 `.pem`（或等价私钥文件）才能更换 passphrase；与
+  [#54](https://github.com/jsonrar/fyp-secure-file-platform/issues/54) 互补，且不得把明文密钥
+  发到服务器。
+- [ ] i18n 语言切换
+  ——产品界面可选语言（至少 English / 简体中文），并与主题偏好一并持久化。
+- [ ] 头像上传
+  ——在资料页 / 页头用可选上传图替代仅首字母头像，并限制大小与类型。
+- [ ] 手机端适配修复
+  ——修复落地页、页头、操作引导、文件流程与账户壳层在手机/窄屏下的布局与交互问题，使产品不依赖桌面浏览器也能正常使用。
 
 ## 每个 Issue 的完成定义
 
