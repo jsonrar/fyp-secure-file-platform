@@ -158,7 +158,9 @@ discarded, so these checks are mandatory, not defensive.
 
 **Before upload:** decrypt the ciphertext with the DEK, nonce, tag and AAD-3 and confirm the
 plaintext is byte-identical to the input; confirm the ciphertext length equals
-`plaintext_size`. At the 25 MiB `MAX_UPLOAD_SIZE_BYTES` ceiling this is affordable.
+`plaintext_size`. The ceiling is `MAX_UPLOAD_SIZE_BYTES`, 500 MiB by default, so near the
+top of that range this second pass dominates the cost of an upload and holds several copies
+of the file in memory at once.
 
 **Before sharing:** unwrap the DEK from your own wrapping and confirm it *opens the file*
 before rewrapping it to anyone. The recipient's private key is unavailable, so the rewrapping

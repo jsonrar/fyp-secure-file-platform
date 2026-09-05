@@ -18,7 +18,7 @@ import {
 } from './primitives'
 
 /** Mirrors the backend `MAX_UPLOAD_SIZE_BYTES` default so oversize files fail before work. */
-export const MAX_UPLOAD_BYTES = 25 * 1024 * 1024
+export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024
 
 /**
  * `File.type` is advisory: browsers leave it empty for unknown extensions, and the API

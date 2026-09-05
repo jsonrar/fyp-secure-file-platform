@@ -137,7 +137,8 @@ decrypt:  plaintext  = AES-GCM-open(dek, nonce, ciphertext || auth_tag, AAD-3)
 文件就永久丢失。因此以下检查是强制要求，而非防御性措施。
 
 **上传前**：用该 DEK、nonce、tag 与 AAD-3 解密刚生成的密文，确认明文与输入逐字节一致；确认
-密文长度等于 `plaintext_size`。在 `MAX_UPLOAD_SIZE_BYTES` 的 25 MiB 上限下，这个开销可以承受。
+密文长度等于 `plaintext_size`。上限 `MAX_UPLOAD_SIZE_BYTES` 默认为 500 MiB，接近该上限时这一步
+会成为上传的主要开销，并同时在内存中保留文件的多份副本。
 
 **共享前**：从自己的包装中解出 DEK，并**确认它能打开该文件**，然后才可 rewrap 给任何人。
 接收方的私钥不可得，因此 rewrap 本身无法验证；共享一把打不开文件的 DEK 会产生一个对接收方
