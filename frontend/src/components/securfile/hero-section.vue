@@ -1,12 +1,16 @@
 <script setup lang="ts">
 import { ArrowRight, Sparkles } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
+import { MAX_UPLOAD_BYTES } from '@/crypto/upload'
+import { formatFileSize } from '@/api/types'
+
+const maxUploadLabel = formatFileSize(MAX_UPLOAD_BYTES).replace(' ', '')
 
 const highlights = [
   { value: 'AES & RSA', label: 'Encryption' },
   { value: '100%', label: 'Local Encryption' },
   { value: 'Easy Use', label: 'Architecture' },
-  { value: '25GB', label: 'File Size' },
+  { value: maxUploadLabel, label: 'Max File Size' },
 ]
 </script>
 
