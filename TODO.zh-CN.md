@@ -2,15 +2,15 @@
 
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
-本文件于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境重新核对，
-并于 2026-09-05 在 Help 页、页头导航定位与首页打磨进入前端线后再次对照当前工作树检查。
-GitHub Issues 是可执行 backlog，团队通过
-[SecureView Development Board](https://github.com/users/Waldo0926/projects/1) 共用 Kanban
-视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
+本文件最初于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境
+完成同步。2026-09-07 再次对照 GitHub `main` 的 `cab44b1` 检查；该版本已合并 500 MiB
+上传上限改动，但本次仅同步 backlog，未重新核验线上部署。GitHub Issues 是可执行 backlog，
+团队通过 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
+共用 Kanban 视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
-下方已交付 MVP 能力继续保持勾选。当前工作树尚未完整满足任何未勾选 Issue #52–#60 的整体
-验收目标：其中部分已有基础实现，但仍缺 CI、运维证据或角色感知 UI，因此不会把“部分完成”
-误标为完成。
+下方已交付 MVP 能力继续保持勾选。当前 GitHub `main` 尚未完整满足下方未勾选 Issue
+（#52–#60 与 #71–#76）的整体验收目标：其中部分已有基础实现，但仍缺 CI、运维证据、
+角色感知 UI 或本次新增的产品流程，因此不会把“部分完成”误标为完成。
 
 提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：
 24 个 WBS 工作包中 20 个 Done、3 个 In progress、1 个 Backlog；7 条产品验收标准中 6 条
@@ -26,8 +26,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 [#58 浏览器 E2E 覆盖](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
 已完成，也不构成部署证据。
 
-当前本地更新（待部署）：Core Features 已修复宽屏周期交界处的空白跳闪，保留悬停暂停，
-并在减少动态效果模式下静态展示全部卡片。详见 [实现记录](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨)。
+当前 GitHub `main`（本次同步未重新核验线上部署）：Core Features 已修复宽屏周期交界处
+的空白跳闪，保留悬停暂停，并在减少动态效果模式下静态展示全部卡片。详见 [实现记录](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨)。
 此 UI 修复不代表 [#58 浏览器 E2E 覆盖](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
 已经完成；线上部署核验与可重复的浏览器覆盖仍按各自验收条件推进。
 
@@ -98,28 +98,29 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——覆盖账户信封、Argon2id、token/密钥托管、metadata、恢复、CSP、依赖及残余信任边界，
   且不得声称已经认证。
 
-## P3 — 计划中的产品 UX（尚未开 Issue）
+## P3 — 计划中的产品 UX
 
-于 2026-09-05 记入，作为后续产品跟进项。**当前未开工**；邻近的 UI 打磨不得视为这些项已完成。
-按 [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61) 的规则，开工前须先开
-GitHub Issue（并挂看板），写明验收标准后再实现。
+已于 2026-09-07 拆成可执行 Issue 并加入共享 backlog。**当前未开工**；邻近的 UI 打磨不得
+视为这些项已完成。每个 Issue 均按
+[#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61) 写明验收标准。
 
-- [ ] 高危操作二次确认
-  ——如删除文件 / 撤销分享 / 注销账户：独立确认弹窗写明损失，而不是一点图标即生效。
-- [ ] 允许直接预览或下载已加密密文
-  ——可选的“加密后文件”预览/下载，让新用户直观看到上传对象不是明文。
-- [ ] 文件管理中的文件架（文件夹）与移动
-  ——创建文件架，并在其间移动自己的文件；不改变加密与分享语义。
-- [ ] 账号管理中增加重置加密 passphrase 入口（需提供密钥文件）
-  ——须先提供注册时保存的 `.pem`（或等价私钥文件）才能更换 passphrase；与
-  [#54](https://github.com/jsonrar/fyp-secure-file-platform/issues/54) 互补，且不得把明文密钥
-  发到服务器。
-- [ ] i18n 语言切换
-  ——产品界面可选语言（至少 English / 简体中文），并与主题偏好一并持久化。
-- [ ] 头像上传
-  ——在资料页 / 页头用可选上传图替代仅首字母头像，并限制大小与类型。
-- [ ] 手机端适配修复
-  ——修复落地页、页头、操作引导、文件流程与账户壳层在手机/窄屏下的布局与交互问题，使产品不依赖桌面浏览器也能正常使用。
+- [ ] [#72 高危与破坏性操作二次确认](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
+  ——删除文件、撤销分享、注销账户及同类高影响操作使用独立弹窗，明确目标、后果与是否可恢复，
+  不再由单击图标直接触发。
+- [ ] [#71 认证后的密文预览与加密文件下载](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
+  ——授权用户可查看有限长度的密文预览或保存服务器实际存储的加密对象；不得静默解密，也不改变
+  现有明文解密下载流程。
+- [ ] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
+  ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
+  或审计语义。
+- [ ] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  ——忘记当前 passphrase 时，Settings 必须要求并验证保存的私钥文件；明文私钥不得离开浏览器。
+- [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
+  ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
+- [ ] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
+  ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。
+- [ ] [#76 修复手机与窄屏下的产品流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
+  ——修复公开页面、账户与文件流程在窄屏下的布局和交互问题，并保留可重复的手机浏览器证据。
 
 ## 每个 Issue 的完成定义
 
