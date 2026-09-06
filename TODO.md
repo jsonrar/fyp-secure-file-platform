@@ -2,18 +2,18 @@
 
 [English](TODO.md) | [简体中文](TODO.zh-CN.md)
 
-Updated 2026-09-03 from GitHub `main`, the shared changelog, the repository tests, and the
-live staging deployment; rechecked against the current worktree on 2026-09-05 after the Help
-page, header wayfinding, and landing polish landed on the frontend line. GitHub Issues
-are the executable backlog, and the
-[SecureView Development Board](https://github.com/users/Waldo0926/projects/1) is the shared
-Kanban view; this file is the prioritized summary and must link to them rather than becoming
-a second, drifting list.
+Originally synchronized from GitHub `main`, the shared changelog, repository tests, and
+the live staging deployment on 2026-09-03. Rechecked against GitHub `main` at `cab44b1`
+on 2026-09-07 after the 500 MiB upload-limit change merged; live deployment was not
+re-verified in this backlog-only synchronization. GitHub Issues are the executable backlog,
+and the [SecureView Development Board](https://github.com/users/Waldo0926/projects/1) is the
+shared Kanban view; this file is the prioritized summary and must link to them rather than
+becoming a second, drifting list.
 
-The shipped MVP capabilities below remain checked. The current worktree does not yet satisfy
-the complete acceptance goal of any unchecked Issue #52–#60: some have foundations in place,
-but CI, operational evidence, or the remaining role-aware UI is still missing. Partial work is
-therefore not marked complete.
+The shipped MVP capabilities below remain checked. Current GitHub `main` does not yet satisfy
+the complete acceptance goal of the unchecked Issues linked below (#52–#60 and #71–#76):
+some have foundations in place, but CI, operational evidence, role-aware UI, or the newly
+requested product workflows are still missing. Partial work is therefore not marked complete.
 
 The proposal audit is recorded in
 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): 20 of 24 WBS packages are
@@ -31,9 +31,9 @@ The capture script uses backend fixtures; this does not close
 [#58 browser E2E coverage](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
 or provide deployment evidence.
 
-Current local update (deployment pending): Core Features now loops continuously without
-the wide-screen boundary gap, preserves hover pause, and shows all cards statically for
-reduced motion. See [implementation notes](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨).
+Current GitHub `main` (live deployment not re-verified in this synchronization): Core
+Features loops continuously without the wide-screen boundary gap, preserves hover pause, and
+shows all cards statically for reduced motion. See [implementation notes](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨).
 This UI fix does not close [#58 browser E2E coverage](https://github.com/jsonrar/fyp-secure-file-platform/issues/58);
 live deployment and repeatable browser coverage remain separate acceptance work.
 
@@ -109,34 +109,33 @@ not a release pass.
   — cover account envelopes, Argon2id, token/key custody, metadata, recovery, CSP, dependencies,
   and residual trust boundaries without claiming certification.
 
-## P3 — planned product UX (Issues not opened yet)
+## P3 — planned product UX
 
-Recorded 2026-09-05 as follow-on product work. These items are **not** in progress and must
-not be treated as closed by nearby UI polish. Open a GitHub Issue (and board card) before
-starting each one so acceptance criteria stay executable under [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61).
+Triaged into executable Issues on 2026-09-07 and placed in the shared backlog. These items are
+**not** in progress and must not be treated as closed by nearby UI polish; each Issue carries
+its acceptance criteria under [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61).
 
-- [ ] Confirm destructive actions twice before they run
-  — e.g. delete file / revoke share / delete account: a dedicated confirm dialog stating what
-  is lost, not a one-click icon.
-- [ ] Let users preview or download the ciphertext as stored
-  — optional “encrypted blob” view/download so a first-time user can see that the uploaded
-  object is not the plaintext file.
-- [ ] Folders (file shelves) and move-into-folder in My Files
-  — create shelves and move owned files between them without changing encryption or share
-  semantics.
-- [ ] Account settings entry to reset the encryption passphrase with the saved key file
-  — require the registration `.pem` (or equivalent private-key file) before replacing the
-  passphrase; complements [#54](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
-  and must not send plaintext keys to the server.
-- [ ] i18n language switching
-  — user-selectable locale for the product chrome (at least English / 简体中文), persisted with
-  the theme preference.
-- [ ] Avatar upload
-  — replace initials-only avatar with an optional user-uploaded image on profile / header,
-  with size and type limits.
-- [ ] Mobile layout and interaction fixes
-  — repair phone/narrow-viewport regressions across the landing, header, walkthrough, file
-  flows, and account chrome so the product is usable without a desktop browser.
+- [ ] [#72 Add secondary confirmation for destructive and high-risk actions](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
+  — file deletion, share revocation, account deletion, and equivalent high-impact actions use
+  a dedicated dialog that states the exact consequence instead of a one-click icon.
+- [ ] [#71 Add authenticated ciphertext preview and encrypted-blob download](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
+  — authorized users can inspect a bounded ciphertext preview or save the opaque stored object
+  without silently decrypting it or changing the normal plaintext-download flow.
+- [ ] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
+  — create owner-scoped shelves and move owned files between them or root without changing
+  encryption, sharing, file identity, or audit semantics.
+- [ ] [#54 Complete browser passphrase change, key-file reset, and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  — Settings must require and verify the saved private-key file when the current passphrase is
+  unavailable; plaintext private keys never leave the browser.
+- [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
+  — user-selectable product locale with complete key coverage, safe fallback, persistence, and
+  mobile-compatible controls.
+- [ ] [#75 Add validated user avatar upload and display](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
+  — optional profile/header image with content validation, safe serving, cleanup, rate limits,
+  and initials fallback.
+- [ ] [#76 Fix mobile and narrow-viewport usability across product flows](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
+  — repair narrow-screen layout and interaction regressions across public, account, and file
+  flows, with repeatable mobile browser evidence.
 
 ## Definition of done for each Issue
 
