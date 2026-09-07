@@ -213,14 +213,13 @@ fyp-secure-file-platform/
 
 ## 更改日志：记录什么、怎样维护
 
-Changelog 使用两条互补的记录：
+[`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 是团队唯一仍在维护的变更记录，统一记录
+**产品发生了什么变化以及为什么重要**，包括端点、安全修复、契约、测试证据与部署行为。当前内容
+位于 `[Unreleased] / [未发布]`，通常越靠上越新。
 
-- [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 记录**产品已经发生的变化以及为什么重要**，
-  例如新增端点、修复安全缺陷、改变 API 契约、部署行为变化。当前内容位于
-  `[Unreleased] / [未发布]`，通常越靠上越新。
-- [`changelog/work-packages/`](changelog/work-packages/) 记录**一项工作怎样推进**，包括起始
-  commit、范围、验证方法和有意保留的限制。已交付功能同时改变了产品时，两边都要写，它们不是
-  重复记录。
+[`changelog/work-packages/`](changelog/work-packages/) 仅作为早期密码学与测试工作包的只读
+历史档案保留。不要再新增或续写个人/分轨日志；所有成员的新工作都写入共享 Changelog，并在当前
+能力或剩余工作改变时同步 README 与 TODO。
 
 现有 Changelog 的主要工作线包括：
 
@@ -243,10 +242,10 @@ Changelog 使用两条互补的记录：
 
 - `changelog/CHANGELOG.md`：已经交付了什么，以及为什么重要。
 - GitHub Issues：剩余可执行工作、负责人、讨论及验收标准。
-- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)：分别展示当前
-  backlog、提案 WBS、里程碑、验收标准、PR 证据和 CT 直接工作包，并按 Backlog、Ready、
-  In progress、In review 与 Done 管理。历史上直接进入 `main` 的工作通过明确的 Contributor
-  与 Commit evidence 字段记录，不会虚构追溯 PR。
+- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)：使用五个团队
+  视图分别展示当前 backlog、提案 WBS、里程碑、验收标准与 PR 证据，并按 Backlog、Ready、
+  In progress、In review 与 Done 管理。历史上直接进入 `main` 的 CT 工作保留在追踪文档和
+  历史档案中，不再设个人看板视图，也不会虚构追溯 PR。
 - [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：从提案承诺到仓库及部署
   证据的带日期追踪表。
 - `TODO.zh-CN.md`：链接到 Issues 的优先级摘要，不再维护第二套独立 backlog。

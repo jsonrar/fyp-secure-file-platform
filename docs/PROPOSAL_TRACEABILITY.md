@@ -1,17 +1,20 @@
 # Proposal-to-Delivery Traceability
 
-Audited on **2026-09-05** against the FIT3161 MCS21 Project Proposal Report, GitHub `main`,
-all pull requests and commits, current repository tests, and the public staging deployment.
+Originally audited on **2026-09-05** against the FIT3161 MCS21 Project Proposal Report, GitHub
+`main`, all pull requests and commits, current repository tests, and the public staging
+deployment. Repository and board records were rechecked on **2026-09-07**; that record-only
+update did not re-verify the public deployment.
+
 This is an evidence map, not a claim that every completed implementation has received final
 academic or independent-security approval.
 
 The live source of truth is the
-[SecureView Development Board](https://github.com/users/Waldo0926/projects/1). Its views separate
-active backlog, proposal WBS, milestones, acceptance criteria, PR evidence, and direct CT work
-packages. The board currently contains **107 records**: 56 pull requests (52 merged, one open,
-and three closed without merge), ten Issues, and proposal/commit traceability records for work
-that was not represented by a PR. Historical direct-to-main work is attributed through the
-board's Contributor and Commit evidence fields rather than being given a fabricated PR history.
+[SecureView Development Board](https://github.com/users/Waldo0926/projects/1). Its five team views
+separate active backlog, proposal WBS, milestones, acceptance criteria, and PR evidence. The PR
+evidence view contains all 56 merged pull requests plus open PR #49; closed, unmerged PRs #2,
+#3, and #17 are intentionally excluded because they did not deliver code. Historical
+direct-to-`main` CT work remains attributed by the exact commit table below and the archived
+crypto-track record rather than a personal board view or fabricated PR history.
 
 ## Status rules
 
@@ -24,8 +27,9 @@ board's Contributor and Commit evidence fields rather than being given a fabrica
 | Done | Repository/deployment evidence satisfies the stated work package | 100% |
 
 Commits are evidence for work packages; they are not treated as independent tasks. GitHub
-Issues and PRs share one number sequence, so the repository currently has **56 PRs**, not 65:
-52 merged, one open, and three closed without merge. `main` contains 159 commits.
+Issues and PRs share one number sequence, so the repository currently has **60 PRs**, not 70:
+56 merged, one open, and three closed without merge. The rechecked `adbf3cf` `main` baseline
+contains 167 commits.
 
 ## Proposal WBS audit
 
@@ -79,8 +83,10 @@ for the completed historical checkpoint, not a claim that the current repository
 
 The nine CT work packages were delivered directly to `main` before the team adopted reviewed
 pull requests. They are already ancestors of current `main`; they must not be cherry-picked or
-merged again. The Development Board now attributes every item to **Chen Tai** and exposes its
-full commit URL in the **Commit evidence** field.
+merged again. The shared table below attributes every package to **Chen Tai** through its exact
+commit; `changelog/work-packages/crypto-track.md` remains a read-only historical archive. New CT
+and other contributor work belongs in the team changelog, README, and TODO rather than a separate
+personal tracking view.
 
 | Package | Verified scope | Commit |
 | --- | --- | --- |

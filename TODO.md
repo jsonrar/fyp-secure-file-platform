@@ -143,6 +143,8 @@ its acceptance criteria under [#61](https://github.com/jsonrar/fyp-secure-file-p
 - A reviewed PR links the Issue and updates the bilingual changelog.
 - README/TODO and other design documents are updated when their statements changed; otherwise
   the PR says why they are `N/A`.
+- All contributors use the shared changelog; do not create or extend personal or track-specific
+  change logs.
 - Secret and generated-artifact review passes before merge.
 - For runtime changes, automatic deployment reaches the exact merged SHA and health plus the
   affected user-visible flow are verified. Merge alone is not deployment completion.

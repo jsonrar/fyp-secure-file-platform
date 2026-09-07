@@ -1,5 +1,12 @@
 # Testing track work packages / 测试线工作包
 
+> **Historical archive / 历史档案:** retained as evidence of the original testing sweeps. Do not
+> add new work here; record future team changes in [`../CHANGELOG.md`](../CHANGELOG.md) and
+> synchronize README/TODO when their current statements change.
+>
+> **历史档案：**本文件仅保留早期测试扫查证据，不再新增工作。今后的团队变更统一写入
+> [`../CHANGELOG.md`](../CHANGELOG.md)，当前说明改变时同步 README/TODO。
+
 Per-work-package records from the testing track, oldest first. A work package names the `main`
 commit it branched from, the scope it stayed inside, and the limitations it confirmed but
 deliberately left for a later package.

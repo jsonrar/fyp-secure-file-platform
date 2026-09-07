@@ -1,5 +1,12 @@
 # Crypto track work packages / 密码学线工作包
 
+> **Historical archive / 历史档案:** retained for CT contribution traceability. Do not add new
+> work here; record all future team changes in [`../CHANGELOG.md`](../CHANGELOG.md) and synchronize
+> README/TODO when their current statements change.
+>
+> **历史档案：**本文件仅保留 CT 贡献追踪证据，不再新增工作。今后的团队变更统一写入
+> [`../CHANGELOG.md`](../CHANGELOG.md)，当前说明改变时同步 README/TODO。
+
 Per-work-package records from the crypto track, oldest first. A work package names the `main`
 commit it branched from, the scope it stayed inside, and the limitations it confirmed but
 deliberately left for a later package.

@@ -29,10 +29,9 @@ These rules apply to the entire repository.
   reading the diff instead of the log.
 - Write the entry as a pair of lines, English first then 简体中文, matching the rest of the
   file. State why the change mattered, not only what moved: the diff already records what.
-- Work-package records — a baseline taken, a scope declared, a limitation confirmed and left
-  open — go in `changelog/work-packages/<track>.md` instead, even when no code changed. Work
-  that both shipped a change and closed a package belongs in both; they answer different
-  questions and are not duplicates.
+- `changelog/CHANGELOG.md` is the only active team change record. The existing files under
+  `changelog/work-packages/` are read-only historical archives; do not create or extend personal
+  or track-specific logs.
 - See `changelog/README.md` for the full convention.
 
 ## Project-status synchronization
@@ -42,6 +41,8 @@ These rules apply to the entire repository.
 - Keep `README.md` and `README.zh-CN.md` aligned with current user-visible capabilities,
   schema/runtime requirements, and staging entry points. Do not leave a shipped feature
   described as missing.
+- When a contribution changes shipped behaviour or the executable backlog, synchronize the
+  shared changelog, the relevant README, and both TODO summaries in the same pull request.
 - Every pull request must review changelog, README, TODO, linked Issues, tests, migrations,
   secrets, and deployment impact. Update the affected records or state why each is `N/A`.
 - A runtime change is not complete when it merges. Verify that automatic deployment reaches

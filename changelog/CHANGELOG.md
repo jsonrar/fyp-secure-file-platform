@@ -5,18 +5,38 @@ the project did before you joined a piece of it, read this file top to bottom.
 
 Add an entry in the section that matches the area you changed, as a pair of lines: English
 first, then 简体中文. Say what changed and why it mattered — a reader six weeks from now
-cannot recover the reason from the diff. Work-package records that did not ship a change to
-the product belong in [`work-packages/`](work-packages/) instead; see
+cannot recover the reason from the diff. This is the only active team change record; the
+existing [`work-packages/`](work-packages/) files are read-only historical archives. See
 [`README.md`](README.md).
 
 本项目所有重要变更的唯一汇总，来自我们每个人。想知道某块工作在你接手之前发生过什么，从头读这份
 文件即可。
 
 请在与改动领域对应的小节下追加条目，一条英文、一条简体中文成对出现。写清楚改了什么、以及为什么
-重要——六周后的读者无法从 diff 里还原当时的理由。没有交付到产品里的工作包记录请写进
-[`work-packages/`](work-packages/)，参见 [`README.md`](README.md)。
+重要——六周后的读者无法从 diff 里还原当时的理由。本文件是唯一仍在维护的团队变更记录；现有
+[`work-packages/`](work-packages/) 文件仅作为只读历史档案保留。参见 [`README.md`](README.md)。
 
 ## [Unreleased] / [未发布]
+
+### Shared records and board evidence reconciliation / 团队记录与看板证据对齐
+
+- Retired the separate CT work-package board view after verifying that all nine Chen Tai commits
+  are already on `main` and are preserved in `docs/PROPOSAL_TRACEABILITY.md` plus the historical
+  crypto-track archive. All contributors now record new work in this shared changelog and
+  synchronize README/TODO when capabilities or backlog change, preventing a personal log from
+  drifting away from the team's current record.
+- 在确认 Chen Tai 的 9 个 commit 均已进入 `main`，且已由 `docs/PROPOSAL_TRACEABILITY.md` 与
+  crypto-track 历史档案保留证据后，移除了独立的 CT 工作包看板视图。今后所有成员统一在本共享
+  Changelog 记录新工作，并在功能或 backlog 改变时同步 README/TODO，避免个人日志与团队现状漂移。
+- Reconciled PR evidence with all 60 repository pull requests. The evidence view now contains
+  57 items: all 56 merged PRs plus open PR #49. Merged PRs #63 and #69 were added; closed,
+  unmerged PRs #2, #3, and #17 remain intentionally excluded because they are not delivery
+  evidence. Proposal WBS remains 20 Done, 3 In progress, and 1 Backlog; the active backlog remains
+  9 Backlog, 3 Ready, 3 In progress, 0 In review, and 1 Done.
+- 已将 PR evidence 与仓库全部 60 条 PR 对齐。证据视图现有 57 条：56 条已合并 PR 加仍打开的
+  #49；此前遗漏的已合并 PR #63、#69 已补入。关闭但未合并的 #2、#3、#17 不构成交付证据，
+  因此继续排除。Proposal WBS 保持 20 Done、3 In progress、1 Backlog；Active backlog 保持
+  9 Backlog、3 Ready、3 In progress、0 In review、1 Done。
 
 ### Homepage screenshot walkthrough / 首页截图操作引导
 

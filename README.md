@@ -248,15 +248,15 @@ fyp-secure-file-platform/
 
 ## Change Log: What It Records and How to Maintain It
 
-The changelog uses two complementary records:
+[`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) is the team's single active change record. It
+records **what changed in the product and why it mattered**, including endpoints, security fixes,
+contract changes, testing evidence, and deployment behaviour. Current entries are under
+`[Unreleased] / [未发布]`, normally newest first.
 
-- [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) records **what changed in the product and
-  why it mattered**, such as a new endpoint, security fix, contract change, or deployment
-  behavior. Current entries are under `[Unreleased] / [未发布]`, normally newest first.
-- [`changelog/work-packages/`](changelog/work-packages/) records **how a piece of work was
-  carried out**, including its starting commit, scope, verification, and deliberately retained
-  limitations. Work that both progresses a package and changes the product belongs in both;
-  they are not duplicate records.
+[`changelog/work-packages/`](changelog/work-packages/) is retained only as a read-only historical
+archive of the early cryptography and testing packages. Do not start or extend personal or
+track-specific logs there; new work from every contributor belongs in the shared changelog, with
+README and TODO updated whenever current capabilities or remaining work change.
 
 The existing changelog's main work streams are:
 
@@ -283,10 +283,10 @@ newer entry closes an old limitation, prefer the newer entry, the current README
 
 - `changelog/CHANGELOG.md`: what shipped and why it mattered.
 - GitHub Issues: executable remaining work, ownership, discussion, and acceptance criteria.
-- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1): separate views
-  for active backlog, the proposal WBS, milestones, acceptance criteria, PR evidence, and direct
-  CT work packages through Backlog, Ready, In progress, In review, and Done. Historical
-  direct-to-main work uses explicit Contributor and Commit evidence fields rather than a
+- [SecureView Development Board](https://github.com/users/Waldo0926/projects/1): five team views
+  for active backlog, proposal WBS, milestones, acceptance criteria, and PR evidence through
+  Backlog, Ready, In progress, In review, and Done. Historical direct-to-`main` CT work is retained
+  in the traceability document and archive rather than a separate personal board view or a
   fabricated retroactive PR.
 - [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): the dated evidence map from
   proposal commitments to repository and deployment results.
