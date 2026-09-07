@@ -568,6 +568,21 @@ Reported from a live test: a recipient could read the whole history of a shared 
 
 ### Deployment operations / 部署运维
 
+- Reconciled the live 500 MiB upload boundary after a 501,808,648-byte encrypted multipart
+  request was rejected by nginx before reaching FastAPI. PR #70 had already raised the browser,
+  backend default, template, and tracked nginx values, but staging still overrode the backend at
+  25 MiB and retained `client_max_body_size 26m`. The protected environment now uses
+  `MAX_UPLOAD_SIZE_BYTES=524288000`, active nginx uses `501m`, both services are healthy after
+  restart/reload, and the deployment guide records all four boundaries so a merged template
+  change is no longer mistaken for an applied server configuration. This verifies the corrected
+  limits and health, not a completed authenticated 478 MiB upload.
+- 已对齐线上 500 MiB 上传边界：一笔 `501,808,648` 字节的加密 multipart 请求在到达 FastAPI
+  之前被 nginx 拒绝。PR #70 虽已提高浏览器、后端默认值、模板及仓库 nginx 配置，但预发布环境
+  仍以 25 MiB 覆盖后端，并保留 `client_max_body_size 26m`。受保护环境现使用
+  `MAX_UPLOAD_SIZE_BYTES=524288000`，当前生效的 nginx 使用 `501m`；重启／重载后两个服务均健康，
+  部署指南也已记录四层边界，避免再把“模板已合并”误认为“服务器配置已应用”。本次证据仅确认
+  上限修正与健康状态，并不声称已完成一次通过认证的 478 MiB 上传。
+
 - Served the staging VPS over HTTPS at `secureview.tech` with a Let's Encrypt certificate, an HTTP-to-HTTPS redirect, and a one-year `Strict-Transport-Security` header. This is a functional requirement rather than a cosmetic one: browsers expose `crypto.subtle` only in a secure context, so client-side account-key enrolment cannot run over plain HTTP. The live server block is now tracked as `deployment/server/nginx-secureview.conf`, and `docs/DEPLOYMENT.md` gained a TLS section.
 - 已为预发布 VPS 启用 HTTPS（`secureview.tech`，Let's Encrypt 证书、HTTP 到 HTTPS 跳转、一年期 `Strict-Transport-Security` 头）。这是功能性要求而非装饰：浏览器只在安全上下文中暴露 `crypto.subtle`，客户端账户密钥登记在明文 HTTP 下无法运行。线上 server 块已纳入版本管理（`deployment/server/nginx-secureview.conf`），`docs/DEPLOYMENT.zh-CN.md` 新增 TLS 章节。
 - Kept the two release probes reachable on port 80 from loopback only, after certbot's generated redirects made `mcs21-deploy` fail its post-deploy live health check and roll the release back. The probes use a bare-IP `Host` header that the domain redirects do not match, so they answered `404`. External clients on the bare IP over cleartext still get `403`.

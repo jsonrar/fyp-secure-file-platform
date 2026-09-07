@@ -47,6 +47,38 @@ or should be reintroduced. `MYSQL_ROOT_PASSWORD` and `MYSQL_PORT` in `.env.examp
 local-Compose settings only; production administrator credentials never enter the application
 environment.
 
+### Synchronize environment-backed request limits
+
+`.env.example` is a versioned template; the staging service does not read it. The running
+backend reads `/etc/fyp-secure-file-platform/backend.env`, while nginx enforces its own request
+body ceiling before FastAPI sees a byte. A change to the advertised upload limit is therefore
+complete only when all four boundaries agree:
+
+- `frontend/src/crypto/upload.ts` for the browser-side pre-check;
+- `backend/app/core/config.py` and `.env.example` for the application default and template;
+- `/etc/fyp-secure-file-platform/backend.env` for the deployed application override; and
+- the active nginx `client_max_body_size` directive.
+
+For the current 500 MiB limit, staging must set
+`MAX_UPLOAD_SIZE_BYTES=524288000`; nginx uses `client_max_body_size 501m` so the ciphertext plus
+the bounded multipart metadata overhead can pass. Do not replace the protected environment file
+with `.env.example`: it contains local-development placeholders and omits deployment secrets.
+Update only the reviewed keys, preserve a timestamped backup, then validate and restart/reload:
+
+```bash
+sudo nginx -t
+sudo systemctl restart fyp-backend
+sudo systemctl reload nginx
+curl --fail http://127.0.0.1:8000/health/ready
+curl --fail https://secureview.tech/health/live
+```
+
+Confirm the value in the restarted process rather than treating the file edit as proof. A `413`
+or nginx `client intended to send too large body` entry means the edge limit is still stale; an
+application `file_too_large` response means the request passed nginx but the backend limit is
+still stale. File media type is independent of both size checks: unknown types are stored as
+`application/octet-stream`.
+
 ## Account-host scope
 
 The tracked files deliberately use `fyp_user@localhost`. This safe default is directly usable

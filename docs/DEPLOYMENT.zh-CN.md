@@ -47,6 +47,35 @@ Alembic revision 仍用于开发与 CI 中编写、评审及验证 Schema；生�
 `MYSQL_ROOT_PASSWORD` 和 `MYSQL_PORT` 仅供根目录 Compose 本地开发使用，不是生产管理员
 配置。生产不使用任何部署专用的管理员、迁移或账户 Host 环境变量。
 
+### 同步由环境配置控制的请求上限
+
+`.env.example` 是纳入版本管理的模板，预发布服务不会直接读取它。运行中的后端读取
+`/etc/fyp-secure-file-platform/backend.env`，而 nginx 会在 FastAPI 收到任何字节之前先执行自己
+的请求体上限。因此，调整页面宣称的上传上限时，以下四处必须一致才算完成：
+
+- `frontend/src/crypto/upload.ts`：浏览器端预检查；
+- `backend/app/core/config.py` 与 `.env.example`：应用默认值及模板；
+- `/etc/fyp-secure-file-platform/backend.env`：已部署应用的环境覆盖值；
+- nginx 当前生效的 `client_max_body_size`。
+
+当前 500 MiB 上限要求预发布环境设置 `MAX_UPLOAD_SIZE_BYTES=524288000`；nginx 使用
+`client_max_body_size 501m`，为密文及有界的 multipart metadata 开销留出空间。不要用
+`.env.example` 整份覆盖受保护的环境文件：模板含本地开发占位值，也不包含部署 Secret。只修改
+已评审的键，保留带时间戳的备份，然后验证并重启／重载：
+
+```bash
+sudo nginx -t
+sudo systemctl restart fyp-backend
+sudo systemctl reload nginx
+curl --fail http://127.0.0.1:8000/health/ready
+curl --fail https://secureview.tech/health/live
+```
+
+必须确认重启后的进程实际加载了新值，不能把“文件已编辑”当成生效证据。若返回 `413`，或 nginx
+出现 `client intended to send too large body`，说明边缘层上限仍旧过期；若应用返回
+`file_too_large`，说明请求已通过 nginx，但后端上限仍旧过期。文件媒体类型与这两项大小检查无关：
+无法识别的类型会以 `application/octet-stream` 存储。
+
 ## `localhost` 与远程账户来源
 
 仓库中的三份 SQL 默认使用 ``'fyp_user'@'localhost'``，适用于应用从数据库主机连接的
