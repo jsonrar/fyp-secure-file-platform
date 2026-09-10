@@ -42,6 +42,11 @@ npm run dev
 密钥重包装、撤销、搜索、审计历史、refresh 轮换、登出及注销账户。修改 passphrase、后继密钥
 轮换及完整的角色感知管理/恢复界面仍属于 backlog。
 
+在 `/files` 中，**Download encrypted** 无需解锁账户密钥即可将原始密文保存为
+`<filename>.ciphertext`；**Download and decrypt** 仍在需要时弹出解锁对话框并保存原文件。
+两者均使用已认证且校验完整性的 `POST /files/{file_id}/download` 端点。密文下载只包含存储的
+blob，不包含离线解密所需的完整 envelope。
+
 ## 环境变量
 
 默认 API 地址已是 `http://localhost:8000/api/v1`。如需覆盖，请创建不纳入版本管理的

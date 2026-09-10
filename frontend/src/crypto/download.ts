@@ -13,6 +13,7 @@
 import { fileApi } from '@/api/file_api'
 import { keyApi } from '@/api/key_api'
 import type { FileOut } from '@/api/types'
+import { saveFile } from '@/utils/file-download'
 import {
   type SealedAccountKey,
   unlockAccountPrivateKey,
@@ -322,20 +323,5 @@ export async function downloadAndDecrypt(fileId: string): Promise<DecryptedFile>
 
 /** Hand the decrypted bytes to the browser as a download. */
 export function saveDecryptedFile(file: DecryptedFile): void {
-  const blob = new Blob([file.bytes as BlobPart], { type: file.mimeType })
-  const url = URL.createObjectURL(blob)
-  try {
-    const anchor = document.createElement('a')
-    anchor.href = url
-    anchor.download = file.filename
-    document.body.appendChild(anchor)
-    anchor.click()
-    anchor.remove()
-  } finally {
-    // Revoking immediately can race the save on some browsers; one tick is enough for the
-    // click to have been dispatched, and leaking the object URL keeps the plaintext alive
-    // in memory for the lifetime of the document.
-    setTimeout(() => URL.revokeObjectURL(url), 0)
-  }
+  saveFile(file)
 }
-

@@ -78,6 +78,12 @@ and formal security review. The prioritized summary is in [TODO.md](TODO.md), an
 work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)
 and the team's [SecureView Development Board](https://github.com/users/Waldo0926/projects/1).
 
+The file manager also offers **Download encrypted** for owners and authorized recipients,
+including while the vault is locked. It saves the verified stored bytes as
+`<filename>.ciphertext` without a passphrase or private key. This branch implements the
+download portion of [#71](https://github.com/jsonrar/fyp-secure-file-platform/issues/71);
+preview and live deployment verification remain pending.
+
 ## Using the Website
 
 ### Standard user flow
@@ -97,7 +103,10 @@ and the team's [SecureView Development Board](https://github.com/users/Waldo0926
 4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me".
    Download first verifies the server-side ciphertext SHA-256, then the browser unwraps the
    DEK, authenticates the AEAD tag, and saves the plaintext. A failed authentication never
-   saves a partial file.
+   saves a partial file. **Download encrypted** instead saves the ciphertext without
+   unlocking; sign-in and download permission are still required. The `.ciphertext` file
+   contains only the stored bytes, not the separately stored envelope, nonce, tag, or wrapped
+   key, so it is not a standalone offline-decryption backup.
 5. **Share and revoke:** The owner enters an existing user's exact username. The browser
    rewraps the same DEK to the recipient's public key, and the recipient opens it with their
    own passphrase; the server never learns the DEK. Revocation stops future server-mediated

@@ -43,6 +43,12 @@ upload, authenticated download/decryption, sharing-key rewrap, revocation, searc
 history, refresh rotation, logout, and account deletion. Passphrase change, successor-key
 rotation, and the complete role-aware admin/recovery UI remain backlog work.
 
+On `/files`, **Download encrypted** saves the stored ciphertext as `<filename>.ciphertext`
+without unlocking the account key; **Download and decrypt** still opens the unlock dialog
+when needed and saves the original file. Both use the authenticated, integrity-checked
+`POST /files/{file_id}/download` endpoint. Encrypted downloads contain only the stored blob,
+not a complete offline-decryption envelope.
+
 ## Environment
 
 The default API base is already `http://localhost:8000/api/v1`. To override it, create an
