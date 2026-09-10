@@ -100,8 +100,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 ## P3 — 计划中的产品 UX
 
-已于 2026-09-07 拆成可执行 Issue 并加入共享 backlog。**当前未开工**；邻近的 UI 打磨不得
-视为这些项已完成。每个 Issue 均按
+已于 2026-09-07 拆成可执行 Issue 并加入共享 backlog。各项部分实现状态见下文；邻近的 UI
+打磨不得视为这些项已完成。每个 Issue 均按
 [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61) 写明验收标准。
 
 - [ ] [#72 高危与破坏性操作二次确认](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
@@ -110,6 +110,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [ ] [#71 认证后的密文预览与加密文件下载](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
   ——授权用户可查看有限长度的密文预览或保存服务器实际存储的加密对象；不得静默解密，也不改变
   现有明文解密下载流程。
+  分支 `feat/download-encrypted-file` 已实现所有者和授权接收者无需 passphrase 的密文下载。
+  密文预览和部署核验仍待完成；本次部分实现不会关闭 #71。
 - [ ] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
   ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
   或审计语义。

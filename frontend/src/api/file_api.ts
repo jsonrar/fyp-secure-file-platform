@@ -41,7 +41,7 @@ export const fileApi = {
     return http.post<ApiEnvelope<FileOut>>('/files/upload', form)
   },
 
-  /** Ciphertext only. The caller decrypts locally; the server never holds the file key. */
+  /** Verified ciphertext only. The caller can save it as-is or decrypt it locally. */
   download(fileId: string) {
     return http.post(`/files/${fileId}/download`, null, { responseType: 'arraybuffer' })
   },

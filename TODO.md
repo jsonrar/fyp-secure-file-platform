@@ -112,8 +112,8 @@ not a release pass.
 ## P3 — planned product UX
 
 Triaged into executable Issues on 2026-09-07 and placed in the shared backlog. These items are
-**not** in progress and must not be treated as closed by nearby UI polish; each Issue carries
-its acceptance criteria under [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61).
+not treated as closed by nearby UI polish; partial branch implementations are noted below.
+Each Issue carries its acceptance criteria under [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61).
 
 - [ ] [#72 Add secondary confirmation for destructive and high-risk actions](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
   — file deletion, share revocation, account deletion, and equivalent high-impact actions use
@@ -121,6 +121,9 @@ its acceptance criteria under [#61](https://github.com/jsonrar/fyp-secure-file-p
 - [ ] [#71 Add authenticated ciphertext preview and encrypted-blob download](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
   — authorized users can inspect a bounded ciphertext preview or save the opaque stored object
   without silently decrypting it or changing the normal plaintext-download flow.
+  Branch `feat/download-encrypted-file` implements the passphrase-free ciphertext download
+  for owners and authorized recipients. Preview and deployment verification remain pending;
+  this partial implementation does not close #71.
 - [ ] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
   — create owner-scoped shelves and move owned files between them or root without changing
   encryption, sharing, file identity, or audit semantics.

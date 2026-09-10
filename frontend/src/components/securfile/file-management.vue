@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, Filter, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
+import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Filter, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
 import { markSharesSeen, unseenSharedIds } from '@/utils/seen-shares'
+import { downloadEncryptedFile } from '@/utils/file-download'
 import UnlockDialog from '@/components/UnlockDialog.vue'
 import {
   downloadAndDecrypt,
@@ -54,6 +55,8 @@ const actionMessage = ref('')
 const page = ref(1)
 const total = ref(0)
 const downloadingId = ref<string | null>(null)
+const encryptedDownloadingId = ref<string | null>(null)
+const downloadBusy = computed(() => downloadingId.value !== null || encryptedDownloadingId.value !== null)
 // Set while the passphrase dialog is open; holds the file to resume once unlocked.
 const pendingDownloadId = ref<string | null>(null)
 // The same, for a share interrupted by the unlock. Sharing needs the account key too:
@@ -201,6 +204,7 @@ const handleDelete = async (id: string) => {
  * authenticated: a file that fails to decrypt is never saved half-formed.
  */
 const handleDownload = async (id: string) => {
+  if (downloadBusy.value) return
   actionMessage.value = ''
   if (!isUnlocked()) {
     pendingDownloadId.value = id
@@ -243,6 +247,21 @@ const handleDownload = async (id: string) => {
     actionMessage.value = error instanceof Error ? error.message : 'Download failed'
   } finally {
     downloadingId.value = null
+  }
+}
+
+const handleEncryptedDownload = async (file: EncryptedFile) => {
+  if (downloadBusy.value) return
+  actionMessage.value = ''
+  errorMessage.value = ''
+  encryptedDownloadingId.value = file.id
+  try {
+    await downloadEncryptedFile(file.id, file.name)
+    actionMessage.value = `Encrypted download started for ${file.name}. The file remains encrypted.`
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Encrypted download failed'
+  } finally {
+    encryptedDownloadingId.value = null
   }
 }
 
@@ -374,6 +393,9 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
 
         <p v-if="errorMessage" class="text-sm text-destructive mb-4">{{ errorMessage }}</p>
         <p v-if="actionMessage" class="text-sm text-primary mb-4">{{ actionMessage }}</p>
+        <p class="text-sm text-muted-foreground mb-4">
+          Download encrypted saves a .ciphertext file without your passphrase. Use Download and decrypt to save the original file.
+        </p>
 
         <div v-if="isLoading && !files.length" class="text-center py-12 text-muted-foreground">
           Loading files...
@@ -419,15 +441,27 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   </button>
                 </td>
                 <td class="text-right">
-                  <div class="inline-flex gap-1">
+                  <div class="inline-flex flex-wrap justify-end gap-1">
                     <button
                       class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
-                      :disabled="downloadingId !== null"
+                      aria-label="Download and decrypt"
+                      :disabled="downloadBusy"
                       @click="handleDownload(file.id)"
                     >
                       <Loader2 v-if="downloadingId === file.id" class="h-4 w-4 animate-spin" />
                       <Download v-else class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="min-h-8 px-2 inline-flex items-center justify-center gap-1 rounded-md border border-border hover:bg-secondary disabled:opacity-40"
+                      title="Download encrypted file (no passphrase needed)"
+                      :disabled="downloadBusy"
+                      @click="handleEncryptedDownload(file)"
+                    >
+                      <Loader2 v-if="encryptedDownloadingId === file.id" class="h-4 w-4 shrink-0 animate-spin" />
+                      <FileLock2 v-else class="h-4 w-4 shrink-0" />
+                      <span>{{ encryptedDownloadingId === file.id ? 'Downloading...' : 'Download encrypted' }}</span>
                     </button>
                     <!-- Sharing and deleting belong to the owner. A recipient's grant carries
                          can_share=false and can_manage=false, so these would only ever return
