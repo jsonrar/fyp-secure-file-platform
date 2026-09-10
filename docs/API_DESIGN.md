@@ -133,7 +133,8 @@ so that loss stays unrecoverable by design.
 | POST | `/keys/add/signing-payload` | Bearer | Build the canonical digest that the current client key must authorize |
 | POST | `/keys/add` | Bearer | Add a successor public/encrypted-private key using RSA-PSS-SHA256 current-key authorization |
 | GET | `/keys/users/{user_id}/active` | Bearer | Return only a user's active public encryption key for sharing |
-| GET | `/keys/users/by-username/{username}/active` | Bearer | The same key, addressed by username, so a sender can resolve a share recipient they know by name. Exact match only; not a searchable directory |
+| GET | `/keys/users/by-identifier/{identifier}/active` | Bearer | The same key, addressed by exact username or email, so a sender can resolve a known recipient without browsing a directory |
+| GET | `/keys/users/by-username/{username}/active` | Bearer | Deprecated compatibility alias for username-only clients |
 
 Protection rewrap is a two-call proof-of-possession workflow. After unlocking the AMK and the
 newest current private key locally, the client prepares `authorizing_key_id`,

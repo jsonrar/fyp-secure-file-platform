@@ -7,7 +7,7 @@ import {
   KeyNotUnlockedError,
   NotUnlockedError,
 } from '@/crypto/download'
-import { RecipientNotFoundError, shareFileWithUsername } from '@/crypto/share'
+import { RecipientNotFoundError, shareFileWithRecipient } from '@/crypto/share'
 import { apiErrorMessage } from '@/api/http'
 import { shareApi, type SharedUser } from '@/api/share_api'
 import { unwrapData } from '@/api/types'
@@ -15,6 +15,7 @@ import { unwrapData } from '@/api/types'
 const props = defineProps<{
   fileId: string
   filename?: string
+  initialRecipient?: string
 }>()
 
 const emit = defineEmits<{
@@ -22,10 +23,10 @@ const emit = defineEmits<{
   (e: 'shared', username: string): void
   (e: 'revoked', username: string): void
   /** The account key must be opened before the file's key can be rewrapped. */
-  (e: 'needs-unlock', keyId: string | null): void
+  (e: 'needs-unlock', keyId: string | null, recipient: string): void
 }>()
 
-const targetUsername = ref('')
+const targetUsername = ref(props.initialRecipient ?? '')
 const errorMessage = ref('')
 const isSubmitting = ref(false)
 const field = ref<HTMLInputElement | null>(null)
@@ -79,13 +80,13 @@ onMounted(async () => {
 async function share() {
   const name = targetUsername.value.trim()
   if (!name) {
-    errorMessage.value = 'Enter the username to share with'
+    errorMessage.value = 'Enter the username or email address to share with'
     return
   }
   isSubmitting.value = true
   errorMessage.value = ''
   try {
-    await shareFileWithUsername(props.fileId, name)
+    await shareFileWithRecipient(props.fileId, name)
     targetUsername.value = ''
     await loadRecipients()
     emit('shared', name)
@@ -93,16 +94,16 @@ async function share() {
     // Unlocking is not a failure: the caller raises the passphrase dialog and the user
     // comes back to this one.
     if (error instanceof NotUnlockedError) {
-      emit('needs-unlock', null)
+      emit('needs-unlock', null, name)
       return
     }
     if (error instanceof KeyNotUnlockedError) {
-      emit('needs-unlock', error.keyId)
+      emit('needs-unlock', error.keyId, name)
       return
     }
     errorMessage.value =
       error instanceof RecipientNotFoundError
-        ? `No account named "${name}". Check the spelling with them — usernames must match exactly.`
+        ? `No account matches "${name}". Check their exact SecureView username or email address.`
         : error instanceof FileKeyUnwrapError
           ? 'Your account key does not open this file, so it cannot be shared from here.'
           : apiErrorMessage(error, 'Could not share this file')
@@ -180,13 +181,14 @@ async function share() {
         <input
           ref="field"
           v-model="targetUsername"
-          placeholder="Their username on SecureView"
+          placeholder="Their username/ Email address on Secureview."
           autocomplete="off"
           class="h-10 w-full rounded-md border border-border bg-secondary px-3 text-foreground"
         />
         <p class="text-xs text-muted-foreground mt-2">
           They need a SecureView account. Sharing is per account, not by link — a file can
-          only be re-encrypted to a key that already exists.
+          only be re-encrypted to a key that already exists. Enter their exact username or
+          email address.
         </p>
 
         <p v-if="errorMessage" class="text-sm text-destructive mt-2">{{ errorMessage }}</p>

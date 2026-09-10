@@ -121,6 +121,13 @@ class FakeRepository:
         )
         self.keys = []
         self.bundles = []
+        self.recipient_identifier = None
+
+    def get_active_public_key_by_identifier(self, identifier: str):
+        self.recipient_identifier = identifier
+        if identifier in {"recipient", "recipient@example.com"}:
+            return SimpleNamespace(), SimpleNamespace()
+        return None
 
     def lock_protection_profile(self, user_id: int):
         assert user_id == 7
@@ -160,6 +167,28 @@ def _service(repository: FakeRepository) -> tuple[KeyService, FakeDb, FakeAudit]
         clock=lambda: NOW,
     )
     return service, db, audit
+
+
+def test_share_recipient_identifier_preserves_exact_username() -> None:
+    repository = FakeRepository(
+        _pem(rsa.generate_private_key(public_exponent=65537, key_size=2048))
+    )
+    service, _, _ = _service(repository)
+
+    service.get_active_public_key_by_identifier(identifier="  recipient  ")
+
+    assert repository.recipient_identifier == "recipient"
+
+
+def test_share_recipient_identifier_canonicalises_email() -> None:
+    repository = FakeRepository(
+        _pem(rsa.generate_private_key(public_exponent=65537, key_size=2048))
+    )
+    service, _, _ = _service(repository)
+
+    service.get_active_public_key_by_identifier(identifier=" Recipient@Example.COM ")
+
+    assert repository.recipient_identifier == "recipient@example.com"
 
 
 def test_current_private_key_authorizes_atomic_successor_addition() -> None:

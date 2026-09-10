@@ -62,14 +62,17 @@ class KeyService:
             raise UserKeyNotFoundError()
         return result
 
-    def get_active_public_key_by_username(self, *, username: str) -> tuple[User, UserKey]:
-        """Resolve a share recipient the sender named.
+    def get_active_public_key_by_identifier(self, *, identifier: str) -> tuple[User, UserKey]:
+        """Resolve a share recipient by exact username or canonical email address.
 
         Raises the same `UserKeyNotFoundError` whether the account does not exist, is not
         ACTIVE, or has no active key, so the answer distinguishes "cannot be shared with"
         from "exists" no more than it has to.
         """
-        result = self.repository.get_active_public_key_by_username(username.strip())
+        normalized = identifier.strip()
+        if "@" in normalized:
+            normalized = normalized.lower()
+        result = self.repository.get_active_public_key_by_identifier(normalized)
         if result is None:
             raise UserKeyNotFoundError()
         return result
