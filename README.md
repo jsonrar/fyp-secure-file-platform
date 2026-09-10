@@ -107,7 +107,8 @@ preview and live deployment verification remain pending.
    unlocking; sign-in and download permission are still required. The `.ciphertext` file
    contains only the stored bytes, not the separately stored envelope, nonce, tag, or wrapped
    key, so it is not a standalone offline-decryption backup.
-5. **Share and revoke:** The owner enters an existing user's exact username. The browser
+5. **Share and revoke:** The owner unlocks first if needed, then enters an existing user's
+   exact username or email address. The browser
    rewraps the same DEK to the recipient's public key, and the recipient opens it with their
    own passphrase; the server never learns the DEK. Revocation stops future server-mediated
    access but cannot recover a copy the recipient already downloaded and decrypted.

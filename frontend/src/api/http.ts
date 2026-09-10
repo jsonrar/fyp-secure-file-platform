@@ -56,6 +56,13 @@ export function apiErrorMessage(error: unknown, fallback = 'Request failed'): st
   return body?.message ?? fallback
 }
 
+/** Read the stable backend error code without coupling callers to Axios response shapes. */
+export function apiErrorCode(error: unknown): string | undefined {
+  if (!axios.isAxiosError(error)) return undefined
+  const body = error.response?.data as ApiFailureBody | undefined
+  return body?.data?.error_code
+}
+
 http.interceptors.request.use((config) => {
   const token = readAccessToken()
   if (token) {

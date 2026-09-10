@@ -10,7 +10,7 @@ vi.stubGlobal('localStorage', {
   clear: () => store.clear(),
 })
 
-const { http } = await import('./http')
+const { apiErrorCode, http } = await import('./http')
 const { notifySessionExpired, setSessionExpiredHandler, writeSession } = await import('./session')
 
 /** An axios error shaped the way an interceptor sees one. */
@@ -147,5 +147,16 @@ describe('session storage', () => {
 
   it('does nothing when no expiry handler is registered', () => {
     expect(() => notifySessionExpired()).not.toThrow()
+  })
+})
+
+describe('apiErrorCode', () => {
+  it('reads the stable backend code used to distinguish a revoked stale file row', () => {
+    const error = Object.assign(new Error('404'), {
+      isAxiosError: true,
+      response: { status: 404, data: { data: { error_code: 'file_not_found' } } },
+    })
+
+    expect(apiErrorCode(error)).toBe('file_not_found')
   })
 })

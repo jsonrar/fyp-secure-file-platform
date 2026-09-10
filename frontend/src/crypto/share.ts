@@ -27,10 +27,10 @@ import {
 import { unwrapDek } from './file_envelope'
 import { AuthenticationFailure, importRsaOaepPublicKey, rsaOaepWrap } from './primitives'
 
-/** No active account by that name, or it has no key a file could be wrapped to. */
+/** No active account by that username/email, or it has no key a file could be wrapped to. */
 export class RecipientNotFoundError extends Error {
-  constructor(username: string) {
-    super(`No active account named "${username}" that can receive a shared file`)
+  constructor(identifier: string) {
+    super(`No active account matching "${identifier}" that can receive a shared file`)
     this.name = 'RecipientNotFoundError'
   }
 }
@@ -55,18 +55,18 @@ export interface ShareOutcome {
  * Requires the sender's account key to be unlocked, for the same reason downloading does:
  * the DEK is reachable only through it.
  */
-export async function shareFileWithUsername(
+export async function shareFileWithRecipient(
   fileId: string,
-  username: string,
+  identifier: string,
   options: { canDownload?: boolean; canShare?: boolean } = {},
 ): Promise<ShareOutcome> {
-  const name = username.trim()
-  if (!name) throw new RecipientNotFoundError(username)
+  const name = identifier.trim()
+  if (!name) throw new RecipientNotFoundError(identifier)
   if (!isUnlocked()) throw new NotUnlockedError()
 
   let recipient
   try {
-    recipient = (await keyApi.activePublicKeyByUsername(name)).data.data
+    recipient = (await keyApi.activePublicKeyByIdentifier(name)).data.data
   } catch {
     // A 404 is the ordinary case -- a typo in a colleague's name -- and everything else
     // here is equally "cannot share with them", so it is not worth splitting further.
@@ -107,3 +107,6 @@ export async function shareFileWithUsername(
 
   return { username: name, created: response.data.data?.created ?? true }
 }
+
+/** Compatibility name for callers written before email recipient lookup was supported. */
+export const shareFileWithUsername = shareFileWithRecipient

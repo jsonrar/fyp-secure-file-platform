@@ -15,7 +15,7 @@ offline and deterministic.
 | Upload | The metadata envelope is one the API actually accepts, and every file is wrapped to the recovery key as well as the owner's |
 | List | The file is reported as owned, and names its owner |
 | Download | The bytes that went in come back out, from what the server stores plus the passphrase |
-| Share | The file key is rewrapped to the recipient, by username |
+| Share | The file key is rewrapped to the recipient, resolved by username or email |
 | Shared users | The recipient holds `can_download` but not `can_share`, and is not the owner |
 | Recipient's list | The same file is reported as **not** owned, and names the sender |
 | Recipient's download | **They decrypt with their own passphrase** — the promise the proposal makes in as many words |

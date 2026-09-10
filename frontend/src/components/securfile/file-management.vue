@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Filter, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
+import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
@@ -31,6 +32,8 @@ interface EncryptedFile {
   owned: boolean
   /** Who uploaded it, shown when that is not the viewer. */
   ownerName: string
+  /** Set when a stale shared row is no longer authorized on the server. */
+  accessError?: string
 }
 
 interface StatusConfig {
@@ -57,11 +60,21 @@ const total = ref(0)
 const downloadingId = ref<string | null>(null)
 const encryptedDownloadingId = ref<string | null>(null)
 const downloadBusy = computed(() => downloadingId.value !== null || encryptedDownloadingId.value !== null)
+const activeDownload = computed(() => {
+  const id = downloadingId.value ?? encryptedDownloadingId.value
+  return id === null ? undefined : files.value.find((file) => file.id === id)
+})
+const downloadProgressMessage = computed(() => {
+  if (!activeDownload.value) return ''
+  const verb = downloadingId.value ? 'Downloading and decrypting' : 'Downloading'
+  return `${verb} ${activeDownload.value.name}… Keep this page open until the download finishes.`
+})
 // Set while the passphrase dialog is open; holds the file to resume once unlocked.
 const pendingDownloadId = ref<string | null>(null)
 // The same, for a share interrupted by the unlock. Sharing needs the account key too:
 // the file's key has to be unwrapped before it can be rewrapped to the recipient.
 const pendingShareId = ref<string | null>(null)
+const pendingShareRecipient = ref('')
 const unlockKeyId = ref<string | null>(null)
 const showUnlock = ref(false)
 
@@ -179,6 +192,19 @@ const filteredFiles = computed(() =>
   files.value.filter((file) => (scope.value === 'mine' ? file.owned : !file.owned)),
 )
 
+const revokedAccessMessage =
+  'This shared file is no longer available. Its owner may have revoked access or deleted it. Contact the person who shared it with you.'
+
+const markSharedFileUnavailable = (id: string, error: unknown): boolean => {
+  const row = files.value.find((file) => file.id === id)
+  if (row && !row.owned && apiErrorCode(error) === 'file_not_found') {
+    row.accessError = revokedAccessMessage
+    errorMessage.value = revokedAccessMessage
+    return true
+  }
+  return false
+}
+
 const handleDelete = async (id: string) => {
   actionMessage.value = ''
   try {
@@ -206,10 +232,23 @@ const handleDelete = async (id: string) => {
 const handleDownload = async (id: string) => {
   if (downloadBusy.value) return
   actionMessage.value = ''
+  errorMessage.value = ''
+  const row = files.value.find((file) => file.id === id)
+  if (row?.accessError) return
   if (!isUnlocked()) {
-    pendingDownloadId.value = id
-    unlockKeyId.value = null
-    showUnlock.value = true
+    try {
+      // A stale recipient tab can still show a row after its owner revokes access. Check
+      // before asking for a passphrase, otherwise the user unlocks successfully and then
+      // sees an apparently dead download button.
+      await fileApi.getFile(id)
+      pendingDownloadId.value = id
+      unlockKeyId.value = null
+      showUnlock.value = true
+    } catch (error) {
+      if (!markSharedFileUnavailable(id, error)) {
+        errorMessage.value = apiErrorMessage(error, 'Could not check access to this file')
+      }
+    }
     return
   }
 
@@ -244,7 +283,9 @@ const handleDownload = async (id: string) => {
       errorMessage.value = error.message
       return
     }
-    actionMessage.value = error instanceof Error ? error.message : 'Download failed'
+    if (!markSharedFileUnavailable(id, error)) {
+      errorMessage.value = apiErrorMessage(error, 'Download failed')
+    }
   } finally {
     downloadingId.value = null
   }
@@ -259,7 +300,9 @@ const handleEncryptedDownload = async (file: EncryptedFile) => {
     await downloadEncryptedFile(file.id, file.name)
     actionMessage.value = `Encrypted download started for ${file.name}. The file remains encrypted.`
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Encrypted download failed'
+    if (!markSharedFileUnavailable(file.id, error)) {
+      errorMessage.value = apiErrorMessage(error, 'Encrypted download failed')
+    }
   } finally {
     encryptedDownloadingId.value = null
   }
@@ -275,7 +318,6 @@ const onUnlocked = async () => {
   if (resumeDownload) {
     await handleDownload(resumeDownload)
   } else if (resumeShare) {
-    // Reopen the share dialog rather than sharing silently: the username was lost with it.
     shareFileId.value = resumeShare
   }
 }
@@ -285,6 +327,7 @@ const closeUnlock = () => {
   unlockKeyId.value = null
   pendingDownloadId.value = null
   pendingShareId.value = null
+  pendingShareRecipient.value = ''
 }
 
 const handleIntegrityCheck = async (id: string) => {
@@ -303,6 +346,13 @@ const handleIntegrityCheck = async (id: string) => {
 }
 
 const openShare = (id: string) => {
+  if (!isUnlocked()) {
+    pendingShareId.value = id
+    pendingShareRecipient.value = ''
+    unlockKeyId.value = null
+    showUnlock.value = true
+    return
+  }
   shareFileId.value = id
 }
 
@@ -310,6 +360,7 @@ const historyFile = computed(() => files.value.find((file) => file.id === histor
 
 const closeShare = () => {
   shareFileId.value = null
+  pendingShareRecipient.value = ''
 }
 
 const onShared = (username: string) => {
@@ -323,8 +374,9 @@ const onRevoked = (username: string) => {
 }
 
 /** The rewrap needs the account key open; stand the share down and raise the passphrase. */
-const onShareNeedsUnlock = (keyId: string | null) => {
+const onShareNeedsUnlock = (keyId: string | null, recipient: string) => {
   pendingShareId.value = shareFileId.value
+  pendingShareRecipient.value = recipient
   shareFileId.value = null
   unlockKeyId.value = keyId
   showUnlock.value = true
@@ -393,6 +445,15 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
 
         <p v-if="errorMessage" class="text-sm text-destructive mb-4">{{ errorMessage }}</p>
         <p v-if="actionMessage" class="text-sm text-primary mb-4">{{ actionMessage }}</p>
+        <div
+          v-if="downloadProgressMessage"
+          class="mb-4 flex items-center gap-2 rounded-md border border-border bg-secondary px-3 py-2 text-sm font-medium text-foreground"
+          role="status"
+          aria-live="polite"
+        >
+          <Loader2 class="h-4 w-4 shrink-0 animate-spin" />
+          <span>{{ downloadProgressMessage }}</span>
+        </div>
         <p class="text-sm text-muted-foreground mb-4">
           Download encrypted saves a .ciphertext file without your passphrase. Use Download and decrypt to save the original file.
         </p>
@@ -427,6 +488,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <div>
                       <p class="text-foreground font-medium">{{ file.name }}</p>
                       <p v-if="!file.owned" class="text-xs text-muted-foreground">Shared by {{ file.ownerName }}</p>
+                      <p v-if="file.accessError" class="mt-1 text-xs text-destructive">{{ file.accessError }}</p>
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
                     </div>
                   </div>
@@ -446,7 +508,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                       class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
                       aria-label="Download and decrypt"
-                      :disabled="downloadBusy"
+                      :disabled="downloadBusy || Boolean(file.accessError)"
                       @click="handleDownload(file.id)"
                     >
                       <Loader2 v-if="downloadingId === file.id" class="h-4 w-4 animate-spin" />
@@ -454,14 +516,14 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     </button>
                     <button
                       type="button"
-                      class="min-h-8 px-2 inline-flex items-center justify-center gap-1 rounded-md border border-border hover:bg-secondary disabled:opacity-40"
-                      title="Download encrypted file (no passphrase needed)"
-                      :disabled="downloadBusy"
+                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
+                      title="Download encrypted file"
+                      aria-label="Download encrypted file"
+                      :disabled="downloadBusy || Boolean(file.accessError)"
                       @click="handleEncryptedDownload(file)"
                     >
                       <Loader2 v-if="encryptedDownloadingId === file.id" class="h-4 w-4 shrink-0 animate-spin" />
                       <FileLock2 v-else class="h-4 w-4 shrink-0" />
-                      <span>{{ encryptedDownloadingId === file.id ? 'Downloading...' : 'Download encrypted' }}</span>
                     </button>
                     <!-- Sharing and deleting belong to the owner. A recipient's grant carries
                          can_share=false and can_manage=false, so these would only ever return
@@ -521,6 +583,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       v-if="shareFileId !== null"
       :file-id="shareFileId"
       :filename="shareFilename"
+      :initial-recipient="pendingShareRecipient"
       @close="closeShare"
       @shared="onShared"
       @revoked="onRevoked"

@@ -8,6 +8,7 @@ import {
   MAX_UPLOAD_BYTES,
   prepareUpload,
   resolveMimeType,
+  resolveUploadFilename,
   type UploadRecipients,
   type UploadableFile,
 } from './upload'
@@ -60,6 +61,18 @@ describe('resolveMimeType', () => {
   it('lowercases and trims what the browser does report', () => {
     expect(resolveMimeType('Application/PDF')).toBe('application/pdf')
     expect(resolveMimeType(' text/plain ')).toBe('text/plain')
+  })
+})
+
+describe('resolveUploadFilename', () => {
+  it('removes invisible surrounding whitespace but preserves spaces within a filename', () => {
+    expect(resolveUploadFilename(' FIT3162 First Individual Vlog 35925248.mp4 ')).toBe(
+      'FIT3162 First Individual Vlog 35925248.mp4',
+    )
+  })
+
+  it('normalizes equivalent Unicode before the filename becomes authenticated metadata', () => {
+    expect(resolveUploadFilename(' re\u0301sume\u0301.pdf')).toBe('r\u00e9sum\u00e9.pdf')
   })
 })
 
@@ -152,6 +165,22 @@ describe('prepareUpload', () => {
       recipients: await recipientsFor(pem, pem),
     })
     expect(payload.metadata.mime_type).toBe(DEFAULT_MIME_TYPE)
+  })
+
+  it('uploads a filename with internal spaces after trimming its hidden leading space', async () => {
+    const { pem } = await newRsaPairAndPem()
+    const payload = await prepareUpload({
+      file: fakeFile(
+        ' FIT3162 First Individual Vlog Reflections Shuoxun Wen 35925248.mp4',
+        new Uint8Array([7]),
+        'video/mp4',
+      ),
+      recipients: await recipientsFor(pem, pem),
+    })
+    expect(payload.metadata.original_filename).toBe(
+      'FIT3162 First Individual Vlog Reflections Shuoxun Wen 35925248.mp4',
+    )
+    expect(payload.metadata.mime_type).toBe('video/mp4')
   })
 
   it('handles an empty file', async () => {

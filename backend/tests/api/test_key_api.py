@@ -92,9 +92,9 @@ class FakeKeyService:
             ),
         )
 
-    def get_active_public_key_by_username(self, *, username: str):
-        self.calls.append(("get_active_public_key_by_username", {"username": username}))
-        if username != "recipient":
+    def get_active_public_key_by_identifier(self, *, identifier: str):
+        self.calls.append(("get_active_public_key_by_identifier", {"identifier": identifier}))
+        if identifier not in {"recipient", "recipient@example.com"}:
             raise UserKeyNotFoundError()
         return (
             SimpleNamespace(user_uuid=str(RECIPIENT_ID)),
@@ -293,7 +293,7 @@ def test_rewrap_openapi_requires_signature_and_exposes_no_secret_input(
 def test_resolves_a_share_recipient_by_username(key_api) -> None:
     client, service = key_api
 
-    response = client.get("/api/v1/keys/users/by-username/recipient/active")
+    response = client.get("/api/v1/keys/users/by-identifier/recipient/active")
 
     assert response.status_code == 200
     data = response.json()["data"]
@@ -301,22 +301,46 @@ def test_resolves_a_share_recipient_by_username(key_api) -> None:
     assert data["user_id"] == str(RECIPIENT_ID)
     assert data["key_id"] == str(RECIPIENT_KEY_ID)
     assert data["public_key_pem"].startswith("-----BEGIN PUBLIC KEY-----")
-    assert ("get_active_public_key_by_username", {"username": "recipient"}) in service.calls
+    assert ("get_active_public_key_by_identifier", {"identifier": "recipient"}) in service.calls
+
+
+def test_resolves_a_share_recipient_by_email(key_api) -> None:
+    client, service = key_api
+
+    response = client.get("/api/v1/keys/users/by-identifier/recipient%40example.com/active")
+
+    assert response.status_code == 200
+    assert (
+        "get_active_public_key_by_identifier",
+        {"identifier": "recipient@example.com"},
+    ) in service.calls
 
 
 def test_an_unknown_recipient_is_not_found(key_api) -> None:
     client, _ = key_api
 
-    response = client.get("/api/v1/keys/users/by-username/nobody/active")
+    response = client.get("/api/v1/keys/users/by-identifier/nobody/active")
 
     assert response.status_code == 404
 
 
-def test_the_username_route_does_not_shadow_the_user_id_route(key_api) -> None:
-    # "by-username" sits one segment deeper than /users/{user_id}/active, so the two cannot
+def test_the_identifier_route_does_not_shadow_the_user_id_route(key_api) -> None:
+    # "by-identifier" sits one segment deeper than /users/{user_id}/active, so the two cannot
     # collide -- including for a username that happens to parse as a UUID.
     client, service = key_api
 
-    client.get(f"/api/v1/keys/users/by-username/{RECIPIENT_ID}/active")
+    client.get(f"/api/v1/keys/users/by-identifier/{RECIPIENT_ID}/active")
 
-    assert ("get_active_public_key_by_username", {"username": str(RECIPIENT_ID)}) in service.calls
+    assert (
+        "get_active_public_key_by_identifier",
+        {"identifier": str(RECIPIENT_ID)},
+    ) in service.calls
+
+
+def test_the_username_route_remains_as_a_compatibility_alias(key_api) -> None:
+    client, service = key_api
+
+    response = client.get("/api/v1/keys/users/by-username/recipient/active")
+
+    assert response.status_code == 200
+    assert ("get_active_public_key_by_identifier", {"identifier": "recipient"}) in service.calls

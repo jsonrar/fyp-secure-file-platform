@@ -18,6 +18,17 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Upload, download, and sharing feedback / 上传、下载与分享反馈
+
+- Canonicalized only surrounding filename whitespace before browser encryption, while preserving internal spaces and arbitrary MIME types. Files selected from Finder with a hidden leading or trailing space now satisfy the authenticated metadata contract instead of failing after encryption.
+- 浏览器加密前仅规范化文件名首尾空白，同时保留中间空格及任意 MIME 类型。从 Finder 选择的文件即使带隐藏的开头或结尾空格，也能满足受认证元数据约束，不再在加密后失败。
+- Reduced the encrypted-download action to an icon with the hover label **Download encrypted file**, and added a persistent, non-error progress notice telling users to keep the page open while a large encrypted or decrypted download is in progress.
+- 将密文下载操作精简为图标，并在悬停时显示 **Download encrypted file**；大文件密文或解密下载期间新增持续显示的非错误提示，明确提醒用户保持页面开启。
+- A stale shared-file row now checks access before asking for a passphrase and turns into a disabled row with a clear red explanation when the owner has revoked access or removed the file. The same handling covers revocation that races with an already-started download.
+- 共享文件列表未刷新时，下载前会先检查权限；若所有者已撤销访问或移除文件，该行会禁用并显示明确红色说明，不再先要求输入 passphrase 后无响应。下载已开始时发生撤销也采用相同处理。
+- Sharing now unlocks the sender's account key before displaying the recipient form, eliminating duplicate recipient entry. The recipient can be resolved by exact SecureView username or email address; the former username endpoint remains as a deprecated compatibility alias.
+- 分享流程现改为先解锁发送方账户密钥，再显示接收人表单，避免重复输入接收人；接收人可通过 SecureView 精确用户名或邮箱地址解析，原用户名端点作为已弃用兼容别名继续保留。
+
 ### Shared records and board evidence reconciliation / 团队记录与看板证据对齐
 
 - Retired the separate CT work-package board view after verifying that all nine Chen Tai commits

@@ -72,9 +72,9 @@ export const keyApi = {
    * The share contract speaks in `target_user_id`, which no sender has to hand. Exact
    * match: this resolves someone already known, and is not a directory to search.
    */
-  activePublicKeyByUsername(username: string) {
+  activePublicKeyByIdentifier(identifier: string) {
     return http.get<ApiEnvelope<PublicEncryptionKey>>(
-      `/keys/users/by-username/${encodeURIComponent(username)}/active`,
+      `/keys/users/by-identifier/${encodeURIComponent(identifier)}/active`,
     )
   },
 }

@@ -77,22 +77,26 @@ class KeyRepository:
         ).one_or_none()
         return None if row is None else row._tuple()
 
-    def get_active_public_key_by_username(
+    def get_active_public_key_by_identifier(
         self,
-        username: str,
+        identifier: str,
     ) -> tuple[User, UserKey] | None:
-        """The same row as `get_active_public_key_by_user_uuid`, addressed by username.
+        """The same row as `get_active_public_key_by_user_uuid`, addressed by identifier.
 
-        Sharing needs this: a sender knows who they mean by name, but the share contract is
-        expressed in `target_user_id` and `target_key_id`. Matching is exact -- no prefix or
-        substring search -- so this resolves a recipient the sender already knows and does
-        not double as a directory to browse.
+        Sharing needs this: a sender knows a username or email, but the share contract is
+        expressed in ids. Matching is exact -- no prefix or substring search -- so this is
+        not a user directory.
         """
+        # Usernames cannot contain @, so email-shaped values can be resolved in their own
+        # namespace without a username/email collision. The service canonicalises email.
+        recipient_filter = (
+            User.email == identifier if "@" in identifier else User.username == identifier
+        )
         row = self.db.execute(
             select(User, UserKey)
             .join(UserKey, UserKey.user_id == User.id)
             .where(
-                User.username == username,
+                recipient_filter,
                 User.status == UserStatus.ACTIVE,
                 UserKey.status == "ACTIVE",
             )

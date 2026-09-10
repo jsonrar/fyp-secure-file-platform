@@ -46,6 +46,15 @@ export function resolveMimeType(type: string | undefined): string {
 }
 
 /**
+ * Finder and other file pickers can preserve invisible whitespace at either edge of a
+ * filename. The API deliberately rejects that ambiguous form, so canonicalise only those
+ * edges before the name is authenticated as AAD. Ordinary spaces inside the name remain.
+ */
+export function resolveUploadFilename(name: string): string {
+  return name.normalize('NFC').trim()
+}
+
+/**
  * Fetch the owner and recovery public keys.
  *
  * The recovery fingerprint is recomputed from the PEM rather than read from the response
@@ -100,7 +109,7 @@ export async function prepareUpload(params: {
   const plaintext = new Uint8Array(await file.arrayBuffer())
   const envelope = await encryptFile({
     plaintext,
-    originalFilename: file.name,
+    originalFilename: resolveUploadFilename(file.name),
     mimeType: resolveMimeType(file.type),
     algorithm: params.algorithm ?? DEFAULT_ENCRYPTION_ALGORITHM,
   })
