@@ -250,6 +250,17 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
   品牌蓝盾牌（`#006DC7`），不再随主题着色——favicon 无法继承页面颜色，固定蓝色在任何主题下都更
   可辨认。明细见 [`JY-changelog.md`](JY-changelog.md)。
 
+### Totals that are actually totals / 让统计数字真的是总数
+
+- The four figures on the records page summarised **one page** of the trail while looking like totals of everything. `GET /audit-logs` defaults to 50 rows and the page never asked for more, so on a test account holding 83 rows it reported four tracked files, twelve downloads and eight shares — against a true eight, nineteen and thirteen. Roughly half, presented as the whole.
+- 记录页上的四个数字统计的是轨迹的**一页**，看上去却像是全部的总数。`GET /audit-logs` 默认返回 50 条，而页面从未要求更多，因此在一个有 83 条记录的测试账号上，它报告了 4 个文件、12 次下载、8 次分享——而真实值是 8、19、13。大约只有一半，却以全部的姿态呈现。
+- Sign-ins made it worse. Twenty-two of those first fifty rows were `AUTH_LOGIN_SUCCEEDED`, so ordinary use of the site steadily pushed the file activity the page exists to show out of the window — which is why the figure shrank between two screenshots of the same account.
+- 登录记录让情况更糟。那前 50 条里有 22 条是 `AUTH_LOGIN_SUCCEEDED`，因此对站点的日常使用会持续把这个页面本该展示的文件活动挤出窗口——这也是同一个账号的两张截图之间这个数字会变小的原因。
+- The page now walks every page of the trail, bounded at 1000 rows so an account used for months does not issue fifty requests to draw four numbers. When that bound is reached it says the totals cover the most recent events, rather than under-reporting in silence.
+- 页面现在会遍历轨迹的每一页，上限 1000 条，以免一个用了几个月的账号为了画四个数字发出五十次请求。达到上限时会明确说明统计仅覆盖最近的事件，而不是默不作声地少报。
+- The walk lives in `utils/audit-trail.ts` with its own tests, because "a number that looks right and is not" is exactly the failure this page keeps producing, and it is not observable from the markup.
+- 该遍历逻辑放在 `utils/audit-trail.ts` 并附带自己的测试，因为"看起来对、其实不对的数字"正是这个页面反复出现的失效方式，而它从 markup 上是看不出来的。
+
 ### Who may read the audit trail / 谁有权读取审计记录
 
 Reported from a live test: a recipient could read the whole history of a shared file, and the owner's own Access Records reported zero downloads. Both came from the same place — the rule deciding which rows a caller may see.
