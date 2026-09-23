@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
+import ResetPassphraseCard from '@/components/ResetPassphraseCard.vue'
 import { useTheme, type ThemePreference } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth_store'
 
@@ -94,12 +95,14 @@ function onDeleted() {
         </div>
       </div>
 
+      <ResetPassphraseCard />
+
       <div class="mt-6 rounded-xl border border-destructive/40 bg-card p-6">
         <h2 class="text-lg font-semibold text-foreground">Delete this account</h2>
         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
           Removes the account and every file uploaded from it. There is no way to reverse this
           and no way to recover the files afterwards. If you are locked out by a forgotten
-          passphrase, unlocking with your saved private key file is the thing to try first.
+          passphrase, reset it above with your saved private key file instead.
         </p>
         <button
           type="button"

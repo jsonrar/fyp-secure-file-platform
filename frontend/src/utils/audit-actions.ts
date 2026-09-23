@@ -26,6 +26,7 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   RECOVERY_REQUEST_EXECUTED: { label: 'Recovery executed', category: 'other' },
   RECOVERY_REQUEST_CANCELLED: { label: 'Recovery cancelled', category: 'other' },
   KEY_PROTECTION_REWRAPPED: { label: 'Passphrase changed', category: 'other' },
+  KEY_PROTECTION_RESET_WITH_PRIVATE_KEY: { label: 'Passphrase reset with key file', category: 'other' },
   USER_KEY_ADDED: { label: 'Account key added', category: 'other' },
   ACCOUNT_DELETED: { label: 'Account deleted', category: 'other' },
   // Account-level events now have a group of their own on the records page, so they are

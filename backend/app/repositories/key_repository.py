@@ -129,6 +129,22 @@ class KeyRepository:
             .limit(1)
         )
 
+    def lock_private_key_bundles(self, user_id: int) -> list[EncryptedPrivateKeyBundle]:
+        """Lock every private-key bundle the account owns, whatever its key's status.
+
+        A passphrase reset replaces the one AMK every bundle is derived from, so the caller
+        must see all of them -- a revoked key's bundle still opens files wrapped to it.
+        """
+        return list(
+            self.db.scalars(
+                select(EncryptedPrivateKeyBundle)
+                .where(EncryptedPrivateKeyBundle.user_id == user_id)
+                .order_by(EncryptedPrivateKeyBundle.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            )
+        )
+
     def add_user_key(self, key: UserKey) -> None:
         self.db.add(key)
 

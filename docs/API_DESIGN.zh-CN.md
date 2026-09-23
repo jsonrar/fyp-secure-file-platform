@@ -109,6 +109,8 @@ AMK 信封的材料，该项丢失在设计上即不可恢复。
 | GET | `/keys/me/{key_id}` | Bearer | 返回属于调用者的当前或历史加密密钥包 |
 | POST | `/keys/me/rewrap/signing-payload` | Bearer | 为完整的拟议保护配置重包装构建规范摘要 |
 | POST | `/keys/me/rewrap` | Bearer + 当前密钥签名 | 使用乐观 revision 和当前私钥持有证明替换包装 AMK/KDF 配置 |
+| POST | `/keys/me/reset-protection/signing-payload` | Bearer | 为新 AMK 信封与重新封装的私钥包构建规范摘要 |
+| POST | `/keys/me/reset-protection` | Bearer + 当前密钥签名 | 重置遗忘的 passphrase：以私钥文件为证明，在新 AMK 下替换两个信封 |
 | POST | `/keys/add/signing-payload` | Bearer | 构建必须由当前客户端密钥授权的规范摘要 |
 | POST | `/keys/add` | Bearer | 使用当前密钥的 RSA-PSS-SHA256 授权添加后继公钥/加密私钥 |
 | GET | `/keys/users/{user_id}/active` | Bearer | 只返回用户用于共享的活跃加密公钥 |
@@ -126,6 +128,16 @@ AMK 信封的材料，该项丢失在设计上即不可恢复。
 原子更新保护配置及审计链。仅有 Bearer Session 或 expected revision 并不足够。两个端点均
 不接收新旧 passphrase，也不替换加密私钥包；过期 revision、旧 authorizing key、被修改的
 拟议字段及无效签名都会失败关闭。
+
+Passphrase 重置沿用同样的两次调用形态，覆盖重包装无法处理的情形：passphrase 已遗忘、旧 AMK
+无从取得，但注册时的私钥文件仍在。客户端生成新 AMK，重新封装 AMK 信封与私钥包，把
+`authorizing_key_id`、`expected_profile_revision`、`expected_bundle_revision`、`protection`
+与 `private_key_bundle` 提交至 `POST /keys/me/reset-protection/signing-payload`，用密钥文件
+签名返回的摘要，再把相同字段与签名提交至 `POST /keys/me/reset-protection`。该摘要带有独立的
+域标签（`FYP-KEY-PROTECTION-RESET`），并覆盖两个信封的全部字段。两行在同一事务中更新；密钥对、
+key id、profile id 与 bundle id 均不变。持有多把密钥的账户返回 `409
+key_protection_reset_unavailable`，因为同一个 AMK 封装着所有私钥包，单个密钥文件无法重新封装
+其余私钥包。审计动作为 `KEY_PROTECTION_RESET_WITH_PRIVATE_KEY`。
 
 私钥包、包装 AMK、nonce、tag、盐和密文字段使用规范 Base64。请求 Schema 对 KDF、AEAD、
 密钥长度及信封版本使用封闭枚举或范围，并拒绝未知字段。

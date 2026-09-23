@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { RouterLink } from 'vue-router'
 import { nextTick, onMounted, ref } from 'vue'
 import { KeyRound, Upload } from 'lucide-vue-next'
 
@@ -166,7 +167,9 @@ async function useKeyFile(event: Event) {
           <p class="text-xs text-muted-foreground mb-3">
             The <code class="text-xs">.pem</code> file you were given once at registration. It
             is read in this browser and never uploaded. The passphrase cannot be recovered,
-            but this file opens your account key without it.
+            but this file opens your account key without it — and in
+            <RouterLink to="/settings" class="text-primary hover:underline">Settings</RouterLink>
+            it can set a new passphrase so you do not need the file next time.
           </p>
 
           <label

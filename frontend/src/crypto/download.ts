@@ -147,7 +147,7 @@ export class PrivateKeyMismatchError extends Error {
  * A random probe is wrapped to the public key and unwrapped with the candidate private key.
  * The probe is discarded; only whether it survives the round trip matters.
  */
-async function assertKeyPairMatches(privateKey: CryptoKey, publicKeyPem: string): Promise<void> {
+export async function assertKeyPairMatches(privateKey: CryptoKey, publicKeyPem: string): Promise<void> {
   const probe = randomBytes(32)
   let recovered: Uint8Array
   try {

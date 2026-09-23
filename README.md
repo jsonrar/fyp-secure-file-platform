@@ -45,7 +45,8 @@ in an API request or database row. Registration and file/key flows are documente
 [SECURITY_FLOWS.md](docs/SECURITY_FLOWS.md).
 
 The browser MVP is operational end to end: emailed-code registration and password reset,
-client-held account-key enrolment, passphrase or private-key-file unlock, idle relock,
+client-held account-key enrolment, passphrase or private-key-file unlock, passphrase reset
+with the private-key file, idle relock,
 authenticated encryption before upload, local decryption after download, filename search,
 sharing by rewrapping the file key to the recipient, revocation, per-file access history,
 silent session refresh, logout, and account deletion. AES-128/192/256-GCM and
@@ -72,7 +73,7 @@ progress bar. Completed steps show a check. The pictures use fabricated data and
 mobile crops; this local preview is not yet verified on staging.
 
 The remaining work is production hardening rather than an unfinished basic demo: required CI
-and MySQL 8.4 gates, passphrase-change and successor-key UI, complete admin/recovery-officer
+and MySQL 8.4 gates, change-passphrase (with the old one) and successor-key UI, complete admin/recovery-officer
 screens, encrypted off-server backup/restore drills, scheduled reconciliation, observability,
 and formal security review. The prioritized summary is in [TODO.md](TODO.md), and executable
 work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)
@@ -116,7 +117,8 @@ preview and live deployment verification remain pending.
    revocation events. Owners can inspect activity on their files, recipients see only events
    involving themselves, and ADMIN can verify the full hash chain. An emailed code resets a
    forgotten login password; a forgotten encryption passphrase requires the separately
-   retained `.pem` key to unlock the current session. Account identity and preferences live
+   retained `.pem` key, which can unlock the current session or, in `/settings`, set a new
+   passphrase without changing the account key or any file. Account identity and preferences live
    under the header avatar: `/profile` shows the signed-in account, and `/settings` covers
    theme and account actions including deletion.
 7. **Learn and get help without signing in:** `/education` covers Algorithm Explorer,
@@ -411,8 +413,8 @@ Frontend: <http://localhost:5173>
 This remains an FYP prototype. Email verification and forgotten **login-password** reset are
 implemented through one-time codes, but MFA and external identity providers are not.
 The encryption passphrase is separate and never reaches the server: forgetting it still
-requires the user's separately retained private-key file, and recovery does not reset the
-stored passphrase. The built-in password deny-list is deliberately small and is not a
+requires the user's separately retained private-key file, which can reset it for accounts
+holding a single key; the admin recovery workflow cannot reset it. The built-in password deny-list is deliberately small and is not a
 maintained breached-password corpus. A production deployment additionally needs encrypted
 off-server backup/restore drills, stronger recovery-key custody through a KMS/HSM or equivalent
 offline controls, externally anchored audit checkpoints, and independent professional

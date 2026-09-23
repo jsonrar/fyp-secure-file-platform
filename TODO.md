@@ -128,8 +128,11 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   — create owner-scoped shelves and move owned files between them or root without changing
   encryption, sharing, file identity, or audit semantics.
 - [ ] [#54 Complete browser passphrase change, key-file reset, and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
-  — Settings must require and verify the saved private-key file when the current passphrase is
-  unavailable; plaintext private keys never leave the browser.
+  — the key-file reset is done: Settings verifies the saved private-key file against the
+  account public key, re-seals it under a new AMK and passphrase, and proves possession with an
+  RSA-PSS signature; plaintext private keys never leave the browser. Still open: changing the
+  passphrase while the old one is known, successor-key rotation, and the account-envelope
+  specification. This partial implementation does not close #54.
 - [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   — user-selectable product locale with complete key coverage, safe fallback, persistence, and
   mobile-compatible controls.

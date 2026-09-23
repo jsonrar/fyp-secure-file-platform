@@ -130,6 +130,8 @@ so that loss stays unrecoverable by design.
 | GET | `/keys/me/{key_id}` | Bearer | Return an owned current or historical encrypted key bundle |
 | POST | `/keys/me/rewrap/signing-payload` | Bearer | Build the canonical digest covering a complete proposed protection rewrap |
 | POST | `/keys/me/rewrap` | Bearer + current-key signature | Replace the wrapped-AMK/KDF profile using optimistic revision and proof of current private-key possession |
+| POST | `/keys/me/reset-protection/signing-payload` | Bearer | Build the canonical digest covering a new AMK envelope and a re-sealed private-key bundle |
+| POST | `/keys/me/reset-protection` | Bearer + current-key signature | Reset a forgotten passphrase: replace both envelopes under a new AMK, proven by the private key file |
 | POST | `/keys/add/signing-payload` | Bearer | Build the canonical digest that the current client key must authorize |
 | POST | `/keys/add` | Bearer | Add a successor public/encrypted-private key using RSA-PSS-SHA256 current-key authorization |
 | GET | `/keys/users/{user_id}/active` | Bearer | Return only a user's active public encryption key for sharing |
@@ -150,6 +152,19 @@ the profile and audit chain atomically. A bearer session or expected revision al
 insufficient. Neither endpoint accepts either passphrase, and the encrypted private-key
 bundle is not replaced. Stale revisions, stale authorizing keys, modified proposed fields,
 and invalid signatures fail closed.
+
+Passphrase reset follows the same two-call shape for the case rewrap cannot cover: the
+passphrase is forgotten, so the old AMK is unreachable, but the private key file from
+registration is not. The client generates a new AMK, seals both the AMK envelope and the
+private-key bundle afresh, and sends `authorizing_key_id`, `expected_profile_revision`,
+`expected_bundle_revision`, `protection`, and `private_key_bundle` to
+`POST /keys/me/reset-protection/signing-payload`. It signs the returned digest with the key
+file and submits the same fields plus the signature to `POST /keys/me/reset-protection`. The
+digest carries its own domain label (`FYP-KEY-PROTECTION-RESET`) and covers every field of
+both envelopes. Both rows are updated in one transaction; the key pair, key id, profile id and
+bundle id are unchanged. An account holding more than one key answers `409
+key_protection_reset_unavailable`, because one AMK seals every bundle and one key file cannot
+re-seal the others. The audit action is `KEY_PROTECTION_RESET_WITH_PRIVATE_KEY`.
 
 Private-bundle, wrapped-AMK, nonce, tag, salt, and ciphertext fields use canonical Base64.
 KDF algorithms, AEAD suites, key sizes, and envelope versions are closed enums/bounds in the
