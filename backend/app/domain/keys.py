@@ -75,3 +75,20 @@ class ClientKeyAddition:
     algorithm: str
     key_size_bits: int
     private_key_bundle: EncryptedPrivateKeyBundleInput = field(repr=False)
+
+
+@dataclass(frozen=True, slots=True)
+class KeyProtectionReset:
+    """A fresh AMK and a re-sealed private key, authorized by the private key itself.
+
+    Used when the encryption passphrase is lost but the private key file saved at
+    registration is not. The old AMK cannot be recovered without the passphrase, so the
+    client generates a new one, wraps it under a KEK from the new passphrase, and re-encrypts
+    the same PKCS#8 key under it. The key pair, its id, and every file wrapping are unchanged.
+    """
+
+    authorizing_key_id: UUID
+    expected_profile_revision: int
+    expected_bundle_revision: int
+    protection: KeyProtectionProfileInput = field(repr=False)
+    private_key_bundle: EncryptedPrivateKeyBundleInput = field(repr=False)

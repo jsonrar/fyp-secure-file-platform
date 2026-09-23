@@ -199,13 +199,53 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
   const privateKeyDer = new Uint8Array(pkcs8)
 
   const keyId = randomUuid()
-  const profileId = randomUuid()
-  const bundleId = randomUuid()
+  const sealed = await sealAccountKey({
+    privateKeyDer,
+    passphrase,
+    keyId,
+    profileId: randomUuid(),
+    bundleId: randomUuid(),
+  })
+
+  const keyMaterial: ClientKeyMaterial = {
+    key_id: keyId,
+    public_key_pem: publicKeyPem,
+    key_size_bits: RSA_KEY_SIZE_BITS,
+    protection: sealed.protection,
+    private_key_bundle: sealed.private_key_bundle,
+  }
+
+  await assertEnvelopesUnlock(keyMaterial, passphrase, privateKeyDer)
+
+  return { keyMaterial, privateKeyPem }
+}
+
+/**
+ * Seal an existing PKCS#8 private key under a passphrase, with a fresh AMK.
+ *
+ * The two envelopes every account key lives in: a random AMK wrapped under an Argon2id KEK,
+ * and the private key encrypted under an HKDF key derived from that AMK. Every salt, nonce,
+ * and the AMK itself are drawn fresh on each call, so sealing the same key twice never
+ * reuses a (key, nonce) pair under GCM.
+ *
+ * Enrolment and passphrase reset both go through here, so there is one construction to keep
+ * in step with `unlockAccountPrivateKeyDer` and with `backend/scripts/seed_test_account.py`.
+ */
+export async function sealAccountKey(params: {
+  privateKeyDer: Uint8Array
+  passphrase: string
+  keyId: string
+  profileId: string
+  bundleId: string
+  cost?: Argon2Cost
+}): Promise<Pick<SealedAccountKey, 'protection' | 'private_key_bundle'>> {
+  const { privateKeyDer, passphrase, keyId, profileId, bundleId } = params
+  const cost = params.cost ?? DEFAULT_ARGON2_COST
 
   // 1. Wrap a fresh random AMK under an Argon2id-derived KEK.
   const amk = randomBytes(AES_KEY_BYTES)
   const kdfSalt = randomBytes(KDF_SALT_BYTES)
-  const kek = await deriveKek(passphrase, kdfSalt)
+  const kek = await deriveKek(passphrase, kdfSalt, cost)
   const amkNonce = randomBytes(AES_GCM_NONCE_BYTES)
   const wrappedAmk = await aesGcmEncryptDetached({
     key: await importAesGcmKey(kek),
@@ -226,16 +266,13 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
     aad: bundleAad,
   })
 
-  const keyMaterial: ClientKeyMaterial = {
-    key_id: keyId,
-    public_key_pem: publicKeyPem,
-    key_size_bits: RSA_KEY_SIZE_BITS,
+  return {
     protection: {
       profile_id: profileId,
       kdf_salt: toBase64(kdfSalt),
-      kdf_memory_kib: ARGON2_MEMORY_KIB,
-      kdf_iterations: ARGON2_ITERATIONS,
-      kdf_parallelism: ARGON2_PARALLELISM,
+      kdf_memory_kib: cost.memorySize,
+      kdf_iterations: cost.iterations,
+      kdf_parallelism: cost.parallelism,
       wrapped_amk: toBase64(wrappedAmk.ciphertext),
       amk_nonce: toBase64(amkNonce),
       amk_auth_tag: toBase64(wrappedAmk.authTag),
@@ -249,10 +286,6 @@ export async function enrolAccountKey(passphrase: string): Promise<EnrolmentResu
       ciphertext_sha256: await sha256Hex(sealedBundle.ciphertext),
     },
   }
-
-  await assertEnvelopesUnlock(keyMaterial, passphrase, privateKeyDer)
-
-  return { keyMaterial, privateKeyPem }
 }
 
 /**

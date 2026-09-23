@@ -53,6 +53,39 @@ export interface MyKeyBundle {
   private_key_bundle: EncryptedPrivateKeyBundle
 }
 
+/** The two envelopes a passphrase reset replaces, exactly as `sealAccountKey` builds them. */
+export interface ResetKeyProtectionBody {
+  authorizing_key_id: string
+  expected_profile_revision: number
+  expected_bundle_revision: number
+  protection: {
+    profile_id: string
+    kdf_salt: string
+    kdf_memory_kib: number
+    kdf_iterations: number
+    kdf_parallelism: number
+    wrapped_amk: string
+    amk_nonce: string
+    amk_auth_tag: string
+  }
+  private_key_bundle: {
+    bundle_id: string
+    derivation_salt: string
+    encrypted_private_key: string
+    nonce: string
+    auth_tag: string
+    ciphertext_sha256: string
+  }
+}
+
+export interface ResetKeyProtectionResult {
+  profile_id: string
+  profile_revision: number
+  bundle_id: string
+  bundle_revision: number
+  updated_at: string
+}
+
 export const keyApi = {
   /** The caller's active public key plus the encrypted envelopes only they can open. */
   myBundle() {
@@ -61,6 +94,17 @@ export const keyApi = {
   /** A historical bundle, needed to decrypt files still wrapped to a superseded key. */
   ownedBundle(keyId: string) {
     return http.get<ApiEnvelope<MyKeyBundle>>(`/keys/me/${keyId}`)
+  },
+  /** The digest the account private key must sign to authorize a passphrase reset. */
+  resetProtectionSigningPayload(body: ResetKeyProtectionBody) {
+    return http.post<ApiEnvelope<{ authorization_algorithm: string; authorization_payload: string }>>(
+      '/keys/me/reset-protection/signing-payload',
+      body,
+    )
+  },
+  /** Replace both envelopes. The signature proves possession of the private key. */
+  resetProtection(body: ResetKeyProtectionBody & { authorization_signature: string }) {
+    return http.post<ApiEnvelope<ResetKeyProtectionResult>>('/keys/me/reset-protection', body)
   },
   /** Another user's active public key, for wrapping a shared file key to them. */
   activePublicKey(userId: string) {

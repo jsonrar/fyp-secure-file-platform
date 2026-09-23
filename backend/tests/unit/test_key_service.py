@@ -12,11 +12,16 @@ from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
-from app.domain.errors import KeyBundleInvalidError, KeyBundleRevisionConflictError
+from app.domain.errors import (
+    KeyBundleInvalidError,
+    KeyBundleRevisionConflictError,
+    KeyProtectionResetUnavailableError,
+)
 from app.domain.keys import (
     ClientKeyAddition,
     EncryptedPrivateKeyBundleInput,
     KeyProtectionProfileInput,
+    KeyProtectionReset,
 )
 from app.services.key_service import KeyService
 
@@ -411,3 +416,226 @@ def test_rewrap_digest_binds_actor_key_revision_and_every_protection_field() -> 
     assert len(baseline) == 32
     assert all(candidate != baseline for candidate in candidates)
     assert len(set(candidates)) == len(candidates)
+
+
+# --- Passphrase reset with the private key file -------------------------------------------
+
+
+def _resealed_bundle() -> EncryptedPrivateKeyBundleInput:
+    ciphertext = b"re-sealed-pkcs8-under-new-amk" * 20
+    return EncryptedPrivateKeyBundleInput(
+        bundle_id=BUNDLE_ID,
+        format_version=1,
+        private_key_format="PKCS8-DER",
+        derivation_algorithm="HKDF-SHA256",
+        derivation_salt=b"D" * 32,
+        encryption_algorithm="AES-256-GCM",
+        encrypted_private_key=ciphertext,
+        nonce=b"N" * 12,
+        auth_tag=b"T" * 16,
+        aad_version=1,
+        ciphertext_sha256=hashlib.sha256(ciphertext).hexdigest(),
+    )
+
+
+def _reset() -> KeyProtectionReset:
+    return KeyProtectionReset(
+        authorizing_key_id=CURRENT_KEY_ID,
+        expected_profile_revision=3,
+        expected_bundle_revision=2,
+        protection=replace(_protection(), kdf_salt=b"S" * 16, wrapped_amk=b"W" * 32),
+        private_key_bundle=_resealed_bundle(),
+    )
+
+
+def _existing_bundle(**overrides):
+    fields = dict(
+        id=40,
+        bundle_uuid=str(BUNDLE_ID),
+        user_key_id=10,
+        revision=2,
+        derivation_salt=b"old-salt" * 2,
+        encrypted_private_key=b"old-ciphertext" * 20,
+        ciphertext_sha256="0" * 64,
+    )
+    fields.update(overrides)
+    return SimpleNamespace(**fields)
+
+
+class ResetRepository(FakeRepository):
+    def __init__(self, current_public_key_pem: str, bundles=None) -> None:
+        super().__init__(current_public_key_pem)
+        self.locked_bundles = [_existing_bundle()] if bundles is None else bundles
+
+    def lock_private_key_bundles(self, user_id: int):
+        assert user_id == 7
+        return self.locked_bundles
+
+
+def _sign(private_key: rsa.RSAPrivateKey, payload: bytes) -> bytes:
+    return private_key.sign(
+        payload,
+        padding.PSS(mgf=padding.MGF1(hashes.SHA256()), salt_length=32),
+        hashes.SHA256(),
+    )
+
+
+def test_private_key_authorizes_replacing_both_envelopes_atomically() -> None:
+    account_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    repository = ResetRepository(_pem(account_key))
+    service, db, audit = _service(repository)
+    reset = _reset()
+
+    payload = service.get_reset_signing_payload(actor=_actor(), reset=reset)
+    profile, bundle = service.reset_protection_with_private_key(
+        actor=_actor(),
+        reset=reset,
+        authorization_signature=_sign(account_key, payload),
+        context=RequestContext(ip_address="203.0.113.5"),
+    )
+
+    assert len(payload) == 32
+    assert db.commits == 1 and db.rollbacks == 0
+    # Both rows move together, or the account is locked out.
+    assert profile.revision == 4
+    assert profile.wrapped_amk == reset.protection.wrapped_amk
+    assert profile.kdf_salt == reset.protection.kdf_salt
+    assert bundle.revision == 3
+    assert bundle.encrypted_private_key == reset.private_key_bundle.encrypted_private_key
+    assert bundle.derivation_salt == reset.private_key_bundle.derivation_salt
+    assert bundle.ciphertext_sha256 == reset.private_key_bundle.ciphertext_sha256
+    # The key pair is untouched, so every file wrapping stays valid.
+    assert repository.current_key.key_uuid == str(CURRENT_KEY_ID)
+    assert audit.events[0]["action"] == "KEY_PROTECTION_RESET_WITH_PRIVATE_KEY"
+    assert audit.events[0]["metadata"] == {
+        "authorizing_key_id": str(CURRENT_KEY_ID),
+        "previous_profile_revision": 3,
+        "profile_revision": 4,
+        "previous_bundle_revision": 2,
+        "bundle_revision": 3,
+    }
+
+
+def test_a_session_without_the_private_key_cannot_reset() -> None:
+    # The server cannot check that new envelopes open. Without this signature, a stolen
+    # session alone could overwrite them and lock the owner out of every file.
+    account_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    other_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    repository = ResetRepository(_pem(account_key))
+    original = repository.locked_bundles[0].encrypted_private_key
+    service, db, audit = _service(repository)
+    reset = _reset()
+    payload = service.get_reset_signing_payload(actor=_actor(), reset=reset)
+
+    with pytest.raises(KeyBundleInvalidError):
+        service.reset_protection_with_private_key(
+            actor=_actor(),
+            reset=reset,
+            authorization_signature=_sign(other_key, payload),
+            context=RequestContext(),
+        )
+
+    assert db.commits == 0 and db.rollbacks == 1
+    assert repository.profile.revision == 3
+    assert repository.locked_bundles[0].encrypted_private_key == original
+    assert audit.events == []
+
+
+def test_an_account_with_several_keys_is_refused_rather_than_stranded() -> None:
+    # One AMK seals every bundle. Resetting it with one key file would make the other
+    # bundles, and every file wrapped to them, permanently unopenable.
+    account_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    repository = ResetRepository(
+        _pem(account_key),
+        bundles=[_existing_bundle(), _existing_bundle(id=41, user_key_id=9)],
+    )
+    service, db, _ = _service(repository)
+
+    with pytest.raises(KeyProtectionResetUnavailableError):
+        service.get_reset_signing_payload(actor=_actor(), reset=_reset())
+    assert db.commits == 0
+
+
+@pytest.mark.parametrize(
+    ("change", "value"),
+    [
+        ("revision", 5),
+        ("bundle_uuid", "99999999-9999-4999-8999-999999999999"),
+        ("user_key_id", 9),
+    ],
+)
+def test_a_stale_or_foreign_bundle_is_a_conflict(change: str, value: object) -> None:
+    account_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    repository = ResetRepository(_pem(account_key), bundles=[_existing_bundle(**{change: value})])
+    service, _, _ = _service(repository)
+
+    with pytest.raises(KeyBundleRevisionConflictError):
+        service.get_reset_signing_payload(actor=_actor(), reset=_reset())
+
+
+def test_a_stale_profile_revision_is_a_conflict() -> None:
+    account_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    repository = ResetRepository(_pem(account_key))
+    repository.profile.revision = 4
+    service, _, _ = _service(repository)
+
+    with pytest.raises(KeyBundleRevisionConflictError):
+        service.get_reset_signing_payload(actor=_actor(), reset=_reset())
+
+
+def test_reset_digest_binds_every_field_of_both_envelopes() -> None:
+    account_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    service, _, _ = _service(ResetRepository(_pem(account_key)))
+    base = _reset()
+    baseline = service.get_reset_signing_payload(actor=_actor(), reset=base)
+
+    variants = [
+        replace(base, expected_profile_revision=3, expected_bundle_revision=2),  # control
+    ]
+    changed = [
+        replace(base, protection=replace(base.protection, wrapped_amk=b"X" * 32)),
+        replace(base, protection=replace(base.protection, kdf_salt=b"X" * 16)),
+        replace(base, protection=replace(base.protection, amk_nonce=b"X" * 12)),
+        replace(base, protection=replace(base.protection, amk_auth_tag=b"X" * 16)),
+        replace(base, protection=replace(base.protection, kdf_iterations=4)),
+        replace(base, protection=replace(base.protection, kdf_memory_kib=131_072)),
+        replace(
+            base,
+            private_key_bundle=replace(base.private_key_bundle, derivation_salt=b"X" * 32),
+        ),
+        replace(base, private_key_bundle=replace(base.private_key_bundle, nonce=b"X" * 12)),
+        replace(base, private_key_bundle=replace(base.private_key_bundle, auth_tag=b"X" * 16)),
+    ]
+    ciphertext = b"a different sealed key" * 20
+    changed.append(
+        replace(
+            base,
+            private_key_bundle=replace(
+                base.private_key_bundle,
+                encrypted_private_key=ciphertext,
+                ciphertext_sha256=hashlib.sha256(ciphertext).hexdigest(),
+            ),
+        )
+    )
+
+    assert service._reset_authorization_payload(actor=_actor(), reset=variants[0]) == baseline
+    digests = {service._reset_authorization_payload(actor=_actor(), reset=r) for r in changed}
+    assert baseline not in digests
+    assert len(digests) == len(changed)
+
+
+def test_reset_digest_cannot_be_confused_with_a_rewrap_digest() -> None:
+    # Distinct domain labels: a signature collected for one operation is never valid for
+    # the other, even over the same protection profile.
+    account_key = rsa.generate_private_key(public_exponent=65537, key_size=2048)
+    service, _, _ = _service(ResetRepository(_pem(account_key)))
+    reset = _reset()
+
+    reset_digest = service._reset_authorization_payload(actor=_actor(), reset=reset)
+    rewrap_digest = service._rewrap_authorization_payload(
+        actor=_actor(),
+        authorizing_key_id=CURRENT_KEY_ID,
+        expected_revision=3,
+        protection=reset.protection,
+    )
+    assert reset_digest != rewrap_digest

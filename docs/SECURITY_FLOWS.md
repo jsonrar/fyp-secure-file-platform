@@ -94,7 +94,9 @@ key, or any file plaintext.
 
 The same property sets the limit of this recovery channel. A forgotten **encryption
 passphrase** cannot be reset by email or by any other server-side action, because the server
-holds no material that can open the AMK envelope. That loss remains unrecoverable by design.
+holds no material that can open the AMK envelope. It can be reset only by someone holding the
+private key file issued at registration — see
+[Passphrase reset with the private key file](#passphrase-reset-with-the-private-key-file).
 
 ## Registration and Account-Key Custody
 
@@ -166,7 +168,45 @@ only when the requester can use the target key's private half.
 The current schema has one account-level AMK protection profile with revision history, not a
 versioned series of AMKs. Successor private-key bundles must therefore remain encrypted under
 keys derived from that existing AMK. Adding a successor RSA key is not an AMK reset and does
-not make a forgotten passphrase recoverable; safe new-AMK reset/migration is out of scope.
+not make a forgotten passphrase recoverable.
+
+### Passphrase reset with the private key file
+
+A forgotten passphrase loses the AMK, and nothing — not the server, not the recovery officer,
+not the offline recovery key — can recover it. What survives is the plaintext PKCS#8 private
+key the browser shows once at registration. That file is the thing the AMK exists to protect:
+it alone unwraps every file key addressed to the account. A holder of it can already decrypt
+everything, so allowing that holder to seal it again under a new passphrase grants no
+capability they did not have.
+
+The reset therefore creates a **new AMK**, wraps it under a KEK from the new passphrase, and
+re-encrypts the same private key under an HKDF key derived from the new AMK. Both envelopes
+are replaced in place, keeping their profile and bundle ids so AAD-1 and AAD-2 are rebuilt
+unchanged. The key pair and its id are untouched, so every file wrapping, share grant, and
+recovery wrapping stays valid and no file is re-encrypted.
+
+- **Proof of possession.** `POST /keys/me/reset-protection` accepts the new envelopes only with
+  an RSA-PSS-SHA256 signature by the account private key over a digest binding the actor, key,
+  both expected revisions, and every field of both envelopes, under its own domain label. The
+  server cannot check that the envelopes open, so without this a stolen session alone could
+  overwrite them with garbage and lock the owner out. Rewrap and addition signatures cannot be
+  replayed as a reset.
+- **Nothing sensitive reaches the server.** The file is read in the browser; only ciphertext
+  envelopes and the signature are sent. The browser proves the file belongs to this account
+  (an OAEP round trip against the registered public key), reopens the new envelopes locally
+  before sending, and re-fetches and reopens them afterwards.
+- **Single-key accounts only.** One AMK seals every bundle. With one private key in hand, a
+  reset would leave any other bundle — and every file wrapped to it — permanently unopenable,
+  so an account holding more than one key is refused with
+  `key_protection_reset_unavailable`. Accounts gain a second key only through
+  `POST /keys/add`, which the browser does not yet call.
+- **Interruption is safe.** Both rows change in one transaction. A failure before commit changes
+  nothing; a failure after it leaves the new passphrase working. Either way the key file still
+  opens every file, because the key pair never changes.
+- **Not a remedy for a leaked passphrase.** The new AMK protects the rows from now on, but a
+  database dump taken earlier still holds the old envelopes, which the old passphrase opens.
+  The private key itself is unchanged; a suspected key compromise needs successor-key rotation,
+  not a passphrase reset.
 
 ## Login, Refresh, Revocation, and Password Change
 

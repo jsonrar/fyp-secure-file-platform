@@ -16,9 +16,15 @@ from app.domain.errors import (
     KeyBundleInvalidError,
     KeyBundleRevisionConflictError,
     KeyProtectionProfileNotFoundError,
+    KeyProtectionResetUnavailableError,
     UserKeyNotFoundError,
 )
-from app.domain.keys import ClientKeyAddition, KeyProtectionProfileInput
+from app.domain.keys import (
+    ClientKeyAddition,
+    EncryptedPrivateKeyBundleInput,
+    KeyProtectionProfileInput,
+    KeyProtectionReset,
+)
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.user import User
 from app.models.user_key import UserKey
@@ -408,6 +414,200 @@ class KeyService:
         except Exception:
             self.db.rollback()
             raise
+
+    def _reset_authorization_payload(
+        self,
+        *,
+        actor: ActorContext,
+        reset: KeyProtectionReset,
+    ) -> bytes:
+        """Build the digest the account private key signs to authorize a passphrase reset.
+
+        Covers every field of both envelopes and both expected revisions, under its own domain
+        label so a rewrap or addition signature can never be replayed as a reset.
+        """
+        protection = reset.protection
+        bundle = reset.private_key_bundle
+        material = bytearray(b"FYP-KEY-PROTECTION-RESET\x00\x01")
+        material.extend(actor.user_public_id.bytes)
+        material.extend(reset.authorizing_key_id.bytes)
+        material.extend(reset.expected_profile_revision.to_bytes(8, "big"))
+        material.extend(reset.expected_bundle_revision.to_bytes(8, "big"))
+
+        material.extend(protection.profile_id.bytes)
+        material.extend(protection.format_version.to_bytes(4, "big"))
+        material.extend(self._frame(protection.kdf_algorithm.encode("ascii")))
+        material.extend(protection.kdf_version.to_bytes(4, "big"))
+        material.extend(self._frame(protection.kdf_salt))
+        material.extend(protection.kdf_memory_kib.to_bytes(8, "big"))
+        material.extend(protection.kdf_iterations.to_bytes(4, "big"))
+        material.extend(protection.kdf_parallelism.to_bytes(4, "big"))
+        material.extend(protection.derived_key_length.to_bytes(4, "big"))
+        material.extend(self._frame(protection.amk_wrapping_algorithm.encode("ascii")))
+        material.extend(self._frame(protection.wrapped_amk))
+        material.extend(self._frame(protection.amk_nonce))
+        material.extend(self._frame(protection.amk_auth_tag))
+        material.extend(protection.aad_version.to_bytes(4, "big"))
+
+        material.extend(bundle.bundle_id.bytes)
+        material.extend(bundle.format_version.to_bytes(4, "big"))
+        material.extend(self._frame(bundle.private_key_format.encode("ascii")))
+        material.extend(self._frame(bundle.derivation_algorithm.encode("ascii")))
+        material.extend(self._frame(bundle.derivation_salt))
+        material.extend(self._frame(bundle.encryption_algorithm.encode("ascii")))
+        material.extend(self._frame(bundle.encrypted_private_key))
+        material.extend(self._frame(bundle.nonce))
+        material.extend(self._frame(bundle.auth_tag))
+        material.extend(bundle.aad_version.to_bytes(4, "big"))
+        material.extend(bytes.fromhex(bundle.ciphertext_sha256))
+        return hashlib.sha256(material).digest()
+
+    def _prepare_reset(
+        self,
+        *,
+        actor: ActorContext,
+        reset: KeyProtectionReset,
+    ) -> tuple[UserKeyProtectionProfile, EncryptedPrivateKeyBundle, UserKey, bytes]:
+        profile = self.repository.lock_protection_profile(actor.user_id)
+        if profile is None:
+            raise KeyProtectionProfileNotFoundError()
+        if profile.format_version != 1:
+            raise KeyBundleRevisionConflictError(
+                "Login-password-bound key protection must be changed through /auth/change-password"
+            )
+        if (
+            profile.profile_uuid != str(reset.protection.profile_id)
+            or profile.revision != reset.expected_profile_revision
+        ):
+            raise KeyBundleRevisionConflictError()
+
+        authorizing_key = self.repository.lock_current_client_key(actor.user_id)
+        if authorizing_key is None or authorizing_key.key_uuid != str(reset.authorizing_key_id):
+            raise KeyBundleRevisionConflictError(
+                "The authorizing key is no longer the account's current key"
+            )
+
+        # One AMK seals every bundle. With a single private key in hand, only a single-bundle
+        # account can be reset without stranding the rest.
+        bundles = self.repository.lock_private_key_bundles(actor.user_id)
+        if len(bundles) != 1:
+            raise KeyProtectionResetUnavailableError()
+        bundle = bundles[0]
+        if (
+            bundle.user_key_id != authorizing_key.id
+            or bundle.bundle_uuid != str(reset.private_key_bundle.bundle_id)
+            or bundle.revision != reset.expected_bundle_revision
+        ):
+            raise KeyBundleRevisionConflictError()
+
+        payload = self._reset_authorization_payload(actor=actor, reset=reset)
+        return profile, bundle, authorizing_key, payload
+
+    def get_reset_signing_payload(
+        self,
+        *,
+        actor: ActorContext,
+        reset: KeyProtectionReset,
+    ) -> bytes:
+        _profile, _bundle, _key, payload = self._prepare_reset(actor=actor, reset=reset)
+        return payload
+
+    def reset_protection_with_private_key(
+        self,
+        *,
+        actor: ActorContext,
+        reset: KeyProtectionReset,
+        authorization_signature: bytes,
+        context: RequestContext,
+    ) -> tuple[UserKeyProtectionProfile, EncryptedPrivateKeyBundle]:
+        """Replace the AMK envelope and re-seal the private key under the new AMK.
+
+        The signature is what makes this safe to expose. The server cannot check that the new
+        envelopes open -- it never holds the passphrase, the AMK, or the private key -- so
+        without proof of possession a stolen session could overwrite them with garbage and
+        lock the owner out. With it, the only caller who can reset is one who already holds
+        the private key, and that key alone decrypts every file the account can reach: the
+        passphrase protects a stored copy of it, nothing more, so resetting grants no
+        capability the caller did not already have.
+        """
+        try:
+            profile, bundle, authorizing_key, payload = self._prepare_reset(
+                actor=actor, reset=reset
+            )
+            try:
+                self.crypto.verify_rsa_pss_sha256_signature(
+                    public_key_pem=authorizing_key.public_key_pem,
+                    message=payload,
+                    signature=authorization_signature,
+                )
+            except (TypeError, ValueError) as exc:
+                raise KeyBundleInvalidError(
+                    "The private-key authorization signature is invalid"
+                ) from exc
+
+            now = to_database_utc(self.clock())
+            self._apply_protection(profile, reset.protection)
+            profile.revision += 1
+            profile.updated_at = now
+            self._apply_bundle(bundle, reset.private_key_bundle)
+            bundle.revision += 1
+            bundle.updated_at = now
+
+            self.audit.append(
+                action="KEY_PROTECTION_RESET_WITH_PRIVATE_KEY",
+                result="SUCCESS",
+                actor_user_id=actor.user_id,
+                target_user_id=actor.user_id,
+                resource_type="AUTH",
+                resource_id=str(actor.user_public_id),
+                context_ip_address=context.ip_address,
+                context_user_agent=context.user_agent,
+                metadata={
+                    "authorizing_key_id": str(reset.authorizing_key_id),
+                    "previous_profile_revision": reset.expected_profile_revision,
+                    "profile_revision": profile.revision,
+                    "previous_bundle_revision": reset.expected_bundle_revision,
+                    "bundle_revision": bundle.revision,
+                },
+            )
+            self.db.commit()
+            return profile, bundle
+        except Exception:
+            self.db.rollback()
+            raise
+
+    @staticmethod
+    def _apply_protection(
+        profile: UserKeyProtectionProfile, protection: KeyProtectionProfileInput
+    ) -> None:
+        profile.format_version = protection.format_version
+        profile.kdf_algorithm = protection.kdf_algorithm
+        profile.kdf_version = protection.kdf_version
+        profile.kdf_salt = protection.kdf_salt
+        profile.kdf_memory_kib = protection.kdf_memory_kib
+        profile.kdf_iterations = protection.kdf_iterations
+        profile.kdf_parallelism = protection.kdf_parallelism
+        profile.derived_key_length = protection.derived_key_length
+        profile.amk_wrapping_algorithm = protection.amk_wrapping_algorithm
+        profile.wrapped_amk = protection.wrapped_amk
+        profile.amk_nonce = protection.amk_nonce
+        profile.amk_auth_tag = protection.amk_auth_tag
+        profile.aad_version = protection.aad_version
+
+    @staticmethod
+    def _apply_bundle(
+        bundle: EncryptedPrivateKeyBundle, sealed: EncryptedPrivateKeyBundleInput
+    ) -> None:
+        bundle.format_version = sealed.format_version
+        bundle.private_key_format = sealed.private_key_format
+        bundle.derivation_algorithm = sealed.derivation_algorithm
+        bundle.derivation_salt = sealed.derivation_salt
+        bundle.encryption_algorithm = sealed.encryption_algorithm
+        bundle.encrypted_private_key = sealed.encrypted_private_key
+        bundle.nonce = sealed.nonce
+        bundle.auth_tag = sealed.auth_tag
+        bundle.aad_version = sealed.aad_version
+        bundle.ciphertext_sha256 = sealed.ciphertext_sha256
 
     @staticmethod
     def api_time(value: datetime) -> datetime:

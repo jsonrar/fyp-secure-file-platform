@@ -433,6 +433,24 @@ export async function importRsaOaepPrivateKey(pkcs8Der: Uint8Array): Promise<Cry
   )
 }
 
+/**
+ * Import a PKCS8 DER private key for RSA-PSS-SHA256 signing.
+ *
+ * The account key pair is generated for RSA-OAEP, but PKCS#8 names the RSA key rather than
+ * the scheme, so the same bytes import for signing. That is how the account proves it holds
+ * its private key when the server asks: the backend verifies with the stored public key.
+ * Non-extractable and sign-only, for the same reason the decrypting import is.
+ */
+export async function importRsaPssPrivateKey(pkcs8Der: Uint8Array): Promise<CryptoKey> {
+  return subtle().importKey(
+    'pkcs8',
+    pkcs8Der as BufferSource,
+    { name: 'RSA-PSS', hash: 'SHA-256' },
+    false,
+    ['sign'],
+  )
+}
+
 /** Import a PEM public key for RSA-PSS-SHA256 verification. */
 export async function importRsaPssPublicKey(pem: string): Promise<CryptoKey> {
   return subtle().importKey(

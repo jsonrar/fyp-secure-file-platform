@@ -21,6 +21,7 @@ from app.domain.keys import (
     ClientKeyRegistration,
     EncryptedPrivateKeyBundleInput,
     KeyProtectionProfileInput,
+    KeyProtectionReset,
 )
 
 Base64Value = Annotated[str, StringConstraints(min_length=4, max_length=12000)]
@@ -341,6 +342,62 @@ class RewrapKeyProtectionSigningPayloadOut(_StrictModel):
 class RewrapKeyProtectionResponse(_StrictModel):
     profile_id: UUID
     revision: int
+    updated_at: datetime
+
+
+class ResetKeyProtectionIn(_StrictModel):
+    """Replace the AMK envelope and re-seal the private key, proven by that private key.
+
+    Both envelopes travel together because neither is useful alone: a new AMK that the old
+    bundle is not sealed under would lock the account out, and a re-sealed bundle under an
+    AMK the profile does not wrap could never be opened.
+    """
+
+    authorizing_key_id: UUID
+    expected_profile_revision: int = Field(ge=1)
+    expected_bundle_revision: int = Field(ge=1)
+    protection: KeyProtectionProfileIn
+    private_key_bundle: EncryptedPrivateKeyBundleIn
+
+    def to_domain(self) -> KeyProtectionReset:
+        return KeyProtectionReset(
+            authorizing_key_id=self.authorizing_key_id,
+            expected_profile_revision=self.expected_profile_revision,
+            expected_bundle_revision=self.expected_bundle_revision,
+            protection=self.protection.to_domain(),
+            private_key_bundle=self.private_key_bundle.to_domain(),
+        )
+
+
+class ResetKeyProtectionRequest(ResetKeyProtectionIn):
+    authorization_algorithm: Literal["RSA-PSS-SHA256"] = "RSA-PSS-SHA256"
+    authorization_signature: Base64Value = Field(repr=False)
+
+    @field_validator("authorization_signature")
+    @classmethod
+    def validate_authorization_signature(cls, value: str) -> str:
+        signature = decode_base64(value, field_name="authorization_signature")
+        if len(signature) not in {256, 384, 512}:
+            raise ValueError("authorization_signature must be an RSA signature")
+        return value
+
+    def signature_bytes(self) -> bytes:
+        return decode_base64(
+            self.authorization_signature,
+            field_name="authorization_signature",
+        )
+
+
+class ResetKeyProtectionSigningPayloadOut(_StrictModel):
+    authorization_algorithm: Literal["RSA-PSS-SHA256"] = "RSA-PSS-SHA256"
+    authorization_payload: str = Field(repr=False)
+
+
+class ResetKeyProtectionResponse(_StrictModel):
+    profile_id: UUID
+    profile_revision: int
+    bundle_id: UUID
+    bundle_revision: int
     updated_at: datetime
 
 

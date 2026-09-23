@@ -116,7 +116,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
   或审计语义。
 - [ ] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
-  ——忘记当前 passphrase 时，Settings 必须要求并验证保存的私钥文件；明文私钥不得离开浏览器。
+  ——密钥文件重置已完成：Settings 会用账户公钥验证保存的私钥文件，在新 AMK 与新 passphrase 下重新
+  封装它，并以 RSA-PSS 签名证明持有；明文私钥不离开浏览器。仍待完成：在记得旧 passphrase 时修改
+  passphrase、后继密钥轮换，以及账户信封规范文档。本次部分实现不关闭 #54。
 - [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
 - [ ] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)

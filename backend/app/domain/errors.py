@@ -125,6 +125,21 @@ class KeyBundleRevisionConflictError(ConflictError):
     public_message = "The encrypted key bundle has changed; reload it and try again"
 
 
+class KeyProtectionResetUnavailableError(ConflictError):
+    """The account holds more than one key, so one private key file cannot reset it.
+
+    Every bundle is sealed under a key derived from the single AMK. Replacing the AMK with
+    only one private key in hand would leave the others permanently unopenable, and with
+    them every file wrapped to those keys.
+    """
+
+    code = "key_protection_reset_unavailable"
+    public_message = (
+        "This account holds more than one encryption key, so a single private key file "
+        "cannot reset its passphrase without making the others unopenable"
+    )
+
+
 class KeyBundleInvalidError(InputError):
     code = "invalid_key_bundle"
     public_message = "The encrypted key bundle is invalid"

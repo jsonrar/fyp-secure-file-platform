@@ -19,6 +19,10 @@ from app.schemas.key_schema import (
     KeyProtectionProfileOut,
     MyKeyBundleResponse,
     PublicEncryptionKeyOut,
+    ResetKeyProtectionIn,
+    ResetKeyProtectionRequest,
+    ResetKeyProtectionResponse,
+    ResetKeyProtectionSigningPayloadOut,
     RewrapKeyProtectionIn,
     RewrapKeyProtectionRequest,
     RewrapKeyProtectionResponse,
@@ -163,6 +167,60 @@ def rewrap_my_key(
         updated_at=to_api_utc(profile.updated_at),
     )
     return ok(message="Key protection rewrapped", data=response, headers=AUTH_NO_STORE_HEADERS)
+
+
+@router.post(
+    "/me/reset-protection/signing-payload",
+    response_model=ApiSuccessResponse[ResetKeyProtectionSigningPayloadOut],
+)
+def reset_protection_signing_payload(
+    payload: ResetKeyProtectionIn,
+    actor: ActorDependency,
+    service: KeyServiceDependency,
+) -> JSONResponse:
+    authorization_payload = service.get_reset_signing_payload(
+        actor=actor,
+        reset=payload.to_domain(),
+    )
+    response = ResetKeyProtectionSigningPayloadOut(
+        authorization_payload=encode_base64(authorization_payload)
+    )
+    return ok(
+        message="Private-key reset authorization payload created",
+        data=response,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post(
+    "/me/reset-protection",
+    response_model=ApiSuccessResponse[ResetKeyProtectionResponse],
+)
+def reset_my_key_protection(
+    payload: ResetKeyProtectionRequest,
+    actor: ActorDependency,
+    context: RequestContextDependency,
+    service: KeyServiceDependency,
+) -> JSONResponse:
+    """Set a new encryption passphrase, proven by the private key file from registration."""
+    profile, bundle = service.reset_protection_with_private_key(
+        actor=actor,
+        reset=payload.to_domain(),
+        authorization_signature=payload.signature_bytes(),
+        context=context,
+    )
+    response = ResetKeyProtectionResponse(
+        profile_id=UUID(profile.profile_uuid),
+        profile_revision=profile.revision,
+        bundle_id=UUID(bundle.bundle_uuid),
+        bundle_revision=bundle.revision,
+        updated_at=to_api_utc(profile.updated_at),
+    )
+    return ok(
+        message="Encryption passphrase reset; the account key and every file wrapping are unchanged",
+        data=response,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
 
 
 @router.post(
