@@ -83,8 +83,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [ ] [#56 自动化加密异地备份并证明可在洁净主机恢复](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
   ——恢复策略、协调一致的加密备份、最小权限账号、带计时的洁净主机恢复演练、回滚与部分 DDL 恢复均已
   完成并在 CI 中运行（[docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)）。
-  待完成：在 VPS 上安装夜间定时任务并配置真实异地目标、把失败告警推送给人、在全新 VPS 上计时的
-  端到端恢复。
+  失败邮件告警与修复后的每周恢复校验已通过 #57 进入仓库。待完成：在 VPS 上安装夜间定时任务、配置
+  真实异地目标并安装这些告警，以及在全新 VPS 上计时的端到端恢复。
 - [x] [#61 保持 README、TODO、Issues、changelog、PR 与部署同步](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   ——本次同步 PR 建立统一记录与证据清单；后续变更沿用同一规则。
 
@@ -95,7 +95,10 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [ ] [#55 完成管理员、恢复专员及审计验证流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
   ——通过角色感知 UI 演示现有 RBAC/恢复/审计 API。
 - [ ] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
-  ——启用定时删除前必须审查 report-only 输出。
+  ——仓库部分已完成：目录宽限期、数量保护（退出码 3）、边界两侧计数报告、MySQL 幂等性测试与不触碰审计/
+  密钥/恢复表的语句测试、在同机备份之后 05:00 运行的 timer、邮件告警，以及
+  [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md)。待完成：在 staging 安装、
+  记录 report-only 审查，然后启用 timer。
 - [ ] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
   ——`e2e-live` CI Job 现已针对一次性 API 与 MySQL 不跳过地运行前端全部真实后端测试套件（从注册到
   注销账户、全部四种文件算法、角色拒绝）；`mysql-gate` 运行多连接并发与真实故障注入测试；覆盖率

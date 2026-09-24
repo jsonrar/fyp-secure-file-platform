@@ -95,9 +95,9 @@ not a release pass.
 - [ ] [#56 Automate encrypted off-server backups and prove clean-host restore](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
   — policy, encrypted coordinated backup, least-privilege account, clean-host restore drill with
   timings, rollback and partial-DDL recovery are in place and run in CI
-  ([docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md)). Open: installing the nightly timer
-  and a real off-server target on the VPS, failure alerts to a person, and a timed end-to-end
-  restore on a fresh VPS.
+  ([docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md)). Failure emails and a fixed weekly
+  restore check are in the repository via #57. Open: installing the nightly timer, a real
+  off-server target, and those alerts on the VPS, and a timed end-to-end restore on a fresh VPS.
 - [x] [#61 Keep README, TODO, Issues, changelog, PRs, and deployments synchronized](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   — this synchronization PR installs the shared records and evidence checklist; future changes
   use the same rule.
@@ -109,7 +109,10 @@ not a release pass.
 - [ ] [#55 Complete admin, recovery-officer, and audit-verification workflows](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
   — make existing RBAC/recovery/audit APIs demonstrable through role-aware UI.
 - [ ] [#57 Validate and enable the staging reconciliation timer safely](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
-  — review report-only output before scheduled deletion is enabled.
+  — repository side done: directory grace, volume guard (exit 3), both-sides boundary report,
+  MySQL idempotency and no-audit/key/recovery-statement tests, a 05:00 timer after the same-host
+  backup, email alerts, and [docs/RECONCILIATION_RUNBOOK.md](docs/RECONCILIATION_RUNBOOK.md).
+  Open: install on staging, record the report-only review, then enable the timer.
 - [ ] [#58 Expand browser E2E, concurrency, fault-injection, and coverage gates](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
   — the `e2e-live` CI job now runs every frontend live-backend suite un-skipped against a
   disposable API and MySQL (registration through account deletion, all four file algorithms,

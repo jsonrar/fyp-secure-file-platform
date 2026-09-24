@@ -425,6 +425,15 @@ bash scripts/mysql_release_gate.sh     # 锁竞争、带校验和的恢复、回
 夜间备份任务本身（`deployment/server/mcs21-offsite-backup.{service,timer}` 与
 `database/mysql/04-backup-account.sql` 账号）目前只是模板，尚未安装到预发布环境。
 
+### 对账清理与运维告警
+
+`backend/scripts/reconcile.py` 清除已失效的会话、刷新令牌、限流桶、验证码以及未被引用的密文对象；它从不
+触碰审计、身份、密钥保管或恢复相关的表。它默认只报告，从截止线两侧展示每个类别；带 `--apply` 时若数量
+异常则拒绝删除任何东西（退出码 3）。`deployment/server/mcs21-reconcile.{service,timer}` 在同机备份之后、
+每天 05:00（Asia/Kuala_Lumpur）运行它，`mcs21-alert@.service` 在它或任一备份任务失败时发邮件通知到人。
+在 [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md) 中的 report-only 审查
+被记录之前，这些都不会在 staging 上启用（[#57](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)）。
+
 ## 重要安全说明
 
 本项目仍是 FYP 原型。邮箱验证和忘记**登录密码**后的验证码重置已经实现，但 MFA 与外部身份

@@ -489,6 +489,18 @@ The nightly backup job itself (`deployment/server/mcs21-offsite-backup.{service,
 `database/mysql/04-backup-account.sql` account) is a template and is not yet installed on
 staging.
 
+### Reconciliation and ops alerts
+
+`backend/scripts/reconcile.py` removes lapsed sessions, refresh tokens, throttle buckets,
+verification codes, and unreferenced ciphertext objects; it never touches audit, identity,
+key-custody, or recovery tables. It reports by default, shows each category on both sides of
+its cutoff, and with `--apply` refuses to delete anything (exit 3) when the volume is unusual.
+`deployment/server/mcs21-reconcile.{service,timer}` run it daily at 05:00 Asia/Kuala_Lumpur,
+after the same-host backup, and `mcs21-alert@.service` emails a person when it or any backup
+job fails. None of this is enabled on staging until the report-only review in
+[docs/RECONCILIATION_RUNBOOK.md](docs/RECONCILIATION_RUNBOOK.md) is recorded
+([#57](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)).
+
 ## Important Security Note
 
 This remains an FYP prototype. Email verification and forgotten **login-password** reset are
