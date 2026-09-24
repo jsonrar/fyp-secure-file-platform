@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Encrypted off-server backups and the reconciliation timer live on staging / 加密异地备份与对账 timer 已在 staging 上线
+
+- Installed #56 and #57 on staging on 2026-09-24. Nightly encrypted sets now go to Cloudflare R2 (35-day lifecycle, 30-day bucket lock) through a read-only `fyp_backup_user`, and the reconcile timer runs at 05:00 after the same-host backup; every backup and cleanup unit emails on failure. Until now nothing left the VPS and no failure reached a person.
+- 2026-09-24 在 staging 上安装了 #56 与 #57。每晚的加密备份集现在通过只读的 `fyp_backup_user` 传到 Cloudflare R2（35 天生命周期、30 天 bucket lock）；对账 timer 在同机备份之后的 05:00 运行；所有备份与清理 unit 失败时都会发邮件。此前没有任何数据离开 VPS，也没有任何失败会通知到人。
+- A real off-server set was restored on a separate machine with the offline key in 6.97 s, and all 17 tables (`CHECKSUM TABLE`) and all 24 objects (SHA-256) matched the live system. This is the evidence #56 asked for: a restore from the real set with the real key, not only CI's throwaway keys.
+- 一个真实的异地备份集已在另一台机器上用离线私钥恢复，用时 6.97 秒，17 张表（`CHECKSUM TABLE`）与 24 个对象（SHA-256）全部与线上一致。这正是 #56 要求的证据：用真实密钥恢复真实备份集，而不只是 CI 中的一次性密钥。
+- The backup account had to be created for host `172.29.21.1`, not `localhost` as `04-backup-account.sql` writes it: staging's MySQL runs in Docker, so host TCP connections arrive from the Docker gateway. The installation records in `docs/BACKUP_AND_RECOVERY.md` and `docs/RECONCILIATION_RUNBOOK.md` note this and the other host facts.
+- 备份账号必须以 host `172.29.21.1` 创建，而不是 `04-backup-account.sql` 中写的 `localhost`：staging 的 MySQL 运行在 Docker 中，主机发起的 TCP 连接来自 Docker 网关。`docs/BACKUP_AND_RECOVERY.md` 与 `docs/RECONCILIATION_RUNBOOK.md` 的安装记录写明了这一点及其他主机事实。
+
 ### Making the reconciliation timer safe to enable, and alerts that reach a person / 让对账 timer 可以安全启用，并让告警真正通知到人
 
 - `backend/scripts/reconcile.py` now removes an empty per-file directory only once its mtime is older than the storage grace (issue #57). Before, `--apply` removed every empty directory at once, so it could delete one that `publish` had just created and fail an upload between the `mkdir` and the `link`. A client retrying with the same `file_id` makes that window real. A directory the run itself empties waits for the next run.

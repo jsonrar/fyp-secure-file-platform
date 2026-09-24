@@ -92,12 +92,12 @@ not a release pass.
   iterations that must each show one applier and one waiter, and restores are compared by per-table
   `CHECKSUM TABLE` plus a schema fingerprint, proven by a one-row mutation. Still not a long-running
   chaos test.
-- [ ] [#56 Automate encrypted off-server backups and prove clean-host restore](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
-  — policy, encrypted coordinated backup, least-privilege account, clean-host restore drill with
-  timings, rollback and partial-DDL recovery are in place and run in CI
-  ([docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md)). Failure emails and a fixed weekly
-  restore check are in the repository via #57. Open: installing the nightly timer, a real
-  off-server target, and those alerts on the VPS, and a timed end-to-end restore on a fresh VPS.
+- [x] [#56 Automate encrypted off-server backups and prove clean-host restore](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
+  — live on staging since 2026-09-24: nightly encrypted sets to Cloudflare R2 (35-day lifecycle,
+  30-day bucket lock), a least-privilege backup account, and failure emails. A real set was
+  restored on a separate machine with the offline key in 6.97 s and matched the live database
+  and files exactly ([docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md) §5). Follow-ups:
+  time the 4 h whole-service RTO on a fresh VPS, and prune `mcs21-deploy`'s pre-deploy dumps.
 - [x] [#61 Keep README, TODO, Issues, changelog, PRs, and deployments synchronized](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   — this synchronization PR installs the shared records and evidence checklist; future changes
   use the same rule.
@@ -112,7 +112,8 @@ not a release pass.
   — repository side done: directory grace, volume guard (exit 3), both-sides boundary report,
   MySQL idempotency and no-audit/key/recovery-statement tests, a 05:00 timer after the same-host
   backup, email alerts, and [docs/RECONCILIATION_RUNBOOK.md](docs/RECONCILIATION_RUNBOOK.md).
-  Open: install on staging, record the report-only review, then enable the timer.
+  Installed on staging 2026-09-24; report-only review recorded (43 eligible, 0 orphans) and the
+  timer enabled. Open: record the first scheduled run (2026-09-25 05:00) and an idempotent re-run.
 - [ ] [#58 Expand browser E2E, concurrency, fault-injection, and coverage gates](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
   — the `e2e-live` CI job now runs every frontend live-backend suite un-skipped against a
   disposable API and MySQL (registration through account deletion, all four file algorithms,
