@@ -17,6 +17,7 @@ import {
   PASSWORD_MIN_LENGTH,
   PASSWORD_REQUIREMENT_HINT,
   evaluatePassword,
+  passphraseLength,
 } from '@/utils/password-policy'
 
 const USERNAME_MIN_LENGTH = 3
@@ -97,11 +98,11 @@ const errors = computed<Record<FieldName, string>>(() => {
   }
 
   let passphraseError = ''
-  const passphraseLength = [...passphrase.value].length
-  if (passphraseLength === 0) {
+  const currentPassphraseLength = passphraseLength(passphrase.value)
+  if (currentPassphraseLength === 0) {
     passphraseError = 'Enter an encryption passphrase.'
-  } else if (passphraseLength < PASSPHRASE_MIN_LENGTH) {
-    passphraseError = `Use at least ${PASSPHRASE_MIN_LENGTH} characters (${passphraseLength} so far).`
+  } else if (currentPassphraseLength < PASSPHRASE_MIN_LENGTH) {
+    passphraseError = `Use at least ${PASSPHRASE_MIN_LENGTH} characters (${currentPassphraseLength} so far).`
   } else if (passphrase.value === password.value) {
     passphraseError = 'Use a different value from your login password.'
   }

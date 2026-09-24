@@ -23,7 +23,7 @@ import {
   rsaPssSign,
 } from './primitives'
 import { sealAccountKey, unlockAccountPrivateKeyDer } from '@/utils/account-crypto'
-import { PASSPHRASE_MIN_LENGTH } from '@/utils/password-policy'
+import { PASSPHRASE_MIN_LENGTH, passphraseLength } from '@/utils/password-policy'
 
 /** The new passphrase is too short to protect a key that opens every file. */
 export class PassphraseTooShortError extends Error {
@@ -68,7 +68,7 @@ export async function resetPassphraseWithPrivateKeyPem(
   pem: string,
   newPassphrase: string,
 ): Promise<PassphraseResetOutcome> {
-  if (newPassphrase.length < PASSPHRASE_MIN_LENGTH) {
+  if (passphraseLength(newPassphrase) < PASSPHRASE_MIN_LENGTH) {
     throw new PassphraseTooShortError()
   }
 

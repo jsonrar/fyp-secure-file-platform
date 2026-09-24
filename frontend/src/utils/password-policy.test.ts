@@ -1,11 +1,21 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  PASSPHRASE_MIN_LENGTH,
   PASSWORD_MAX_LENGTH,
   PASSWORD_MIN_LENGTH,
   evaluatePassword,
+  passphraseLength,
   passwordCharacterClasses,
 } from './password-policy'
+
+describe('encryption passphrase policy', () => {
+  it('uses a 10-character minimum and counts Unicode characters consistently', () => {
+    expect(PASSPHRASE_MIN_LENGTH).toBe(10)
+    expect(passphraseLength('1234567890')).toBe(PASSPHRASE_MIN_LENGTH)
+    expect(passphraseLength('🔐'.repeat(10))).toBe(PASSPHRASE_MIN_LENGTH)
+  })
+})
 
 describe('passwordCharacterClasses', () => {
   it('buckets characters the way the server does', () => {
