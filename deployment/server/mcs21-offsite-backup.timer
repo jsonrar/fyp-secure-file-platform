@@ -7,7 +7,7 @@ Description=Encrypted off-server backup of MCS21, daily (24-hour RPO)
 OnCalendar=*-*-* 02:30:00
 RandomizedDelaySec=10m
 Persistent=true
-Unit=mcs21-backup.service
+Unit=mcs21-offsite-backup.service
 
 [Install]
 WantedBy=timers.target

@@ -18,7 +18,7 @@
 | `backend/scripts/backup_restore_drill.sh` | 使用一次性密钥和账号的端到端演练；CI（`mysql-gate`）在每个 PR 上运行 |
 | `backend/scripts/mysql_release_gate.sh` | 迁移锁竞争、带校验和的恢复、升级前回滚、部分 DDL 恢复 |
 | `database/mysql/04-backup-account.sql` | 最小权限账号 `fyp_backup_user` |
-| `deployment/server/mcs21-backup.{service,timer}` | 夜间调度模板（部署工具不会自动安装） |
+| `deployment/server/mcs21-offsite-backup.{service,timer}` | 夜间调度模板（部署工具不会自动安装） |
 
 ## 1. 恢复目标
 
@@ -247,7 +247,7 @@ bash scripts/mysql_release_gate.sh              # 锁竞争、带校验和的恢
 
 ## 尚未完成
 
-- 夜间任务**尚未部署**：安装 `mcs21-backup.{service,timer}`、执行 `04-backup-account.sql`、选择异地目标、
+- 夜间任务**尚未部署**：安装 `mcs21-offsite-backup.{service,timer}`、执行 `04-backup-account.sql`、选择异地目标、
   放置公钥、确认 VPS 上的 `ENCRYPTED_FILE_DIR`，都需要有服务器权限的人来完成。
 - rsync 和 S3 目标已接好，但尚未对真实目标测试。
 - 失败告警只到达 systemd 和 journal，还不会通知到人。

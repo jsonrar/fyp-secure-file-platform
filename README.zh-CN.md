@@ -422,7 +422,7 @@ bash scripts/backup_restore_drill.sh   # 加密备份 -> 洁净恢复 -> 拒绝�
 bash scripts/mysql_release_gate.sh     # 锁竞争、带校验和的恢复、回滚、部分 DDL
 ```
 
-夜间备份任务本身（`deployment/server/mcs21-backup.{service,timer}` 与
+夜间备份任务本身（`deployment/server/mcs21-offsite-backup.{service,timer}` 与
 `database/mysql/04-backup-account.sql` 账号）目前只是模板，尚未安装到预发布环境。
 
 ## 重要安全说明

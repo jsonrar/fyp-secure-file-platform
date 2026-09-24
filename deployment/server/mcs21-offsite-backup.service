@@ -2,10 +2,10 @@
 # database/mysql/04-backup-account.sql has created the backup account and the backup
 # public key has been placed on the host -- see docs/BACKUP_AND_RECOVERY.md.
 #
-#   sudo cp deployment/server/mcs21-backup.{service,timer} /etc/systemd/system/
+#   sudo cp deployment/server/mcs21-offsite-backup.{service,timer} /etc/systemd/system/
 #   sudo systemctl daemon-reload
-#   sudo systemctl start mcs21-backup.service     # one run by hand first; read the journal
-#   sudo systemctl enable --now mcs21-backup.timer
+#   sudo systemctl start mcs21-offsite-backup.service     # one run by hand first; read the journal
+#   sudo systemctl enable --now mcs21-offsite-backup.timer
 #
 # /etc/fyp-secure-file-platform/backup.env (0600, root) holds only BACKUP_DB_HOST,
 # BACKUP_DB_PORT, BACKUP_DB_USER, BACKUP_DB_PASSWORD, BACKUP_DB_SSL_CA, BACKUP_OBJECTS_DIR
@@ -21,7 +21,8 @@ After=network-online.target docker.service
 
 [Service]
 Type=oneshot
-User=fyp-backend
+User=fypapp
+Group=fypapp
 WorkingDirectory=/opt/mcs21/current/backend
 EnvironmentFile=/etc/fyp-secure-file-platform/backup.env
 ExecStart=/opt/mcs21/current/backend/.venv/bin/python scripts/backup_encrypted.py \

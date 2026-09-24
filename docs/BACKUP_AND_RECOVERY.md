@@ -20,7 +20,7 @@ The mechanism:
 | `backend/scripts/backup_restore_drill.sh` | End-to-end drill with throwaway keys and accounts; runs in CI (`mysql-gate`) on every PR |
 | `backend/scripts/mysql_release_gate.sh` | Migration lock races, checksummed restore, rollback before upgrade, partial-DDL recovery |
 | `database/mysql/04-backup-account.sql` | The least-privilege `fyp_backup_user` account |
-| `deployment/server/mcs21-backup.{service,timer}` | Nightly schedule template (not installed by the deploy tooling) |
+| `deployment/server/mcs21-offsite-backup.{service,timer}` | Nightly schedule template (not installed by the deploy tooling) |
 
 ## 1. Objectives
 
@@ -297,7 +297,7 @@ dumps, and objects in a private temporary directory that is removed on exit.
 
 ## Not yet done
 
-- The nightly job is **not deployed**: installing `mcs21-backup.{service,timer}`, running
+- The nightly job is **not deployed**: installing `mcs21-offsite-backup.{service,timer}`, running
   `04-backup-account.sql`, choosing the off-server target, placing the public key, and
   confirming `ENCRYPTED_FILE_DIR` on the VPS all need someone with server access.
 - The rsync and S3 destinations are wired but untested against a real target.

@@ -485,7 +485,7 @@ bash scripts/backup_restore_drill.sh   # encrypted backup -> clean restore -> re
 bash scripts/mysql_release_gate.sh     # lock races, checksummed restore, rollback, partial DDL
 ```
 
-The nightly backup job itself (`deployment/server/mcs21-backup.{service,timer}` with the
+The nightly backup job itself (`deployment/server/mcs21-offsite-backup.{service,timer}` with the
 `database/mysql/04-backup-account.sql` account) is a template and is not yet installed on
 staging.
 
