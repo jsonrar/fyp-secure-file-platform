@@ -31,6 +31,12 @@ interface FileListEnvelope {
   }
 }
 
+interface ApiFailureEnvelope {
+  data?: {
+    error_code?: string
+  }
+}
+
 function newAccount(): Account {
   const run = randomUUID().slice(0, 8)
   return {
@@ -182,11 +188,20 @@ test('ciphertext tampering is visible, blocks download, persists, and heals afte
     }
     page.on('download', markDownload)
 
+    const refusedResponse = page.waitForResponse((response) => {
+      const url = new URL(response.url())
+      return (
+        response.request().method() === 'POST' &&
+        url.pathname.endsWith(`/api/v1/files/${fileId}/download`)
+      )
+    })
     await row.getByRole('button', { name: 'Download and decrypt' }).click()
     await unlockForDownload(page, account)
-    await expect(page.getByText('The encrypted file could not be verified')).toBeVisible({
-      timeout: 60_000,
-    })
+    const response = await refusedResponse
+    expect(response.status(), 'the server refuses a download after MODIFIED is persisted').toBe(409)
+    const failure = (await response.json()) as ApiFailureEnvelope
+    expect(failure.data?.error_code).toBe('integrity_verification_failed')
+    await expect(row.getByRole('button', { name: 'Modified' })).toBeVisible()
     expect(downloadStarted, 'a modified ciphertext never starts a browser download').toBe(false)
     page.off('download', markDownload)
   })
