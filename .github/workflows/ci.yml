@@ -1,0 +1,227 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: backend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      # Only the download cache is cached, never .venv itself: the venv is
+      # rebuilt fresh every run from the pinned requirements files, so it can
+      # never carry forward a stale build artifact or an accidentally-baked-in
+      # secret from a previous job.
+      - name: Cache uv download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/requirements.txt', 'backend/requirements-dev.txt') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Create virtual environment
+        run: uv venv .venv
+
+      - name: Install dependencies
+        run: uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+
+      - name: Ruff format check
+        run: .venv/bin/ruff format --check .
+
+      - name: Ruff lint
+        run: .venv/bin/ruff check .
+
+      # Deselects the "integration" marker: those tests need a real MySQL
+      # instance and are exercised separately by the mysql-gate job, which
+      # additionally fails if any of them report as skipped.
+      - name: Backend tests (non-MySQL)
+        env:
+          SECRET_KEY: ci-backend-test-secret-key-at-least-32-chars
+          APP_ENV: test
+        run: .venv/bin/python -m pytest -m "not integration"
+
+  frontend:
+    name: frontend
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: npm
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install dependencies
+        run: npm ci
+
+      - name: Unit tests
+        run: npm run test
+
+      - name: Typecheck
+        run: npm run typecheck
+
+      - name: Production build
+        run: npm run build
+
+  mysql-gate:
+    name: mysql-gate
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: backend
+    services:
+      mysql:
+        image: mysql:8.4
+        env:
+          MYSQL_ROOT_PASSWORD: ${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'ci-disposable-root-password' }}
+        ports:
+          - 3306:3306
+        options: >-
+          --health-cmd="mysqladmin ping --silent"
+          --health-interval=5s
+          --health-timeout=5s
+          --health-retries=20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install uv
+        run: pip install uv
+
+      - name: Cache uv download cache
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/uv
+          key: uv-${{ runner.os }}-${{ hashFiles('backend/requirements.txt', 'backend/requirements-dev.txt') }}
+          restore-keys: |
+            uv-${{ runner.os }}-
+
+      - name: Create virtual environment
+        run: uv venv .venv
+
+      - name: Install dependencies
+        run: uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+
+      - name: Install MySQL client tools
+        run: sudo apt-get update && sudo apt-get install -y --no-install-recommends mysql-client
+
+      # Every credential used from here on is masked as soon as it exists, so
+      # a stray `echo` or a tool's own error message cannot leak it into the
+      # job log. The password itself is generated per run, never a fixed
+      # secret, since this MySQL instance is destroyed at the end of the job.
+      - name: Generate and mask disposable credentials
+        id: creds
+        run: |
+          root_password="${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'ci-disposable-root-password' }}"
+          runtime_password="$(openssl rand -hex 24)"
+          echo "::add-mask::${root_password}"
+          echo "::add-mask::${runtime_password}"
+          {
+            echo "root_password=${root_password}"
+            echo "runtime_password=${runtime_password}"
+          } >> "$GITHUB_OUTPUT"
+
+      - name: Wait for MySQL and extract its CA certificate
+        env:
+          ROOT_PASSWORD: ${{ steps.creds.outputs.root_password }}
+        run: |
+          for _ in $(seq 1 30); do
+            mysqladmin ping --host=127.0.0.1 --port=3306 --user=root --password="$ROOT_PASSWORD" --silent && break
+            sleep 2
+          done
+          container_id="$(docker ps --filter "ancestor=mysql:8.4" --format '{{.ID}}' | head -n1)"
+          docker cp "${container_id}:/var/lib/mysql/ca.pem" "${RUNNER_TEMP}/mysql-ca.pem"
+
+      - name: Create the disposable release-gate database
+        env:
+          ROOT_PASSWORD: ${{ steps.creds.outputs.root_password }}
+        run: |
+          mysql --host=127.0.0.1 --port=3306 --user=root --password="$ROOT_PASSWORD" \
+            --execute "CREATE DATABASE IF NOT EXISTS fyp_secure_file_platform_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
+
+      - name: Run every migration 0001 through head, then alembic current/check
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_USER: root
+          DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          DB_NAME: fyp_secure_file_platform_test
+          SECRET_KEY: ci-mysql-gate-test-secret-key-at-least-32-chars
+          APP_ENV: test
+        run: |
+          .venv/bin/python -m alembic upgrade head
+          .venv/bin/python -m alembic current
+          .venv/bin/python -m alembic check
+
+      - name: Verify the connection actually negotiated TLS
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_USER: root
+          DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          DB_NAME: fyp_secure_file_platform_test
+          DB_SSL_CA: ${{ runner.temp }}/mysql-ca.pem
+        run: .venv/bin/python scripts/verify_mysql_tls.py
+
+      - name: Verify runtime-vs-administrator grant boundaries
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          DB_NAME: fyp_secure_file_platform_test
+          ADMIN_DB_USER: root
+          ADMIN_DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          RUNTIME_DB_USER: fyp_gate_runtime_user
+          RUNTIME_DB_PASSWORD: ${{ steps.creds.outputs.runtime_password }}
+          RUNTIME_DB_HOST: "%"
+        run: .venv/bin/python scripts/check_runtime_grants.py
+
+      # -rs plus check_no_skips.py turns a silently-skipped integration suite
+      # (the default when AUTH_TEST_DATABASE_URL is unset, see
+      # tests/integration/conftest.py) into a hard CI failure instead of a
+      # quiet, meaningless pass.
+      - name: Run the full MySQL integration suite
+        env:
+          AUTH_TEST_DATABASE_URL: mysql+pymysql://root:${{ steps.creds.outputs.root_password }}@127.0.0.1:3306/fyp_secure_file_platform_test
+          SECRET_KEY: ci-mysql-gate-test-secret-key-at-least-32-chars
+          APP_ENV: test
+        run: .venv/bin/python -m pytest -m integration -rs --junitxml=integration-results.xml
+
+      - name: Fail if any integration test was skipped
+        run: .venv/bin/python scripts/check_no_skips.py integration-results.xml
+
+      - name: Non-empty database refusal, idempotent resume, concurrent lock, backup/restore drill
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          ADMIN_DB_USER: root
+          ADMIN_DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          SECRET_KEY: ci-mysql-gate-test-secret-key-at-least-32-chars
+          APP_ENV: test
+          PYTHON_BIN: ${{ github.workspace }}/backend/.venv/bin/python
+        run: bash scripts/mysql_release_gate.sh

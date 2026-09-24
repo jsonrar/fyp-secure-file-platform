@@ -408,6 +408,40 @@ npm run dev
 
 Frontend: <http://localhost:5173>
 
+## Continuous Integration
+
+`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with three jobs.
+`backend` and `frontend` are required checks; a repository admin must also mark them required
+in branch protection (see the pull request that introduced this workflow for the exact job
+names to add). Run the same commands locally before pushing so a failure never arrives as a
+surprise in CI:
+
+```bash
+# backend (from backend/, matches the "backend" job)
+uv venv --python /opt/homebrew/bin/python3.12 .venv   # or any Python 3.12 interpreter
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+.venv/bin/ruff format --check .
+.venv/bin/ruff check .
+.venv/bin/python -m pytest -m "not integration"
+
+# frontend (from frontend/, matches the "frontend" job)
+npm ci
+npm run test
+npm run typecheck
+npm run build
+```
+
+A third job, `mysql-gate`, provisions a disposable MySQL 8.4 service with verified TLS, runs
+every migration from empty through `0006_chacha20_poly1305`, then `alembic current` and
+`alembic check`, then the full MySQL integration suite (`pytest -m integration`) — failing the
+job outright if any integration test is skipped rather than actually run — followed by grant-
+boundary, schema-parity, non-empty-database-refusal, idempotent-resume, concurrent-migration-
+lock, and backup/restore checks. It needs a running MySQL 8.4 instance and is not expected to
+be reproduced from a laptop without one; `docker compose up -d mysql` plus
+`backend/scripts/mysql_release_gate.sh` exercises the harder scenarios locally during
+development of the gate itself. See `backend/scripts/` for the individual check scripts and
+`TODO.md` for what remains deferred.
+
 ## Important Security Note
 
 This remains an FYP prototype. Email verification and forgotten **login-password** reset are
