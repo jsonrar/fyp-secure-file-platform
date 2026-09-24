@@ -19,9 +19,7 @@ BORDER = "#e4e4e4"
 CANVAS = "#f4f6f8"
 CALLOUT_BG = "#eef5fb"
 
-FONT = (
-    "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif"
-)
+FONT = "-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif"
 
 
 def _preheader(text: str) -> str:
@@ -33,7 +31,7 @@ def _preheader(text: str) -> str:
     return (
         '<div style="display:none;max-height:0;overflow:hidden;mso-hide:all;'
         f'font-size:1px;line-height:1px;color:{CANVAS}">{text}'
-        f'{"&nbsp;&zwnj;" * 60}</div>'
+        f"{'&nbsp;&zwnj;' * 60}</div>"
     )
 
 
@@ -58,7 +56,7 @@ def callout(text: str) -> str:
     return (
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         f'style="margin:22px 0"><tr><td style="background:{CALLOUT_BG};'
-        f'border-left:3px solid {BRAND};border-radius:0 6px 6px 0;padding:14px 18px;'
+        f"border-left:3px solid {BRAND};border-radius:0 6px 6px 0;padding:14px 18px;"
         f'font-family:{FONT};font-size:14px;line-height:22px;color:{INK}">{text}'
         "</td></tr></table>"
     )
@@ -79,7 +77,7 @@ def layout(*, preheader: str, heading: str, body_html: str) -> str:
         f"{_preheader(preheader)}"
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         f'style="background:{CANVAS};padding:28px 12px">'
-        "<tr><td align=\"center\">"
+        '<tr><td align="center">'
         '<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0" '
         'style="max-width:560px;background:#ffffff;border:1px solid '
         f'{BORDER};border-radius:10px;overflow:hidden">'

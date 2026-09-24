@@ -139,9 +139,7 @@ def _service(*, password="correct-horse", files=None, user=None):
 def test_deletes_the_owned_files_and_their_ciphertext() -> None:
     service, fakes = _service(files=[_file(1, "objects/a"), _file(2, "objects/b")])
 
-    result = service.delete_account(
-        actor=_actor(), password="correct-horse", context=_context()
-    )
+    result = service.delete_account(actor=_actor(), password="correct-horse", context=_context())
 
     assert result.files_deleted == 2
     assert [f.status for f in fakes.files.files] == ["DELETED", "DELETED"]
@@ -166,9 +164,7 @@ def test_ciphertext_is_removed_only_after_the_commit() -> None:
 def test_closes_the_account_and_ends_every_session() -> None:
     service, fakes = _service()
 
-    result = service.delete_account(
-        actor=_actor(), password="correct-horse", context=_context()
-    )
+    result = service.delete_account(actor=_actor(), password="correct-horse", context=_context())
 
     assert fakes.user.status is UserStatus.DELETED
     assert result.sessions_revoked == 3

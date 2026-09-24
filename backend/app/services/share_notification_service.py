@@ -1,8 +1,8 @@
 from __future__ import annotations
 
 import logging
-from collections.abc import Callable
 import re
+from collections.abc import Callable
 from html import escape
 
 from app.core.config import Settings
@@ -50,7 +50,9 @@ class ShareNotificationService:
         self.email = email or EmailService(settings=settings)
         self.sent_today = sent_today
 
-    def notify_shared(self, *, recipient_email: str, recipient_username: str, sender_username: str) -> bool:
+    def notify_shared(
+        self, *, recipient_email: str, recipient_username: str, sender_username: str
+    ) -> bool:
         """Best effort, by design.
 
         Called after the share has already committed. A share that succeeded must not be
@@ -69,9 +71,7 @@ class ShareNotificationService:
         if self.sent_today is not None and cap >= 0:
             try:
                 if self.sent_today() >= cap:
-                    logger.info(
-                        "Share notification skipped: daily cap of %s reached", cap
-                    )
+                    logger.info("Share notification skipped: daily cap of %s reached", cap)
                     return False
             except Exception:  # pragma: no cover - counting must never break a share
                 logger.exception("Could not count today's share notifications")
@@ -104,7 +104,7 @@ class ShareNotificationService:
             f"Hello {recipient},\n\n"
             f"{sender} has shared an encrypted file with you on SecureView.\n\n"
             "You open it with your own encryption passphrase -- never the sender's. "
-            "Look under \"Shared with me\" in your file list."
+            'Look under "Shared with me" in your file list.'
             f"{link_line}\n\n"
             "If you were not expecting this, you can ignore it. Nothing has been added to "
             "your account that you have to act on.\n\n"
@@ -114,9 +114,7 @@ class ShareNotificationService:
         )
 
         body = paragraph(f"Hello {safe_recipient},")
-        body += paragraph(
-            f"<strong>{safe_sender}</strong> has shared an encrypted file with you."
-        )
+        body += paragraph(f"<strong>{safe_sender}</strong> has shared an encrypted file with you.")
         body += callout(
             "You open it with <strong>your own encryption passphrase</strong> &mdash; "
             "never the sender&rsquo;s."
