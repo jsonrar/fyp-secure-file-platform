@@ -22,7 +22,12 @@ export const PASSWORD_MIN_CHARACTER_CLASSES = 2
  * it wraps the account key, and losing or guessing it costs the user every file
  * they have encrypted, so it keeps the longer minimum the login password shed.
  */
-export const PASSPHRASE_MIN_LENGTH = 15
+export const PASSPHRASE_MIN_LENGTH = 10
+
+/** Measure user-visible Unicode characters consistently across every passphrase form. */
+export function passphraseLength(passphrase: string): number {
+  return [...passphrase].length
+}
 
 export type PasswordCharacterClass = 'uppercase' | 'lowercase' | 'number' | 'symbol'
 

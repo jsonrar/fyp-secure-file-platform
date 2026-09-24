@@ -9,7 +9,7 @@ import {
   ResetVerificationError,
   resetPassphraseWithPrivateKeyPem,
 } from '@/crypto/passphrase-reset'
-import { PASSPHRASE_MIN_LENGTH } from '@/utils/password-policy'
+import { PASSPHRASE_MIN_LENGTH, passphraseLength } from '@/utils/password-policy'
 
 /**
  * Set a new encryption passphrase using the private key file issued at registration.
@@ -37,7 +37,7 @@ onBeforeUnmount(() => {
 
 const passphraseError = computed(() => {
   if (!submitted.value) return ''
-  if (passphrase.value.length < PASSPHRASE_MIN_LENGTH) {
+  if (passphraseLength(passphrase.value) < PASSPHRASE_MIN_LENGTH) {
     return `Use at least ${PASSPHRASE_MIN_LENGTH} characters.`
   }
   return ''

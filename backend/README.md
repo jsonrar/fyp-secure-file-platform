@@ -69,8 +69,8 @@ deletion, revocation, and other state-changing actions. Do not add `PUT`, `PATCH
 
 The login-password policy normalizes with Unicode NFC, requires 8 to 128 characters and at
 least two of uppercase, lowercase, number, and symbol classes, rejects account-derived/common
-values, and hashes with Argon2id. The separate client-only encryption passphrase retains its
-15-character minimum. Valid legacy bcrypt hashes are transparently upgraded; memory-hard
+values, and hashes with Argon2id. The separate client-only encryption passphrase has a
+10-character minimum. Valid legacy bcrypt hashes are transparently upgraded; memory-hard
 operations fail fast when the configured per-worker capacity is full. The included
 common-password list is a small local safety baseline, not a maintained breached-password
 corpus.
