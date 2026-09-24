@@ -97,15 +97,87 @@ keeps.
 | Role denial | Anonymous callers get 401; an ordinary user gets 403 on admin, chain-verification and recovery-key routes; the admin gets in and the chain verifies |
 | Account deletion | A wrong password leaves the account intact; deletion ends sessions and sign-in, destroys owned files, and leaves a valid audit chain |
 
-### Why this stops at the client modules rather than a real browser
+### The browser smoke test
 
-The suites run the browser's own code — the API clients, the WebCrypto and Argon2 key handling,
-the upload, download and share modules — in Node, over real HTTP. That covers every flow in
-issue #58 at the layer where the security properties live. Driving the markup with Playwright
-would add browser downloads and a second harness to CI for the one thing these tests cannot
-see: a button wired to the wrong handler. That gap is real and recorded as deferred work under
-[#58](https://github.com/jsonrar/fyp-secure-file-platform/issues/58); it is not claimed as
-covered.
+The Node suites run the browser's own code — the API clients, the WebCrypto and Argon2 key
+handling, the upload, download and share modules — over real HTTP, which is where the security
+properties live. What they cannot see is the markup: a button wired to the wrong handler passes
+every one of them. `frontend/browser-tests/golden-path.browser.ts` closes that gap. Chromium,
+driven by Playwright, clicks the built pages through the golden path:
+
+| Step | How it is driven |
+| --- | --- |
+| Register two accounts | The register form, with **Send code** |
+| Email verification | The code is read from the stack's mailbox directory (the same one `e2e/live-stack` reads) and typed into the form; nothing is sent |
+| Sign in | The login form |
+| Upload | The file picker and **Start Encryption** on `/upload` |
+| Unlock the key vault | The passphrase dialog raised by **Download and decrypt** |
+| Download | The browser's own download, compared byte for byte with the original |
+| Share | The row's **Share** button and the share dialog |
+| Recipient sees it | The second account's **Shared with me** list, then a download decrypted with its own passphrase |
+| Revoke | **Revoke** in the share dialog |
+| Recipient no longer sees it | The recipient's list after a reload |
+| Log out | **Log out** in the account menu; a protected page then sends the browser back to sign in |
+
+Every step is driven through the UI; none is done over the API. The UI's **Log out** is local:
+it clears the tokens and the unlocked key in the browser but does not call `POST /auth/logout`
+(server-side revocation is covered by `e2e/live-stack`). The test asserts what the button does —
+tokens gone, protected pages redirect — and does not claim the server session was revoked.
+
+Selectors are roles, labels and visible text only; no `data-testid` was needed. There are no
+sleeps: every wait is a Playwright web-first assertion, and the mailbox is polled with
+`expect.poll`. It runs with one worker, no retries, and `failOnFlakyTests`, so a test that only
+passes on a second attempt fails the run.
+
+#### Running it locally
+
+Prerequisites: the backend venv, `npm ci` in `frontend/`, a disposable MySQL 8.4 database whose
+name has a `_test` segment, and Chromium for Playwright (once):
+
+```bash
+cd frontend && npx playwright install chromium   # add --with-deps on a fresh Linux host
+```
+
+Then, from the repository root:
+
+```bash
+# The Node live suites, then the browser test, against one stack
+E2E_BROWSER=1 DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=... DB_PASSWORD=... DB_NAME=fyp_local_test \
+  bash backend/tests/e2e/run_live_stack.sh
+
+# Only the browser test (the stack is still migrated, seeded and torn down)
+E2E_BROWSER=only DB_HOST=... bash backend/tests/e2e/run_live_stack.sh
+```
+
+The script builds the frontend with `VITE_API_BASE_URL` pointed at the disposable API, and
+Playwright serves that build with `vite preview` on `127.0.0.1:5173` — the production bundle, not
+the dev server, and an origin the API already allows by default. Ports 8000 and 5173 must be
+free. Results land in `E2E_BROWSER_REPORT_DIR` (default `./e2e-browser-reports`): `junit.xml`,
+and `html/` (`npx playwright show-report e2e-browser-reports/html`). Each run registers new
+accounts, and the verification-code limit is 20 sends per IP per window, so for many repeated
+runs recreate the database in between.
+
+#### What CI keeps, and what it never records
+
+In CI the test runs inside the `e2e-live` job right after the Node suites, against the same
+stack. Only Chromium is installed (`npx playwright install --with-deps chromium`), and the
+browser download is cached under a key holding the exact Playwright version.
+
+**Traces are never recorded in CI.** A Playwright trace keeps every request header and body,
+DOM snapshots and typed values: bearer tokens, the private key the register page shows once,
+wrapped key material. Locally a failed run keeps one (`retain-on-failure`) for debugging; it never
+leaves the machine.
+
+The HTML report is uploaded only when the job fails, and only after
+`backend/scripts/check_report_hygiene.py` passes it. The report does contain the values the test
+typed — usernames, `@example.com` addresses, passwords and passphrases — because Playwright's step
+titles include them; every one of those is minted by the test for a throwaway account in a
+database destroyed with the job (`Throwaway!<uuid>` passwords, `throwaway … passphrase <uuid>`
+passphrases), and the uploaded file is random bytes. The test never prints file bytes. Failure
+screenshots are taken by the test itself with the private-key box masked. The hygiene script
+unpacks ZIP attachments and the report's embedded base64 results (a byte-level scan cannot read
+either), and refuses any Playwright trace outright, so a report with a trace can never be
+published even if someone turns tracing on.
 
 ## Backend concurrency and fault injection
 
@@ -126,6 +198,7 @@ Both run in the `mysql-gate` job with the rest of the integration suite.
 
 ## What it does not cover
 
-The browser interface itself. These suites drive the same modules the pages call, so they prove
-the logic and the API contract, not the markup — a button wired to the wrong handler would pass
-here. The dialogs and lists are checked separately against a stand-in API.
+The browser smoke test walks one path in one browser (Chromium) at one viewport. It does not
+cover every page, error state, the mobile layout, Firefox or WebKit, or visual regressions; the
+Node suites cover the edge cases of each flow, and the smoke test only proves the pages are wired
+to them.

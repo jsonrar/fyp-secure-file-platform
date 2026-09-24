@@ -382,7 +382,8 @@ npm run build
 
 第四个 Job `e2e-live` 会针对另一个一次性 MySQL 启动真实 API，并在不跳过任何测试的前提下运行
 前端所有依赖真实后端的测试套件：邮箱验证码注册、登录/refresh/重放/登出、解锁、全部四种文件
-算法、分享与撤销、审计可见性、角色拒绝以及注销账户。每个 Job 都会把 JUnit 与覆盖率报告作为
+算法、分享与撤销、审计可见性、角色拒绝以及注销账户；随后运行 Chromium 冒烟测试（Playwright），
+在构建后的页面上点击走完同一条黄金路径，因此按钮接错处理函数也会让 CI 失败。每个 Job 都会把 JUnit 与覆盖率报告作为
 构建产物上传，但前提是 `backend/scripts/check_report_hygiene.py` 确认其中不含密钥、令牌、非示例
 邮箱地址或测试夹具明文。
 
@@ -401,6 +402,7 @@ AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASS@127.0.0.1:3310/fyp_local_test'
 # 完整的端到端环境（在仓库根目录执行；自动迁移、创建账户、启动服务并在结束后清理）
 DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_test \
   bash backend/tests/e2e/run_live_stack.sh
+# 加上 E2E_BROWSER=1 同时运行 Chromium 冒烟测试（首次需：cd frontend && npx playwright install chromium）
 ```
 
 各测试套件证明了什么，参见 [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md)；各检查脚本参见

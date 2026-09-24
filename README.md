@@ -443,7 +443,9 @@ scenarios locally during development of the gate itself.
 The fourth job, `e2e-live`, starts the real API against another disposable MySQL and runs every
 frontend live-backend suite un-skipped: registration with an emailed code, login/refresh/
 replay/logout, unlock, all four file algorithms, sharing and revocation, audit visibility, role
-denial, and account deletion. Each job publishes its JUnit and coverage reports as a build
+denial, and account deletion. It then runs a Chromium smoke test (Playwright) that clicks the
+built pages through the same golden path, so a button wired to the wrong handler fails CI. Each
+job publishes its JUnit and coverage reports as a build
 artifact, but only after `backend/scripts/check_report_hygiene.py` confirms they hold no keys,
 tokens, non-example addresses, or fixture plaintext.
 
@@ -462,6 +464,7 @@ AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASS@127.0.0.1:3310/fyp_local_test'
 # The live end-to-end stack (from the repository root; migrates, seeds, serves, and cleans up)
 DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_test \
   bash backend/tests/e2e/run_live_stack.sh
+# add E2E_BROWSER=1 for the Chromium smoke test too (once: cd frontend && npx playwright install chromium)
 ```
 
 See [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md) for what each suite proves, `backend/scripts/`

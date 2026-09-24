@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### A real-browser smoke test of the golden path / 黄金路径的真实浏览器冒烟测试
+
+- Added `frontend/browser-tests/golden-path.browser.ts`, a Playwright test in which Chromium clicks the built pages through register, emailed-code verification, sign-in, upload, unlocking the account key, download (bytes compared with the original), sharing, the recipient seeing and decrypting the file with their own passphrase, revocation, the file leaving the recipient's list, and logout. The Node live suites prove the crypto and API contract but cannot see a button wired to the wrong handler; with the Share button's handler disabled, the Node suites still passed all 313 tests and this test failed. It closes the last deferred item of #58.
+- 新增 `frontend/browser-tests/golden-path.browser.ts`：Playwright 驱动 Chromium 在构建后的页面上依次点击完成注册、邮箱验证码验证、登录、上传、解锁账户密钥、下载（与原文件逐字节比较）、分享、接收方看到文件并用自己的 passphrase 解密、撤销、文件从接收方列表消失、登出。Node 真实后端测试能证明加密与 API 契约，却看不出按钮接错了处理函数；把 Share 按钮的处理函数改为空操作后，Node 测试 313 项仍全部通过，而本测试失败。它完成了 #58 最后一项遗留工作。
+- It runs in the existing `e2e-live` job after the Node suites, against the same disposable API and MySQL (`run_live_stack.sh` with `E2E_BROWSER=1`, or `only` to skip the Node suites locally), on a production build served by `vite preview`, with one worker, no retries, failure on any flaky pass, and `check_no_skips.py` over its JUnit report. Only Chromium is installed, and its download is cached by Playwright version. No Vue component was changed; every selector is a role, label or visible text.
+- 它在现有 `e2e-live` Job 中、Node 测试之后运行，使用同一套一次性 API 与 MySQL（`run_live_stack.sh` 加 `E2E_BROWSER=1`；本地可用 `only` 跳过 Node 测试），页面是由 `vite preview` 提供的生产构建。单 worker、不重试、出现 flaky 通过即失败，并用 `check_no_skips.py` 检查其 JUnit 报告。只安装 Chromium，下载按 Playwright 版本缓存。没有修改任何 Vue 组件；所有选择器都是 role、label 或可见文本。
+- CI records no Playwright traces: a trace keeps every request header and body and DOM snapshot, including bearer tokens and the private key the register page shows once. The HTML report is uploaded only when the job fails, and it holds only throwaway data the test mints itself (`@example.com` accounts, "Throwaway" passwords, random file bytes). `check_report_hygiene.py` now unpacks ZIP attachments and the report's embedded base64 results, which a byte-level scan could not read, and refuses any Playwright trace outright.
+- CI 不记录 Playwright trace：trace 会保存每个请求的 header、body 与 DOM 快照，其中包括 Bearer 令牌和注册页只显示一次的私钥。HTML 报告只在 Job 失败时上传，其中只有测试自己生成的一次性数据（`@example.com` 账户、"Throwaway" 密码、随机文件字节）。`check_report_hygiene.py` 现在会解开 ZIP 附件与报告内嵌的 base64 结果（逐字节扫描读不到这些内容），并直接拒绝任何 Playwright trace。
+
 ### Encrypted off-server backups and the reconciliation timer live on staging / 加密异地备份与对账 timer 已在 staging 上线
 
 - Installed #56 and #57 on staging on 2026-09-24. Nightly encrypted sets now go to Cloudflare R2 (35-day lifecycle, 30-day bucket lock) through a read-only `fyp_backup_user`, and the reconcile timer runs at 05:00 after the same-host backup; every backup and cleanup unit emails on failure. Until now nothing left the VPS and no failure reached a person.
