@@ -80,10 +80,16 @@ not a release pass.
 
 ## P0 — release and data-protection blockers
 
-- [ ] [#52 Establish required CI quality gates and fix the current Ruff baseline](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
-  — backend/frontend checks must run on every PR and protect `main`.
+- [x] [#52 Establish required CI quality gates and fix the current Ruff baseline](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
+  — `.github/workflows/ci.yml` runs backend (Ruff + non-MySQL pytest) and frontend (test/typecheck/build)
+  on every PR and push to `main`; the Ruff baseline is fixed, not suppressed. Branch protection still
+  needs a repository admin to mark `backend` and `frontend` required — see the PR that introduced this.
 - [ ] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
-  — skipped MySQL tests must fail the required job, including migration/production-SQL parity.
+  — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
+  `0006_chacha20_poly1305`, runs `alembic current`/`check`, fails on any skipped integration test,
+  and checks runtime-vs-admin grants and live schema parity. Deferred: the concurrent-lock and
+  partial-DDL-recovery checks are plain script assertions rather than a fuzzed/chaos test, and the
+  backup/restore drill compares table and row counts rather than a full checksum.
 - [ ] [#56 Automate encrypted off-server backups and prove clean-host restore](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
   — define RPO/RTO, coordinate database/ciphertext backups, and retain restore evidence.
 - [x] [#61 Keep README, TODO, Issues, changelog, PRs, and deployments synchronized](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)

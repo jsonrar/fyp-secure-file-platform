@@ -17,8 +17,6 @@ from app.api.responses import AUTH_NO_STORE_HEADERS, ApiSuccessResponse, ok
 from app.core.config import Settings
 from app.domain.auth import ActorContext, RequestContext
 from app.schemas.auth_schema import (
-    DeleteAccountRequest,
-    DeleteAccountResponse,
     AuthMeResponse,
     AuthRefreshRequest,
     AuthRefreshResponse,
@@ -28,6 +26,8 @@ from app.schemas.auth_schema import (
     AuthUserResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
+    DeleteAccountRequest,
+    DeleteAccountResponse,
     PasswordResetRequest,
     PasswordResetResponse,
     SendVerificationCodeRequest,

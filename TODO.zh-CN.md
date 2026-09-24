@@ -70,10 +70,15 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 ## P0 — 发布与数据保护阻塞项
 
-- [ ] [#52 建立 required CI 门禁并修复当前 Ruff 基线](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
-  ——每个 PR 都必须运行后端/前端检查并保护 `main`。
+- [x] [#52 建立 required CI 门禁并修复当前 Ruff 基线](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
+  ——`.github/workflows/ci.yml` 在每个 PR 及推送到 `main` 时运行 backend（Ruff + 不依赖 MySQL 的
+  pytest）与 frontend（测试/类型检查/构建）；Ruff 基线已真正修复而非压制。分支保护仍需仓库管理员
+  将 `backend`、`frontend` 设为必需检查——详见引入本改动的 PR。
 - [ ] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
-  ——MySQL 测试被跳过时必须失败，并覆盖 migration/生产 SQL 一致性。
+  ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0006_chacha20_poly1305` 的每一次迁移，
+  运行 `alembic current`/`check`，任何集成测试被跳过即判失败，并检查运行时账户与管理员账户的权限
+  边界及线上 Schema 一致性。遗留：并发加锁与部分 DDL 恢复检查目前是普通脚本断言，而非模糊测试或
+  混沌测试；备份恢复演练比对的是表数与行数，而非完整校验和。
 - [ ] [#56 自动化加密异地备份并证明可在洁净主机恢复](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
   ——定义 RPO/RTO，协调数据库/密文备份并保留恢复证据。
 - [x] [#61 保持 README、TODO、Issues、changelog、PR 与部署同步](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)

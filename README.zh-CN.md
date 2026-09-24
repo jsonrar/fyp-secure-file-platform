@@ -352,6 +352,35 @@ npm run dev
 
 前端：<http://localhost:5173>
 
+## 持续集成
+
+`.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行，包含三个 Job。`backend` 与
+`frontend` 是必需检查；仓库管理员还需在分支保护中将它们设为必需（具体 Job 名称参见引入该
+workflow 的 PR）。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
+
+```bash
+# 后端（在 backend/ 下执行，对应 "backend" Job）
+uv venv --python /opt/homebrew/bin/python3.12 .venv   # 或任意 Python 3.12 解释器
+uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+.venv/bin/ruff format --check .
+.venv/bin/ruff check .
+.venv/bin/python -m pytest -m "not integration"
+
+# 前端（在 frontend/ 下执行，对应 "frontend" Job）
+npm ci
+npm run test
+npm run typecheck
+npm run build
+```
+
+第三个 Job `mysql-gate` 会拉起一个经过 TLS 校验的一次性 MySQL 8.4 服务，从空数据库依次迁移到
+`0006_chacha20_poly1305`，再执行 `alembic current` 与 `alembic check`，随后运行完整的 MySQL 集成
+测试（`pytest -m integration`）——只要有任何一条集成测试被跳过而非真正执行，该 Job 就直接失败
+——接着运行授权边界、Schema 一致性、非空数据库拒绝安装、中断后幂等恢复、并发迁移加锁与备份恢复
+等检查。该 Job 需要一个正在运行的 MySQL 8.4 实例，不期望在没有 MySQL 的笔记本上直接复现；开发
+此门禁本身时，可通过 `docker compose up -d mysql` 配合 `backend/scripts/mysql_release_gate.sh`
+在本地验证较复杂的场景。各检查脚本参见 `backend/scripts/`，尚未完成的部分记录在 `TODO.md`。
+
 ## 重要安全说明
 
 本项目仍是 FYP 原型。邮箱验证和忘记**登录密码**后的验证码重置已经实现，但 MFA 与外部身份
