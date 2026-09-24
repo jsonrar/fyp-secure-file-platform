@@ -81,12 +81,13 @@ not a release pass.
 ## P0 — release and data-protection blockers
 
 - [x] [#52 Establish required CI quality gates and fix the current Ruff baseline](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
-  — `.github/workflows/ci.yml` runs backend (Ruff + non-MySQL pytest) and frontend (test/typecheck/build)
+  — `.github/workflows/ci.yml` runs backend (Ruff + non-MySQL pytest with a coverage floor) and frontend (test with coverage/typecheck/build)
   on every PR and push to `main`; the Ruff baseline is fixed, not suppressed. Branch protection still
   needs a repository admin to mark `backend` and `frontend` required — see the PR that introduced this.
 - [ ] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
-  `0006_chacha20_poly1305`, runs `alembic current`/`check`, fails on any skipped integration test,
+  `0006_chacha20_poly1305`, runs `alembic current`/`check`, runs the whole backend suite (coverage
+  floor 82%) and fails on any skipped test,
   and checks runtime-vs-admin grants and live schema parity. Deferred: the concurrent-lock and
   partial-DDL-recovery checks are plain script assertions rather than a fuzzed/chaos test, and the
   backup/restore drill compares table and row counts rather than a full checksum.
@@ -105,7 +106,11 @@ not a release pass.
 - [ ] [#57 Validate and enable the staging reconciliation timer safely](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
   — review report-only output before scheduled deletion is enabled.
 - [ ] [#58 Expand browser E2E, concurrency, fault-injection, and coverage gates](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
-  — convert skipped/live-path coverage into required repeatable evidence.
+  — the `e2e-live` CI job now runs every frontend live-backend suite un-skipped against a
+  disposable API and MySQL (registration through account deletion, all four file algorithms,
+  role denial); `mysql-gate` runs multi-connection concurrency and real fault-injection suites;
+  coverage floors and sanitized JUnit/coverage artifacts are in place. Deferred: a real-browser
+  (DOM-level) smoke test — the live suites drive the client modules in Node, not the markup.
 - [ ] [#59 Add redacted observability, incident runbooks, and external audit checkpoints](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
   — make operational and audit failures visible without leaking secrets.
 
