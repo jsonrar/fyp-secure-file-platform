@@ -1,0 +1,118 @@
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+umask 077
+
+backup_dir=/var/backups/mcs21-daily
+lock_file=/run/lock/mcs21-backup.lock
+run_id="$(date -u +%Y%m%dT%H%M%SZ)-$$"
+container="mcs21-restore-check-$run_id"
+volume="mcs21_restore_check_$run_id"
+secret_file="/run/mcs21-restore-check-$run_id.password"
+
+cleanup() {
+    docker rm --force "$container" >/dev/null 2>&1 || true
+    docker volume rm "$volume" >/dev/null 2>&1 || true
+    rm -f "$secret_file"
+}
+trap cleanup EXIT HUP INT TERM
+
+[[ "$(id -u)" -eq 0 ]] || {
+    printf 'Run as root.\n' >&2
+    exit 2
+}
+
+exec 9>"$lock_file"
+if ! flock -n 9; then
+    printf 'Backup or restore verification is already running.\n' >&2
+    exit 2
+fi
+
+manifest="$(find "$backup_dir" -maxdepth 1 -type f -name 'mcs21-*.sha256' -printf '%p\n' | sort | tail -n 1)"
+[[ -n "$manifest" && -f "$manifest" ]] || {
+    printf 'No MCS21 backup manifest was found.\n' >&2
+    exit 2
+}
+backup_stamp="${manifest##*/}"
+backup_stamp="${backup_stamp#mcs21-}"
+backup_stamp="${backup_stamp%.sha256}"
+database_backup="$backup_dir/mcs21-db-$backup_stamp.sql.gz"
+[[ -f "$database_backup" ]] || {
+    printf 'Database backup referenced by the latest timestamp is missing.\n' >&2
+    exit 2
+}
+
+(cd "$backup_dir" && sha256sum --check "$(basename "$manifest")")
+gzip -t "$database_backup"
+openssl rand -hex 32 >"$secret_file"
+chmod 0400 "$secret_file"
+docker volume create "$volume" >/dev/null
+docker run --detach \
+    --name "$container" \
+    --network none \
+    --env MYSQL_ROOT_PASSWORD_FILE=/run/secrets/mysql-root-password \
+    --mount "type=volume,src=$volume,dst=/var/lib/mysql" \
+    --mount "type=bind,src=$secret_file,dst=/run/secrets/mysql-root-password,readonly" \
+    mysql:8.4 >/dev/null
+
+ready=0
+for _ in $(seq 1 90); do
+    if docker exec "$container" sh -c \
+        'export MYSQL_PWD=$(cat /run/secrets/mysql-root-password); mysql --user=root --protocol=socket --batch --skip-column-names --execute="SELECT 1"' \
+        2>/dev/null | grep -qx 1; then
+        ready=1
+        break
+    fi
+    sleep 1
+done
+if [[ "$ready" != 1 ]]; then
+    docker logs "$container" >&2
+    printf 'Disposable MySQL did not become ready.\n' >&2
+    exit 2
+fi
+
+docker exec "$container" sh -c \
+    'export MYSQL_PWD=$(cat /run/secrets/mysql-root-password); mysql --user=root --protocol=socket --execute="CREATE DATABASE fyp_secure_file_platform CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci"'
+gzip -cd "$database_backup" | docker exec -i "$container" sh -c \
+    'export MYSQL_PWD=$(cat /run/secrets/mysql-root-password); exec mysql --user=root --protocol=socket fyp_secure_file_platform'
+
+verification="$(docker exec "$container" sh -c '
+    export MYSQL_PWD=$(cat /run/secrets/mysql-root-password)
+    mysql --user=root --protocol=socket --batch --skip-column-names --execute="
+        SELECT CONCAT(
+            (SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA=\"fyp_secure_file_platform\"),
+            \"|\",
+            (SELECT GROUP_CONCAT(version_num ORDER BY version_num) FROM fyp_secure_file_platform.alembic_version),
+            \"|\",
+            (SELECT COUNT(*) FROM fyp_secure_file_platform.audit_chain_heads WHERE id=1)
+        );
+    "
+')"
+case "$verification" in
+    14\|0002_auth_identity_sessions\|1) ;;
+    *)
+        printf 'Restored database failed structural verification: %s\n' "$verification" >&2
+        exit 2
+        ;;
+esac
+check_sql="$(docker exec "$container" sh -c '
+    export MYSQL_PWD=$(cat /run/secrets/mysql-root-password)
+    mysql --user=root --protocol=socket --batch --skip-column-names --execute="
+        SELECT CONCAT(\"CHECK TABLE fyp_secure_file_platform.\", TABLE_NAME, \";\")
+        FROM information_schema.TABLES
+        WHERE TABLE_SCHEMA=\"fyp_secure_file_platform\"
+        ORDER BY TABLE_NAME;
+    "
+')"
+check_output="$(printf '%s\n' "$check_sql" | docker exec -i "$container" sh -c '
+    export MYSQL_PWD=$(cat /run/secrets/mysql-root-password)
+    exec mysql --user=root --protocol=socket --batch --skip-column-names
+')"
+if ! awk -F '\t' 'NF == 4 && $3 == "status" && $4 == "OK" { next } { exit 1 }' \
+    <<<"$check_output"; then
+    printf 'Restored tables failed CHECK TABLE validation.\n' >&2
+    exit 2
+fi
+
+printf 'MCS21 backup restore verification passed: %s\n' "$(basename "$database_backup")"
