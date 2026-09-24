@@ -18,6 +18,8 @@
 Description=Encrypted off-server backup of MCS21 metadata and ciphertext objects
 Wants=network-online.target
 After=network-online.target docker.service
+# Email on failure through mcs21-alert@.service (issue #57; docs/RECONCILIATION_RUNBOOK.md).
+OnFailure=mcs21-alert@%n.service
 
 [Service]
 Type=oneshot

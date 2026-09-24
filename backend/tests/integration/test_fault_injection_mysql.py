@@ -196,6 +196,12 @@ def test_a_connection_killed_at_commit_leaves_no_row_and_an_orphan_reconcile_rem
         orphan_count(reconcile.reconcile(retain_days=30, storage_grace_minutes=60, apply=True)) == 1
     )
     assert not orphans[0].exists()
+    # Unlinking the object refreshed its directory's mtime, so the directory is inside the
+    # grace again -- a retried upload under the same file_id may be about to reuse it. A
+    # later run, once the directory has aged, removes it.
+    assert orphans[0].parent.is_dir()
+    os.utime(orphans[0].parent, (two_hours_ago, two_hours_ago))
+    reconcile.reconcile(retain_days=30, storage_grace_minutes=60, apply=True)
     assert not orphans[0].parent.exists()
 
 

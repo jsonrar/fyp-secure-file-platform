@@ -129,7 +129,9 @@ CREATE USER，也不能读取 `mysql.*`。故意放宽授权会让该检查失�
 **失败监控。** 任何失败都会以非零状态退出，并输出一行 `backup_encrypted: FAILED -- …`。在 systemd 下
 该单元会进入 failed 状态（`systemctl --failed` 和 journal 可见）。
 `backup_encrypted.py --check-freshness <dest> --max-age-hours 26` 在最新完整备份集过旧时失败，可以从任何
-能访问目标的机器上运行。把这些失败推送给人（邮件或聊天）尚未接入（见“尚未完成”）。
+能访问目标的机器上运行。该单元的 `OnFailure=mcs21-alert@%n.service` 会把失败连同最近 30 行 journal 通过邮件发送给
+`/etc/fyp-secure-file-platform/alert.env` 中配置的人；同一告警也覆盖同机的 `mcs21-backup` 与
+`mcs21-backup-verify`。配置与测试见 [RECONCILIATION_RUNBOOK.zh-CN.md §9](RECONCILIATION_RUNBOOK.zh-CN.md#9-告警)。
 
 ## 5. 干净主机恢复演练与实测耗时
 
@@ -250,7 +252,10 @@ bash scripts/mysql_release_gate.sh              # 锁竞争、带校验和的恢
 - 夜间任务**尚未部署**：安装 `mcs21-offsite-backup.{service,timer}`、执行 `04-backup-account.sql`、选择异地目标、
   放置公钥、确认 VPS 上的 `ENCRYPTED_FILE_DIR`，都需要有服务器权限的人来完成。
 - rsync 和 S3 目标已接好，但尚未对真实目标测试。
-- 失败告警只到达 systemd 和 journal，还不会通知到人。
+- 通知到人的失败告警已在仓库中（`mcs21-alert@.service`，issue #57），但只有在 VPS 上安装并测试后才
+  生效（[RECONCILIATION_RUNBOOK.zh-CN.md §4](RECONCILIATION_RUNBOOK.zh-CN.md#4-安装一次性在-pr-合并并部署之后)）。
+- 同机的 `mcs21-backup-verify` 因写死 Schema `0002`，自 2026-08-16 起每周失败；纳入版本管理的副本改为
+  推导期望值，需要重新安装。
 - 4 小时整体服务 RTO 尚未在全新 VPS 上端到端计时。
 - `mcs21-deploy` 的发布前备份仍是同一主机上的明文（仅 root 可读，0700）。它们是快速回滚点，不是异地副本。
   它还会打包整个 `/var/lib/fyp-secure-file-platform`；需要在服务器上确认那里没有存放任何私钥。

@@ -156,7 +156,10 @@ refuses such a set, and pruning and the freshness check ignore it.
 line. Under systemd the unit enters the failed state (visible in `systemctl --failed` and the
 journal). `backup_encrypted.py --check-freshness <dest> --max-age-hours 26` fails when the
 newest complete set is too old, and can run from any machine that can see the destination.
-Pushing those failures to a person (email or chat) is not wired yet (see "Not yet done").
+The unit's `OnFailure=mcs21-alert@%n.service` emails that failure, with the last 30 journal
+lines, to the people in `/etc/fyp-secure-file-platform/alert.env`; the same alert covers the
+same-host `mcs21-backup` and `mcs21-backup-verify` units. Setup and testing are in
+[RECONCILIATION_RUNBOOK.md §9](RECONCILIATION_RUNBOOK.md#9-alerts).
 
 ## 5. Clean-host restore drill and measured timings
 
@@ -301,7 +304,11 @@ dumps, and objects in a private temporary directory that is removed on exit.
   `04-backup-account.sql`, choosing the off-server target, placing the public key, and
   confirming `ENCRYPTED_FILE_DIR` on the VPS all need someone with server access.
 - The rsync and S3 destinations are wired but untested against a real target.
-- Failure alerts reach systemd and the journal, not a person.
+- Failure alerts to a person are in the repository (`mcs21-alert@.service`, issue #57) but
+  are live only once installed and tested on the VPS
+  ([RECONCILIATION_RUNBOOK.md §4](RECONCILIATION_RUNBOOK.md#4-install-once-after-the-pull-request-is-merged-and-deployed)).
+- The same-host `mcs21-backup-verify` failed every week from 2026-08-16 because it hardcoded
+  schema `0002`; the tracked copy derives its expectations and must be reinstalled.
 - The 4 h whole-service RTO has not been timed end to end on a fresh VPS.
 - `mcs21-deploy`'s pre-deploy backups remain plaintext on the same host (root-only, 0700).
   They are a fast rollback point, not an off-server copy. It also tars all of
