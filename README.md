@@ -467,6 +467,28 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_t
 See [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md) for what each suite proves, `backend/scripts/`
 for the individual check scripts, and `TODO.md` for what remains deferred.
 
+### Backups and the restore drill
+
+Encrypted, coordinated backups of MySQL metadata and ciphertext objects, and the clean-host
+restore that proves them, are described in
+[docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md) (RPO/RTO, retention, key custody,
+measured timings). `mysql-gate` runs the drill on every pull request. To run it locally against
+any disposable MySQL 8.4 (it only touches databases whose names contain `_test`, and generates
+throwaway keys and accounts that are deleted on exit):
+
+```bash
+docker compose up -d mysql
+cd backend
+export DB_HOST=127.0.0.1 DB_PORT=3306 ADMIN_DB_USER=root ADMIN_DB_PASSWORD=local_root_password
+export SECRET_KEY=local-test-secret-key-at-least-32-chars APP_ENV=test
+bash scripts/backup_restore_drill.sh   # encrypted backup -> clean restore -> refusal checks
+bash scripts/mysql_release_gate.sh     # lock races, checksummed restore, rollback, partial DDL
+```
+
+The nightly backup job itself (`deployment/server/mcs21-offsite-backup.{service,timer}` with the
+`database/mysql/04-backup-account.sql` account) is a template and is not yet installed on
+staging.
+
 ## Important Security Note
 
 This remains an FYP prototype. Email verification and forgotten **login-password** reset are

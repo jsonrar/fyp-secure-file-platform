@@ -49,10 +49,20 @@ alembic_args = sys.argv[3:]
 engine = create_engine(settings.DATABASE_URL, connect_args=settings.DATABASE_CONNECT_ARGS)
 
 with engine.connect() as connection:
-    acquired = connection.execute(
-        text("SELECT GET_LOCK(:name, :timeout)"),
-        {"name": lock_name, "timeout": lock_timeout_seconds},
-    ).scalar()
+    # Try once without waiting so a deployer can see (and the release gate can
+    # assert) that it queued behind another migration rather than racing it.
+    acquired = connection.execute(text("SELECT GET_LOCK(:name, 0)"), {"name": lock_name}).scalar()
+    if acquired != 1:
+        print(
+            f"migrate.sh: lock '{lock_name}' is held by another migration; "
+            f"waiting up to {lock_timeout_seconds}s",
+            file=sys.stderr,
+            flush=True,
+        )
+        acquired = connection.execute(
+            text("SELECT GET_LOCK(:name, :timeout)"),
+            {"name": lock_name, "timeout": lock_timeout_seconds},
+        ).scalar()
     if acquired != 1:
         print(
             f"migrate.sh: could not acquire lock '{lock_name}' within "

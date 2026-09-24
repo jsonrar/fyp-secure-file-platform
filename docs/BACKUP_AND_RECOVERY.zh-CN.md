@@ -1,0 +1,256 @@
+# 备份与恢复
+
+[English](BACKUP_AND_RECOVERY.md) | [简体中文](BACKUP_AND_RECOVERY.zh-CN.md)
+
+本文是 SecureView 预发布环境的恢复方案（issue #56）：备份什么、多久备份一次、需要多快恢复、保留
+多久，以及每一项承诺如何被测试。它按项目的真实规模设定——一个 FYP 团队的预发布 VPS，少量用户和
+评审——而不是照搬企业模板。云厂商的每周快照仍可作为额外一层，但不属于本方案：快照与生产位于同一
+厂商、只能整机回滚而不是恢复到一个一致的应用状态，而且从未做过恢复测试。
+
+实现组成：
+
+| 组件 | 作用 |
+|---|---|
+| `backend/scripts/backup_encrypted.py` | 生成一个协调一致的备份集：MySQL dump + 密文对象 + manifest，分别用备份**公钥**加密后送往异地 |
+| `backend/scripts/restore_drill.py` | 干净主机恢复与校验，记录每一步耗时；任何不一致都拒绝恢复 |
+| `backend/scripts/backup_envelope.py` | RSA-OAEP-SHA256 包裹数据密钥 + AES-256-GCM 流式加密 |
+| `backend/scripts/db_fingerprint.py` | 逐表 `CHECKSUM TABLE` + `information_schema` Schema 指纹，用于比较两个数据库 |
+| `backend/scripts/backup_restore_drill.sh` | 使用一次性密钥和账号的端到端演练；CI（`mysql-gate`）在每个 PR 上运行 |
+| `backend/scripts/mysql_release_gate.sh` | 迁移锁竞争、带校验和的恢复、升级前回滚、部分 DDL 恢复 |
+| `database/mysql/04-backup-account.sql` | 最小权限账号 `fyp_backup_user` |
+| `deployment/server/mcs21-offsite-backup.{service,timer}` | 夜间调度模板（部署工具不会自动安装） |
+
+## 1. 恢复目标
+
+| 资产 | RPO | RTO | 保留 |
+|---|---|---|---|
+| MySQL 元数据（全部应用表、`alembic_version`） | 24 小时（夜间备份集）；另外 `mcs21-deploy` 在每次发布前都会导出一次 | 数据恢复步骤：1 小时；新主机上恢复整个服务：4 小时 | 异地：7 个每日 + 4 个每周备份集（约一个月）。发布前 dump：保留在同一主机，由 `mcs21-deploy` 管理 |
+| 密文对象（`ENCRYPTED_FILE_DIR`） | 24 小时，**与元数据在同一个备份集中** | 与元数据相同——要么一起恢复，要么都不恢复 | 与元数据相同的备份集 |
+| git 中的配置（nginx、systemd、SQL、部署脚本） | 0——每次修改都是一次提交 | 30 分钟（重新部署该提交） | git 历史 |
+| 主机 Secret（`backend.env`：`SECRET_KEY`、数据库密码、SMTP） | 不备份——恢复时重新生成 | 包含在 4 小时服务 RTO 内 | 无；见 §6 |
+| 数据库中的恢复元数据（`recovery_keys` 公钥、每个文件的恢复包裹密钥） | 随数据库 | 随数据库 | 随数据库 |
+| 恢复**私钥**与备份**私钥** | 创建或轮换时离线保存，不做例行备份 | 由保管人取回，一个工作日内（§7） | 所有历史密钥，只要仍有文件或备份集需要它就一直保留 |
+
+取值理由：
+
+- **24 小时 RPO。** 预发布流量是少量、突发的（团队、测试者、评审），不是持续的生产写入。最多丢失一天
+  的上传（上传者手里仍有原文件）在这里可以接受；一个夜间任务也不需要团队无力运维的 binlog/时间点
+  恢复工具。每次发布前 `mcs21-deploy` 的 dump 额外提供了恢复点。
+- **1 小时数据恢复 RTO。** 实测恢复速度是每 GB 几秒（§5）。预算中留出了从异地取回备份集的时间（按
+  10 MB/s 约每 GB 100 秒），以及人按本文逐步操作的时间。
+- **4 小时整体服务 RTO。** 在全新主机上，慢的是人工步骤：开 VM、安装 Docker 与 MySQL、保管人带来离线
+  密钥、重新部署。这部分**尚未**在真实 VPS 上端到端计时（见“尚未完成”）。
+- **7 个每日 + 4 个每周。** 每日点覆盖“这周弄坏了东西”，每周点覆盖“一个月内才发现”，大致是一个教学
+  周期。数据没有法规保留义务，小团队也不应手工管理不断增长的归档。`--prune` 对本地或挂载的目标执行
+  该规则；S3 应使用 bucket 生命周期规则，这样备份凭据永远不需要删除权限。
+
+## 2. 一个备份集包含什么，以及元数据与对象如何保持一致
+
+`backup_encrypted.py` 每次运行写出一个备份集，以 **manifest id** 命名（UTC 时间戳 + 随机后缀，例如
+`20260924T091500Z-3f9c2a1b`）：
+
+```
+<dest>/<manifest-id>/db.sql.enc          mysqldump；第一行是 "-- fyp-backup-manifest-id: <id>"
+<dest>/<manifest-id>/objects.tar.enc     密文对象；成员 MANIFEST_ID 中写有 <id>
+<dest>/<manifest-id>/manifest.json.enc   <id>、dump 时间窗、每个对象和产物的 SHA-256
+<dest>/<manifest-id>/index.json          明文：<id>、各产物 SHA-256、密钥指纹
+```
+
+**一致性机制。** dump 是单个 InnoDB 快照（`--single-transaction`）。所有表都是 InnoDB，因此不需要锁表，
+也不需要 `RELOAD`/`LOCK TABLES` 权限。对象在 dump **之后**打包。这个顺序是安全的，原因在于应用写存储
+的方式（`FileService`）：
+
+- 上传会先发布只写一次的对象，**然后**才提交数据行，所以快照中可见的每一行都已有对象；
+- 删除会先提交 `status = 'DELETED'`，**然后**才删除对象文件，所以快照中 ACTIVE 的行只有一种方式会丢失
+  对象：在 dump 和打包之间的几秒内被删除。
+
+备份用校验而不是侥幸来关闭这个缺口。打包完成后，它读取所有可能在快照中为 ACTIVE 的 `files` 行：dump
+结束前创建、且未被删除或在 dump 开始后才被删除的行。每一行都必须在归档中找到对象，且哈希等于
+`files.encrypted_sha256`。只要有一行不满足，本次运行就**失败**且不送出任何内容。这种失败说明要么有删除
+与备份竞争（重新运行即可），要么存储已损坏（需要调查）。
+
+**恢复时强制校验。** `restore_drill.py` 只有在以下全部成立时才会恢复：
+
+1. 每个产物与 `index.json` 中的 SHA-256 一致；
+2. 每个产物都能在私钥**以及**本备份集的 manifest id 和角色下通过认证。这两者被绑定进 AES-GCM 的关联
+   数据，所以即使有人修改 `index.json`，周一的 `db.sql.enc` 也无法与周二的对象拼在一起；
+3. manifest 中、dump 第一行、归档 `MANIFEST_ID` 成员中的 id 都等于 index 的 id，并且 dump 以 mysqldump
+   的完成标记结尾；
+4. 载入后，每个 ACTIVE 的 `files` 行都能在归档中找到 SHA-256 正确的对象。没有任何行引用的对象不会被
+   恢复，因此恢复出的元数据引用的正好是恢复出的对象集合；
+5. 恢复后的 `alembic_version` 等于备份时记录的 revision，且 `alembic check` 与模型之间没有差异。
+
+任何一项失败，演练都会删除自己创建的数据库、清空自己写入的对象目录，并以非零状态退出。目标数据库
+或对象目录非空时也会拒绝恢复。CI 会逐一验证这些拒绝路径（§5）。
+
+## 3. 加密
+
+每个产物单独加密：使用新生成的随机 256 位数据密钥和 AES-256-GCM。该数据密钥用 RSA-OAEP-SHA256 包裹，
+收件密钥是一把专用的**备份** RSA 密钥（至少 3072 位），与恢复密钥和所有用户密钥都不同。执行备份的
+主机只持有公钥，所以该主机或异地存储被攻破时，攻击者只能拿到密文，拿不到任何能打开它的东西。未加密
+内容不会离开私有临时目录（权限 0700，运行结束即删除）。
+
+为什么不用 `age` 或 `gpg`：预发布主机和 CI 上都没有安装它们，而 `cryptography` 已经是后端固定版本的
+依赖。`openssl enc` 被否决，因为它没有带认证的模式，翻转一个字节也会“成功”解密。格式说明在
+`backup_envelope.py` 中，单元测试固定了篡改、错误密钥和错误上下文时的行为。
+
+备份密钥对只生成一次，在保管人的离线机器上：
+
+```bash
+openssl genpkey -algorithm RSA -pkeyopt rsa_keygen_bits:4096 -aes-256-cbc -out backup_priv.pem
+openssl pkey -in backup_priv.pem -pubout -out backup_pub.pem   # 只有公钥放到服务器上
+```
+
+## 4. 最小权限凭据与备份去向
+
+**数据库。** `database/mysql/04-backup-account.sql` 创建 `fyp_backup_user`：服务器生成密码、`REQUIRE SSL`、
+最多两个连接，权限恰好是 `GRANT SELECT ON fyp_secure_file_platform.*`。它有意作为独立、可重复执行的
+文件。`02-schema.sql` 是只执行一次的空库安装脚本，如果在其中 GRANT 给 `01-provision.sql` 从未创建的
+账号，全新安装会在中途中止（MySQL 错误 1410）。授权是库级别的，这样未来版本新增的表不会被悄悄排除
+在备份之外：mysqldump 会跳过它看不到的表。CI 中 `check_runtime_grants.py` 以该账号连接，证明它能读取
+所有表，但不能 INSERT、UPDATE、DELETE、CREATE、ALTER、DROP、GRANT、LOCK TABLES、FLUSH TABLES、
+CREATE USER，也不能读取 `mysql.*`。故意放宽授权会让该检查失败。
+
+**主机。** systemd 模板让任务使用独立的 `backup.env`，其中只有 `BACKUP_*` 变量。它从不读取应用的
+`backend.env`，因此看不到 `SECRET_KEY` 或运行时数据库密码。文件系统除任务私有临时目录外都是只读的。
+
+**目标**（`--dest`）：
+
+- `user@host:/path`——通过 SSH 使用 rsync。接收端应为专用密钥设置限制（例如 `rrsync -wo`），让备份主机
+  只能新增备份集，不能读取或删除。
+- `s3://bucket/prefix`——使用 `aws s3 cp`（S3 兼容服务设置 `BACKUP_S3_ENDPOINT_URL`）。使用只能写入对象
+  的凭据，并用生命周期规则执行保留策略。
+- 本地目录——CI 与本地演练使用它。**在同一台机器上，它只是异地存储的替身，不是真正的异地。** 挂载的
+  远程文件系统可以接受。
+
+`index.json` 总是最后写入，所以没有它的备份集按定义就是不完整的。恢复会拒绝这类备份集，清理与新鲜度
+检查也会忽略它。
+
+**失败监控。** 任何失败都会以非零状态退出，并输出一行 `backup_encrypted: FAILED -- …`。在 systemd 下
+该单元会进入 failed 状态（`systemctl --failed` 和 journal 可见）。
+`backup_encrypted.py --check-freshness <dest> --max-age-hours 26` 在最新完整备份集过旧时失败，可以从任何
+能访问目标的机器上运行。把这些失败推送给人（邮件或聊天）尚未接入（见“尚未完成”）。
+
+## 5. 干净主机恢复演练与实测耗时
+
+在新主机上真实恢复的步骤（与演练执行的命令相同）：
+
+1. 准备 MySQL 8.4 并执行 `database/mysql/01-provision.sql`（创建空数据库和 `fyp_user`）。
+2. 从异地存储复制选定的备份集；保管人带来 `backup_priv.pem`（§7）。
+3. 恢复到空数据库和空对象目录：
+   ```bash
+   cd backend
+   DB_HOST=127.0.0.1 DB_PORT=3306 ADMIN_DB_USER=root ADMIN_DB_PASSWORD=... \
+     .venv/bin/python scripts/restore_drill.py \
+       --backup-set /restore/20260924T091500Z-3f9c2a1b --private-key /media/custodian/backup_priv.pem \
+       --target-db fyp_secure_file_platform --objects-dir /var/lib/fyp-secure-file-platform/encrypted_files \
+       --report restore-report.json
+   ```
+4. 重新应用运行时授权（`02-schema.sql` 末尾的 GRANT 段落，数据 dump 中不包含它）：
+   ```bash
+   .venv/bin/python -c "import sys; sys.path.insert(0, 'scripts'); from check_runtime_grants import *; \
+     print('\n'.join(extract_grants(SCHEMA_SQL_PATH, PRODUCTION_RUNTIME_USER, PRODUCTION_DATABASE_NAME, 'fyp_user', 'localhost')))" \
+     | sudo mysql
+   ```
+   然后执行 `03-verify.sql`，写入新的 `backend.env`（§6），部署应用，并调用 `POST /audit-logs/verify-chain`
+   确认审计哈希链完好。
+
+**实测**于 2026-09-24，本地 Apple 芯片笔记本，Docker MySQL 8.4.11（`restore_drill.py` 计时；种子数据中
+90% 的文件为 ACTIVE，10% 为 DELETED 且对象已删除）：
+
+| 运行 | Dump | 对象 | 备份总计 | 恢复总计 | 恢复分解 |
+|---|---|---|---|---|---|
+| CI 规模演练：200 个文件 × 64 KiB | 131 KB | 180 个 / 12 MB | 0.18 秒 | 0.96 秒 | 载入数据库 0.31 秒，对象 0.05 秒，校验 0.45 秒 |
+| 1 000 个文件 × 1 MiB，同一服务器 | 506 KB | 900 个 / 945 MB | 6.5 秒 | 3.96 秒 | 解密 0.44 秒，载入数据库 0.46 秒，对象 1.53 秒，校验 0.68 秒 |
+| **干净主机：**同一备份集恢复到第二个空的 MySQL 8.4 服务器 | 506 KB | 900 个 / 945 MB | 5.3 秒 | **4.27 秒** | 校验密文 0.38 秒，解密 0.46 秒，manifest 0.42 秒，载入数据库 0.76 秒，对象 1.55 秒，校验 0.67 秒 |
+
+干净主机运行中，恢复后数据库的数据与 Schema 摘要（`db_fingerprint.py digest`）与源服务器完全一致，
+`diff -r` 也确认恢复的对象树与源完全相同。机器耗时约每 GB 4.5 秒，再加上传输时间，对本部署可能出现的
+任何数据量（即使达到数十 GB），1 小时数据恢复 RTO 都有很大余量。尚未实测的是 4 小时整体服务 RTO
+中的人工部分。
+
+CI（`mysql-gate` → “Encrypted backup, clean restore, and refusal drill”）在每个 PR 上运行
+`backup_restore_drill.sh`。它在任务内生成一次性 RSA 密钥和备份账号，以该最小权限账号备份，并检查目标
+中没有明文、没有私钥。然后恢复到一个尚不存在的数据库，比较内容、Schema 和每个对象。最后证明它会
+拒绝：被篡改的产物、来自其他备份集的产物、错误的密钥、不完整的备份集、归档缺少 ACTIVE 行所需对象的
+备份集、非空目标；并证明当某行对应的对象缺失时，备份本身会停止。恢复报告（只含 id、数量与耗时）作为
+workflow artifact 保留 90 天。
+
+## 6. 配置与主机 Secret
+
+所有可复现的内容都在 git 中，重新部署某个提交即可恢复。主机上的 `backend.env` 被有意**排除**在备份之外：
+否则每个异地备份集里都会带着线上凭据。恢复时应生成新值：`01-provision.sql` 会为 `fyp_user` 生成新密码，
+`04-backup-account.sql` 会生成新的备份密码，并写入新的 `SECRET_KEY`。轮换 `SECRET_KEY` 只会让现有会话
+和未过期的邮箱验证码失效（它用于签发令牌和对短期验证码做 HMAC，不加密任何静态数据）。SMTP 凭据从
+服务商控制台获取。
+
+## 7. 恢复密钥保管
+
+以下均对照代码核实，而非假设：
+
+- `recovery_keys` 只保存 `public_key_pem`、指纹、长度和状态。任何表都没有保存恢复私钥的列。Schema 中
+  仅有的私钥相关列属于 `encrypted_private_key_bundles`，其中是用户在客户端、用由其口令派生的密钥加密
+  后的私钥，服务器从不接触明文。如果这一点改变，单元测试
+  `test_backup_scope_holds_no_plaintext_private_key_columns` 会失败。
+- `register_recovery_key.py` 在操作员机器上生成恢复密钥对，只发送公钥，私钥写到本地（默认
+  `recovery_keys/`，已被 gitignore）。它从不接触数据库或对象存储。
+- `backup_encrypted.py` 只打包路径是合法存储对象 key 的文件；如果对象目录中有任何看起来像 PEM 私钥的
+  文件，它会**中止**。因此即使密钥被误放到那里，也不会混入例行备份。
+
+所以，恢复私钥在设计上就不在例行在线备份的范围内。
+
+**如实说明保管方式（提议方案，启用定时任务前需团队确认）。** 团队没有 HSM。恢复私钥和备份私钥各自只导出一次，用口令保护，存放在两个加密
+U 盘上，离线保存在两个不同地点。指定保管人是 **Testing & Deployment Lead**（目前是 Shuoxun Wen），
+**Crypto & Security Lead**（目前是 Tai Chen）是第二持有人。两把密钥都不会存放在联网主机、云存储或本仓库
+中。它们的 SHA-256 指纹记录在团队的私有记录里，持有人可以据此核对上传页面和 `index.json` 显示的指纹。
+如果项目超出预发布规模，应改用 HSM 或云 KMS。
+
+**历史密钥。** 注册新的恢复密钥不会重新包裹已有文件，因此每一把退役的恢复私钥都要保留到不再有任何文件
+使用它为止；实际上就是整个部署的生命周期，因为目前还没有工具能证明某把密钥已不再被任何文件使用。每一把
+退役的备份私钥保留到最后一个用它加密的备份集超出保留期（轮换后约五周）。密钥从不被自动删除；删除任何
+一把都需要两位持有人书面决定。
+
+## 8. 升级前回滚与部分应用的 DDL
+
+`mysql_release_gate.sh` 在 CI 中针对 MySQL 8.4 验证两者：
+
+1. **升级前回滚**（`rollback before a schema upgrade` 阶段）。门禁先备份一个处于 `0005` 的数据库，迁移到
+   `0006`，再写入一行。然后用备份替换已迁移的数据库，证明 revision 回到 `0005`，数据和 Schema 指纹与
+   升级前一致。升级之后的写入会丢失，这是回滚的代价，也是它必须是一个明确决定的原因。之后从恢复的
+   状态重新升级也能成功。
+2. **多 revision 发布中途中断**（发布内容 = 在 `0004` 上应用 `0005` + `0006`）：
+   - 在 revision **之间**中断（0005 已应用并记录，0006 未应用）：用 `migrate.sh upgrade head` **向前续跑**
+     是受支持的，并已验证；
+   - 在 revision **内部**中断：MySQL DDL 逐条自动提交，所以进程若在 0005 删除
+     `ck_files_encryption_envelope` 之后、重建之前被杀掉，约束会消失，而 `alembic_version` 仍是 `0004`。
+     门禁证明此时向前续跑会**失败**（MySQL 错误 3821），然后证明受支持的路径可行：恢复发布前备份
+     （指纹一致，revision 为 `0004`），再完整重跑整个发布。
+
+**预发布环境的受支持路径。** 生产通过经过评审、由 root 执行的 SQL 应用 Schema 变更，而不是 Alembic
+（见 `docs/DEPLOYMENT.zh-CN.md`），`mcs21-deploy` 也会在每次发布前导出数据库。对任何部分应用的生产 DDL
+发布，受支持的恢复方式是**向后恢复**：保持应用停止，恢复发布前备份，再完整重跑发布。向前续跑只适用于
+运行 Alembic 和 `migrate.sh` 的环境（开发、CI、一次性数据库），且只适用于在 revision 边界上的中断。
+
+## 本地运行
+
+```bash
+docker compose up -d mysql                      # 或任何一次性的 MySQL 8.4
+cd backend
+export DB_HOST=127.0.0.1 DB_PORT=3306 ADMIN_DB_USER=root ADMIN_DB_PASSWORD=local_root_password
+export SECRET_KEY=local-test-secret-key-at-least-32-chars APP_ENV=test
+bash scripts/backup_restore_drill.sh            # 加密备份 -> 干净恢复 -> 拒绝路径
+DRILL_FILES=1000 DRILL_FILE_BYTES=1048576 bash scripts/backup_restore_drill.sh   # 约 1 GB 的计时运行
+bash scripts/mysql_release_gate.sh              # 锁竞争、带校验和的恢复、回滚、部分 DDL
+```
+
+两个脚本只创建和删除名称中包含 `_test` 的数据库，并把密钥、dump 和对象放在退出时删除的私有临时目录中。
+
+## 尚未完成
+
+- 夜间任务**尚未部署**：安装 `mcs21-offsite-backup.{service,timer}`、执行 `04-backup-account.sql`、选择异地目标、
+  放置公钥、确认 VPS 上的 `ENCRYPTED_FILE_DIR`，都需要有服务器权限的人来完成。
+- rsync 和 S3 目标已接好，但尚未对真实目标测试。
+- 失败告警只到达 systemd 和 journal，还不会通知到人。
+- 4 小时整体服务 RTO 尚未在全新 VPS 上端到端计时。
+- `mcs21-deploy` 的发布前备份仍是同一主机上的明文（仅 root 可读，0700）。它们是快速回滚点，不是异地副本。
+  它还会打包整个 `/var/lib/fyp-secure-file-platform`；需要在服务器上确认那里没有存放任何私钥。

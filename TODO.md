@@ -87,12 +87,17 @@ not a release pass.
 - [ ] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
   `0006_chacha20_poly1305`, runs `alembic current`/`check`, runs the whole backend suite (coverage
-  floor 82%) and fails on any skipped test,
-  and checks runtime-vs-admin grants and live schema parity. Deferred: the concurrent-lock and
-  partial-DDL-recovery checks are plain script assertions rather than a fuzzed/chaos test, and the
-  backup/restore drill compares table and row counts rather than a full checksum.
+  floor 82%) and fails on any skipped test, and checks runtime-vs-admin grants and live schema
+  parity. The two gaps once deferred here are closed: the migration-lock race now runs 8 randomized
+  iterations that must each show one applier and one waiter, and restores are compared by per-table
+  `CHECKSUM TABLE` plus a schema fingerprint, proven by a one-row mutation. Still not a long-running
+  chaos test.
 - [ ] [#56 Automate encrypted off-server backups and prove clean-host restore](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
-  — define RPO/RTO, coordinate database/ciphertext backups, and retain restore evidence.
+  — policy, encrypted coordinated backup, least-privilege account, clean-host restore drill with
+  timings, rollback and partial-DDL recovery are in place and run in CI
+  ([docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md)). Open: installing the nightly timer
+  and a real off-server target on the VPS, failure alerts to a person, and a timed end-to-end
+  restore on a fresh VPS.
 - [x] [#61 Keep README, TODO, Issues, changelog, PRs, and deployments synchronized](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   — this synchronization PR installs the shared records and evidence checklist; future changes
   use the same rule.

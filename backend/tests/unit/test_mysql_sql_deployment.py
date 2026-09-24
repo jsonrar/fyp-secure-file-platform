@@ -191,3 +191,45 @@ def test_root_verification_accepts_only_a_consistent_live_audit_head() -> None:
     assert "0003_client_key_custody" not in verification_sql
     assert "THEN 'LIVE_DATA'\n        ELSE 'REVIEW'" in verification_sql
     assert "ON last_log.id = head.last_log_id" in verification_sql
+
+
+def test_backup_account_sql_grants_read_only_access_and_nothing_else() -> None:
+    backup_sql = _read_sql("04-backup-account.sql")
+    statements = [
+        line
+        for line in backup_sql.splitlines()
+        if line and not line.startswith("--") and not line.startswith(" ")
+    ]
+
+    assert (
+        "CREATE USER IF NOT EXISTS 'fyp_backup_user'@'localhost'\n"
+        "    IDENTIFIED WITH caching_sha2_password BY RANDOM PASSWORD\n"
+        "    REQUIRE SSL\n"
+        "    WITH MAX_USER_CONNECTIONS 2;"
+    ) in backup_sql
+    grants = [line for line in statements if line.startswith("GRANT ")]
+    assert grants == [
+        "GRANT SELECT ON `fyp_secure_file_platform`.* TO 'fyp_backup_user'@'localhost';"
+    ]
+    executable = "\n".join(
+        line for line in backup_sql.splitlines() if not line.lstrip().startswith("--")
+    ).lower()
+    for forbidden in (
+        "identified by '",
+        "with grant option",
+        "lock tables",
+        "reload",
+        "process",
+        "drop ",
+        "flush",
+        " on *.*",
+    ):
+        assert forbidden not in executable, forbidden
+
+
+def test_backup_account_is_not_part_of_the_empty_database_installer() -> None:
+    # 02-schema.sql is a run-once installer; a GRANT to an account 01-provision.sql never
+    # creates would abort it half-way (MySQL error 1410), so the backup account lives in
+    # its own re-runnable file instead.
+    assert "fyp_backup_user" not in _read_sql("01-provision.sql")
+    assert "fyp_backup_user" not in _read_sql("02-schema.sql")

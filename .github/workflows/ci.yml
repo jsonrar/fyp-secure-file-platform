@@ -178,11 +178,14 @@ jobs:
         run: |
           root_password="${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'ci-disposable-root-password' }}"
           runtime_password="$(openssl rand -hex 24)"
+          backup_password="$(openssl rand -hex 24)"
           echo "::add-mask::${root_password}"
           echo "::add-mask::${runtime_password}"
+          echo "::add-mask::${backup_password}"
           {
             echo "root_password=${root_password}"
             echo "runtime_password=${runtime_password}"
+            echo "backup_password=${backup_password}"
           } >> "$GITHUB_OUTPUT"
 
       - name: Wait for MySQL and extract its CA certificate
@@ -227,7 +230,7 @@ jobs:
           DB_SSL_CA: ${{ runner.temp }}/mysql-ca.pem
         run: .venv/bin/python scripts/verify_mysql_tls.py
 
-      - name: Verify runtime-vs-administrator grant boundaries
+      - name: Verify runtime and backup account grant boundaries
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: "3306"
@@ -237,6 +240,9 @@ jobs:
           RUNTIME_DB_USER: fyp_gate_runtime_user
           RUNTIME_DB_PASSWORD: ${{ steps.creds.outputs.runtime_password }}
           RUNTIME_DB_HOST: "%"
+          BACKUP_DB_USER: fyp_gate_backup_user
+          BACKUP_DB_PASSWORD: ${{ steps.creds.outputs.backup_password }}
+          BACKUP_DB_HOST: "%"
         run: .venv/bin/python scripts/check_runtime_grants.py
 
       # -rs plus check_no_skips.py turns a silently-skipped integration suite
@@ -271,7 +277,7 @@ jobs:
           path: ${{ runner.temp }}/reports/mysql-gate
           retention-days: 14
 
-      - name: Non-empty database refusal, idempotent resume, concurrent lock, backup/restore drill
+      - name: Non-empty refusal, resume, lock races, checksummed restore, rollback, partial DDL
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: "3306"
@@ -282,6 +288,27 @@ jobs:
           PYTHON_BIN: ${{ github.workspace }}/backend/.venv/bin/python
         run: bash scripts/mysql_release_gate.sh
 
+      # Generates a throwaway backup keypair and backup account inside the job; neither the
+      # private key nor any password is ever echoed. The report holds only ids, counts, and
+      # timings, and is kept as restore evidence.
+      - name: Encrypted backup, clean restore, and refusal drill
+        env:
+          DB_HOST: 127.0.0.1
+          DB_PORT: "3306"
+          ADMIN_DB_USER: root
+          ADMIN_DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          SECRET_KEY: ci-mysql-gate-test-secret-key-at-least-32-chars
+          APP_ENV: test
+          DRILL_REPORT: ${{ runner.temp }}/restore-drill-report.json
+        run: bash scripts/backup_restore_drill.sh
+
+      - name: Keep the restore drill report
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: restore-drill-report
+          path: ${{ runner.temp }}/restore-drill-report.json
+          retention-days: 90
   # The frontend's live-backend suites -- the whole MVP, from registration to account
   # deletion -- against a real API process and a disposable MySQL, with nothing skipped.
   # backend/tests/e2e/run_live_stack.sh does the work so a developer can run the same
