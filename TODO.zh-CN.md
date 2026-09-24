@@ -71,15 +71,15 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 ## P0 — 发布与数据保护阻塞项
 
 - [x] [#52 建立 required CI 门禁并修复当前 Ruff 基线](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
-  ——`.github/workflows/ci.yml` 在每个 PR 及推送到 `main` 时运行 backend（Ruff + 不依赖 MySQL 的
-  pytest）与 frontend（测试/类型检查/构建）；Ruff 基线已真正修复而非压制。分支保护仍需仓库管理员
+  ——`.github/workflows/ci.yml` 在每个 PR 及推送到 `main` 时运行 backend（Ruff + 带覆盖率下限、不依赖
+  MySQL 的 pytest）与 frontend（带覆盖率的测试/类型检查/构建）；Ruff 基线已真正修复而非压制。分支保护仍需仓库管理员
   将 `backend`、`frontend` 设为必需检查——详见引入本改动的 PR。
 - [ ] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0006_chacha20_poly1305` 的每一次迁移，
-  运行 `alembic current`/`check`，任何集成测试被跳过即判失败，并检查运行时账户与管理员账户的权限
-  边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争现在随机化运行 8 轮，每轮都必须
-  出现一个应用者和一个等待者；恢复结果按逐表 `CHECKSUM TABLE` 加 Schema 指纹比较，并通过修改单行
-  证明检查有效。仍不是长时间运行的混沌测试。
+  运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，
+  并检查运行时账户与管理员账户的权限边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争
+  现在随机化运行 8 轮，每轮都必须出现一个应用者和一个等待者；恢复结果按逐表 `CHECKSUM TABLE` 加
+  Schema 指纹比较，并通过修改单行证明检查有效。仍不是长时间运行的混沌测试。
 - [ ] [#56 自动化加密异地备份并证明可在洁净主机恢复](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
   ——恢复策略、协调一致的加密备份、最小权限账号、带计时的洁净主机恢复演练、回滚与部分 DDL 恢复均已
   完成并在 CI 中运行（[docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)）。
@@ -97,7 +97,10 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [ ] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
   ——启用定时删除前必须审查 report-only 输出。
 - [ ] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
-  ——把跳过/依赖线上环境的覆盖转成必跑、可重复证据。
+  ——`e2e-live` CI Job 现已针对一次性 API 与 MySQL 不跳过地运行前端全部真实后端测试套件（从注册到
+  注销账户、全部四种文件算法、角色拒绝）；`mysql-gate` 运行多连接并发与真实故障注入测试；覆盖率
+  下限与经脱敏检查的 JUnit/覆盖率产物已就位。遗留：真实浏览器（DOM 层）冒烟测试——这些真实后端
+  测试在 Node 中驱动客户端模块，而非页面标记。
 - [ ] [#59 增加脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
   ——让运维和审计失败可见，同时不泄露 Secret。
 

@@ -354,32 +354,57 @@ npm run dev
 
 ## 持续集成
 
-`.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行，包含三个 Job。`backend` 与
+`.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行，包含四个 Job。`backend` 与
 `frontend` 是必需检查；仓库管理员还需在分支保护中将它们设为必需（具体 Job 名称参见引入该
 workflow 的 PR）。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
 
 ```bash
-# 后端（在 backend/ 下执行，对应 "backend" Job）
+# 后端（在 backend/ 下执行，对应 "backend" Job；分支覆盖率低于 78% 即失败）
 uv venv --python /opt/homebrew/bin/python3.12 .venv   # 或任意 Python 3.12 解释器
 uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
-.venv/bin/python -m pytest -m "not integration"
+.venv/bin/python -m pytest -m "not integration" --cov
 
-# 前端（在 frontend/ 下执行，对应 "frontend" Job）
+# 前端（在 frontend/ 下执行，对应 "frontend" Job；阈值见 vite.config.ts）
 npm ci
-npm run test
+npm run test:coverage
 npm run typecheck
 npm run build
 ```
 
 第三个 Job `mysql-gate` 会拉起一个经过 TLS 校验的一次性 MySQL 8.4 服务，从空数据库依次迁移到
-`0006_chacha20_poly1305`，再执行 `alembic current` 与 `alembic check`，随后运行完整的 MySQL 集成
-测试（`pytest -m integration`）——只要有任何一条集成测试被跳过而非真正执行，该 Job 就直接失败
-——接着运行授权边界、Schema 一致性、非空数据库拒绝安装、中断后幂等恢复、并发迁移加锁与备份恢复
-等检查。该 Job 需要一个正在运行的 MySQL 8.4 实例，不期望在没有 MySQL 的笔记本上直接复现；开发
-此门禁本身时，可通过 `docker compose up -d mysql` 配合 `backend/scripts/mysql_release_gate.sh`
-在本地验证较复杂的场景。各检查脚本参见 `backend/scripts/`，尚未完成的部分记录在 `TODO.md`。
+`0006_chacha20_poly1305`，再执行 `alembic current` 与 `alembic check`，随后对其运行完整的后端测试
+——单元测试加上全部 MySQL 集成测试，包括多连接并发与故障注入测试——只要有任何测试被跳过，或
+分支覆盖率低于 82%，该 Job 就直接失败；接着运行授权边界、Schema 一致性、非空数据库拒绝安装、
+中断后幂等恢复、并发迁移加锁与备份恢复等检查。开发此门禁本身时，可用
+`backend/scripts/mysql_release_gate.sh` 在本地验证较复杂的场景。
+
+第四个 Job `e2e-live` 会针对另一个一次性 MySQL 启动真实 API，并在不跳过任何测试的前提下运行
+前端所有依赖真实后端的测试套件：邮箱验证码注册、登录/refresh/重放/登出、解锁、全部四种文件
+算法、分享与撤销、审计可见性、角色拒绝以及注销账户。每个 Job 都会把 JUnit 与覆盖率报告作为
+构建产物上传，但前提是 `backend/scripts/check_report_hygiene.py` 确认其中不含密钥、令牌、非示例
+邮箱地址或测试夹具明文。
+
+两套数据库测试都可以在笔记本上针对任意一次性 MySQL 8.4 运行，数据库名须带 `_test` 段（切勿
+使用共享的 `docker compose` 数据库）：
+
+```bash
+docker run -d --name my-test-mysql -e MYSQL_ROOT_PASSWORD=... -p 127.0.0.1:3310:3306 mysql:8.4
+# 先创建 utf8mb4_unicode_ci 数据库，例如 fyp_local_test，然后：
+
+# MySQL 集成、并发与故障注入测试（在 backend/ 下执行，需先完成迁移）
+AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASS@127.0.0.1:3310/fyp_local_test' \
+  SECRET_KEY=local-test-secret-key-at-least-32-chars APP_ENV=test \
+  .venv/bin/python -m pytest -m integration -rs
+
+# 完整的端到端环境（在仓库根目录执行；自动迁移、创建账户、启动服务并在结束后清理）
+DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_test \
+  bash backend/tests/e2e/run_live_stack.sh
+```
+
+各测试套件证明了什么，参见 [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md)；各检查脚本参见
+`backend/scripts/`；尚未完成的部分记录在 `TODO.md`。
 
 ### 备份与恢复演练
 

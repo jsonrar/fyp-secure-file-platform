@@ -106,12 +106,6 @@ describe.skipIf(!live)('encrypted upload against a live backend', () => {
   })
 })
 
-describe.skipIf(live)('live upload check', () => {
-  it('is skipped without E2E_API_BASE', () => {
-    expect(live).toBe(false)
-  })
-})
-
 // Referenced so the imports stay honest if the round-trip assertions change.
 void decryptFile
 void unwrapDek
