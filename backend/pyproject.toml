@@ -30,6 +30,11 @@ branch = true
 source = ["app"]
 
 [tool.coverage.report]
+# Branch coverage of `app/` from the non-MySQL run (`pytest -m "not integration" --cov`),
+# which is what the `backend` CI job gates. Measured at 79.91% when set (issue #58); the
+# floor sits just below so a real regression fails and run-to-run noise does not. The
+# `mysql-gate` job gates the full run (unit + integration, 84.35%) at 82 on its own.
+fail_under = 78
 exclude_also = [
     "if TYPE_CHECKING:",
     "raise NotImplementedError",
