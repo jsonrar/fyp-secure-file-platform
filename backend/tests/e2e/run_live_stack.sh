@@ -15,6 +15,12 @@
 # E2E_PORT (8000), E2E_REPORT_DIR (where JUnit/coverage land; default ./e2e-reports),
 # E2E_COVERAGE=1 to collect frontend coverage from the live run.
 #
+# E2E_BROWSER=1 also runs the Chromium smoke test (frontend/browser-tests) against the same
+# stack once the Node suites pass; E2E_BROWSER=only runs it without them. It builds the
+# frontend against this API, serves the build on 127.0.0.1:5173, and writes its JUnit and
+# HTML report to E2E_BROWSER_REPORT_DIR (default ./e2e-browser-reports). Chromium must be
+# installed first: `cd frontend && npx playwright install chromium`.
+#
 # Every password and passphrase is generated here per run. Private keys, the mailbox and
 # the uploaded objects live in a temporary directory that is removed on exit, and nothing
 # in it is ever written to the report directory.
@@ -30,7 +36,14 @@ PYTHON_BIN="${PYTHON_BIN:-$BACKEND_DIR/.venv/bin/python}"
 : "${DB_PASSWORD:?DB_PASSWORD is required}"
 : "${DB_NAME:?DB_NAME is required}"
 
+START_DIR="$PWD"
 E2E_PORT="${E2E_PORT:-8000}"
+case "${E2E_BROWSER:-0}" in
+  0) RUN_NODE_SUITES=1 RUN_BROWSER=0 ;;
+  1) RUN_NODE_SUITES=1 RUN_BROWSER=1 ;;
+  only) RUN_NODE_SUITES=0 RUN_BROWSER=1 ;;
+  *) echo "E2E_BROWSER must be 0, 1 or only" >&2; exit 2 ;;
+esac
 REPORT_DIR="${E2E_REPORT_DIR:-$PWD/e2e-reports}"
 mkdir -p "$REPORT_DIR"
 REPORT_DIR="$(cd "$REPORT_DIR" && pwd)"
@@ -125,35 +138,60 @@ echo "== register a recovery key through the admin route =="
   --out "$WORK_DIR/recovery-private.pem" >/dev/null
 echo "recovery key registered"
 
-echo "== frontend live suites =="
 cd "$FRONTEND_DIR"
-VITEST_ARGS=(run --no-file-parallelism --reporter=default --reporter=junit
-  "--outputFile.junit=$REPORT_DIR/frontend-live-junit.xml")
-if [ "${E2E_COVERAGE:-0}" = "1" ]; then
-  # Measured with every live suite running at 64.19% statements, 59.91% branches,
-  # 65.18% functions, 65.31% lines; the floors sit a little below (issue #58).
-  VITEST_ARGS+=(--coverage "--coverage.reportsDirectory=$REPORT_DIR/frontend-live-coverage"
-    --coverage.thresholds.statements=62 --coverage.thresholds.branches=58
-    --coverage.thresholds.functions=63 --coverage.thresholds.lines=63)
-fi
-status=0
-E2E_API_BASE="$API_ROOT/api/v1" \
-E2E_MAILBOX_DIR="$E2E_MAILBOX_DIR" \
-E2E_ADMIN_USERNAME="$ADMIN_USER" E2E_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
-E2E_REFRESH_MIN_INTERVAL_SECONDS="$AUTH_REFRESH_MIN_INTERVAL_SECONDS" \
-E2E_SENDER="$SENDER_USER" E2E_SENDER_PASSWORD="$SENDER_PASSWORD" \
-E2E_SENDER_PASSPHRASE="$SENDER_PASSPHRASE" \
-E2E_RECIPIENT="$RECIPIENT_USER" E2E_RECIPIENT_PASSWORD="$RECIPIENT_PASSWORD" \
-E2E_RECIPIENT_PASSPHRASE="$RECIPIENT_PASSPHRASE" \
-E2E_USERNAME="$SENDER_USER" E2E_PASSWORD="$SENDER_PASSWORD" \
-E2E_RESET_USER="$RESET_USER" E2E_RESET_PASSWORD="$RESET_PASSWORD" \
-E2E_RESET_PASSPHRASE="$RESET_PASSPHRASE" E2E_RESET_KEY_FILE="$WORK_DIR/reset-key.pem" \
-  npx vitest "${VITEST_ARGS[@]}" || status=$?
+if [ "$RUN_NODE_SUITES" = "1" ]; then
+  echo "== frontend live suites =="
+  VITEST_ARGS=(run --no-file-parallelism --reporter=default --reporter=junit
+    "--outputFile.junit=$REPORT_DIR/frontend-live-junit.xml")
+  if [ "${E2E_COVERAGE:-0}" = "1" ]; then
+    # Measured with every live suite running at 64.19% statements, 59.91% branches,
+    # 65.18% functions, 65.31% lines; the floors sit a little below (issue #58).
+    VITEST_ARGS+=(--coverage "--coverage.reportsDirectory=$REPORT_DIR/frontend-live-coverage"
+      --coverage.thresholds.statements=62 --coverage.thresholds.branches=58
+      --coverage.thresholds.functions=63 --coverage.thresholds.lines=63)
+  fi
+  status=0
+  E2E_API_BASE="$API_ROOT/api/v1" \
+  E2E_MAILBOX_DIR="$E2E_MAILBOX_DIR" \
+  E2E_ADMIN_USERNAME="$ADMIN_USER" E2E_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+  E2E_REFRESH_MIN_INTERVAL_SECONDS="$AUTH_REFRESH_MIN_INTERVAL_SECONDS" \
+  E2E_SENDER="$SENDER_USER" E2E_SENDER_PASSWORD="$SENDER_PASSWORD" \
+  E2E_SENDER_PASSPHRASE="$SENDER_PASSPHRASE" \
+  E2E_RECIPIENT="$RECIPIENT_USER" E2E_RECIPIENT_PASSWORD="$RECIPIENT_PASSWORD" \
+  E2E_RECIPIENT_PASSPHRASE="$RECIPIENT_PASSPHRASE" \
+  E2E_USERNAME="$SENDER_USER" E2E_PASSWORD="$SENDER_PASSWORD" \
+  E2E_RESET_USER="$RESET_USER" E2E_RESET_PASSWORD="$RESET_PASSWORD" \
+  E2E_RESET_PASSPHRASE="$RESET_PASSPHRASE" E2E_RESET_KEY_FILE="$WORK_DIR/reset-key.pem" \
+    npx vitest "${VITEST_ARGS[@]}" || status=$?
 
-if [ "$status" -ne 0 ]; then
-  echo "Frontend live suites failed; last API log lines (no bodies are logged):" >&2
-  tail -n 40 "$WORK_DIR/server.log" >&2
-  exit "$status"
+  if [ "$status" -ne 0 ]; then
+    echo "Frontend live suites failed; last API log lines (no bodies are logged):" >&2
+    tail -n 40 "$WORK_DIR/server.log" >&2
+    exit "$status"
+  fi
+
+  "$PYTHON_BIN" "$BACKEND_DIR/scripts/check_no_skips.py" "$REPORT_DIR/frontend-live-junit.xml"
 fi
 
-"$PYTHON_BIN" "$BACKEND_DIR/scripts/check_no_skips.py" "$REPORT_DIR/frontend-live-junit.xml"
+if [ "$RUN_BROWSER" = "1" ]; then
+  echo "== browser smoke test (Chromium) =="
+  BROWSER_REPORT_DIR="${E2E_BROWSER_REPORT_DIR:-$START_DIR/e2e-browser-reports}"
+  mkdir -p "$BROWSER_REPORT_DIR"
+  BROWSER_REPORT_DIR="$(cd "$BROWSER_REPORT_DIR" && pwd)"
+  # The build the browser loads, pointed at this API. It lives in the work directory and is
+  # removed with it, so it can never be mistaken for a deployable build.
+  VITE_API_BASE_URL="$API_ROOT/api/v1" npx vite build --logLevel warn \
+    --outDir "$WORK_DIR/web" --emptyOutDir
+  # The browser suite registers its own throwaway accounts, so it receives only the
+  # mailbox, never the seeded accounts' passwords or passphrases.
+  status=0
+  E2E_MAILBOX_DIR="$E2E_MAILBOX_DIR" E2E_WEB_DIR="$WORK_DIR/web" \
+  E2E_BROWSER_REPORT_DIR="$BROWSER_REPORT_DIR" \
+    npx playwright test || status=$?
+  if [ "$status" -ne 0 ]; then
+    echo "Browser smoke test failed; last API log lines (no bodies are logged):" >&2
+    tail -n 40 "$WORK_DIR/server.log" >&2
+    exit "$status"
+  fi
+  "$PYTHON_BIN" "$BACKEND_DIR/scripts/check_no_skips.py" "$BROWSER_REPORT_DIR/junit.xml"
+fi
