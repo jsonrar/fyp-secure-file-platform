@@ -410,37 +410,62 @@ Frontend: <http://localhost:5173>
 
 ## Continuous Integration
 
-`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with three jobs.
+`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with four jobs.
 `backend` and `frontend` are required checks; a repository admin must also mark them required
 in branch protection (see the pull request that introduced this workflow for the exact job
 names to add). Run the same commands locally before pushing so a failure never arrives as a
 surprise in CI:
 
 ```bash
-# backend (from backend/, matches the "backend" job)
+# backend (from backend/, matches the "backend" job; fails below 78% branch coverage)
 uv venv --python /opt/homebrew/bin/python3.12 .venv   # or any Python 3.12 interpreter
 uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
-.venv/bin/python -m pytest -m "not integration"
+.venv/bin/python -m pytest -m "not integration" --cov
 
-# frontend (from frontend/, matches the "frontend" job)
+# frontend (from frontend/, matches the "frontend" job; thresholds in vite.config.ts)
 npm ci
-npm run test
+npm run test:coverage
 npm run typecheck
 npm run build
 ```
 
 A third job, `mysql-gate`, provisions a disposable MySQL 8.4 service with verified TLS, runs
 every migration from empty through `0006_chacha20_poly1305`, then `alembic current` and
-`alembic check`, then the full MySQL integration suite (`pytest -m integration`) — failing the
-job outright if any integration test is skipped rather than actually run — followed by grant-
+`alembic check`, then the whole backend suite against it — unit tests plus every MySQL
+integration test, including the multi-connection concurrency and fault-injection suites —
+failing the job if any test is skipped or branch coverage falls below 82%, followed by grant-
 boundary, schema-parity, non-empty-database-refusal, idempotent-resume, concurrent-migration-
-lock, and backup/restore checks. It needs a running MySQL 8.4 instance and is not expected to
-be reproduced from a laptop without one; `docker compose up -d mysql` plus
-`backend/scripts/mysql_release_gate.sh` exercises the harder scenarios locally during
-development of the gate itself. See `backend/scripts/` for the individual check scripts and
-`TODO.md` for what remains deferred.
+lock, and backup/restore checks. `backend/scripts/mysql_release_gate.sh` exercises the harder
+scenarios locally during development of the gate itself.
+
+The fourth job, `e2e-live`, starts the real API against another disposable MySQL and runs every
+frontend live-backend suite un-skipped: registration with an emailed code, login/refresh/
+replay/logout, unlock, all four file algorithms, sharing and revocation, audit visibility, role
+denial, and account deletion. Each job publishes its JUnit and coverage reports as a build
+artifact, but only after `backend/scripts/check_report_hygiene.py` confirms they hold no keys,
+tokens, non-example addresses, or fixture plaintext.
+
+Both database suites run from a laptop against any disposable MySQL 8.4 whose database name has
+a `_test` segment (never the shared `docker compose` database):
+
+```bash
+docker run -d --name my-test-mysql -e MYSQL_ROOT_PASSWORD=... -p 127.0.0.1:3310:3306 mysql:8.4
+# create a utf8mb4_unicode_ci database such as fyp_local_test, then:
+
+# MySQL integration, concurrency and fault injection (from backend/, schema migrated first)
+AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASS@127.0.0.1:3310/fyp_local_test' \
+  SECRET_KEY=local-test-secret-key-at-least-32-chars APP_ENV=test \
+  .venv/bin/python -m pytest -m integration -rs
+
+# The live end-to-end stack (from the repository root; migrates, seeds, serves, and cleans up)
+DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_test \
+  bash backend/tests/e2e/run_live_stack.sh
+```
+
+See [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md) for what each suite proves, `backend/scripts/`
+for the individual check scripts, and `TODO.md` for what remains deferred.
 
 ## Important Security Note
 

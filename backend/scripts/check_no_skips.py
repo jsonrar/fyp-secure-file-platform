@@ -1,4 +1,4 @@
-"""Fail if a pytest JUnit XML report contains any skipped test.
+"""Fail if a JUnit XML report (pytest or vitest) contains any skipped test.
 
 `AUTH_TEST_DATABASE_URL` makes the MySQL integration suite skip itself instead of
 failing when it is absent (see tests/integration/conftest.py). That is the right
@@ -7,6 +7,9 @@ passed" is not by itself proof the database gate ran -- a misconfigured CI job
 that never sets the URL would report a silent, all-green no-op. This script reads
 back the JUnit report pytest wrote and turns any <skipped> element into a hard
 failure of the CI step, so the release gate can only pass by actually running.
+
+The frontend live-backend suites have the same shape -- each one skips itself without its
+E2E_* environment -- so the `e2e-live` job runs this over vitest's JUnit report too.
 """
 
 from __future__ import annotations
@@ -37,8 +40,8 @@ def main(argv: list[str]) -> int:
 
     if skipped_tests:
         print(
-            f"check_no_skips: {len(skipped_tests)} test(s) were skipped in the "
-            "MySQL integration run -- this gate requires every integration test to "
+            f"check_no_skips: {len(skipped_tests)} test(s) were skipped in "
+            f"{report_path.name} -- this gate requires every integration test to "
             "actually execute:",
             file=sys.stderr,
         )
@@ -46,7 +49,7 @@ def main(argv: list[str]) -> int:
             print(f"  SKIPPED {name}: {reason}", file=sys.stderr)
         return 1
 
-    print("check_no_skips: no skipped tests in the MySQL integration run")
+    print(f"check_no_skips: no skipped tests in {report_path.name}")
     return 0
 
 
