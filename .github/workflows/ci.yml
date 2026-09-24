@@ -310,9 +310,10 @@ jobs:
           path: ${{ runner.temp }}/restore-drill-report.json
           retention-days: 90
   # The frontend's live-backend suites -- the whole MVP, from registration to account
-  # deletion -- against a real API process and a disposable MySQL, with nothing skipped.
-  # backend/tests/e2e/run_live_stack.sh does the work so a developer can run the same
-  # thing locally; see docs/E2E_TESTING.md.
+  # deletion -- against a real API process and a disposable MySQL, with nothing skipped,
+  # then a Chromium smoke test that clicks the built pages through the golden path against
+  # the same stack. backend/tests/e2e/run_live_stack.sh does the work so a developer can
+  # run the same thing locally; see docs/E2E_TESTING.md.
   e2e-live:
     name: e2e-live
     runs-on: ubuntu-latest
@@ -362,6 +363,24 @@ jobs:
         working-directory: frontend
         run: npm ci
 
+      - name: Read the Playwright version
+        id: playwright
+        working-directory: frontend
+        run: echo "version=$(node -p "require('@playwright/test/package.json').version")" >> "$GITHUB_OUTPUT"
+
+      # Only the browser download is cached, keyed on the exact Playwright release that
+      # drives it, so an upgrade can never run against a stale browser build. The system
+      # libraries Chromium needs come from apt on every run.
+      - name: Cache the Chromium download
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-chromium-${{ runner.os }}-${{ steps.playwright.outputs.version }}
+
+      - name: Install Chromium and its system dependencies
+        working-directory: frontend
+        run: npx playwright install --with-deps chromium
+
       - name: Mask the disposable root password
         id: creds
         run: |
@@ -394,7 +413,9 @@ jobs:
               )
           PY
 
-      - name: Run every live-backend suite, un-skipped, with coverage
+      # E2E_BROWSER=1 adds the Chromium smoke test after the Node suites pass. It runs with
+      # no retries, fails on a flaky pass, and check_no_skips.py reads its JUnit report too.
+      - name: Run every live-backend suite, un-skipped, with coverage, then the browser
         env:
           DB_HOST: 127.0.0.1
           DB_PORT: "3306"
@@ -403,6 +424,8 @@ jobs:
           DB_NAME: fyp_e2e_test
           E2E_COVERAGE: "1"
           E2E_REPORT_DIR: ${{ runner.temp }}/reports/e2e-live
+          E2E_BROWSER: "1"
+          E2E_BROWSER_REPORT_DIR: ${{ runner.temp }}/reports/e2e-browser
         run: bash backend/tests/e2e/run_live_stack.sh
 
       - name: Check test reports before publishing
@@ -416,4 +439,21 @@ jobs:
         with:
           name: e2e-live-test-reports
           path: ${{ runner.temp }}/reports/e2e-live
+          retention-days: 14
+
+      # The browser report is published only when something failed, and only after the same
+      # scan, which also unpacks the report's embedded results and refuses any Playwright
+      # trace. CI records no traces; the report holds failure screenshots (key material
+      # masked) and the steps, including values typed into the throwaway accounts.
+      - name: Check the browser report before publishing
+        id: browser-hygiene
+        if: failure()
+        run: python3 backend/scripts/check_report_hygiene.py ${{ runner.temp }}/reports/e2e-browser/html
+
+      - name: Upload the browser report (failures only)
+        if: failure() && steps.browser-hygiene.outcome == 'success'
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-browser-report
+          path: ${{ runner.temp }}/reports/e2e-browser/html
           retention-days: 14

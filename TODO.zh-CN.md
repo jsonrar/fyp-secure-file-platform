@@ -100,11 +100,11 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md)。待完成：在 staging 安装、
   记录 report-only 审查，然后启用 timer。2026-09-24 已在 staging 安装，report-only 审查已记录（43 条可删、
   0 个孤立对象），timer 已启用。待完成：记录第一次计划运行（2026-09-25 05:00）与幂等的重复运行。
-- [ ] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
-  ——`e2e-live` CI Job 现已针对一次性 API 与 MySQL 不跳过地运行前端全部真实后端测试套件（从注册到
-  注销账户、全部四种文件算法、角色拒绝）；`mysql-gate` 运行多连接并发与真实故障注入测试；覆盖率
-  下限与经脱敏检查的 JUnit/覆盖率产物已就位。遗留：真实浏览器（DOM 层）冒烟测试——这些真实后端
-  测试在 Node 中驱动客户端模块，而非页面标记。
+- [x] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
+  ——`e2e-live` CI Job 针对一次性 API 与 MySQL 不跳过地运行前端全部真实后端测试套件（从注册到
+  注销账户、全部四种文件算法、角色拒绝），随后运行 Chromium 冒烟测试，在构建后的页面上点击完成
+  注册、验证、登录、解锁、上传、下载、分享、撤销与登出；`mysql-gate` 运行多连接并发与真实故障注入
+  测试；覆盖率下限与经脱敏检查的 JUnit/覆盖率产物已就位（[docs/E2E_TESTING.md](docs/E2E_TESTING.md)）。
 - [ ] [#59 增加脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
   ——让运维和审计失败可见，同时不泄露 Secret。
 

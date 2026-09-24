@@ -11,7 +11,14 @@ finds any of:
 * a session token in this application's `at_`/`rt_` format, or any `Bearer` credential;
 * an email address outside the reserved example domains the suites use;
 * a known plaintext sentence from a test fixture, which would mean decrypted file content
-  reached the report.
+  reached the report;
+* a Playwright trace. A trace records every request header and body, DOM snapshots and
+  typed values, so it is refused outright rather than scanned; CI never records one.
+
+Archives are opened rather than read as bytes: a ZIP (a Playwright attachment, or a trace)
+compresses its members, and the Playwright HTML report embeds its results as a base64 ZIP
+inside `index.html`, so a byte-level scan of either would see nothing. Both are unpacked,
+recursively, and every member is scanned the same way.
 
     .venv/bin/python scripts/check_report_hygiene.py reports/ other-reports/
 
@@ -20,8 +27,13 @@ It prints the file and the kind of finding, never the matched text itself.
 
 from __future__ import annotations
 
+import base64
+import binascii
+import io
 import re
 import sys
+import zipfile
+from collections.abc import Iterator
 from pathlib import Path
 
 ALLOWED_EMAIL_DOMAINS = {"example.com", "example.org", "example.net", "example.invalid"}
@@ -45,6 +57,15 @@ FIXTURE_PLAINTEXT = (
 )
 
 
+# The Playwright HTML report inlines its results (test titles, steps, errors, stdout) as a
+# base64 data URL of a ZIP in index.html.
+EMBEDDED_ZIP = re.compile(rb"data:application/zip;base64,([A-Za-z0-9+/=]+)")
+# Member names that only a Playwright trace contains.
+TRACE_MEMBER = re.compile(r"(?:^|/)[^/]*\.(?:trace|network)$")
+# Deeper than any real report nests; stops a crafted archive from recursing forever.
+MAX_ARCHIVE_DEPTH = 4
+
+
 def scan_text(text: str) -> list[str]:
     findings = [name for name, pattern in PATTERNS.items() if pattern.search(text)]
     for match in EMAIL.finditer(text):
@@ -54,6 +75,44 @@ def scan_text(text: str) -> list[str]:
     if any(sentinel in text for sentinel in FIXTURE_PLAINTEXT):
         findings.append("fixture plaintext")
     return findings
+
+
+def _expand(label: str, data: bytes, depth: int = 0) -> Iterator[tuple[str, bytes | None]]:
+    """Yield (label, bytes) for this blob and everything archived inside it.
+
+    A `None` payload marks a Playwright trace, which is refused without being scanned.
+    """
+    yield label, data
+    if depth >= MAX_ARCHIVE_DEPTH:
+        return
+    embedded = [match.group(1) for match in EMBEDDED_ZIP.finditer(data)]
+    for index, payload in enumerate(embedded):
+        try:
+            decoded = base64.b64decode(payload, validate=True)
+        except (binascii.Error, ValueError):
+            continue
+        yield from _expand(f"{label}#embedded-{index}", decoded, depth + 1)
+    if not zipfile.is_zipfile(io.BytesIO(data)):
+        return
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        for member in archive.infolist():
+            if member.is_dir():
+                continue
+            name = f"{label}!{member.filename}"
+            if TRACE_MEMBER.search(member.filename):
+                yield name, None
+                continue
+            yield from _expand(name, archive.read(member), depth + 1)
+
+
+def scan_file(path: Path) -> Iterator[tuple[str, str]]:
+    """Yield (where, finding) for the file and every member of every archive inside it."""
+    for label, data in _expand(str(path), path.read_bytes()):
+        if data is None:
+            yield label, "Playwright trace"
+            continue
+        for finding in scan_text(data.decode("utf-8", errors="replace")):
+            yield label, finding
 
 
 def main(argv: list[str]) -> int:
@@ -70,10 +129,9 @@ def main(argv: list[str]) -> int:
 
     problems = 0
     for path in sorted(files):
-        text = path.read_bytes().decode("utf-8", errors="replace")
-        for finding in scan_text(text):
+        for where, finding in scan_file(path):
             problems += 1
-            print(f"check_report_hygiene: {path}: {finding}", file=sys.stderr)
+            print(f"check_report_hygiene: {where}: {finding}", file=sys.stderr)
 
     if problems:
         print(

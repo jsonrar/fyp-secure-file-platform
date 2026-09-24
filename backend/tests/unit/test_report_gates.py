@@ -2,8 +2,11 @@
 
 from __future__ import annotations
 
+import base64
 import importlib.util
+import io
 import sys
+import zipfile
 from pathlib import Path
 
 import pytest
@@ -60,6 +63,68 @@ def test_each_kind_of_leak_is_caught(
     assert finding in err
     # The finding is named; the secret itself is never echoed back into the CI log.
     assert leak not in err
+
+
+def _zip(members: dict[str, str]) -> bytes:
+    buffer = io.BytesIO()
+    with zipfile.ZipFile(buffer, "w", zipfile.ZIP_DEFLATED) as archive:
+        for name, text in members.items():
+            archive.writestr(name, text)
+    return buffer.getvalue()
+
+
+def _playwright_report(members: dict[str, str]) -> str:
+    """The shape of Playwright's index.html: results inlined as a base64 ZIP data URL."""
+    payload = base64.b64encode(_zip(members)).decode()
+    return (
+        '<html><script id="playwrightReportBase64" type="application/zip">'
+        f"data:application/zip;base64,{payload}</script></html>"
+    )
+
+
+LEAK = "Authorization: Bearer " + "x" * 40
+
+
+def test_a_leak_inside_a_compressed_attachment_is_caught(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Deflated, the credential is not in the file's bytes; only unpacking finds it.
+    blob = _zip({"error-context.md": LEAK * 5})
+    assert LEAK.encode() not in blob
+    (tmp_path / "attachment.zip").write_bytes(blob)
+
+    assert hygiene.main(["check", str(tmp_path)]) == 1
+    assert "attachment.zip!error-context.md: bearer credential" in capsys.readouterr().err
+
+
+def test_a_leak_inside_the_playwright_html_report_is_caught(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    (tmp_path / "index.html").write_text(
+        _playwright_report({"report.json": '{"error": "-----BEGIN PRIVATE KEY-----"}'})
+    )
+
+    assert hygiene.main(["check", str(tmp_path)]) == 1
+    assert "index.html#embedded-0!report.json: PEM block" in capsys.readouterr().err
+
+
+def test_a_clean_playwright_html_report_passes(tmp_path: Path) -> None:
+    (tmp_path / "index.html").write_text(
+        _playwright_report({"report.json": '{"title": "registers pw-bob@example.com"}'})
+    )
+
+    assert hygiene.main(["check", str(tmp_path)]) == 0
+
+
+def test_a_playwright_trace_is_refused_without_being_read(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    # Nothing in it matches a pattern; a trace is refused for what it records, not for
+    # what a scan happens to find.
+    (tmp_path / "trace.zip").write_bytes(_zip({"trace.trace": "{}", "trace.network": "{}"}))
+
+    assert hygiene.main(["check", str(tmp_path)]) == 1
+    assert "Playwright trace" in capsys.readouterr().err
 
 
 def test_reserved_example_domains_are_allowed() -> None:

@@ -114,12 +114,13 @@ not a release pass.
   backup, email alerts, and [docs/RECONCILIATION_RUNBOOK.md](docs/RECONCILIATION_RUNBOOK.md).
   Installed on staging 2026-09-24; report-only review recorded (43 eligible, 0 orphans) and the
   timer enabled. Open: record the first scheduled run (2026-09-25 05:00) and an idempotent re-run.
-- [ ] [#58 Expand browser E2E, concurrency, fault-injection, and coverage gates](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
-  — the `e2e-live` CI job now runs every frontend live-backend suite un-skipped against a
+- [x] [#58 Expand browser E2E, concurrency, fault-injection, and coverage gates](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
+  — the `e2e-live` CI job runs every frontend live-backend suite un-skipped against a
   disposable API and MySQL (registration through account deletion, all four file algorithms,
-  role denial); `mysql-gate` runs multi-connection concurrency and real fault-injection suites;
-  coverage floors and sanitized JUnit/coverage artifacts are in place. Deferred: a real-browser
-  (DOM-level) smoke test — the live suites drive the client modules in Node, not the markup.
+  role denial), then a Chromium smoke test that clicks the built pages through register,
+  verify, sign in, unlock, upload, download, share, revoke and log out; `mysql-gate` runs
+  multi-connection concurrency and real fault-injection suites; coverage floors and sanitized
+  JUnit/coverage artifacts are in place ([docs/E2E_TESTING.md](docs/E2E_TESTING.md)).
 - [ ] [#59 Add redacted observability, incident runbooks, and external audit checkpoints](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
   — make operational and audit failures visible without leaking secrets.
 
