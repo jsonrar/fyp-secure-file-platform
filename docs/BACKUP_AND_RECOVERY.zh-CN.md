@@ -24,7 +24,7 @@
 
 | 资产 | RPO | RTO | 保留 |
 |---|---|---|---|
-| MySQL 元数据（全部应用表、`alembic_version`） | 24 小时（夜间备份集）；另外 `mcs21-deploy` 在每次发布前都会导出一次 | 数据恢复步骤：1 小时；新主机上恢复整个服务：4 小时 | 异地：7 个每日 + 4 个每周备份集（约一个月）。发布前 dump：保留在同一主机，由 `mcs21-deploy` 管理 |
+| MySQL 元数据（全部应用表、`alembic_version`） | 24 小时（夜间备份集）；另外 `mcs21-deploy` 在每次发布前都会导出一次 | 数据恢复步骤：1 小时；新主机上恢复整个服务：4 小时 | 异地：每个夜间备份集保留 35 天（`staging/` 上的 R2 生命周期规则，30 天 bucket lock）。发布前 dump：保留在同一主机，由 `mcs21-deploy` 管理 |
 | 密文对象（`ENCRYPTED_FILE_DIR`） | 24 小时，**与元数据在同一个备份集中** | 与元数据相同——要么一起恢复，要么都不恢复 | 与元数据相同的备份集 |
 | git 中的配置（nginx、systemd、SQL、部署脚本） | 0——每次修改都是一次提交 | 30 分钟（重新部署该提交） | git 历史 |
 | 主机 Secret（`backend.env`：`SECRET_KEY`、数据库密码、SMTP） | 不备份——恢复时重新生成 | 包含在 4 小时服务 RTO 内 | 无；见 §6 |
@@ -40,9 +40,11 @@
   10 MB/s 约每 GB 100 秒），以及人按本文逐步操作的时间。
 - **4 小时整体服务 RTO。** 在全新主机上，慢的是人工步骤：开 VM、安装 Docker 与 MySQL、保管人带来离线
   密钥、重新部署。这部分**尚未**在真实 VPS 上端到端计时（见“尚未完成”）。
-- **7 个每日 + 4 个每周。** 每日点覆盖“这周弄坏了东西”，每周点覆盖“一个月内才发现”，大致是一个教学
-  周期。数据没有法规保留义务，小团队也不应手工管理不断增长的归档。`--prune` 对本地或挂载的目标执行
-  该规则；S3 应使用 bucket 生命周期规则，这样备份凭据永远不需要删除权限。
+- **异地保留 35 天的夜间备份集。** 近期的点覆盖“这周弄坏了东西”，一个月覆盖“一个月内才发现”，大致是
+  一个教学周期。staging 的恢复校验曾六周无人察觉，说明这里的问题往往发现得晚。R2 生命周期规则只能按
+  存放时间删除，所以每个夜间备份集都保留 35 天（约 26 GB，超出 R2 免费 10 GB 的部分每月约 0.25 美元）。
+  30 天的 bucket lock 让任何人（包括被入侵主机上的备份凭据）都无法删除 30 天内的备份集。`--prune` 对
+  本地或挂载的目标仍执行 7 个每日 + 4 个每周。
 
 ## 2. 一个备份集包含什么，以及元数据与对象如何保持一致
 
@@ -171,6 +173,18 @@ CREATE USER，也不能读取 `mysql.*`。故意放宽授权会让该检查失�
 任何数据量（即使达到数十 GB），1 小时数据恢复 RTO 都有很大余量。尚未实测的是 4 小时整体服务 RTO
 中的人工部分。
 
+**Staging 演练，2026-09-24（真实密钥与真实异地备份集）。** staging 上的
+`mcs21-offsite-backup.service` 将备份集 `20260924T141906Z-7c503f93`（24 个对象，738 MB）写入
+Cloudflare R2，用时 70.9 秒，其中上传 67.4 秒。该备份集在 VPS 上从 R2 下载（66 秒；R2 token 只接受
+VPS 的地址），再拷贝到一台 MacBook（326 秒），在那里用保管人受密码保护的私钥恢复到空的 Docker
+MySQL 8.4.11：总计 **6.97 秒**（校验密文 0.32 秒，解密 4.49 秒，manifest 0.32 秒，载入数据库 0.46 秒，
+对象 0.71 秒，校验 0.65 秒）。独立于演练脚本的核对：恢复后 17 张表的 `CHECKSUM TABLE` 与线上数据库
+完全一致，24 个恢复对象的 SHA-256 与线上文件完全一致。传输（从 R2 到 VPS 以外的机器约 6.5 分钟）占
+主要时间，仍在 1 小时数据恢复 RTO 之内。
+
+在新主机上恢复需要单独的 R2 读取 token：staging 的 token 只允许 VPS 的 IP 使用，因此恢复时由账户
+所有者在 Cloudflare 控制台为新主机创建读取 token。
+
 CI（`mysql-gate` → “Encrypted backup, clean restore, and refusal drill”）在每个 PR 上运行
 `backup_restore_drill.sh`。它在任务内生成一次性 RSA 密钥和备份账号，以该最小权限账号备份，并检查目标
 中没有明文、没有私钥。然后恢复到一个尚不存在的数据库，比较内容、Schema 和每个对象。最后证明它会
@@ -249,13 +263,23 @@ bash scripts/mysql_release_gate.sh              # 锁竞争、带校验和的恢
 
 ## 尚未完成
 
-- 夜间任务**尚未部署**：安装 `mcs21-offsite-backup.{service,timer}`、执行 `04-backup-account.sql`、选择异地目标、
-  放置公钥、确认 VPS 上的 `ENCRYPTED_FILE_DIR`，都需要有服务器权限的人来完成。
-- rsync 和 S3 目标已接好，但尚未对真实目标测试。
-- 通知到人的失败告警已在仓库中（`mcs21-alert@.service`，issue #57），但只有在 VPS 上安装并测试后才
-  生效（[RECONCILIATION_RUNBOOK.zh-CN.md §4](RECONCILIATION_RUNBOOK.zh-CN.md#4-安装一次性在-pr-合并并部署之后)）。
-- 同机的 `mcs21-backup-verify` 因写死 Schema `0002`，自 2026-08-16 起每周失败；纳入版本管理的副本改为
-  推导期望值，需要重新安装。
-- 4 小时整体服务 RTO 尚未在全新 VPS 上端到端计时。
-- `mcs21-deploy` 的发布前备份仍是同一主机上的明文（仅 root 可读，0700）。它们是快速回滚点，不是异地副本。
-  它还会打包整个 `/var/lib/fyp-secure-file-platform`；需要在服务器上确认那里没有存放任何私钥。
+- 4 小时整体服务 RTO 尚未在全新 VPS 上端到端计时；目前只实测了数据恢复（§5）。
+- rsync 目标已接好，但尚未对真实目标测试。S3 已在 R2 上投入使用。
+- `mcs21-deploy` 的发布前备份仍是同一主机上的明文（仅 root 可读，0700），且从不清理：2026-09-24 时已有
+  81 份、5.6 GB。它们是快速回滚点，不是异地副本。清理应在 `mcs21-deploy` 中实现。
+
+## Staging 安装记录（2026-09-24）
+
+- 备份账号 `fyp_backup_user@172.29.21.1`，由 `04-backup-account.sql` 改 host 后创建：MySQL 运行在 Docker
+  中，主机发起的 TCP 连接来自 Docker 网关 `172.29.21.1`（与 staging 上其他账号相同），`localhost` 账号无法
+  登录。已以 `fypapp` 身份验证：走 TLS（`TLS_AES_256_GCM_SHA384`）、可读、`DELETE` 被拒绝。
+- `/etc/fyp-secure-file-platform/backup.env`（root，0600）与 `backup_pub.pem`（root:fypapp，0640；公钥
+  SHA-256 为 `4ac77119…`，与每个备份集 `index.json` 中记录的一致）。
+- `aws` CLI 1.46.1 装在 `/opt/awscli` 的 venv 中，并链接到 `/usr/local/bin/aws`。Ubuntu 24.04 没有 `awscli`
+  apt 包，而 snap 版在 unit 的 `NoNewPrivileges=true` 下无法启动。
+- 目标为 Cloudflare R2 上的 `s3://mcs21-backups/staging`。token 只对该 bucket 有 Object Read & Write 权限，
+  并且只允许 VPS 的 IP 使用。
+- 已启用 `mcs21-offsite-backup.timer`（每天 02:30）；失败时发邮件到 `alert.env` 中的地址。
+- `/var/lib/fyp-secure-file-platform` 中只有 `encrypted/`（24 个密文对象）与 `tmp/`；该目录及主机其他位置均
+  未发现私钥。
+- 重新安装后的 `mcs21-backup-verify` 自 2026-08-16 以来首次通过。

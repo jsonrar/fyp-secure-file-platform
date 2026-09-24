@@ -26,7 +26,7 @@ The mechanism:
 
 | Asset | RPO | RTO | Retention |
 |---|---|---|---|
-| MySQL metadata (all application tables, `alembic_version`) | 24 h (nightly set); plus the existing pre-deploy dump taken by `mcs21-deploy` on every release | Data restore step: 1 h. Whole service on a new host: 4 h | Off-server: 7 daily + 4 weekly sets (about a month). Pre-deploy dumps: same host, as `mcs21-deploy` keeps them |
+| MySQL metadata (all application tables, `alembic_version`) | 24 h (nightly set); plus the existing pre-deploy dump taken by `mcs21-deploy` on every release | Data restore step: 1 h. Whole service on a new host: 4 h | Off-server: every nightly set for 35 days (R2 lifecycle rule on `staging/`, 30-day bucket lock). Pre-deploy dumps: same host, as `mcs21-deploy` keeps them |
 | Ciphertext objects (`ENCRYPTED_FILE_DIR`) | 24 h, **in the same set as the metadata** | Same as metadata — restored together or not at all | Same sets as metadata |
 | Configuration in git (nginx, systemd units, SQL, deploy scripts) | 0 — every change is a commit | 30 min (redeploy the commit) | Git history |
 | Host secrets (`backend.env`: `SECRET_KEY`, DB passwords, SMTP) | Not backed up — regenerated on restore | Inside the 4 h service RTO | None; see §6 |
@@ -46,11 +46,13 @@ Why these numbers:
 - **4 h whole-service RTO.** On a brand-new host, the slow steps are human ones: provisioning the
   VM, installing Docker and MySQL, the custodian bringing the offline key, and redeploying.
   Those have **not** been timed end to end on a real VPS (see "Not yet done").
-- **7 daily + 4 weekly.** Daily points cover "we broke something this week". Weekly points cover
-  "we noticed it within the month", which is about the length of a teaching period. The data
-  carries no regulatory retention duty, and a small team should not have to manage a growing
-  archive by hand. `--prune` applies this rule to a local or mounted destination; for S3 it
-  belongs in a bucket lifecycle rule so the backup credential never needs delete rights.
+- **35 days of nightly sets off-server.** Recent points cover "we broke something this week";
+  a month covers "we noticed it within the month", about a teaching period. The staging
+  restore check went six weeks unnoticed, so problems here are found late. An R2 lifecycle rule
+  can only expire by age, so it keeps every nightly set for 35 days (about 26 GB, roughly
+  US$0.25 a month beyond R2's free 10 GB). A 30-day bucket lock stops anyone, including the
+  backup credential on a compromised host, from deleting a set younger than 30 days. `--prune`
+  still applies 7 daily + 4 weekly to a local or mounted destination.
 
 ## 2. What one backup set contains, and why metadata and objects agree
 
@@ -203,6 +205,21 @@ RTO holds with a wide margin for any dataset this deployment will plausibly have
 would still fit). The number that is not measured is the human part of the 4 h whole-service
 RTO.
 
+**Staging drill, 2026-09-24 (the real key and a real off-server set).**
+`mcs21-offsite-backup.service` on staging wrote set `20260924T141906Z-7c503f93` (24 objects,
+738 MB) to Cloudflare R2 in 70.9 s, 67.4 s of it upload. The set was downloaded from R2 on the
+VPS (66 s; the R2 token only accepts the VPS's address) and copied to a MacBook (326 s), then
+restored there into an empty Docker MySQL 8.4.11 with the custodian's passphrase-protected
+key: **6.97 s** in total (verify ciphertext 0.32 s, decrypt 4.49 s, manifest 0.32 s, load DB
+0.46 s, objects 0.71 s, verify 0.65 s). Checked independently of the drill script: `CHECKSUM
+TABLE` of all 17 restored tables equals the live database's, and the SHA-256 of all 24
+restored objects equals the live files'. Transfer, about 6.5 minutes from R2 to a machine off
+the VPS, dominates, and still fits the 1 h data-restore RTO.
+
+A restore on a new host needs its own R2 read token: the staging token is limited to the VPS's
+IP address, so the account owner creates a read token for the new host in the Cloudflare
+dashboard as part of the restore.
+
 CI (`mysql-gate` → "Encrypted backup, clean restore, and refusal drill") runs
 `backup_restore_drill.sh` on every pull request. It generates a throwaway RSA key and backup
 account inside the job, backs up as that least-privilege account, and checks that the
@@ -300,16 +317,26 @@ dumps, and objects in a private temporary directory that is removed on exit.
 
 ## Not yet done
 
-- The nightly job is **not deployed**: installing `mcs21-offsite-backup.{service,timer}`, running
-  `04-backup-account.sql`, choosing the off-server target, placing the public key, and
-  confirming `ENCRYPTED_FILE_DIR` on the VPS all need someone with server access.
-- The rsync and S3 destinations are wired but untested against a real target.
-- Failure alerts to a person are in the repository (`mcs21-alert@.service`, issue #57) but
-  are live only once installed and tested on the VPS
-  ([RECONCILIATION_RUNBOOK.md §4](RECONCILIATION_RUNBOOK.md#4-install-once-after-the-pull-request-is-merged-and-deployed)).
-- The same-host `mcs21-backup-verify` failed every week from 2026-08-16 because it hardcoded
-  schema `0002`; the tracked copy derives its expectations and must be reinstalled.
-- The 4 h whole-service RTO has not been timed end to end on a fresh VPS.
-- `mcs21-deploy`'s pre-deploy backups remain plaintext on the same host (root-only, 0700).
-  They are a fast rollback point, not an off-server copy. It also tars all of
-  `/var/lib/fyp-secure-file-platform`; confirm on the server that no private key lives there.
+- The 4 h whole-service RTO has not been timed end to end on a fresh VPS; only the data
+  restore has (§5).
+- The rsync destination is wired but untested against a real target. S3 is live on R2.
+- `mcs21-deploy`'s pre-deploy backups remain plaintext on the same host (root-only, 0700) and are
+  never pruned: 81 dumps, 5.6 GB on 2026-09-24. They are a fast rollback point, not an
+  off-server copy. Pruning belongs in `mcs21-deploy`.
+
+## Staging installation record (2026-09-24)
+
+- Backup account `fyp_backup_user@172.29.21.1`, created from `04-backup-account.sql` with the
+  host changed: MySQL runs in Docker, so TCP connections from the host arrive from the Docker
+  gateway `172.29.21.1`, like every other staging account, and a `localhost` account cannot
+  log in. Verified as `fypapp`: TLS (`TLS_AES_256_GCM_SHA384`), reads, and `DELETE` refused.
+- `/etc/fyp-secure-file-platform/backup.env` (root, 0600) and `backup_pub.pem` (root:fypapp,
+  0640; SHA-256 of the key `4ac77119…`, as recorded in every set's `index.json`).
+- `aws` CLI 1.46.1 in a venv at `/opt/awscli`, linked to `/usr/local/bin/aws`. Ubuntu 24.04
+  has no `awscli` apt package, and the snap cannot start under the unit's `NoNewPrivileges=true`.
+- Destination `s3://mcs21-backups/staging` on Cloudflare R2. The token has Object Read & Write on
+  that bucket only and is limited to the VPS's IP address.
+- `mcs21-offsite-backup.timer` enabled (02:30 daily); failures email the address in `alert.env`.
+- `/var/lib/fyp-secure-file-platform` holds only `encrypted/` (24 ciphertext objects) and
+  `tmp/`; no private key was found there or anywhere else on the host.
+- The reinstalled `mcs21-backup-verify` passed for the first time since 2026-08-16.

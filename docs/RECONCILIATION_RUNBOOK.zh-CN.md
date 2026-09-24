@@ -279,14 +279,14 @@ sudo journalctl -u mcs21-alert@test.service -n 5 --no-pager    # 期望 "sent (H
 
 | 项目 | 值 |
 |---|---|
-| 已安装的 release SHA（`/opt/mcs21/current/.mcs21-release`） | `<sha>` |
-| 测试告警收件人（姓名、日期） | `<...>` |
-| `mcs21-backup-verify` 恢复通过（日期、备份时间戳） | `<...>` |
-| report-only 运行：日期时间（UTC）及 `/var/log/mcs21-reconcile/` 中的文件 | `<...>` |
-| report-only 各类别数量：eligible / crossed last 7d / crosses next 7d | `<粘贴表格>` |
-| 孤立对象审查（数量，以及逐个确认未被引用） | `<...>` |
-| 是否手动清理积压？（使用的上限、日期） | `<...>` |
+| 已安装的 release SHA（`/opt/mcs21/current/.mcs21-release`） | `1c0dcf01ff24606df78a06a8c4eba6a250e8c7f2`（之后又安装了 #86 的告警单元修复，`3e7b7f6`） |
+| 测试告警收件人（姓名、日期） | 2026-09-24：`mcs21-alert@test` 与一次真实 unit 告警发往 Shuoxun Wen 的邮箱，Resend 均已接受（HTTP 200）；是否收到待确认 |
+| `mcs21-backup-verify` 恢复通过（日期、备份时间戳） | 2026-09-24，`mcs21-db-20260923T202022Z.sql.gz`——自 2026-08-16 以来首次通过 |
+| report-only 运行：日期时间（UTC）及 `/var/log/mcs21-reconcile/` 中的文件 | 2026-09-24 14:10 UTC，`report-only-20260924-2210.txt` |
+| report-only 各类别数量：eligible / crossed last 7d / crosses next 7d | 共 43 条可删。refresh token 3/3/60，会话 3/3/58，登录限流 27/25/11，验证码 10/10/4，存储 0/0/0。会话与验证码数量与 §6 的独立查询完全一致；未来 7 天的高峰是 staging 最早一周的数据（2026-08-20 起）满 30 天，不是时钟问题（时钟已 NTP 同步）。 |
+| 孤立对象审查（数量，以及逐个确认未被引用） | 0。磁盘上 24 个对象、24 条有效记录，没有未被引用的对象，也没有缺少对象的记录。 |
+| 是否手动清理积压？（使用的上限、日期） | 不需要：43 条低于 1000 的上限。 |
 | 第二次 report-only 运行 eligible 为 0（幂等） | `<...>` |
-| 审查人 | `<姓名>` |
-| timer 启用（日期、`systemctl list-timers` 显示的下次运行） | `<...>` |
+| 审查人 | Shuoxun Wen |
+| timer 启用（日期、`systemctl list-timers` 显示的下次运行） | 2026-09-24；下次运行 2026-09-25 05:00 +08 |
 | 第一次计划运行结果（journal 摘录、日期） | `<...>` |

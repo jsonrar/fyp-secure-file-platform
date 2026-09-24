@@ -80,11 +80,11 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   并检查运行时账户与管理员账户的权限边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争
   现在随机化运行 8 轮，每轮都必须出现一个应用者和一个等待者；恢复结果按逐表 `CHECKSUM TABLE` 加
   Schema 指纹比较，并通过修改单行证明检查有效。仍不是长时间运行的混沌测试。
-- [ ] [#56 自动化加密异地备份并证明可在洁净主机恢复](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
-  ——恢复策略、协调一致的加密备份、最小权限账号、带计时的洁净主机恢复演练、回滚与部分 DDL 恢复均已
-  完成并在 CI 中运行（[docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)）。
-  失败邮件告警与修复后的每周恢复校验已通过 #57 进入仓库。待完成：在 VPS 上安装夜间定时任务、配置
-  真实异地目标并安装这些告警，以及在全新 VPS 上计时的端到端恢复。
+- [x] [#56 自动化加密异地备份并证明可在洁净主机恢复](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
+  ——2026-09-24 起已在 staging 运行：每晚把加密备份集传到 Cloudflare R2（35 天生命周期、30 天 bucket
+  lock），使用最小权限备份账号，失败时发邮件。一个真实备份集已在另一台机器上用离线私钥恢复，用时 6.97
+  秒，与线上数据库和文件完全一致（[docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)
+  §5）。后续：在全新 VPS 上计时 4 小时整体服务 RTO，并清理 `mcs21-deploy` 的发布前 dump。
 - [x] [#61 保持 README、TODO、Issues、changelog、PR 与部署同步](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   ——本次同步 PR 建立统一记录与证据清单；后续变更沿用同一规则。
 
@@ -98,7 +98,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——仓库部分已完成：目录宽限期、数量保护（退出码 3）、边界两侧计数报告、MySQL 幂等性测试与不触碰审计/
   密钥/恢复表的语句测试、在同机备份之后 05:00 运行的 timer、邮件告警，以及
   [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md)。待完成：在 staging 安装、
-  记录 report-only 审查，然后启用 timer。
+  记录 report-only 审查，然后启用 timer。2026-09-24 已在 staging 安装，report-only 审查已记录（43 条可删、
+  0 个孤立对象），timer 已启用。待完成：记录第一次计划运行（2026-09-25 05:00）与幂等的重复运行。
 - [ ] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
   ——`e2e-live` CI Job 现已针对一次性 API 与 MySQL 不跳过地运行前端全部真实后端测试套件（从注册到
   注销账户、全部四种文件算法、角色拒绝）；`mysql-gate` 运行多连接并发与真实故障注入测试；覆盖率

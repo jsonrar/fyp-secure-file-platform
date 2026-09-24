@@ -310,14 +310,14 @@ Fill this in on the host. Do not mark #57 done until every line is filled.
 
 | Item | Value |
 |---|---|
-| Release SHA installed (`/opt/mcs21/current/.mcs21-release`) | `<sha>` |
-| Test alert received by (names, date) | `<...>` |
-| `mcs21-backup-verify` passing again (date, backup stamp) | `<...>` |
-| Report-only run: date/time (UTC) and file in `/var/log/mcs21-reconcile/` | `<...>` |
-| Report-only totals: eligible / crossed last 7d / crosses next 7d, per category | `<paste the table>` |
-| Orphan objects reviewed (count, and every one confirmed unreferenced) | `<...>` |
-| Backlog cleared by hand? (limit used, date) | `<...>` |
+| Release SHA installed (`/opt/mcs21/current/.mcs21-release`) | `1c0dcf01ff24606df78a06a8c4eba6a250e8c7f2` (the alert-unit fix from #86, `3e7b7f6`, installed afterwards) |
+| Test alert received by (names, date) | 2026-09-24: `mcs21-alert@test` and a real-unit alert to Shuoxun Wen's address, both accepted by Resend (HTTP 200); receipt to be confirmed |
+| `mcs21-backup-verify` passing again (date, backup stamp) | 2026-09-24, `mcs21-db-20260923T202022Z.sql.gz` — first pass since 2026-08-16 |
+| Report-only run: date/time (UTC) and file in `/var/log/mcs21-reconcile/` | 2026-09-24 14:10 UTC, `report-only-20260924-2210.txt` |
+| Report-only totals: eligible / crossed last 7d / crosses next 7d, per category | 43 eligible. Refresh tokens 3/3/60, sessions 3/3/58, throttle buckets 27/25/11, verification codes 10/10/4, storage 0/0/0. Session and code counts matched the independent §6 query exactly; the next-7-days wave is the first week of staging data (from 2026-08-20) reaching 30 days, not a clock fault (clock NTP-synchronised). |
+| Orphan objects reviewed (count, and every one confirmed unreferenced) | 0. 24 objects on disk, 24 live rows, none unreferenced, no live row without an object. |
+| Backlog cleared by hand? (limit used, date) | Not needed: 43 is under the 1000 limit. |
 | Second report-only run shows 0 eligible (idempotency) | `<...>` |
-| Reviewer | `<name>` |
-| Timer enabled (date, `systemctl list-timers` next run) | `<...>` |
+| Reviewer | Shuoxun Wen |
+| Timer enabled (date, `systemctl list-timers` next run) | 2026-09-24; next run 2026-09-25 05:00 +08 |
 | First scheduled run result (journal excerpt, date) | `<...>` |
