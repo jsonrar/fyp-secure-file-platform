@@ -1,4 +1,12 @@
 #!/bin/sh
+# Same-host daily backup: a plaintext mysqldump of the live database plus a tar of
+# /var/lib/fyp-secure-file-platform, kept 14 days in /var/backups/mcs21-daily.
+# Run as root by the server-only mcs21-backup.service/.timer (04:15 Asia/Kuala_Lumpur).
+#
+# Not installed by the deploy tooling. Installed manually:
+#   sudo install -o root -g root -m 0755 deployment/server/mcs21-backup /usr/local/sbin/mcs21-backup
+# mcs21-reconcile.service refuses to run without a manifest from this script in the last
+# 3 hours, and waits on the same lock file. Failure alerts: mcs21-backup.service.d/alert.conf.
 set -eu
 
 backup_dir=/var/backups/mcs21-daily
