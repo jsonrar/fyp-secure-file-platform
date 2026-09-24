@@ -381,6 +381,25 @@ npm run build
 此门禁本身时，可通过 `docker compose up -d mysql` 配合 `backend/scripts/mysql_release_gate.sh`
 在本地验证较复杂的场景。各检查脚本参见 `backend/scripts/`，尚未完成的部分记录在 `TODO.md`。
 
+### 备份与恢复演练
+
+MySQL 元数据与密文对象的协调加密备份，以及证明其可用的洁净主机恢复，见
+[docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)（RPO/RTO、保留策略、密钥保管、
+实测耗时）。`mysql-gate` 在每个 PR 上运行该演练。在本地针对任意一次性 MySQL 8.4 运行（只会操作名称中
+包含 `_test` 的数据库，生成的一次性密钥和账号会在退出时删除）：
+
+```bash
+docker compose up -d mysql
+cd backend
+export DB_HOST=127.0.0.1 DB_PORT=3306 ADMIN_DB_USER=root ADMIN_DB_PASSWORD=local_root_password
+export SECRET_KEY=local-test-secret-key-at-least-32-chars APP_ENV=test
+bash scripts/backup_restore_drill.sh   # 加密备份 -> 洁净恢复 -> 拒绝检查
+bash scripts/mysql_release_gate.sh     # 锁竞争、带校验和的恢复、回滚、部分 DDL
+```
+
+夜间备份任务本身（`deployment/server/mcs21-backup.{service,timer}` 与
+`database/mysql/04-backup-account.sql` 账号）目前只是模板，尚未安装到预发布环境。
+
 ## 重要安全说明
 
 本项目仍是 FYP 原型。邮箱验证和忘记**登录密码**后的验证码重置已经实现，但 MFA 与外部身份

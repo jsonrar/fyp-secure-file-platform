@@ -77,10 +77,14 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [ ] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0006_chacha20_poly1305` 的每一次迁移，
   运行 `alembic current`/`check`，任何集成测试被跳过即判失败，并检查运行时账户与管理员账户的权限
-  边界及线上 Schema 一致性。遗留：并发加锁与部分 DDL 恢复检查目前是普通脚本断言，而非模糊测试或
-  混沌测试；备份恢复演练比对的是表数与行数，而非完整校验和。
+  边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争现在随机化运行 8 轮，每轮都必须
+  出现一个应用者和一个等待者；恢复结果按逐表 `CHECKSUM TABLE` 加 Schema 指纹比较，并通过修改单行
+  证明检查有效。仍不是长时间运行的混沌测试。
 - [ ] [#56 自动化加密异地备份并证明可在洁净主机恢复](https://github.com/jsonrar/fyp-secure-file-platform/issues/56)
-  ——定义 RPO/RTO，协调数据库/密文备份并保留恢复证据。
+  ——恢复策略、协调一致的加密备份、最小权限账号、带计时的洁净主机恢复演练、回滚与部分 DDL 恢复均已
+  完成并在 CI 中运行（[docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)）。
+  待完成：在 VPS 上安装夜间定时任务并配置真实异地目标、把失败告警推送给人、在全新 VPS 上计时的
+  端到端恢复。
 - [x] [#61 保持 README、TODO、Issues、changelog、PR 与部署同步](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   ——本次同步 PR 建立统一记录与证据清单；后续变更沿用同一规则。
 
