@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Isolated VPS adversarial tamper drill / 隔离 VPS 对抗性篡改演练
+
+- Added a default-stopped, resource-limited attacker container and disposable MySQL 8.4/object volumes for #90. The repeatable drill proves byte tampering becomes `MODIFIED`/`CORRUPTED`, download is refused, missing storage does not permanently poison status, and restoration heals the file, without exposing the Docker socket, host network, production secrets, database, or user objects.
+- 为 #90 新增默认停止且资源受限的攻击容器，以及一次性 MySQL 8.4/对象卷。可重复演练证明字节篡改会变成 `MODIFIED`/`CORRUPTED`、下载被拒、存储暂时缺失不会永久污染状态、恢复密文后文件自愈；整个过程不会暴露 Docker socket、宿主机网络、生产 Secret、数据库或用户对象。
+- The drill also demonstrates the residual trust boundary instead of overstating SHA-256: simultaneous database-and-object compromise can replace the recorded digest and pass the server comparison, while the original AES-GCM tag still rejects the forgery during client authentication. CI now runs the whole drill and retains only a hygiene-scanned JSON report; all lab credentials, keys, database state, and volumes are destroyed on exit.
+- 演练同时展示剩余信任边界，不夸大 SHA-256：若数据库与对象存储同时失陷，攻击者可替换记录摘要并通过服务端比较，但原始 AES-GCM 标签仍会在客户端认证时拒绝伪造。CI 现会运行完整演练，只保留经过泄密扫描的 JSON 报告；所有实验凭据、密钥、数据库状态与卷都会在退出时销毁。
+
 ### A real-browser smoke test of the golden path / 黄金路径的真实浏览器冒烟测试
 
 - Added `frontend/browser-tests/golden-path.browser.ts`, a Playwright test in which Chromium clicks the built pages through register, emailed-code verification, sign-in, upload, unlocking the account key, download (bytes compared with the original), sharing, the recipient seeing and decrypting the file with their own passphrase, revocation, the file leaving the recipient's list, and logout. The Node live suites prove the crypto and API contract but cannot see a button wired to the wrong handler; with the Share button's handler disabled, the Node suites still passed all 313 tests and this test failed. It closes the last deferred item of #58.

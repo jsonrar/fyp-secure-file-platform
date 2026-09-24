@@ -457,3 +457,29 @@ jobs:
           name: e2e-browser-report
           path: ${{ runner.temp }}/reports/e2e-browser/html
           retention-days: 14
+
+  # A same-host attacker container mutates only a disposable encrypted-object volume and
+  # `_test` database. It has no host network, Docker socket, production secret, or production
+  # mount. The report proves the visible integrity states and the SHA-256/AEAD trust boundary.
+  tamper-drill:
+    name: tamper-drill
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run the isolated ciphertext tamper drill
+        env:
+          REPORT_DIR: ${{ runner.temp }}/reports/tamper-drill
+        run: bash security-lab/run.sh
+
+      - name: Check the sanitized report before publishing
+        if: always()
+        run: python3 backend/scripts/check_report_hygiene.py ${{ runner.temp }}/reports/tamper-drill
+
+      - name: Keep the tamper-drill evidence
+        if: success()
+        uses: actions/upload-artifact@v4
+        with:
+          name: tamper-drill-report
+          path: ${{ runner.temp }}/reports/tamper-drill
+          retention-days: 90

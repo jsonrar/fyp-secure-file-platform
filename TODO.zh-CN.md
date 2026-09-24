@@ -8,9 +8,8 @@
 团队通过 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
 共用 Kanban 视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
-下方已交付 MVP 能力继续保持勾选。当前 GitHub `main` 尚未完整满足下方未勾选 Issue
-（#52–#60 与 #71–#76）的整体验收目标：其中部分已有基础实现，但仍缺 CI、运维证据、
-角色感知 UI 或本次新增的产品流程，因此不会把“部分完成”误标为完成。
+下方已交付 MVP 能力继续保持勾选。GitHub Issues 是权威来源；下方未勾选项仍缺产品、运维、
+安全评审或部署证据。部分完成不会被误标为完成。
 
 提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：
 24 个 WBS 工作包中 20 个 Done、3 个 In progress、1 个 Backlog；7 条产品验收标准中 6 条
@@ -74,7 +73,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——`.github/workflows/ci.yml` 在每个 PR 及推送到 `main` 时运行 backend（Ruff + 带覆盖率下限、不依赖
   MySQL 的 pytest）与 frontend（带覆盖率的测试/类型检查/构建）；Ruff 基线已真正修复而非压制。分支保护仍需仓库管理员
   将 `backend`、`frontend` 设为必需检查——详见引入本改动的 PR。
-- [ ] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
+- [x] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0006_chacha20_poly1305` 的每一次迁移，
   运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，
   并检查运行时账户与管理员账户的权限边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争
@@ -109,6 +108,11 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——让运维和审计失败可见，同时不泄露 Secret。
 
 ## P2 — 正式安全保障
+
+- [x] [#90 增加带完整性证据的隔离 VPS 对抗性篡改演练](https://github.com/jsonrar/fyp-secure-file-platform/issues/90)
+  ——资源受限的攻击容器只能看到一次性实验卷与 MySQL 8.4 `_test` 数据库；它证明
+  `MODIFIED`/`CORRUPTED`、下载拒绝、`MISSING`、恢复到 `VALID`/`ACTIVE`，以及 SHA-256 与 AEAD
+  的信任边界；CI 会保留脱敏报告（[运行手册](security-lab/README.md)）。
 
 - [ ] [#60 完成正式威胁模型与独立安全评审](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
   ——覆盖账户信封、Argon2id、token/密钥托管、metadata、恢复、CSP、依赖及残余信任边界，

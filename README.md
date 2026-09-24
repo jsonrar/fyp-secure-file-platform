@@ -72,10 +72,11 @@ Visitors can pause, enlarge images, swipe on phones, or let 8-second autoplay ru
 progress bar. Completed steps show a check. The pictures use fabricated data and
 mobile crops; this local preview is not yet verified on staging.
 
-The remaining work is production hardening rather than an unfinished basic demo: required CI
-and MySQL 8.4 gates, change-passphrase (with the old one) and successor-key UI, complete admin/recovery-officer
-screens, encrypted off-server backup/restore drills, scheduled reconciliation, observability,
-and formal security review. The prioritized summary is in [TODO.md](TODO.md), and executable
+The remaining work is production hardening rather than an unfinished basic demo: change-passphrase
+(with the old one) and successor-key UI, complete admin/recovery-officer screens, observability,
+and formal security review. Required CI, MySQL 8.4 release gates, encrypted off-server backups,
+clean-host restore evidence, scheduled reconciliation, and a same-VPS isolated tamper drill are
+now in place. The prioritized summary is in [TODO.md](TODO.md), and executable
 work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)
 and the team's [SecureView Development Board](https://github.com/users/Waldo0926/projects/1).
 
@@ -410,7 +411,7 @@ Frontend: <http://localhost:5173>
 
 ## Continuous Integration
 
-`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with four jobs.
+`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with five jobs.
 `backend` and `frontend` are required checks; a repository admin must also mark them required
 in branch protection (see the pull request that introduced this workflow for the exact job
 names to add). Run the same commands locally before pushing so a failure never arrives as a
@@ -448,6 +449,14 @@ built pages through the same golden path, so a button wired to the wrong handler
 job publishes its JUnit and coverage reports as a build
 artifact, but only after `backend/scripts/check_report_hygiene.py` confirms they hold no keys,
 tokens, non-example addresses, or fixture plaintext.
+
+The fifth job, `tamper-drill`, builds a default-stopped attacker container on an internal-only
+Docker network. Against its own MySQL 8.4 `_test` database and encrypted-object volumes, it
+proves that byte modification is shown as `MODIFIED`/`CORRUPTED`, download is refused, a missing
+object is reported without permanently corrupting status, and a restored object returns to
+`VALID`/`ACTIVE`. It also documents the trust boundary: an attacker controlling both the object
+store and database can replace the recorded SHA-256, but the browser's AEAD tag still rejects
+the forged ciphertext. See [`security-lab/README.md`](security-lab/README.md).
 
 Both database suites run from a laptop against any disposable MySQL 8.4 whose database name has
 a `_test` segment (never the shared `docker compose` database):
