@@ -1,0 +1,16 @@
+FROM python:3.12.7-slim-bookworm
+
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    PYTHONPATH=/app
+
+WORKDIR /app
+COPY requirements.txt requirements-dev.txt ./
+RUN pip install --no-cache-dir -r requirements.txt -r requirements-dev.txt
+COPY . ./
+# Some Python distributions install an unrelated top-level `tests` package. Make the copied
+# SecureView test helpers an explicit package inside this lab image so they cannot be shadowed.
+RUN touch tests/__init__.py tests/integration/__init__.py
+
+RUN groupadd --gid 10001 lab && useradd --uid 10001 --gid lab --no-create-home lab
+USER 10001:10001

@@ -57,9 +57,10 @@ Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动
 解锁和接收者下载。默认自动播放（每步 8 秒，带进度条），用户可暂停；也可放大图片或在手机上滑动换步；
 已完成步骤显示勾选。图片使用虚构数据，并提供手机裁切图；本版为本地预览，尚未核验预发布部署。
 
-剩余工作属于生产级加固，而非基础演示尚未闭环：强制 CI/MySQL 8.4 门禁、凭旧 passphrase 修改 passphrase 与
-后继密钥 UI、完整管理/恢复专员页面、加密异地备份与恢复演练、定时对账、可观测性及正式安全
-评审。优先级摘要见 [TODO.zh-CN.md](TODO.zh-CN.md)，带验收标准的可执行工作统一放在
+剩余工作属于生产级加固，而非基础演示尚未闭环：凭旧 passphrase 修改 passphrase 与后继密钥 UI、
+完整管理/恢复专员页面、可观测性及正式安全评审。强制 CI、MySQL 8.4 发布门禁、加密异地备份、
+洁净主机恢复证据、定时对账，以及同 VPS 的隔离篡改演练现均已到位。优先级摘要见
+[TODO.zh-CN.md](TODO.zh-CN.md)，带验收标准的可执行工作统一放在
 [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues) 与团队共用的
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)。
 
@@ -354,7 +355,7 @@ npm run dev
 
 ## 持续集成
 
-`.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行，包含四个 Job。`backend` 与
+`.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行，包含五个 Job。`backend` 与
 `frontend` 是必需检查；仓库管理员还需在分支保护中将它们设为必需（具体 Job 名称参见引入该
 workflow 的 PR）。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
 
@@ -386,6 +387,12 @@ npm run build
 在构建后的页面上点击走完同一条黄金路径，因此按钮接错处理函数也会让 CI 失败。每个 Job 都会把 JUnit 与覆盖率报告作为
 构建产物上传，但前提是 `backend/scripts/check_report_hygiene.py` 确认其中不含密钥、令牌、非示例
 邮箱地址或测试夹具明文。
+
+第五个 Job `tamper-drill` 会在仅内部可达的 Docker 网络中构建默认停止的攻击容器。它只针对自己
+的 MySQL 8.4 `_test` 数据库与密文卷，证明：修改字节后界面语义为 `MODIFIED`/`CORRUPTED` 且下载
+被拒；对象缺失会被报告但不会永久污染状态；恢复对象后回到 `VALID`/`ACTIVE`。它也明确记录信任
+边界：若攻击者同时控制对象存储与数据库，就能替换数据库中的 SHA-256，但浏览器的 AEAD 认证标签
+仍会拒绝伪造密文。详见 [`security-lab/README.md`](security-lab/README.md)。
 
 两套数据库测试都可以在笔记本上针对任意一次性 MySQL 8.4 运行，数据库名须带 `_test` 段（切勿
 使用共享的 `docker compose` 数据库）：

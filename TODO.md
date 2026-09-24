@@ -10,10 +10,9 @@ and the [SecureView Development Board](https://github.com/users/Waldo0926/projec
 shared Kanban view; this file is the prioritized summary and must link to them rather than
 becoming a second, drifting list.
 
-The shipped MVP capabilities below remain checked. Current GitHub `main` does not yet satisfy
-the complete acceptance goal of the unchecked Issues linked below (#52–#60 and #71–#76):
-some have foundations in place, but CI, operational evidence, role-aware UI, or the newly
-requested product workflows are still missing. Partial work is therefore not marked complete.
+The shipped MVP capabilities below remain checked. GitHub Issues are authoritative; unchecked
+items below still need product, operations, security-review, or deployment evidence. Partial
+work is not marked complete.
 
 The proposal audit is recorded in
 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): 20 of 24 WBS packages are
@@ -84,7 +83,7 @@ not a release pass.
   — `.github/workflows/ci.yml` runs backend (Ruff + non-MySQL pytest with a coverage floor) and frontend (test with coverage/typecheck/build)
   on every PR and push to `main`; the Ruff baseline is fixed, not suppressed. Branch protection still
   needs a repository admin to mark `backend` and `frontend` required — see the PR that introduced this.
-- [ ] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
+- [x] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
   `0006_chacha20_poly1305`, runs `alembic current`/`check`, runs the whole backend suite (coverage
   floor 82%) and fails on any skipped test, and checks runtime-vs-admin grants and live schema
@@ -125,6 +124,12 @@ not a release pass.
   — make operational and audit failures visible without leaking secrets.
 
 ## P2 — formal security assurance
+
+- [x] [#90 Add an isolated VPS adversarial tamper drill with integrity evidence](https://github.com/jsonrar/fyp-secure-file-platform/issues/90)
+  — a resource-limited attacker container sees only disposable lab volumes and a MySQL 8.4
+  `_test` database. It proves `MODIFIED`/`CORRUPTED`, refused download, `MISSING`, recovery to
+  `VALID`/`ACTIVE`, and the SHA-256 versus AEAD trust boundary; CI retains a sanitized report
+  ([runbook](security-lab/README.md)).
 
 - [ ] [#60 Complete the formal threat model and independent security review](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
   — cover account envelopes, Argon2id, token/key custody, metadata, recovery, CSP, dependencies,
