@@ -10,13 +10,13 @@
 # it shows up in `systemctl --failed` and the journal instead.
 
 [Unit]
-Description=Email an alert that %I failed
+Description=Email an alert that %i failed
 Wants=network-online.target
 After=network-online.target
 
 [Service]
 Type=oneshot
-ExecStart=/usr/local/sbin/mcs21-alert %I
+ExecStart=/usr/local/sbin/mcs21-alert %i
 TimeoutStartSec=3min
 
 NoNewPrivileges=true
