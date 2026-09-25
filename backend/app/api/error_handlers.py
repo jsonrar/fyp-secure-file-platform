@@ -106,9 +106,7 @@ def _record_operational_error(request: Request, exc: AppError, status_code: int)
         )
     elif isinstance(exc, IntegrityVerificationError):
         if registry is not None:
-            registry.record_event(
-                category="storage", event="integrity_rejected", outcome="blocked"
-            )
+            registry.record_event(category="storage", event="integrity_rejected", outcome="blocked")
         emit_security_event(
             logger,
             logging.WARNING,
