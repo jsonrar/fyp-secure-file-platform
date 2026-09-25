@@ -1,0 +1,11 @@
+[Unit]
+Description=Publish SecureView audit checkpoint hourly
+
+[Timer]
+OnCalendar=*-*-* *:10:00 Asia/Kuala_Lumpur
+RandomizedDelaySec=2m
+Persistent=true
+Unit=mcs21-audit-checkpoint.service
+
+[Install]
+WantedBy=timers.target
