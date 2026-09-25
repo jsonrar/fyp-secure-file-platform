@@ -49,17 +49,25 @@ def _json_line(event: str, **fields: Any) -> str:
 
 def _require_loopback_url(url: str) -> None:
     parsed = urllib.parse.urlparse(url)
-    if parsed.scheme != "http" or parsed.hostname not in {"127.0.0.1", "localhost", "::1"}:
+    if parsed.scheme != "http" or parsed.hostname not in {
+        "127.0.0.1",
+        "localhost",
+        "::1",
+    }:
         raise ObserveError("metrics and health URLs must be loopback HTTP endpoints")
 
 
 def fetch_json(url: str, *, timeout: float = 5.0) -> dict[str, Any]:
     _require_loopback_url(url)
-    request = urllib.request.Request(url, headers={"User-Agent": "SecureView-ops-watch/1.0"})
+    request = urllib.request.Request(
+        url,
+        headers={"User-Agent": "SecureView-ops-watch/1.0"},
+    )
     try:
+        # URL/error detail can contain environment data; do not print it.
         with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
             payload = json.loads(response.read().decode("utf-8"))
-    except Exception as exc:  # URL/error detail can contain environment data; do not print it.
+    except Exception as exc:
         raise ObserveError(f"loopback probe failed ({type(exc).__name__})") from exc
     if not isinstance(payload, dict):
         raise ObserveError("loopback probe did not return a JSON object")
@@ -158,8 +166,14 @@ def evaluate_breaches(
 
 def parse_args(argv: list[str] | None = None) -> argparse.Namespace:
     parser = argparse.ArgumentParser()
-    parser.add_argument("--metrics-url", default="http://127.0.0.1:8000/internal/metrics")
-    parser.add_argument("--health-url", default="http://127.0.0.1:8000/health/ready")
+    parser.add_argument(
+        "--metrics-url",
+        default="http://127.0.0.1:8000/internal/metrics",
+    )
+    parser.add_argument(
+        "--health-url",
+        default="http://127.0.0.1:8000/health/ready",
+    )
     parser.add_argument("--state-file", type=Path, required=True)
     parser.add_argument("--disk-path", type=Path, required=True)
     parser.add_argument("--checkpoint-stamp", type=Path, required=True)
@@ -202,7 +216,9 @@ def main(argv: list[str] | None = None) -> int:
             checkpoint_age=checkpoint_age,
             args=args,
         )
-        previous_breaches = set(previous.get("active_breaches", [])) if previous else set()
+        previous_breaches = (
+            set(previous.get("active_breaches", [])) if previous else set()
+        )
         new_breaches = sorted(set(breaches) - previous_breaches)
         recovered = sorted(previous_breaches - set(breaches))
 
