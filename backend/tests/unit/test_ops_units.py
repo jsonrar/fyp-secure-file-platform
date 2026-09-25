@@ -135,8 +135,9 @@ def test_trusted_proxy_and_internal_metrics_stay_on_loopback() -> None:
     assert "--host 127.0.0.1" in deploy
     assert "--forwarded-allow-ips=*" not in deploy
     assert "proxy_pass http://127.0.0.1:8000" in nginx
-    assert "/internal/metrics" not in nginx
-    assert "location /internal" not in nginx
+    assert "location ^~ /internal/" in nginx
+    assert "return 404;" in nginx
+    assert "proxy_pass http://127.0.0.1:8000/internal" not in nginx
 
 
 def test_backup_verify_derives_its_expectations() -> None:
