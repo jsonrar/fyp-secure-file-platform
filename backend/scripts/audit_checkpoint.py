@@ -254,9 +254,7 @@ def _checkpoint_paths(path: Path) -> list[Path]:
     if not path.is_dir():
         raise CheckpointError(f"checkpoint path does not exist: {path}")
     return sorted(
-        item
-        for item in path.iterdir()
-        if item.is_file() and _CHECKPOINT_RE.match(item.name)
+        item for item in path.iterdir() if item.is_file() and _CHECKPOINT_RE.match(item.name)
     )
 
 
