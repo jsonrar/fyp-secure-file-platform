@@ -17,6 +17,11 @@ from app.core.database import (
 from app.core.database import (
     engine as default_engine,
 )
+from app.core.observability import (
+    ObservabilityMiddleware,
+    ObservabilityState,
+    configure_event_logger,
+)
 from app.core.security import PasswordManager
 
 
@@ -30,6 +35,9 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:
     active_settings = app_settings or settings
+    configure_event_logger(active_settings.LOG_LEVEL)
+    observability = ObservabilityState()
+
     # Passing None un-mounts the route entirely, so a disabled schema is a 404 rather than a
     # 403 -- it does not confirm that the documentation is there to be found.
     docs_enabled = active_settings.APP_DOCS_ENABLED
@@ -43,6 +51,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if docs_enabled else None,
     )
     application.state.settings = active_settings
+    application.state.observability = observability
     application.state.db_engine = (
         default_engine
         if active_settings is settings
@@ -56,6 +65,11 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         max_concurrent_operations=active_settings.AUTH_PASSWORD_HASH_CONCURRENCY
     )
 
+    application.add_middleware(
+        ObservabilityMiddleware,
+        state=observability,
+        api_prefix=active_settings.API_PREFIX,
+    )
     application.add_middleware(
         RequestBodyLimitMiddleware,
         max_body_bytes=active_settings.MAX_REQUEST_BODY_BYTES,
@@ -97,16 +111,29 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
                     text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
                 )
         except Exception:
+            observability.mark_readiness("database_unavailable")
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"status": "not_ready", "reason": "database_unavailable"},
             )
         if revision != active_settings.EXPECTED_SCHEMA_REVISION:
+            observability.mark_readiness(
+                "schema_incompatible",
+                expected_schema=active_settings.EXPECTED_SCHEMA_REVISION,
+                observed_schema=str(revision) if revision is not None else None,
+            )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"status": "not_ready", "reason": "schema_incompatible"},
             )
+        observability.mark_readiness("ready")
         return {"status": "ready"}
+
+    @application.get("/internal/metrics", include_in_schema=False)
+    def internal_metrics():
+        # Production Uvicorn binds to 127.0.0.1 and nginx does not proxy /internal/.
+        # This is intentionally a host-local operations surface, not a public API.
+        return observability.snapshot()
 
     return application
 
