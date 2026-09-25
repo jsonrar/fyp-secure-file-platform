@@ -175,7 +175,7 @@ def register_exception_handlers(application: FastAPI) -> None:
             method=request.method,
             route=_route_template(request),
             status_code=500,
-            reason=type(exc).__name__,
+            error_type=type(exc).__name__,
         )
         return error(
             message="Internal server error",
