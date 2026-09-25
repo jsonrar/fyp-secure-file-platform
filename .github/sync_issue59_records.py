@@ -1,0 +1,72 @@
+from pathlib import Path
+
+
+def replace_once(path: str, old: str, new: str) -> None:
+    file = Path(path)
+    text = file.read_text(encoding="utf-8")
+    count = text.count(old)
+    if count != 1:
+        raise SystemExit(f"{path}: expected one anchor, found {count}")
+    file.write_text(text.replace(old, new, 1), encoding="utf-8")
+
+
+changelog = """### Redacted observability, incident response, and external audit anchors / 脱敏可观测性、事故响应与外部审计锚点
+
+- Implemented the repository side of #59: security/operations events are structured JSON with route templates, redacted client networks, and field-name redaction; a loopback-only metrics snapshot is sampled every five minutes against explicit staging thresholds. Unexpected exception text, request bodies, filenames/content, credentials, tokens, passphrases and key material are deliberately excluded so detection does not create a second sensitive-data store.
+- 完成 #59 的仓库侧实现：安全/运维事件改为结构化 JSON，只记录路由模板、脱敏后的客户端网段，并按敏感字段名再次脱敏；仅 loopback 可访问的 metrics snapshot 每五分钟按明确的 staging 阈值采样。未预期异常原文、请求正文、文件名/内容、凭据、令牌、passphrase 与密钥材料均被刻意排除，避免为了检测异常而制造第二份敏感数据存储。
+- Added hourly HMAC-SHA256 audit-chain checkpoints for S3-compatible off-server storage. Each checkpoint authenticates only the deployed Git SHA and audit-chain head; the root-only HMAC key never enters the application environment. Offline `verify` and read-only `verify-live` detect a database rewrite that is internally self-consistent but no longer contains an older external anchor.
+- 新增每小时发布到 S3 兼容异地存储的 HMAC-SHA256 audit-chain checkpoint。checkpoint 只认证已部署 Git SHA 与审计链头；仅 root 可读的 HMAC key 不进入应用环境。离线 `verify` 与只读 `verify-live` 能发现“数据库内部仍自洽、但已不再包含旧外部锚点”的整体重写。
+- Hardened operational alerting and network boundaries: alert email no longer contains raw journal lines, Uvicorn's existing proxy trust is pinned to loopback nginx, `/internal/` is explicitly 404 on the public origin, and new observer/checkpoint units alert through the same sparse mail path. The paired incident runbooks cover outage, storage corruption, credential compromise, migration/schema mismatch, audit-chain failure, and recovery-key incidents. Staging activation and independent external-checkpoint/redaction evidence remain required before #59 closes.
+- 收紧运维告警与网络边界：告警邮件不再携带原始 journal 行；Uvicorn 现有 proxy trust 明确固定为 loopback nginx；公网 origin 对 `/internal/` 显式返回 404；新的 observer/checkpoint unit 复用同一条最小化邮件告警链路。双语事故 runbook 覆盖宕机、存储损坏、凭据泄露、迁移/Schema 不一致、审计链失败与 recovery-key 事故。#59 关闭前仍必须完成 staging 启用，以及外部 checkpoint 独立验证和脱敏实证。
+
+"""
+replace_once(
+    "changelog/CHANGELOG.md",
+    "## [Unreleased] / [未发布]\n\n",
+    "## [Unreleased] / [未发布]\n\n" + changelog,
+)
+
+readme_en = """SecureView's #59 observability hardening is implemented in the repository: structured redacted
+security/operations events feed a loopback-only metrics snapshot and five-minute threshold
+watcher; hourly HMAC-authenticated audit-chain checkpoints are designed for the existing
+S3-compatible off-server store; alert email carries unit state but no raw journal lines. The
+trusted-proxy boundary is loopback nginx only and the public origin explicitly returns 404 for
+`/internal/`. Installation, threshold ownership, independent checkpoint verification, and
+incident procedures are in
+[`docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md`](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md).
+The new timers remain deliberately opt-in until the exact merged SHA is deployed and the
+staging evidence table is completed.
+
+"""
+replace_once(
+    "README.md",
+    "`backend/scripts/reconcile.py` removes lapsed sessions, refresh tokens, throttle buckets,\n",
+    readme_en + "`backend/scripts/reconcile.py` removes lapsed sessions, refresh tokens, throttle buckets,\n",
+)
+
+readme_zh = """SecureView 的 #59 可观测性加固已在仓库中实现：结构化且脱敏的安全/运维事件进入仅
+loopback 可访问的 metrics snapshot，并由五分钟阈值 watcher 检查；每小时 HMAC 认证的审计链 checkpoint
+面向现有 S3 兼容异地存储；告警邮件只发送 unit 状态，不再携带原始 journal 行。受信 proxy 边界仅限
+loopback nginx，公网 origin 对 `/internal/` 显式返回 404。安装方式、阈值负责人、checkpoint 独立验证与
+事故处理流程见
+[`docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md`](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md)。
+在精确 merged SHA 部署并补齐 staging 证据表之前，新增 timer 仍刻意保持 opt-in。
+
+"""
+replace_once(
+    "README.zh-CN.md",
+    "`backend/scripts/reconcile.py` 清除已失效的会话、刷新令牌、限流桶、验证码以及未被引用的密文对象；",
+    readme_zh + "`backend/scripts/reconcile.py` 清除已失效的会话、刷新令牌、限流桶、验证码以及未被引用的密文对象；",
+)
+
+replace_once(
+    "TODO.md",
+    '- [ ] [#59 Add redacted observability, incident runbooks, and external audit checkpoints](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)\n  — make operational and audit failures visible without leaking secrets.',
+    '- [ ] [#59 Add redacted observability, incident runbooks, and external audit checkpoints](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)\n  — repository implementation is ready: redacted structured events, loopback metrics and threshold alerts, trusted-proxy enforcement, HMAC external audit checkpoints, sparse alert email, and paired incident runbooks. Open until the exact merge SHA is deployed, the external checkpoint is independently verified, and staging redaction/alert evidence is recorded.',
+)
+
+replace_once(
+    "TODO.zh-CN.md",
+    '- [ ] [#59 新增脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)\n  ——让运维与审计失败可见，同时不泄露 Secret。',
+    '- [ ] [#59 新增脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)\n  ——仓库侧实现已就绪：脱敏结构化事件、仅 loopback 的 metrics 与阈值告警、受信 proxy 约束、HMAC 外部审计 checkpoint、最小化告警邮件和双语事故 runbook。保持未完成，直到部署精确 merge SHA、独立验证外部 checkpoint，并记录 staging 脱敏/告警证据。',
+)
