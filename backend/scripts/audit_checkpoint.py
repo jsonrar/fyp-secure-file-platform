@@ -13,6 +13,7 @@ and drills and requires --allow-local-dest so it cannot be mistaken for an exter
 from __future__ import annotations
 
 import argparse
+import contextlib
 import hashlib
 import hmac
 import json
@@ -176,10 +177,7 @@ def load_hmac_key(path: Path) -> bytes:
     except OSError as exc:
         raise CheckpointError("HMAC key file is unreadable") from exc
 
-    if re.fullmatch(rb"[0-9A-Fa-f]{64}", raw):
-        key = bytes.fromhex(raw.decode("ascii"))
-    else:
-        key = raw
+    key = bytes.fromhex(raw.decode("ascii")) if re.fullmatch(rb"[0-9A-Fa-f]{64}", raw) else raw
     if len(key) < 32:
         raise CheckpointError("HMAC key must contain at least 256 bits of random material")
     return key
@@ -317,10 +315,8 @@ def write_stamp(
             handle.write("\n")
         os.replace(temporary, path)
     finally:
-        try:
+        with contextlib.suppress(FileNotFoundError):
             os.unlink(temporary)
-        except FileNotFoundError:
-            pass
 
 
 def read_document(path: Path) -> dict[str, Any]:

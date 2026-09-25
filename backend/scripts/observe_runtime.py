@@ -10,6 +10,7 @@ send the same email every five minutes. If a new breach appears, the unit fails 
 from __future__ import annotations
 
 import argparse
+import contextlib
 import json
 import os
 import sys
@@ -65,7 +66,7 @@ def fetch_json(url: str, *, timeout: float = 5.0) -> dict[str, Any]:
     )
     try:
         # URL/error detail can contain environment data; do not print it.
-        with urllib.request.urlopen(request, timeout=timeout) as response:  # noqa: S310
+        with urllib.request.urlopen(request, timeout=timeout) as response:
             payload = json.loads(response.read().decode("utf-8"))
     except Exception as exc:
         raise ObserveError(f"loopback probe failed ({type(exc).__name__})") from exc
@@ -96,10 +97,8 @@ def write_state(path: Path, payload: dict[str, Any]) -> None:
             handle.write("\n")
         os.replace(temporary, path)
     finally:
-        try:
+        with contextlib.suppress(FileNotFoundError):
             os.unlink(temporary)
-        except FileNotFoundError:
-            pass
 
 
 def disk_used_percent(path: Path) -> float:
