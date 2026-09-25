@@ -170,8 +170,7 @@ def _write_record(out_dir: Path, record: dict[str, Any]) -> Path:
     out_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
     os.chmod(out_dir, 0o700)
     payload = record["payload"]
-    stamp = str(payload["created_at_utc"]).replace("-", "").replace(":", "").replace("Z", "Z")
-    stamp = stamp.replace("T", "T")
+    stamp = str(payload["created_at_utc"]).replace("-", "").replace(":", "")
     last_log_id = payload["last_log_id"] or 0
     filename = f"audit-checkpoint-{stamp}-{last_log_id}.json"
     final = out_dir / filename
@@ -254,7 +253,11 @@ def _checkpoint_paths(path: Path) -> list[Path]:
         return [path]
     if not path.is_dir():
         raise CheckpointError(f"checkpoint path does not exist: {path}")
-    return sorted(item for item in path.iterdir() if item.is_file() and _CHECKPOINT_RE.match(item.name))
+    return sorted(
+        item
+        for item in path.iterdir()
+        if item.is_file() and _CHECKPOINT_RE.match(item.name)
+    )
 
 
 def verify_path(path: Path) -> int:
@@ -271,7 +274,8 @@ def verify_path(path: Path) -> int:
             raise CheckpointError(f"cannot parse checkpoint {checkpoint.name}") from exc
         payload = verify_record(record, key)
         log_id = int(payload["last_log_id"] or 0)
-        created = datetime.fromisoformat(str(payload["created_at_utc"]).replace("Z", "+00:00"))
+        created_text = str(payload["created_at_utc"])
+        created = datetime.fromisoformat(created_text.replace("Z", "+00:00"))
         if log_id < previous_log_id:
             raise CheckpointError("checkpoint last_log_id moved backwards")
         if previous_created is not None and created < previous_created:
@@ -285,8 +289,16 @@ def verify_path(path: Path) -> int:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     group = parser.add_mutually_exclusive_group(required=True)
-    group.add_argument("--publish", action="store_true", help="read the live chain head and sign it")
-    group.add_argument("--verify", metavar="PATH", help="verify one checkpoint or a directory")
+    group.add_argument(
+        "--publish",
+        action="store_true",
+        help="read the live chain head and sign it",
+    )
+    group.add_argument(
+        "--verify",
+        metavar="PATH",
+        help="verify one checkpoint or a directory",
+    )
     parser.add_argument(
         "--out-dir",
         default=os.getenv("AUDIT_CHECKPOINT_DIR", "audit_checkpoints"),
@@ -320,7 +332,8 @@ def main(argv: list[str]) -> int:
         print(f"audit_checkpoint: FAILED -- {exc}", file=sys.stderr)
         return 1
     except subprocess.CalledProcessError as exc:
-        print(f"audit_checkpoint: FAILED -- {exc.cmd[0]} exited {exc.returncode}", file=sys.stderr)
+        program = exc.cmd[0] if isinstance(exc.cmd, list) else str(exc.cmd)
+        print(f"audit_checkpoint: FAILED -- {program} exited {exc.returncode}", file=sys.stderr)
         return 1
 
 
