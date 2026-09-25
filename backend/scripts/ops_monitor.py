@@ -70,11 +70,7 @@ def evaluate_deltas(
         previous_value = previous.get(threshold.key, 0)
         # A backend restart resets in-memory counters. Treat that as a fresh baseline instead of
         # manufacturing a negative delta or replaying old failures.
-        delta = (
-            current_value - previous_value
-            if current_value >= previous_value
-            else current_value
-        )
+        delta = current_value - previous_value if current_value >= previous_value else current_value
         if delta >= threshold.delta:
             violations.append(
                 {
