@@ -6,6 +6,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.responses import JSONResponse
 
 from app.api.responses import AUTH_NO_STORE_HEADERS, error, fail
+from app.core.observability import emit_security_event
 from app.domain.errors import (
     AppError,
     AuthenticationError,
@@ -20,7 +21,7 @@ from app.domain.errors import (
     StorageUnavailableError,
 )
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("app.errors")
 
 _STATUS_BY_ERROR_TYPE: dict[type[AppError], int] = {
     AuthenticationRateLimitedError: 429,
@@ -81,13 +82,69 @@ def _safe_validation_errors(exc: RequestValidationError) -> list[dict[str, Any]]
     ]
 
 
+def _route_template(request: Request) -> str:
+    route = request.scope.get("route")
+    path = getattr(route, "path", None)
+    return str(path) if path else "unmatched"
+
+
+def _record_operational_error(request: Request, exc: AppError, status_code: int) -> None:
+    registry = getattr(request.app.state, "observability", None)
+    if isinstance(exc, StorageUnavailableError):
+        if registry is not None:
+            registry.record_event(category="storage", event="unavailable", outcome="failed")
+        emit_security_event(
+            logger,
+            logging.ERROR,
+            event="storage_unavailable",
+            category="storage",
+            outcome="failed",
+            error_code=exc.code,
+            method=request.method,
+            route=_route_template(request),
+            status_code=status_code,
+        )
+    elif isinstance(exc, IntegrityVerificationError):
+        if registry is not None:
+            registry.record_event(
+                category="storage", event="integrity_rejected", outcome="blocked"
+            )
+        emit_security_event(
+            logger,
+            logging.WARNING,
+            event="integrity_verification_rejected",
+            category="storage",
+            outcome="blocked",
+            error_code=exc.code,
+            method=request.method,
+            route=_route_template(request),
+            status_code=status_code,
+        )
+    elif isinstance(exc, EmailDeliveryFailedError):
+        if registry is not None:
+            registry.record_event(category="email", event="delivery_failed", outcome="failed")
+        emit_security_event(
+            logger,
+            logging.ERROR,
+            event="email_delivery_failed",
+            category="email",
+            outcome="failed",
+            error_code=exc.code,
+            method=request.method,
+            route=_route_template(request),
+            status_code=status_code,
+        )
+
+
 def register_exception_handlers(application: FastAPI) -> None:
     @application.exception_handler(AppError)
     async def handle_app_error(request: Request, exc: AppError) -> JSONResponse:
+        status_code = _status_for(exc)
+        _record_operational_error(request, exc, status_code)
         return fail(
             message=exc.message,
             data={"error_code": exc.code, "details": exc.details},
-            code=_status_for(exc),
+            code=status_code,
             headers=_response_headers(request, exc),
         )
 
@@ -108,13 +165,19 @@ def register_exception_handlers(application: FastAPI) -> None:
 
     @application.exception_handler(Exception)
     async def handle_unexpected_error(request: Request, exc: Exception) -> JSONResponse:
-        logger.error(
-            "Unhandled application error",
-            extra={
-                "error_type": type(exc).__name__,
-                "method": request.method,
-                "path": request.url.path,
-            },
+        registry = getattr(request.app.state, "observability", None)
+        if registry is not None:
+            registry.record_event(category="application", event="unhandled", outcome="failed")
+        emit_security_event(
+            logger,
+            logging.ERROR,
+            event="unhandled_application_error",
+            category="application",
+            outcome="failed",
+            method=request.method,
+            route=_route_template(request),
+            status_code=500,
+            reason=type(exc).__name__,
         )
         return error(
             message="Internal server error",
