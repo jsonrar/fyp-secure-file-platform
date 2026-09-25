@@ -1,0 +1,12 @@
+[Unit]
+Description=Run SecureView operations monitor every five minutes
+
+[Timer]
+OnBootSec=3min
+OnUnitActiveSec=5min
+AccuracySec=30s
+Persistent=true
+Unit=mcs21-ops-monitor.service
+
+[Install]
+WantedBy=timers.target
