@@ -61,7 +61,8 @@ def parse_metrics(text: str) -> dict[MetricKey, int]:
 
 
 def evaluate_deltas(
-    current: dict[MetricKey, int], previous: dict[MetricKey, int]
+    current: dict[MetricKey, int],
+    previous: dict[MetricKey, int],
 ) -> list[dict[str, int | str]]:
     violations: list[dict[str, int | str]] = []
     for threshold in THRESHOLDS:
@@ -69,7 +70,11 @@ def evaluate_deltas(
         previous_value = previous.get(threshold.key, 0)
         # A backend restart resets in-memory counters. Treat that as a fresh baseline instead of
         # manufacturing a negative delta or replaying old failures.
-        delta = current_value - previous_value if current_value >= previous_value else current_value
+        delta = (
+            current_value - previous_value
+            if current_value >= previous_value
+            else current_value
+        )
         if delta >= threshold.delta:
             violations.append(
                 {
@@ -125,8 +130,9 @@ def _load_state(path: Path) -> dict[MetricKey, int]:
 
 def _save_state(path: Path, counters: dict[MetricKey, int]) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
+    checked_at = datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z")
     payload = {
-        "checked_at_utc": datetime.now(UTC).isoformat(timespec="seconds").replace("+00:00", "Z"),
+        "checked_at_utc": checked_at,
         "counters": {"\t".join(key): value for key, value in sorted(counters.items())},
     }
     fd, temporary_name = tempfile.mkstemp(prefix=".ops-monitor-", dir=path.parent)
@@ -148,7 +154,8 @@ def run(*, base_url: str, state_path: Path, timeout: float) -> int:
     ready = _read_json(f"{base_url.rstrip('/')}/health/ready", timeout)
     if ready.get("status") != "ready":
         raise MonitorError(f"readiness failed: {ready.get('reason', 'unknown')}")
-    current = parse_metrics(_read_text(f"{base_url.rstrip('/')}/internal/metrics", timeout))
+    metrics_url = f"{base_url.rstrip('/')}/internal/metrics"
+    current = parse_metrics(_read_text(metrics_url, timeout))
     previous = _load_state(state_path)
     violations = evaluate_deltas(current, previous)
     _save_state(state_path, current)
