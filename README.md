@@ -503,6 +503,17 @@ staging.
 
 ### Reconciliation and ops alerts
 
+SecureView's #59 observability hardening is implemented in the repository: structured redacted
+security/operations events feed a loopback-only metrics snapshot and five-minute threshold
+watcher; hourly HMAC-authenticated audit-chain checkpoints are designed for the existing
+S3-compatible off-server store; alert email carries unit state but no raw journal lines. The
+trusted-proxy boundary is loopback nginx only and the public origin explicitly returns 404 for
+`/internal/`. Installation, threshold ownership, independent checkpoint verification, and
+incident procedures are in
+[`docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md`](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md).
+The new timers remain deliberately opt-in until the exact merged SHA is deployed and the
+staging evidence table is completed.
+
 `backend/scripts/reconcile.py` removes lapsed sessions, refresh tokens, throttle buckets,
 verification codes, and unreferenced ciphertext objects; it never touches audit, identity,
 key-custody, or recovery tables. It reports by default, shows each category on both sides of

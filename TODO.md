@@ -121,7 +121,7 @@ not a release pass.
   multi-connection concurrency and real fault-injection suites; coverage floors and sanitized
   JUnit/coverage artifacts are in place ([docs/E2E_TESTING.md](docs/E2E_TESTING.md)).
 - [ ] [#59 Add redacted observability, incident runbooks, and external audit checkpoints](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
-  — make operational and audit failures visible without leaking secrets.
+  — repository implementation is ready: redacted structured events, loopback metrics and threshold alerts, trusted-proxy enforcement, HMAC external audit checkpoints, sparse alert email, and paired incident runbooks. Open until the exact merge SHA is deployed, the external checkpoint is independently verified, and staging redaction/alert evidence is recorded.
 
 ## P2 — formal security assurance
 

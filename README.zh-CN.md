@@ -436,6 +436,14 @@ bash scripts/mysql_release_gate.sh     # 锁竞争、带校验和的恢复、回
 
 ### 对账清理与运维告警
 
+SecureView 的 #59 可观测性加固已在仓库中实现：结构化且脱敏的安全/运维事件进入仅
+loopback 可访问的 metrics snapshot，并由五分钟阈值 watcher 检查；每小时 HMAC 认证的审计链 checkpoint
+面向现有 S3 兼容异地存储；告警邮件只发送 unit 状态，不再携带原始 journal 行。受信 proxy 边界仅限
+loopback nginx，公网 origin 对 `/internal/` 显式返回 404。安装方式、阈值负责人、checkpoint 独立验证与
+事故处理流程见
+[`docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md`](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md)。
+在精确 merged SHA 部署并补齐 staging 证据表之前，新增 timer 仍刻意保持 opt-in。
+
 `backend/scripts/reconcile.py` 清除已失效的会话、刷新令牌、限流桶、验证码以及未被引用的密文对象；它从不
 触碰审计、身份、密钥保管或恢复相关的表。它默认只报告，从截止线两侧展示每个类别；带 `--apply` 时若数量
 异常则拒绝删除任何东西（退出码 3）。`deployment/server/mcs21-reconcile.{service,timer}` 在同机备份之后、

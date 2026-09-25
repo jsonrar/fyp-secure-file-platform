@@ -1,7 +1,7 @@
-"""Static checks on the server-only ops units and scripts (issue #57).
+"""Static checks on the server-only ops units and scripts (issues #57 and #59).
 
 None of these files can be exercised in CI -- they drive systemd, docker and the staging
-host's own paths -- so the facts the staging runbook relies on are pinned here instead.
+host's own paths -- so the facts the staging runbooks rely on are pinned here instead.
 """
 
 from __future__ import annotations
@@ -60,6 +60,8 @@ def test_every_ops_job_alerts_on_failure() -> None:
     for name in (
         "mcs21-reconcile.service",
         "mcs21-offsite-backup.service",
+        "mcs21-observe.service",
+        "mcs21-audit-checkpoint.service",
         "mcs21-backup.service.d/alert.conf",
         "mcs21-backup-verify.service.d/alert.conf",
     ):
@@ -68,7 +70,7 @@ def test_every_ops_job_alerts_on_failure() -> None:
     assert "OnFailure" not in _directives("mcs21-alert@.service")
 
 
-def test_the_alert_never_puts_the_api_key_on_a_command_line() -> None:
+def test_the_alert_never_puts_the_api_key_on_a_command_line_or_journal_in_email() -> None:
     script = _read("mcs21-alert")
 
     assert (SERVER / "mcs21-alert").stat().st_mode & 0o111
@@ -76,6 +78,66 @@ def test_the_alert_never_puts_the_api_key_on_a_command_line() -> None:
     assert re.search(r"curl[^\n]*RESEND_API_KEY|curl[^\n]*\$api_key", script) is None
     assert "unset api_key" in script
     assert "source " not in script and "\n. " not in script
+    assert "journalctl --no-pager --output" not in script
+    assert "Journal output is intentionally withheld from email" in script
+    assert "Inspect locally: sudo journalctl -u" in script
+
+
+def test_observability_watcher_is_redacted_hardened_and_thresholded() -> None:
+    unit = _directives("mcs21-observe.service")
+    source = _read("mcs21-observe.service")
+    timer = _directives("mcs21-observe.timer")
+
+    assert unit["User"] == ["fypapp"] and unit["Group"] == ["fypapp"]
+    assert unit["StateDirectory"] == ["mcs21-observe"]
+    assert unit["ProtectSystem"] == ["strict"]
+    assert unit["NoNewPrivileges"] == ["true"]
+    assert unit["OnFailure"] == ["mcs21-alert@%n.service"]
+    for expected in (
+        "--max-auth-rate-limited 5",
+        "--max-auth-failures 50",
+        "--max-storage-failures 3",
+        "--max-integrity-failures 3",
+        "--max-unhandled-errors 3",
+        "--max-disk-percent 85",
+        "--max-checkpoint-age-seconds 7200",
+    ):
+        assert expected in source
+    assert timer["OnCalendar"] == ["*:0/5"]
+    assert timer["Persistent"] == ["true"]
+
+
+def test_audit_checkpoint_key_stays_out_of_the_app_process() -> None:
+    unit = _directives("mcs21-audit-checkpoint.service")
+    source = _read("mcs21-audit-checkpoint.service")
+    timer = _directives("mcs21-audit-checkpoint.timer")
+
+    assert unit["User"] == ["root"] and unit["Group"] == ["root"]
+    assert unit["ProtectSystem"] == ["strict"]
+    assert unit["NoNewPrivileges"] == ["true"]
+    assert unit["OnFailure"] == ["mcs21-alert@%n.service"]
+    assert unit["EnvironmentFile"] == [
+        "/etc/fyp-secure-file-platform/backup.env",
+        "/etc/fyp-secure-file-platform/audit-checkpoint.env",
+    ]
+    assert "audit-checkpoint.key" in source
+    assert "backend.env" not in source
+    assert "--allow-local-dest" not in source
+    assert timer["OnCalendar"] == ["*-*-* *:15:00"]
+    assert timer["Persistent"] == ["true"]
+
+
+def test_trusted_proxy_and_internal_metrics_stay_on_loopback() -> None:
+    deploy = _read("mcs21-deploy")
+    nginx = _read("nginx-secureview.conf")
+
+    assert "--proxy-headers --forwarded-allow-ips=127.0.0.1" in deploy
+    assert "--host 127.0.0.1" in deploy
+    assert "--forwarded-allow-ips=*" not in deploy
+    assert "proxy_pass http://127.0.0.1:8000" in nginx
+    assert "location ^~ /internal/" in nginx
+    assert "return 404;" in nginx
+    assert "proxy_pass http://127.0.0.1:8000/internal" not in nginx
 
 
 def test_backup_verify_derives_its_expectations() -> None:

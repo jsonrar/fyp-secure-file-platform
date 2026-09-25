@@ -1,3 +1,4 @@
+import json
 from typing import Any
 
 import pytest
@@ -53,11 +54,14 @@ def test_unexpected_error_does_not_log_exception_secrets(
     client = TestClient(_test_app(), raise_server_exceptions=False)
     secret = "database-password=must-not-appear"
 
-    with caplog.at_level("ERROR", logger="app.api.error_handlers"):
+    with caplog.at_level("ERROR", logger="secureview.events"):
         response = client.get("/unexpected")
 
     assert response.status_code == 500
     assert response.json()["data"]["error_code"] == "internal_error"
     assert secret not in response.text
     assert secret not in caplog.text
-    assert caplog.records[-1].error_type == "RuntimeError"
+
+    event = json.loads(caplog.records[-1].getMessage())
+    assert event["event"] == "application.unhandled_error"
+    assert event["error_type"] == "RuntimeError"

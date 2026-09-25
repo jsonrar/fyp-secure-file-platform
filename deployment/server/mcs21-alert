@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Email an alert that an MCS21 systemd unit failed (issue #57).
+# Email a minimal, redacted alert that an MCS21 systemd unit failed.
 #
 # Installed manually, not by the deploy tooling:
 #   sudo install -o root -g root -m 0755 deployment/server/mcs21-alert /usr/local/sbin/mcs21-alert
@@ -13,6 +13,10 @@
 # sourced -- only those keys are parsed out -- and the API key never reaches argv, the
 # environment of a child process, or the journal: it is written to a 0600 header file
 # in a private temporary directory that curl reads with -H @file.
+#
+# Deliberately do NOT copy journal output into email. Application/ops journals can contain
+# operational metadata and future regressions must not turn an alert transport into a data
+# exfiltration path. The email contains only unit state plus the exact local diagnostic command.
 set -Eeuo pipefail
 
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
@@ -20,7 +24,6 @@ umask 077
 
 backend_env=/etc/fyp-secure-file-platform/backend.env
 alert_env=/etc/fyp-secure-file-platform/alert.env
-journal_lines=30
 
 unit="${1:-}"
 if [[ -z "$unit" ]]; then
@@ -75,19 +78,16 @@ now="$(date '+%Y-%m-%d %H:%M:%S %Z')"
 if [[ "$unit" == test ]]; then
     subject="[MCS21] Test alert from $host"
     printf 'This is a test of mcs21-alert@.service. No unit failed.\n' >"$work/status"
-    : >"$work/journal"
 else
     subject="[MCS21] $unit failed on $host"
     systemctl show --no-pager \
         --property=Result,ExecMainStatus,ActiveEnterTimestamp,InactiveEnterTimestamp \
         -- "$unit" >"$work/status" 2>&1 || true
-    journalctl --no-pager --output=short-iso --lines="$journal_lines" --unit="$unit" \
-        >"$work/journal" 2>&1 || true
 fi
 
 ALERT_UNIT="$unit" ALERT_HOST="$host" ALERT_TIME="$now" ALERT_SUBJECT="$subject" \
     ALERT_FROM_ADDRESS="$from_address" ALERT_FROM_NAME="$from_name" \
-    ALERT_TO="$recipients" ALERT_LINES="$journal_lines" ALERT_WORK="$work" \
+    ALERT_TO="$recipients" ALERT_WORK="$work" \
     python3 - <<'PY'
 import json
 import os
@@ -100,20 +100,21 @@ name = os.environ["ALERT_FROM_NAME"].strip()
 local, _, domain = address.partition("@")
 sender = str(Address(name, local, domain)) if name else address
 recipients = [part.strip() for part in os.environ["ALERT_TO"].split(",") if part.strip()]
-journal = (work / "journal").read_text(errors="replace").strip() or "(no journal entries)"
+unit = os.environ["ALERT_UNIT"]
 text = "\n".join(
     [
-        f"Unit:  {os.environ['ALERT_UNIT']}",
+        f"Unit:  {unit}",
         f"Host:  {os.environ['ALERT_HOST']}",
         f"Time:  {os.environ['ALERT_TIME']}",
         "",
         (work / "status").read_text(errors="replace").strip(),
         "",
-        f"Last {os.environ['ALERT_LINES']} journal lines:",
-        journal,
+        "Journal output is intentionally withheld from email to prevent secret or user-data leakage.",
+        f"Inspect locally: sudo journalctl -u {unit} -n 100 --no-pager",
         "",
-        "Runbook: docs/RECONCILIATION_RUNBOOK.md (incident procedure) and",
-        "docs/BACKUP_AND_RECOVERY.md in the repository.",
+        "Runbook: docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md",
+        "Backup/reconcile details: docs/BACKUP_AND_RECOVERY.md and",
+        "docs/RECONCILIATION_RUNBOOK.md in the repository.",
     ]
 )
 payload = {
