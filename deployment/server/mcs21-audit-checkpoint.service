@@ -1,0 +1,27 @@
+# Publish an HMAC-signed audit-chain head outside MySQL. The destination must be an external
+# append-only/locked location (staging uses the existing S3-compatible offsite store).
+# /etc/fyp-secure-file-platform/audit-checkpoint.env (0600 root) supplies
+# AUDIT_CHECKPOINT_HMAC_KEY, AUDIT_CHECKPOINT_DEST and optional AWS/BACKUP_S3 endpoint variables.
+[Unit]
+Description=Publish SecureView external audit-chain checkpoint
+After=network-online.target fyp-backend.service
+Wants=network-online.target
+OnFailure=mcs21-alert@%n.service
+
+[Service]
+Type=oneshot
+User=fypapp
+Group=fypapp
+WorkingDirectory=/opt/mcs21/current/backend
+EnvironmentFile=/etc/fyp-secure-file-platform/backend.env
+EnvironmentFile=/etc/fyp-secure-file-platform/audit-checkpoint.env
+ExecStart=/opt/mcs21/current/backend/.venv/bin/python scripts/audit_checkpoint.py \
+    --publish \
+    --out-dir /var/lib/fyp-secure-file-platform/audit-checkpoints \
+    --dest ${AUDIT_CHECKPOINT_DEST}
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fyp-secure-file-platform/audit-checkpoints
