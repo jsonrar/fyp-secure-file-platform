@@ -2,7 +2,6 @@ from __future__ import annotations
 
 import importlib.util
 import json
-import os
 import sys
 from datetime import UTC, datetime, timedelta
 from pathlib import Path
@@ -72,7 +71,10 @@ def test_checkpoint_contains_no_application_payload_fields() -> None:
     assert all(name not in encoded.lower() for name in forbidden)
 
 
-def test_checkpoint_directory_verification_rejects_rollback(tmp_path: Path, monkeypatch) -> None:  # type: ignore[no-untyped-def]
+def test_checkpoint_directory_verification_rejects_rollback(
+    tmp_path: Path,
+    monkeypatch,
+) -> None:  # type: ignore[no-untyped-def]
     monkeypatch.setenv("AUDIT_CHECKPOINT_HMAC_KEY", KEY.decode())
     newer_time = NOW + timedelta(hours=1)
     first = tmp_path / "audit-checkpoint-20260925T030000Z-10.json"
