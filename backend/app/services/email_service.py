@@ -32,8 +32,9 @@ class OutboundEmail:
 class EmailService:
     """Sends transactional mail through Resend, SMTP, or a development log.
 
-    Message bodies are treated as secrets in logs: only the provider, subject,
-    and a redacted recipient are recorded, never the verification code.
+    Message bodies are treated as secrets in logs. Even the development-only ``console``
+    provider records only that a message would have been emitted; it never prints a verification
+    code, reset content, recipient address, or other body text.
     """
 
     def __init__(self, settings: Settings) -> None:
@@ -53,15 +54,9 @@ class EmailService:
         raise EmailDeliveryError(f"Unsupported email provider: {provider}")
 
     def _send_console(self, message: OutboundEmail) -> None:
-        # Development-only. The body is printed so a developer without a mail
-        # provider can complete the flow; production settings reject this mode.
-        logger.warning(
-            "Email delivery is disabled (EMAIL_PROVIDER=console). "
-            "Message for %s with subject %r:\n%s",
-            message.to_address,
-            message.subject,
-            message.text_body,
-        )
+        # Development-only, but logs are still treated as durable operational records. Do not
+        # print recipient, subject, verification code, reset link, or any other message content.
+        logger.warning("Email delivery is disabled (EMAIL_PROVIDER=console); message suppressed")
 
     def _send_resend(self, message: OutboundEmail) -> None:
         payload: dict[str, object] = {
