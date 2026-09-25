@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Redacted observability, incident response, and external audit anchors / 脱敏可观测性、事故响应与外部审计锚点
+
+- Implemented the repository side of #59: security/operations events are structured JSON with route templates, redacted client networks, and field-name redaction; a loopback-only metrics snapshot is sampled every five minutes against explicit staging thresholds. Unexpected exception text, request bodies, filenames/content, credentials, tokens, passphrases and key material are deliberately excluded so detection does not create a second sensitive-data store.
+- 完成 #59 的仓库侧实现：安全/运维事件改为结构化 JSON，只记录路由模板、脱敏后的客户端网段，并按敏感字段名再次脱敏；仅 loopback 可访问的 metrics snapshot 每五分钟按明确的 staging 阈值采样。未预期异常原文、请求正文、文件名/内容、凭据、令牌、passphrase 与密钥材料均被刻意排除，避免为了检测异常而制造第二份敏感数据存储。
+- Added hourly HMAC-SHA256 audit-chain checkpoints for S3-compatible off-server storage. Each checkpoint authenticates only the deployed Git SHA and audit-chain head; the root-only HMAC key never enters the application environment. Offline `verify` and read-only `verify-live` detect a database rewrite that is internally self-consistent but no longer contains an older external anchor.
+- 新增每小时发布到 S3 兼容异地存储的 HMAC-SHA256 audit-chain checkpoint。checkpoint 只认证已部署 Git SHA 与审计链头；仅 root 可读的 HMAC key 不进入应用环境。离线 `verify` 与只读 `verify-live` 能发现“数据库内部仍自洽、但已不再包含旧外部锚点”的整体重写。
+- Hardened operational alerting and network boundaries: alert email no longer contains raw journal lines, Uvicorn's existing proxy trust is pinned to loopback nginx, `/internal/` is explicitly 404 on the public origin, and new observer/checkpoint units alert through the same sparse mail path. The paired incident runbooks cover outage, storage corruption, credential compromise, migration/schema mismatch, audit-chain failure, and recovery-key incidents. Staging activation and independent external-checkpoint/redaction evidence remain required before #59 closes.
+- 收紧运维告警与网络边界：告警邮件不再携带原始 journal 行；Uvicorn 现有 proxy trust 明确固定为 loopback nginx；公网 origin 对 `/internal/` 显式返回 404；新的 observer/checkpoint unit 复用同一条最小化邮件告警链路。双语事故 runbook 覆盖宕机、存储损坏、凭据泄露、迁移/Schema 不一致、审计链失败与 recovery-key 事故。#59 关闭前仍必须完成 staging 启用，以及外部 checkpoint 独立验证和脱敏实证。
+
 ### Isolated VPS adversarial tamper drill / 隔离 VPS 对抗性篡改演练
 
 - Added a default-stopped, resource-limited attacker container and disposable MySQL 8.4/object volumes for #90. The repeatable drill proves byte tampering becomes `MODIFIED`/`CORRUPTED`, download is refused, missing storage does not permanently poison status, and restoration heals the file, without exposing the Docker socket, host network, production secrets, database, or user objects.

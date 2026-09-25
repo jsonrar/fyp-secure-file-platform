@@ -105,7 +105,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   注册、验证、登录、解锁、上传、下载、分享、撤销与登出；`mysql-gate` 运行多连接并发与真实故障注入
   测试；覆盖率下限与经脱敏检查的 JUnit/覆盖率产物已就位（[docs/E2E_TESTING.md](docs/E2E_TESTING.md)）。
 - [ ] [#59 增加脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
-  ——让运维和审计失败可见，同时不泄露 Secret。
+  ——仓库侧实现已就绪：脱敏结构化事件、仅 loopback 的 metrics 与阈值告警、受信 proxy 约束、HMAC 外部审计 checkpoint、最小化告警邮件和双语事故 runbook。保持未完成，直到部署精确 merge SHA、独立验证外部 checkpoint，并记录 staging 脱敏/告警证据。
 
 ## P2 — 正式安全保障
 
