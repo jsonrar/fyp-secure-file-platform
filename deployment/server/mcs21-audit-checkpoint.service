@@ -1,5 +1,5 @@
 # Issue #59: publish an HMAC-authenticated audit-chain anchor outside the application DB.
-# The HMAC key is root-only and never enters backend.env or the application process.
+# The HMAC key is root-only and never enters the application environment or process.
 # Installation and key generation are documented in docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md.
 
 [Unit]
