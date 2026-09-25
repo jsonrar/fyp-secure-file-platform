@@ -44,6 +44,7 @@ _ALLOWED_EXTRA_FIELDS = frozenset(
         "category",
         "outcome",
         "error_code",
+        "error_type",
         "method",
         "route",
         "status_code",
