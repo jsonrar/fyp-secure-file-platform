@@ -122,9 +122,8 @@ def counter_deltas(
     current: dict[str, Any],
     previous: dict[str, Any] | None,
 ) -> tuple[dict[str, int], bool]:
-    restarted = (
-        previous is None
-        or previous.get("process_started_at") != current.get("process_started_at")
+    restarted = previous is None or previous.get("process_started_at") != current.get(
+        "process_started_at"
     )
     deltas: dict[str, int] = {}
     for name in _COUNTERS:
@@ -216,9 +215,7 @@ def main(argv: list[str] | None = None) -> int:
             checkpoint_age=checkpoint_age,
             args=args,
         )
-        previous_breaches = (
-            set(previous.get("active_breaches", [])) if previous else set()
-        )
+        previous_breaches = set(previous.get("active_breaches", [])) if previous else set()
         new_breaches = sorted(set(breaches) - previous_breaches)
         recovered = sorted(previous_breaches - set(breaches))
 

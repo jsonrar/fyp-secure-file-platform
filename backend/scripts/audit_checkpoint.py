@@ -234,9 +234,7 @@ def verify_document(document: dict[str, Any], key: bytes) -> dict[str, Any]:
         raise CheckpointError("checkpoint HMAC verification failed")
 
     chain = payload.get("audit_chain")
-    if not isinstance(chain, dict) or not _HASH_RE.fullmatch(
-        str(chain.get("current_hash", ""))
-    ):
+    if not isinstance(chain, dict) or not _HASH_RE.fullmatch(str(chain.get("current_hash", ""))):
         raise CheckpointError("checkpoint audit-chain payload is malformed")
     return payload
 
@@ -349,9 +347,7 @@ def verify_live_anchor(payload: dict[str, Any], config: DbConfig) -> None:
             live_last_id = head[0]
             if checkpoint_id is None:
                 if live_last_id is not None:
-                    raise CheckpointError(
-                        "live chain has advanced beyond the genesis checkpoint"
-                    )
+                    raise CheckpointError("live chain has advanced beyond the genesis checkpoint")
                 return
             cursor.execute(
                 "SELECT current_hash FROM audit_logs WHERE id = %s",
@@ -429,9 +425,7 @@ def create_checkpoint(args: argparse.Namespace) -> int:
                 "event": "audit_checkpoint.published",
                 "last_log_id": payload["audit_chain"].get("last_log_id"),
                 "checkpoint_sha256": digest,
-                "destination_type": (
-                    "s3" if args.dest.startswith("s3://") else "local"
-                ),
+                "destination_type": ("s3" if args.dest.startswith("s3://") else "local"),
                 "object": Path(destination).name,
             },
             sort_keys=True,
