@@ -127,6 +127,18 @@ def test_audit_checkpoint_key_stays_out_of_the_app_process() -> None:
     assert timer["Persistent"] == ["true"]
 
 
+def test_trusted_proxy_and_internal_metrics_stay_on_loopback() -> None:
+    deploy = _read("mcs21-deploy")
+    nginx = _read("nginx-secureview.conf")
+
+    assert "--proxy-headers --forwarded-allow-ips=127.0.0.1" in deploy
+    assert "--host 127.0.0.1" in deploy
+    assert "--forwarded-allow-ips=*" not in deploy
+    assert "proxy_pass http://127.0.0.1:8000" in nginx
+    assert "/internal/metrics" not in nginx
+    assert "location /internal" not in nginx
+
+
 def test_backup_verify_derives_its_expectations() -> None:
     script = _read("mcs21-backup-verify")
 
