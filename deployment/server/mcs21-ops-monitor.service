@@ -1,0 +1,22 @@
+# Polls only loopback health/metrics. The script consumes no request/audit payloads and stores
+# numeric counters only. Install deliberately; see docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md.
+[Unit]
+Description=SecureView redacted operations monitor
+After=network.target fyp-backend.service
+Wants=fyp-backend.service
+OnFailure=mcs21-alert@%n.service
+
+[Service]
+Type=oneshot
+User=fypapp
+Group=fypapp
+WorkingDirectory=/opt/mcs21/current/backend
+ExecStart=/opt/mcs21/current/backend/.venv/bin/python scripts/ops_monitor.py \
+    --base-url http://127.0.0.1:8000 \
+    --state /var/lib/fyp-secure-file-platform/ops-monitor/state.json
+
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ReadWritePaths=/var/lib/fyp-secure-file-platform/ops-monitor
