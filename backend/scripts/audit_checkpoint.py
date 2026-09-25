@@ -58,33 +58,55 @@ def _first_env(*names: str, default: str | None = None) -> str | None:
 
 def db_config_from_env() -> DbConfig:
     user = _first_env("CHECKPOINT_DB_USER", "BACKUP_DB_USER", "DB_USER")
-    password = _first_env("CHECKPOINT_DB_PASSWORD", "BACKUP_DB_PASSWORD", "DB_PASSWORD")
+    password = _first_env(
+        "CHECKPOINT_DB_PASSWORD",
+        "BACKUP_DB_PASSWORD",
+        "DB_PASSWORD",
+    )
     if not user or not password:
         raise CheckpointError(
             "a read-only database user/password must be supplied via CHECKPOINT_DB_*, "
             "BACKUP_DB_*, or DB_*"
         )
-    port_value = _first_env("CHECKPOINT_DB_PORT", "BACKUP_DB_PORT", "DB_PORT", default="3306")
+
+    port_value = _first_env(
+        "CHECKPOINT_DB_PORT",
+        "BACKUP_DB_PORT",
+        "DB_PORT",
+        default="3306",
+    )
     try:
         port = int(port_value or "3306")
     except ValueError as exc:
         raise CheckpointError("database port is invalid") from exc
+
     return DbConfig(
-        host=_first_env(
-            "CHECKPOINT_DB_HOST", "BACKUP_DB_HOST", "DB_HOST", default="127.0.0.1"
-        )
-        or "127.0.0.1",
+        host=(
+            _first_env(
+                "CHECKPOINT_DB_HOST",
+                "BACKUP_DB_HOST",
+                "DB_HOST",
+                default="127.0.0.1",
+            )
+            or "127.0.0.1"
+        ),
         port=port,
-        database=_first_env(
-            "CHECKPOINT_DB_NAME",
-            "BACKUP_DB_NAME",
-            "DB_NAME",
-            default="fyp_secure_file_platform",
-        )
-        or "fyp_secure_file_platform",
+        database=(
+            _first_env(
+                "CHECKPOINT_DB_NAME",
+                "BACKUP_DB_NAME",
+                "DB_NAME",
+                default="fyp_secure_file_platform",
+            )
+            or "fyp_secure_file_platform"
+        ),
         user=user,
         password=password,
-        ssl_ca=_first_env("CHECKPOINT_DB_SSL_CA", "BACKUP_DB_SSL_CA", "DB_SSL_CA"),
+        ssl_ca=_first_env(
+            "CHECKPOINT_DB_SSL_CA",
+            "BACKUP_DB_SSL_CA",
+            "DB_SSL_CA",
+        ),
     )
 
 
@@ -119,14 +141,17 @@ def read_chain_head(config: DbConfig) -> dict[str, Any]:
             row = cursor.fetchone()
     finally:
         connection.close()
+
     if row is None:
         raise CheckpointError("audit chain head row is missing")
+
     last_log_id, current_hash, schema_revision, updated_at = row
     current_hash = str(current_hash)
     if not _HASH_RE.fullmatch(current_hash):
         raise CheckpointError("audit chain head hash is malformed")
     if not isinstance(updated_at, datetime):
         raise CheckpointError("audit chain head timestamp is malformed")
+
     return {
         "last_log_id": int(last_log_id) if last_log_id is not None else None,
         "current_hash": current_hash,
@@ -150,6 +175,7 @@ def load_hmac_key(path: Path) -> bytes:
         raw = path.read_bytes().strip()
     except OSError as exc:
         raise CheckpointError("HMAC key file is unreadable") from exc
+
     if re.fullmatch(rb"[0-9A-Fa-f]{64}", raw):
         key = bytes.fromhex(raw.decode("ascii"))
     else:
@@ -199,6 +225,7 @@ def verify_document(document: dict[str, Any], key: bytes) -> dict[str, Any]:
         raise CheckpointError("checkpoint format version is unsupported")
     if authentication.get("algorithm") != "HMAC-SHA256":
         raise CheckpointError("checkpoint authentication algorithm is unsupported")
+
     supplied = authentication.get("value")
     if not isinstance(supplied, str) or not _HASH_RE.fullmatch(supplied):
         raise CheckpointError("checkpoint HMAC is malformed")
@@ -207,20 +234,25 @@ def verify_document(document: dict[str, Any], key: bytes) -> dict[str, Any]:
         raise CheckpointError("checkpoint HMAC verification failed")
 
     chain = payload.get("audit_chain")
-    if not isinstance(chain, dict) or not _HASH_RE.fullmatch(str(chain.get("current_hash", ""))):
+    if not isinstance(chain, dict) or not _HASH_RE.fullmatch(
+        str(chain.get("current_hash", ""))
+    ):
         raise CheckpointError("checkpoint audit-chain payload is malformed")
     return payload
 
 
 def serialize_document(document: dict[str, Any]) -> bytes:
-    return (
-        json.dumps(document, sort_keys=True, separators=(",", ":"), ensure_ascii=True) + "\n"
-    ).encode("utf-8")
+    rendered = json.dumps(
+        document,
+        sort_keys=True,
+        separators=(",", ":"),
+        ensure_ascii=True,
+    )
+    return f"{rendered}\n".encode()
 
 
 def checkpoint_name(payload: dict[str, Any]) -> str:
     created = str(payload["created_at"]).replace("-", "").replace(":", "")
-    created = created.replace("Z", "Z").replace("T", "T")
     last_id = payload["audit_chain"].get("last_log_id")
     suffix = "genesis" if last_id is None else str(last_id)
     return f"audit-checkpoint-{created}-{suffix}.json"
@@ -230,13 +262,22 @@ def _ship_s3(path: Path, destination: str) -> str:
     aws = shutil.which("aws")
     if aws is None:
         raise CheckpointError("S3 destination requires the aws CLI")
+
     target = f"{destination.rstrip('/')}/{path.name}"
     command = [aws, "s3", "cp", "--only-show-errors", str(path), target]
-    endpoint = _first_env("AUDIT_CHECKPOINT_S3_ENDPOINT_URL", "BACKUP_S3_ENDPOINT_URL")
+    endpoint = _first_env(
+        "AUDIT_CHECKPOINT_S3_ENDPOINT_URL",
+        "BACKUP_S3_ENDPOINT_URL",
+    )
     if endpoint:
         command += ["--endpoint-url", endpoint]
     try:
-        subprocess.run(command, check=True, stdout=subprocess.DEVNULL, stderr=subprocess.PIPE)
+        subprocess.run(
+            command,
+            check=True,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.PIPE,
+        )
     except subprocess.CalledProcessError as exc:
         raise CheckpointError("external checkpoint upload failed") from exc
     return target
@@ -247,6 +288,7 @@ def ship(path: Path, destination: str, *, allow_local: bool) -> str:
         return _ship_s3(path, destination)
     if not allow_local:
         raise CheckpointError("checkpoint destination must be external (s3://) on staging")
+
     root = Path(destination)
     root.mkdir(parents=True, exist_ok=True, mode=0o700)
     target = root / path.name
@@ -257,7 +299,12 @@ def ship(path: Path, destination: str, *, allow_local: bool) -> str:
     return str(target)
 
 
-def write_stamp(path: Path, *, payload: dict[str, Any], checkpoint_sha256: str) -> None:
+def write_stamp(
+    path: Path,
+    *,
+    payload: dict[str, Any],
+    checkpoint_sha256: str,
+) -> None:
     path.parent.mkdir(parents=True, exist_ok=True, mode=0o750)
     stamp = {
         "created_at": payload["created_at"],
@@ -302,12 +349,18 @@ def verify_live_anchor(payload: dict[str, Any], config: DbConfig) -> None:
             live_last_id = head[0]
             if checkpoint_id is None:
                 if live_last_id is not None:
-                    raise CheckpointError("live chain has advanced beyond the genesis checkpoint")
+                    raise CheckpointError(
+                        "live chain has advanced beyond the genesis checkpoint"
+                    )
                 return
-            cursor.execute("SELECT current_hash FROM audit_logs WHERE id = %s", (checkpoint_id,))
+            cursor.execute(
+                "SELECT current_hash FROM audit_logs WHERE id = %s",
+                (checkpoint_id,),
+            )
             row = cursor.fetchone()
     finally:
         connection.close()
+
     if live_last_id is None or int(live_last_id) < int(checkpoint_id):
         raise CheckpointError("live audit chain is behind the checkpoint")
     if row is None or not hmac.compare_digest(str(row[0]), checkpoint_hash):
@@ -344,7 +397,11 @@ def create_checkpoint(args: argparse.Namespace) -> int:
     key = load_hmac_key(args.key_file)
     payload_head = read_chain_head(db_config_from_env())
     release_sha = read_release_sha(args.release_file)
-    document = build_document(chain_head=payload_head, release_sha=release_sha, key=key)
+    document = build_document(
+        chain_head=payload_head,
+        release_sha=release_sha,
+        key=key,
+    )
     payload = document["payload"]
     data = serialize_document(document)
     digest = hashlib.sha256(data).hexdigest()
@@ -353,10 +410,18 @@ def create_checkpoint(args: argparse.Namespace) -> int:
         path = Path(temp) / checkpoint_name(payload)
         path.write_bytes(data)
         path.chmod(0o600)
-        destination = ship(path, args.dest, allow_local=args.allow_local_dest)
+        destination = ship(
+            path,
+            args.dest,
+            allow_local=args.allow_local_dest,
+        )
 
     if args.stamp_file is not None:
-        write_stamp(args.stamp_file, payload=payload, checkpoint_sha256=digest)
+        write_stamp(
+            args.stamp_file,
+            payload=payload,
+            checkpoint_sha256=digest,
+        )
 
     print(
         json.dumps(
@@ -364,7 +429,9 @@ def create_checkpoint(args: argparse.Namespace) -> int:
                 "event": "audit_checkpoint.published",
                 "last_log_id": payload["audit_chain"].get("last_log_id"),
                 "checkpoint_sha256": digest,
-                "destination_type": "s3" if args.dest.startswith("s3://") else "local",
+                "destination_type": (
+                    "s3" if args.dest.startswith("s3://") else "local"
+                ),
                 "object": Path(destination).name,
             },
             sort_keys=True,
