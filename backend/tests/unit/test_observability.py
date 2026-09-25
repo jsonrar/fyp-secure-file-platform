@@ -1,11 +1,13 @@
 from __future__ import annotations
 
+import io
 import json
 import logging
 
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
+from app.core.config import Settings
 from app.core.observability import (
     ObservabilityMiddleware,
     RedactingJsonFormatter,
@@ -13,7 +15,6 @@ from app.core.observability import (
     redact_text,
 )
 from app.services.email_service import EmailService, OutboundEmail
-from app.core.config import Settings
 
 
 def test_redacting_formatter_never_emits_credentials_or_private_key() -> None:
@@ -67,7 +68,7 @@ def test_metrics_use_route_templates_not_user_values() -> None:
 
     rendered = registry.render_prometheus()
 
-    assert '/api/v1/files/{file_id}' in rendered
+    assert "/api/v1/files/{file_id}" in rendered
     assert "storage" in rendered
     assert "integrity_rejected" in rendered
     assert "private-file-name.txt" not in rendered
@@ -92,11 +93,11 @@ def test_recovery_middleware_records_only_template_and_returns_request_id() -> N
     assert response.headers["X-Request-ID"] == "safe-request-id"
     metrics = registry.render_prometheus()
     assert "private-user-supplied-id" not in metrics
-    assert '/api/v1/recovery/{request_id}/approve' in metrics
+    assert "/api/v1/recovery/{request_id}/approve" in metrics
     assert registry.event_count(category="recovery", event="operation", outcome="success") == 1
 
 
-def test_console_email_log_suppresses_recipient_subject_and_body(caplog) -> None:  # type: ignore[no-untyped-def]
+def test_console_email_log_suppresses_recipient_subject_and_body() -> None:
     settings = Settings(APP_ENV="test", EMAIL_PROVIDER="console")
     service = EmailService(settings)
     message = OutboundEmail(
@@ -104,11 +105,19 @@ def test_console_email_log_suppresses_recipient_subject_and_body(caplog) -> None
         subject="Password reset for confidential-account",
         text_body="verification code 123456 and private filename payroll.xlsx",
     )
-
-    with caplog.at_level(logging.WARNING, logger="app.services.email_service"):
+    logger = logging.getLogger("app.services.email_service")
+    stream = io.StringIO()
+    handler = logging.StreamHandler(stream)
+    logger.addHandler(handler)
+    previous_level = logger.level
+    logger.setLevel(logging.WARNING)
+    try:
         service.send(message)
+    finally:
+        logger.removeHandler(handler)
+        logger.setLevel(previous_level)
 
-    rendered = caplog.text
+    rendered = stream.getvalue()
     assert "secret-recipient@example.test" not in rendered
     assert "confidential-account" not in rendered
     assert "123456" not in rendered
