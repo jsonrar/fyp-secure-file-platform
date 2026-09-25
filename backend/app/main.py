@@ -11,13 +11,8 @@ from app.api.body_limit import RequestBodyLimitMiddleware
 from app.api.error_handlers import register_exception_handlers
 from app.api.v1.router import api_router
 from app.core.config import Settings, settings
-from app.core.database import (
-    create_db_engine,
-    create_session_factory,
-)
-from app.core.database import (
-    engine as default_engine,
-)
+from app.core.database import create_db_engine, create_session_factory
+from app.core.database import engine as default_engine
 from app.core.observability import (
     ObservabilityMiddleware,
     SecurityMetrics,
@@ -83,7 +78,10 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
-    application.add_middleware(ObservabilityMiddleware, registry=application.state.observability)
+    application.add_middleware(
+        ObservabilityMiddleware,
+        registry=application.state.observability,
+    )
 
     application.include_router(api_router, prefix=active_settings.API_PREFIX)
     register_exception_handlers(application)
@@ -110,7 +108,9 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
                 )
         except Exception:
             application.state.observability.record_event(
-                category="database", event="unavailable", outcome="failed"
+                category="database",
+                event="unavailable",
+                outcome="failed",
             )
             emit_security_event(
                 logger,
@@ -127,7 +127,9 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
             )
         if revision != active_settings.EXPECTED_SCHEMA_REVISION:
             application.state.observability.record_event(
-                category="schema", event="mismatch", outcome="failed"
+                category="schema",
+                event="mismatch",
+                outcome="failed",
             )
             emit_security_event(
                 logger,
@@ -147,8 +149,8 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
 
     @application.get("/internal/metrics", include_in_schema=False)
     def internal_metrics():
-        # nginx exposes this route only to loopback. The backend itself is also bound to
-        # 127.0.0.1 on staging; see the observability runbook before changing either boundary.
+        # nginx does not proxy this path. The backend is loopback-bound on staging; see the
+        # observability runbook before changing either boundary.
         return PlainTextResponse(
             application.state.observability.render_prometheus(),
             media_type="text/plain; version=0.0.4; charset=utf-8",
