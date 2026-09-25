@@ -1,9 +1,10 @@
+import logging
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, status
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import JSONResponse
+from fastapi.responses import JSONResponse, PlainTextResponse
 from sqlalchemy import text
 
 from app.api.body_limit import RequestBodyLimitMiddleware
@@ -17,7 +18,15 @@ from app.core.database import (
 from app.core.database import (
     engine as default_engine,
 )
+from app.core.observability import (
+    ObservabilityMiddleware,
+    SecurityMetrics,
+    configure_application_logging,
+    emit_security_event,
+)
 from app.core.security import PasswordManager
+
+logger = logging.getLogger("app.health")
 
 
 @asynccontextmanager
@@ -30,6 +39,7 @@ async def lifespan(application: FastAPI) -> AsyncIterator[None]:
 
 def create_app(app_settings: Settings | None = None) -> FastAPI:
     active_settings = app_settings or settings
+    configure_application_logging(active_settings.LOG_LEVEL)
     # Passing None un-mounts the route entirely, so a disabled schema is a 404 rather than a
     # 403 -- it does not confirm that the documentation is there to be found.
     docs_enabled = active_settings.APP_DOCS_ENABLED
@@ -43,6 +53,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         openapi_url="/openapi.json" if docs_enabled else None,
     )
     application.state.settings = active_settings
+    application.state.observability = SecurityMetrics()
     application.state.db_engine = (
         default_engine
         if active_settings is settings
@@ -72,6 +83,7 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
         allow_methods=["GET", "POST"],
         allow_headers=["*"],
     )
+    application.add_middleware(ObservabilityMiddleware, registry=application.state.observability)
 
     application.include_router(api_router, prefix=active_settings.API_PREFIX)
     register_exception_handlers(application)
@@ -97,16 +109,50 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
                     text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
                 )
         except Exception:
+            application.state.observability.record_event(
+                category="database", event="unavailable", outcome="failed"
+            )
+            emit_security_event(
+                logger,
+                logging.ERROR,
+                event="database_unavailable",
+                category="database",
+                outcome="failed",
+                route="/health/ready",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"status": "not_ready", "reason": "database_unavailable"},
             )
         if revision != active_settings.EXPECTED_SCHEMA_REVISION:
+            application.state.observability.record_event(
+                category="schema", event="mismatch", outcome="failed"
+            )
+            emit_security_event(
+                logger,
+                logging.ERROR,
+                event="schema_mismatch",
+                category="schema",
+                outcome="failed",
+                route="/health/ready",
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                reason="deployed_schema_revision_differs",
+            )
             return JSONResponse(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
                 content={"status": "not_ready", "reason": "schema_incompatible"},
             )
         return {"status": "ready"}
+
+    @application.get("/internal/metrics", include_in_schema=False)
+    def internal_metrics():
+        # nginx exposes this route only to loopback. The backend itself is also bound to
+        # 127.0.0.1 on staging; see the observability runbook before changing either boundary.
+        return PlainTextResponse(
+            application.state.observability.render_prometheus(),
+            media_type="text/plain; version=0.0.4; charset=utf-8",
+        )
 
     return application
 
