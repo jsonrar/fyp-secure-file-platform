@@ -89,8 +89,9 @@ class RedactingJsonFormatter(logging.Formatter):
     """One-line JSON formatter with a deliberately small extra-field allow-list."""
 
     def format(self, record: logging.LogRecord) -> str:
+        timestamp = datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z")
         payload: dict[str, Any] = {
-            "timestamp": datetime.now(UTC).isoformat(timespec="milliseconds").replace("+00:00", "Z"),
+            "timestamp": timestamp,
             "level": record.levelname,
             "logger": record.name,
             "message": redact_text(record.getMessage()),
@@ -102,12 +103,14 @@ class RedactingJsonFormatter(logging.Formatter):
         if record.exc_info:
             # Deliberately retain only the exception class. Tracebacks can contain local
             # variables or user-supplied values and therefore do not belong in the security log.
-            payload["exception_type"] = record.exc_info[0].__name__
+            exception_type = record.exc_info[0]
+            if exception_type is not None:
+                payload["exception_type"] = exception_type.__name__
         return json.dumps(payload, sort_keys=True, separators=(",", ":"), ensure_ascii=True)
 
 
 def configure_application_logging(level: str) -> None:
-    """Install exactly one redacting handler for the ``app.*`` logger hierarchy."""
+    """Install one redacting handler and disable raw Uvicorn request-line logging."""
 
     application_logger = logging.getLogger("app")
     application_logger.setLevel(level)
@@ -120,6 +123,11 @@ def configure_application_logging(level: str) -> None:
     handler.setFormatter(RedactingJsonFormatter())
     handler._secureview_redacting_handler = True  # type: ignore[attr-defined]
     application_logger.addHandler(handler)
+
+    # Uvicorn's default access line contains the raw path *and query string*. Search terms can
+    # contain a plaintext filename, so retain nginx's query-free access log instead and suppress
+    # this duplicate source at application startup regardless of the service CLI flags.
+    logging.getLogger("uvicorn.access").disabled = True
 
 
 def emit_security_event(
@@ -156,7 +164,14 @@ class SecurityMetrics:
         self._duration_ms_sum = 0.0
         self._duration_count = 0
 
-    def record_http(self, *, method: str, route: str, status_code: int, duration_ms: float) -> None:
+    def record_http(
+        self,
+        *,
+        method: str,
+        route: str,
+        status_code: int,
+        duration_ms: float,
+    ) -> None:
         status_class = f"{status_code // 100}xx"
         with self._lock:
             self._http[(method, route, status_class)] += 1
@@ -178,7 +193,7 @@ class SecurityMetrics:
             duration_sum = self._duration_ms_sum
             duration_count = self._duration_count
         lines = [
-            "# HELP secureview_http_requests_total HTTP requests by route template and status class.",
+            "# HELP secureview_http_requests_total HTTP requests by route template/status class.",
             "# TYPE secureview_http_requests_total counter",
         ]
         for (method, route, status_class), count in sorted(http.items()):
@@ -189,7 +204,7 @@ class SecurityMetrics:
             )
             lines.append(f"secureview_http_requests_total{{{labels}}} {count}")
         lines += [
-            "# HELP secureview_security_events_total Security/operations events by fixed category.",
+            "# HELP secureview_security_events_total Security/operations events by category.",
             "# TYPE secureview_security_events_total counter",
         ]
         for (category, event, outcome), count in sorted(events.items()):
@@ -200,10 +215,10 @@ class SecurityMetrics:
             )
             lines.append(f"secureview_security_events_total{{{labels}}} {count}")
         lines += [
-            "# HELP secureview_http_request_duration_ms_sum Sum of observed request durations.",
+            "# HELP secureview_http_request_duration_ms_sum Sum of request durations.",
             "# TYPE secureview_http_request_duration_ms_sum counter",
             f"secureview_http_request_duration_ms_sum {duration_sum:.3f}",
-            "# HELP secureview_http_request_duration_ms_count Number of observed request durations.",
+            "# HELP secureview_http_request_duration_ms_count Number of request durations.",
             "# TYPE secureview_http_request_duration_ms_count counter",
             f"secureview_http_request_duration_ms_count {duration_count}",
         ]
@@ -256,7 +271,9 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
             if route.startswith("/api/v1/recovery"):
                 outcome = "success" if status_code < 400 else "rejected"
                 self.registry.record_event(
-                    category="recovery", event="operation", outcome=outcome
+                    category="recovery",
+                    event="operation",
+                    outcome=outcome,
                 )
                 emit_security_event(
                     self.logger,
@@ -273,7 +290,9 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
                 )
             if route.startswith("/api/v1/auth") and status_code == 429:
                 self.registry.record_event(
-                    category="auth", event="rate_limited", outcome="blocked"
+                    category="auth",
+                    event="rate_limited",
+                    outcome="blocked",
                 )
                 emit_security_event(
                     self.logger,
@@ -289,7 +308,9 @@ class ObservabilityMiddleware(BaseHTTPMiddleware):
                 )
             if response is None or status_code >= 500:
                 self.registry.record_event(
-                    category="http", event="server_error", outcome="failed"
+                    category="http",
+                    event="server_error",
+                    outcome="failed",
                 )
                 emit_security_event(
                     self.logger,
