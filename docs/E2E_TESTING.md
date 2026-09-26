@@ -115,7 +115,7 @@ driven by Playwright, clicks the built pages through the golden path:
 | Download | The browser's own download, compared byte for byte with the original |
 | Share | The row's **Share** button and the share dialog |
 | Recipient sees it | The second account's **Shared with me** list, then a download decrypted with its own passphrase |
-| Revoke | **Revoke** in the share dialog |
+| Revoke | **Revoke** in the share dialog, then **Revoke access** on the confirmation |
 | Recipient no longer sees it | The recipient's list after a reload |
 | Log out | **Log out** in the account menu; a protected page then sends the browser back to sign in |
 

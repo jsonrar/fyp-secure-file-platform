@@ -36,7 +36,7 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
     <div class="container mx-auto px-4">
       <div class="text-center mb-12 max-w-3xl mx-auto">
         <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-5">
-          <GraduationCap class="h-4 w-4 text-primary" />
+          <!-- <GraduationCap class="h-4 w-4 text-primary" /> -->
           <span class="text-sm text-primary font-medium">Encryption Education</span>
         </div>
         <h1 class="text-3xl md:text-5xl font-bold text-foreground mb-4 text-balance">Learn How Encryption Works</h1>

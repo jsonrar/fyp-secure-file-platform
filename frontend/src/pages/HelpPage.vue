@@ -9,7 +9,7 @@ import SoftwareGuide from '@/components/education/SoftwareGuide.vue'
     <div class="container mx-auto px-4">
       <div class="mb-12 mx-auto max-w-3xl text-center">
         <div class="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2">
-          <CircleHelp class="h-4 w-4 text-primary" />
+          <!-- <CircleHelp class="h-4 w-4 text-primary" /> -->
           <span class="text-sm font-medium text-primary">Product Help</span>
         </div>
         <h1 class="mb-4 text-balance text-3xl font-bold text-foreground md:text-5xl">How to Use SecureView</h1>

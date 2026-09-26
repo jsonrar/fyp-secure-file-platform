@@ -7,6 +7,7 @@ import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/a
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 import RequestRecoveryDialog from '@/components/RequestRecoveryDialog.vue'
+import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
 import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
 import { markSharesSeen, unseenSharedIds } from '@/utils/seen-shares'
 import { downloadEncryptedFile } from '@/utils/file-download'
@@ -56,6 +57,9 @@ const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
 const recoveryFileId = ref<string | null>(null)
 const historyFileId = ref<string | null>(null)
+/** Owned file waiting for delete confirmation; null when no dialog is open. */
+const pendingDelete = ref<EncryptedFile | null>(null)
+const isDeleting = ref(false)
 const actionMessage = ref('')
 const page = ref(1)
 const total = ref(0)
@@ -207,21 +211,42 @@ const markSharedFileUnavailable = (id: string, error: unknown): boolean => {
   return false
 }
 
-const handleDelete = async (id: string) => {
+const handleDelete = (id: string) => {
+  const file = files.value.find((row) => row.id === id)
+  if (!file || !file.owned) return
+  pendingDelete.value = file
+}
+
+/**
+ * Runs only after the dedicated confirmation dialog. A one-click trash icon used to delete
+ * immediately, which is exactly what #72 forbids for irreversible file removal.
+ */
+const confirmDelete = async () => {
+  const file = pendingDelete.value
+  if (!file) return
+  isDeleting.value = true
   actionMessage.value = ''
   try {
-    await fileApi.delete(id)
-    files.value = files.value.filter((f) => f.id !== id)
+    await fileApi.delete(file.id)
+    files.value = files.value.filter((f) => f.id !== file.id)
     total.value = Math.max(0, total.value - 1)
     // Removing the last row of the last page would otherwise strand the view on a page
     // that no longer exists, showing an empty table over a non-zero total.
     if (!files.value.length && page.value > 1) {
       await goToPage(page.value - 1)
     }
-    actionMessage.value = 'File deleted'
+    actionMessage.value = `Deleted ${file.name}`
+    pendingDelete.value = null
   } catch (error) {
     actionMessage.value = error instanceof Error ? error.message : 'Delete failed'
+  } finally {
+    isDeleting.value = false
   }
+}
+
+const closePendingDelete = () => {
+  if (isDeleting.value) return
+  pendingDelete.value = null
 }
 
 /**
@@ -612,6 +637,17 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       :filename="recoveryFile.name"
       @close="recoveryFileId = null"
       @requested="onRecoveryRequested"
+    />
+    <ConfirmActionDialog
+      v-if="pendingDelete"
+      title="Delete this file?"
+      :detail="pendingDelete.name"
+      consequence="This permanently removes the encrypted file from SecureView and revokes every share. Recipients lose access immediately. It cannot be undone from this app."
+      confirm-label="Delete file"
+      busy-label="Deleting…"
+      :busy="isDeleting"
+      @confirm="confirmDelete"
+      @close="closePendingDelete"
     />
     <UnlockDialog
       v-if="showUnlock"

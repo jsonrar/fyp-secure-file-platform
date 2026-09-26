@@ -204,6 +204,8 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await row.getByRole('button', { name: 'Share', exact: true }).click()
     const holder = owner.getByRole('listitem').filter({ hasText: bob.username })
     await holder.getByRole('button', { name: 'Revoke' }).click()
+    // #72: revoke states the consequence in a dedicated dialog before it runs.
+    await owner.getByRole('button', { name: 'Revoke access' }).click()
     await expect(owner.getByText(`Revoked ${bob.username}'s access`)).toBeVisible()
     await expect(owner.getByText('Nobody yet')).toBeVisible()
     await owner.getByRole('button', { name: 'Cancel' }).click()

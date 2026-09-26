@@ -128,9 +128,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 打磨不得视为这些项已完成。每个 Issue 均按
 [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61) 写明验收标准。
 
-- [ ] [#72 高危与破坏性操作二次确认](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
-  ——删除文件、撤销分享、注销账户及同类高影响操作使用独立弹窗，明确目标、后果与是否可恢复，
-  不再由单击图标直接触发。
+- [x] [#72 高危与破坏性操作二次确认](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
+  ——删除文件与撤销分享使用独立后果确认弹窗；注销账户仍为「登录密码 + 输入 DELETE」，并在
+  Profile 与 Settings 均可进入。
 - [ ] [#71 认证后的密文预览与加密文件下载](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
   ——授权用户可查看有限长度的密文预览或保存服务器实际存储的加密对象；不得静默解密，也不改变
   现有明文解密下载流程。

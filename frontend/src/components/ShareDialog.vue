@@ -11,6 +11,7 @@ import { RecipientNotFoundError, shareFileWithRecipient } from '@/crypto/share'
 import { apiErrorMessage } from '@/api/http'
 import { shareApi, type SharedUser } from '@/api/share_api'
 import { unwrapData } from '@/api/types'
+import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
 
 const props = defineProps<{
   fileId: string
@@ -34,6 +35,8 @@ const field = ref<HTMLInputElement | null>(null)
 const recipients = ref<SharedUser[]>([])
 const isLoadingRecipients = ref(true)
 const revokingUserId = ref<string | null>(null)
+/** Recipient selected for revoke confirmation; null when the dialog is closed. */
+const pendingRevoke = ref<SharedUser | null>(null)
 
 /** The owner holds a canonical grant that cannot be revoked, so it is not offered. */
 const others = computed(() => recipients.value.filter((user) => !user.is_owner))
@@ -57,11 +60,22 @@ const loadRecipients = async () => {
   }
 }
 
-async function revoke(user: SharedUser) {
+function requestRevoke(user: SharedUser) {
+  pendingRevoke.value = user
+}
+
+/**
+ * Runs only after the confirmation dialog. Revoke used to fire on the first click of the
+ * icon, which #72 requires to state the consequence first.
+ */
+async function confirmRevoke() {
+  const user = pendingRevoke.value
+  if (!user) return
   revokingUserId.value = user.user_id
   errorMessage.value = ''
   try {
     await shareApi.revokeAccess(props.fileId, { target_user_id: user.user_id })
+    pendingRevoke.value = null
     await loadRecipients()
     emit('revoked', user.username)
   } catch (error) {
@@ -69,6 +83,11 @@ async function revoke(user: SharedUser) {
   } finally {
     revokingUserId.value = null
   }
+}
+
+function closePendingRevoke() {
+  if (revokingUserId.value !== null) return
+  pendingRevoke.value = null
 }
 
 onMounted(async () => {
@@ -159,7 +178,7 @@ async function share() {
               type="button"
               class="h-8 px-2 inline-flex items-center gap-1 rounded-md border border-destructive/40 text-destructive text-xs hover:bg-destructive/10 disabled:opacity-50"
               :disabled="revokingUserId !== null"
-              @click="revoke(user)"
+              @click="requestRevoke(user)"
             >
               <Loader2 v-if="revokingUserId === user.user_id" class="h-3 w-3 animate-spin" />
               <UserMinus v-else class="h-3 w-3" />
@@ -212,4 +231,16 @@ async function share() {
       </form>
     </div>
   </div>
+
+  <ConfirmActionDialog
+    v-if="pendingRevoke"
+    title="Revoke access?"
+    :detail="`Remove ${pendingRevoke.username}'s access${filename ? ` to ${filename}` : ''}?`"
+    consequence="They lose further access and the file leaves their Shared with me list. A copy they have already downloaded and decrypted cannot be recovered."
+    confirm-label="Revoke access"
+    busy-label="Revoking…"
+    :busy="revokingUserId === pendingRevoke.user_id"
+    @confirm="confirmRevoke"
+    @close="closePendingRevoke"
+  />
 </template>
