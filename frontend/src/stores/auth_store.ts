@@ -27,6 +27,12 @@ export const useAuthStore = defineStore('auth', {
     /** The header renders before `/auth/me` answers, so this has to survive a null user. */
     displayName: (state) => state.user?.username ?? 'Account',
     initials: (state) => (state.user ? toInitials(state.user.username) : '?'),
+    isAdmin: (state) => state.user?.role === 'ADMIN',
+    /** ADMIN and RECOVERY_OFFICER can review recovery requests. */
+    isRecoveryReviewer: (state) => {
+      const role = state.user?.role
+      return role === 'ADMIN' || role === 'RECOVERY_OFFICER'
+    },
   },
   actions: {
     /**
@@ -64,7 +70,13 @@ export const useAuthStore = defineStore('auth', {
       }
       return this.user
     },
-    logout() {
+    /**
+     * Drop the local session only.
+     *
+     * Used when the server has already ended the session (expiry, account deletion) or when
+     * there is no usable token left to present to `POST /auth/logout`.
+     */
+    clearLocalSession() {
       this.accessToken = ''
       // Otherwise the next account to sign in at this machine inherits the previous one's
       // name and email in the avatar menu until `/auth/me` answers.
@@ -76,6 +88,24 @@ export const useAuthStore = defineStore('auth', {
       // The next person to sign in at this machine should not inherit a marker saying they
       // have already seen the previous account's shared files.
       forgetSeenShares()
+    },
+    /**
+     * End the session the user asked to leave.
+     *
+     * Until #89 the UI only cleared the browser. The refresh token stayed valid on the
+     * server, so a stolen copy from before "Log out" could still renew access. Call
+     * `POST /auth/logout` first while the bearer is still present, then clear locally
+     * even if the server call fails — the user asked to leave this machine either way.
+     */
+    async logout() {
+      if (this.accessToken) {
+        try {
+          await authApi.logout()
+        } catch {
+          // Local clear still runs: a dead network must not trap the user as "signed in".
+        }
+      }
+      this.clearLocalSession()
     },
   },
 })

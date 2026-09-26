@@ -30,7 +30,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 此 UI 修复不代表 [#58 浏览器 E2E 覆盖](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
 已经完成；线上部署核验与可重复的浏览器覆盖仍按各自验收条件推进。
 
-- [x] 邮箱验证码注册与重置登录密码、登录与浏览器本地登出、后端会话撤销端点、refresh 轮换、
+- [x] 邮箱验证码注册与重置登录密码、登录与服务端撤销会话的登出、后端会话撤销端点、refresh 轮换、
   会话失效、注销账户、限流、
   Argon2id 密码哈希与 RBAC。
 - [x] 浏览器持有的账户密钥登记、passphrase/私钥文件解锁、空闲自动上锁及历史密钥 bundle
@@ -91,8 +91,12 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 - [ ] [#54 完成浏览器修改 passphrase 与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
   ——使用带签名的后端契约，并发布规范化账户信封文档。
-- [ ] [#55 完成管理员、恢复专员及审计验证流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
-  ——通过角色感知 UI 演示现有 RBAC/恢复/审计 API。
+- [x] [#55 完成管理员、恢复专员及审计验证流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
+  ——`/admin` 按角色展示：ADMIN 可管理用户/文件、验证审计链、登记恢复公钥并复核恢复；
+  RECOVERY_OFFICER 可复核并执行（离线重封装后回填）；普通用户从 My Files 发起请求，并在此
+  跟踪或取消。
+- [x] [#89 用户登出时撤销服务端会话](https://github.com/jsonrar/fyp-secure-file-platform/issues/89)
+  ——主动 Log out 先调用 `POST /auth/logout` 再清本地；会话过期与注销账户仍只清本地。
 - [ ] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
   ——仓库部分已完成：目录宽限期、数量保护（退出码 3）、边界两侧计数报告、MySQL 幂等性测试与不触碰审计/
   密钥/恢复表的语句测试、在同机备份之后 05:00 运行的 timer、邮件告警，以及

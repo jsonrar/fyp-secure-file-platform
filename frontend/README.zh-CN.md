@@ -25,7 +25,7 @@ npm run dev
 | `/upload` | 文件加密上传（需要身份认证） |
 | `/files` | 文件管理（需要身份认证） |
 | `/audit-logs` | 审计访问记录（需要身份认证） |
-| `/admin` | 有限的管理/恢复概览（需要身份认证） |
+| `/admin` | 角色感知运维：恢复复核、管理用户/文件、审计链、恢复公钥 |
 | `/education` | 教育页面 |
 | `/help` | 产品帮助 — 链到首页图文引导；视频占位 |
 | `/team` | Contact us — 反馈表单预览 + 开发团队 |
@@ -39,8 +39,8 @@ npm run dev
 - `src/composables/useTheme.ts` — 系统／明亮／暗色主题
 
 浏览器已经实现账户密钥登记、passphrase／私钥文件解锁、加密上传、认证下载与本地解密、分享
-密钥重包装、撤销、搜索、审计历史、refresh 轮换、登出及注销账户。修改 passphrase、后继密钥
-轮换及完整的角色感知管理/恢复界面仍属于 backlog。
+密钥重包装、撤销、搜索、审计历史、refresh 轮换、会撤销服务端会话的登出、注销账户，以及
+`/admin` 上的角色感知管理／恢复／审计操作。修改 passphrase 与后继密钥轮换仍属于 backlog。
 
 在 `/files` 中，**Download encrypted** 无需解锁账户密钥即可将原始密文保存为
 `<filename>.ciphertext`；**Download and decrypt** 仍在需要时弹出解锁对话框并保存原文件。

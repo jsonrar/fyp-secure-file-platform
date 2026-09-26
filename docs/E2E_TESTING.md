@@ -119,10 +119,11 @@ driven by Playwright, clicks the built pages through the golden path:
 | Recipient no longer sees it | The recipient's list after a reload |
 | Log out | **Log out** in the account menu; a protected page then sends the browser back to sign in |
 
-Every step is driven through the UI; none is done over the API. The UI's **Log out** is local:
-it clears the tokens and the unlocked key in the browser but does not call `POST /auth/logout`
-(server-side revocation is covered by `e2e/live-stack`). The test asserts what the button does —
-tokens gone, protected pages redirect — and does not claim the server session was revoked.
+Every step is driven through the UI; none is done over the API. The UI's **Log out** calls
+`POST /auth/logout` to revoke the server session family, then clears the browser tokens and
+unlocked key. The test asserts what the button does — tokens gone, protected pages redirect —
+and does not separately re-check the server-side revocation (that contract remains covered by
+`e2e/live-stack`).
 
 Selectors are roles, labels and visible text only; no `data-testid` was needed. There are no
 sleeps: every wait is a Playwright web-first assertion, and the mailbox is polled with

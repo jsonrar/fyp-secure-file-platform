@@ -1,51 +1,143 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { ShieldCheck, Users, FileIcon } from 'lucide-vue-next'
-import { recoveryApi } from '@/api/recovery_api'
-import { unwrapData } from '@/api/types'
+import { computed, onMounted, ref, type Component } from 'vue'
+import { FileIcon, KeyRound, LifeBuoy, ShieldCheck, Users } from 'lucide-vue-next'
+import { RouterLink } from 'vue-router'
 
-const requests = ref<unknown[]>([])
-const message = ref('')
+import AdminAuditPanel from '@/components/admin/AdminAuditPanel.vue'
+import AdminFilesPanel from '@/components/admin/AdminFilesPanel.vue'
+import AdminRecoveryKeyPanel from '@/components/admin/AdminRecoveryKeyPanel.vue'
+import AdminRecoveryRequestsPanel from '@/components/admin/AdminRecoveryRequestsPanel.vue'
+import AdminUsersPanel from '@/components/admin/AdminUsersPanel.vue'
+import { useAuthStore } from '@/stores/auth_store'
+
+type TabId = 'recovery' | 'users' | 'files' | 'audit' | 'recovery-key'
+
+interface Tab {
+  id: TabId
+  label: string
+  icon: typeof Users
+  adminOnly: boolean
+}
+
+const auth = useAuthStore()
+const ready = ref(false)
+const activeTab = ref<TabId>('recovery')
+
+const tabs = computed<Tab[]>(() => {
+  const all: Tab[] = [
+    { id: 'recovery', label: 'Recovery requests', icon: LifeBuoy, adminOnly: false },
+    { id: 'users', label: 'Users', icon: Users, adminOnly: true },
+    { id: 'files', label: 'Files', icon: FileIcon, adminOnly: true },
+    { id: 'audit', label: 'Audit chain', icon: ShieldCheck, adminOnly: true },
+    { id: 'recovery-key', label: 'Recovery key', icon: KeyRound, adminOnly: true },
+  ]
+  if (auth.isAdmin) return all
+  return all.filter((tab) => !tab.adminOnly)
+})
+
+const panelMap: Record<TabId, Component> = {
+  recovery: AdminRecoveryRequestsPanel,
+  users: AdminUsersPanel,
+  files: AdminFilesPanel,
+  audit: AdminAuditPanel,
+  'recovery-key': AdminRecoveryKeyPanel,
+}
+
+const activePanel = computed(() => panelMap[activeTab.value])
+
+const roleLabel = computed(() => {
+  if (auth.isAdmin) return 'Administrator'
+  if (auth.user?.role === 'RECOVERY_OFFICER') return 'Recovery officer'
+  return auth.user?.role ?? 'Signed-in user'
+})
 
 onMounted(async () => {
-  try {
-    const res = await recoveryApi.listRequests()
-    const data = unwrapData(res) as { requests?: unknown[] }
-    requests.value = data.requests ?? []
-  } catch (error) {
-    message.value = error instanceof Error ? error.message : 'Failed to load admin data'
+  await auth.loadUser(true)
+  ready.value = true
+  if (!auth.isAdmin && activeTab.value !== 'recovery') {
+    activeTab.value = 'recovery'
   }
 })
 </script>
 
 <template>
-  <section class="py-20">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-12">
-        <h1 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Admin Panel</h1>
-        <p class="text-muted-foreground max-w-2xl mx-auto">Manage recovery requests and platform administration tasks.</p>
+  <section class="py-16 md:py-20">
+    <div class="container mx-auto max-w-5xl px-4">
+      <div class="mb-10 text-center">
+        <h1 class="text-3xl font-bold text-foreground md:text-4xl">Operations</h1>
+        <p class="mx-auto mt-3 max-w-2xl text-muted-foreground">
+          Role-aware administration, recovery review, and audit-chain verification using the
+          existing backend APIs.
+        </p>
       </div>
 
-      <div class="max-w-4xl mx-auto grid md:grid-cols-3 gap-6 mb-8">
-        <article class="rounded-xl border border-border bg-card p-6">
-          <ShieldCheck class="h-6 w-6 text-primary mb-3" />
-          <h2 class="font-semibold text-foreground">Security</h2>
-          <p class="text-sm text-muted-foreground mt-2">AES-256-GCM encryption with RSA key wrapping.</p>
-        </article>
-        <article class="rounded-xl border border-border bg-card p-6">
-          <Users class="h-6 w-6 text-primary mb-3" />
-          <h2 class="font-semibold text-foreground">Recovery</h2>
-          <p class="text-sm text-muted-foreground mt-2">{{ requests.length }} recovery requests loaded.</p>
-        </article>
-        <article class="rounded-xl border border-border bg-card p-6">
-          <FileIcon class="h-6 w-6 text-primary mb-3" />
-          <h2 class="font-semibold text-foreground">Files</h2>
-          <p class="text-sm text-muted-foreground mt-2">Use the Files page to manage encrypted assets.</p>
-        </article>
+      <div v-if="!ready" class="py-16 text-center text-sm text-muted-foreground">
+        Loading account…
       </div>
 
-      <div v-if="message" class="max-w-4xl mx-auto rounded-xl border border-border bg-card p-6 text-sm text-muted-foreground">
-        {{ message }}
+      <div
+        v-else-if="!auth.isRecoveryReviewer && auth.user"
+        class="mx-auto max-w-2xl"
+      >
+        <div class="rounded-xl border border-border bg-card p-6">
+          <h2 class="text-lg font-semibold text-foreground">Your recovery requests</h2>
+          <p class="mt-2 text-sm text-muted-foreground">
+            You are signed in as a {{ roleLabel }}. User and platform administration require
+            <span class="font-medium text-foreground">ADMIN</span> or
+            <span class="font-medium text-foreground">RECOVERY_OFFICER</span>. You can still open
+            recovery requests for files you can access from
+            <RouterLink to="/files" class="text-primary underline-offset-2 hover:underline">My Files</RouterLink>,
+            and track them below.
+          </p>
+        </div>
+        <div class="mt-8">
+          <AdminRecoveryRequestsPanel :can-review="false" />
+        </div>
+      </div>
+
+      <div v-else-if="auth.isRecoveryReviewer">
+        <p class="mb-6 text-center text-sm text-muted-foreground">
+          Signed in as <span class="font-medium text-foreground">{{ roleLabel }}</span>
+          ({{ auth.displayName }})
+        </p>
+
+        <div
+          class="mb-8 flex flex-wrap justify-center gap-2 border-b border-border pb-4"
+          role="tablist"
+          aria-label="Operations sections"
+        >
+          <button
+            v-for="tab in tabs"
+            :key="tab.id"
+            type="button"
+            role="tab"
+            :aria-selected="activeTab === tab.id"
+            class="inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm transition-colors"
+            :class="
+              activeTab === tab.id
+                ? 'bg-primary/10 font-medium text-primary'
+                : 'text-muted-foreground hover:bg-secondary hover:text-foreground'
+            "
+            @click="activeTab = tab.id"
+          >
+            <component :is="tab.icon" class="h-4 w-4" />
+            {{ tab.label }}
+          </button>
+        </div>
+
+        <div role="tabpanel">
+          <AdminRecoveryRequestsPanel
+            v-if="activeTab === 'recovery'"
+            :can-review="true"
+          />
+          <component :is="activePanel" v-else />
+        </div>
+      </div>
+
+      <div v-else class="py-16 text-center text-sm text-muted-foreground">
+        Could not load your account role. Try refreshing, or
+        <RouterLink to="/login" class="text-primary underline-offset-2 hover:underline">sign in</RouterLink>
+        again.
       </div>
     </div>
   </section>

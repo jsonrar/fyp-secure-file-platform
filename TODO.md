@@ -36,7 +36,7 @@ shows all cards statically for reduced motion. See [implementation notes](change
 This UI fix does not close [#58 browser E2E coverage](https://github.com/jsonrar/fyp-secure-file-platform/issues/58);
 live deployment and repeatable browser coverage remain separate acceptance work.
 
-- [x] Email-code registration and login-password reset, login plus local browser logout,
+- [x] Email-code registration and login-password reset, login plus server-revoking logout,
   backend session-revocation endpoints, refresh rotation,
   session invalidation, account deletion, throttling, Argon2id password hashing, and RBAC.
 - [x] Browser-held account-key enrolment, passphrase/private-key-file unlock, idle relock, and
@@ -105,8 +105,13 @@ not a release pass.
 
 - [ ] [#54 Complete browser passphrase change and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
   — use the signed backend contracts and publish a normative account-envelope specification.
-- [ ] [#55 Complete admin, recovery-officer, and audit-verification workflows](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
-  — make existing RBAC/recovery/audit APIs demonstrable through role-aware UI.
+- [x] [#55 Complete admin, recovery-officer, and audit-verification workflows](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
+  — `/admin` is role-aware: ADMIN gets users, files, audit-chain verify, recovery-key
+  registration, and recovery review; RECOVERY_OFFICER reviews and executes (offline rewrap
+  paste-back); ordinary users open requests from My Files and track/cancel them here.
+- [x] [#89 Revoke the server session when a user logs out](https://github.com/jsonrar/fyp-secure-file-platform/issues/89)
+  — intentional Log out calls `POST /auth/logout` before clearing the browser; expiry and
+  account deletion still clear locally only.
 - [ ] [#57 Validate and enable the staging reconciliation timer safely](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
   — repository side done: directory grace, volume guard (exit 3), both-sides boundary report,
   MySQL idempotency and no-audit/key/recovery-statement tests, a 05:00 timer after the same-host

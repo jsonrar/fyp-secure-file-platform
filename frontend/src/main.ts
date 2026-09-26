@@ -22,7 +22,8 @@ app.use(router)
 setSessionExpiredHandler(() => {
   const auth = useAuthStore()
   if (!auth.isAuthed) return
-  auth.logout()
+  // Tokens are already unusable; do not call `POST /auth/logout` with a dead bearer.
+  auth.clearLocalSession()
 
   const current = router.currentRoute.value
   // Only worth coming back to a page the user needed to be signed in for.

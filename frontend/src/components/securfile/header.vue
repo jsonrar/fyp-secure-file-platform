@@ -126,8 +126,8 @@ watch(
   },
 )
 
-function handleLogout() {
-  auth.logout()
+async function handleLogout() {
+  await auth.logout()
   emit('close-mobile-menu')
   router.push('/login')
 }
