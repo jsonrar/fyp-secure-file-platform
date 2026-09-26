@@ -72,4 +72,28 @@ describe('auth store logout', () => {
     expect(logoutApi).not.toHaveBeenCalled()
     expect(clearSession).toHaveBeenCalledOnce()
   })
+
+  it('exposes admin and recovery-reviewer role getters', () => {
+    const auth = useAuthStore()
+    auth.user = {
+      id: '1',
+      username: 'admin',
+      email: 'admin@example.com',
+      role: 'ADMIN',
+      status: 'ACTIVE',
+      email_verified: true,
+      created_at: '2026-01-01T00:00:00Z',
+      last_login_at: null,
+    }
+    expect(auth.isAdmin).toBe(true)
+    expect(auth.isRecoveryReviewer).toBe(true)
+
+    auth.user = { ...auth.user, role: 'RECOVERY_OFFICER', username: 'officer' }
+    expect(auth.isAdmin).toBe(false)
+    expect(auth.isRecoveryReviewer).toBe(true)
+
+    auth.user = { ...auth.user, role: 'USER', username: 'member' }
+    expect(auth.isAdmin).toBe(false)
+    expect(auth.isRecoveryReviewer).toBe(false)
+  })
 })

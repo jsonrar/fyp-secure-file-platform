@@ -24,6 +24,8 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - 修复 #89：用户主动 **Log out** 时先在仍持有 bearer 的情况下调用 `POST /auth/logout`，再清理浏览器。此前界面只擦本地 token，服务端会话族及其 refresh 凭据仍然有效。会话过期与注销账户仍只清本地——那些路径要么已无可用会话，要么服务端已撤销全部会话族。
 - Completed #55: `/admin` is now a role-aware Operations surface. ADMIN can list/enable/disable users, browse file metadata, verify the audit hash chain, register/revoke the recovery public key, and review recovery requests. RECOVERY_OFFICER gets recovery review plus offline execution-package download and rewrapped-key paste-back (the recovery private key is never accepted in the browser). Ordinary users can open a recovery request from My Files and track or cancel it on the same page.
 - 完成 #55：`/admin` 现为角色感知的 Operations 界面。ADMIN 可列出/启用/禁用用户、浏览文件元数据、验证审计哈希链、登记/撤销恢复公钥，并复核恢复请求。RECOVERY_OFFICER 可做恢复复核，以及下载离线执行包并回填重封装后的密钥（浏览器从不接受恢复私钥）。普通用户可从 My Files 发起恢复请求，并在同一页面跟踪或取消。
+- Added unit coverage for the new `adminApi` / `recoveryApi` clients and auth role getters so the live e2e function-coverage floor (63%) is not diluted by unexercised wrappers.
+- 为新增的 `adminApi` / `recoveryApi` 客户端与 auth 角色 getter 补充单元覆盖，避免未调用的封装函数把 live e2e 的函数覆盖率门槛（63%）稀释掉。
 
 ### Redacted observability, incident response, and external audit anchors / 脱敏可观测性、事故响应与外部审计锚点
 
