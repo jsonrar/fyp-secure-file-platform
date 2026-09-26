@@ -25,7 +25,7 @@ Backend should be running at `http://localhost:8000`.
 | `/upload` | File encryption upload (auth required) |
 | `/files` | File management (auth required) |
 | `/audit-logs` | Audit access records (auth required) |
-| `/admin` | Limited admin/recovery overview (auth required) |
+| `/admin` | Role-aware operations: recovery review, admin users/files, audit chain, recovery key |
 | `/education` | Education page |
 | `/help` | Product help — links to homepage picture guide; video placeholders |
 | `/team` | Contact us — feedback form preview + development team |
@@ -40,8 +40,9 @@ Backend should be running at `http://localhost:8000`.
 
 The browser implements account-key enrolment, passphrase/private-key-file unlock, encrypted
 upload, authenticated download/decryption, sharing-key rewrap, revocation, search, audit
-history, refresh rotation, logout, and account deletion. Passphrase change, successor-key
-rotation, and the complete role-aware admin/recovery UI remain backlog work.
+history, refresh rotation, server-revoking logout, account deletion, and role-aware
+admin/recovery/audit operations on `/admin`. Passphrase change and successor-key rotation
+remain backlog work.
 
 On `/files`, **Download encrypted** saves the stored ciphertext as `<filename>.ciphertext`
 without unlocking the account key; **Download and decrypt** still opens the unlock dialog

@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { ChevronRight, FileIcon, Shield, Upload } from 'lucide-vue-next'
-import { onMounted, ref } from 'vue'
+import { ChevronRight, FileIcon, LifeBuoy, Shield, Upload } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
 import { fileApi } from '@/api/file_api'
 import { formatFileSize, unwrapData, type FileSummaryOut } from '@/api/types'
@@ -23,6 +23,7 @@ const isLoading = ref(true)
  */
 onMounted(async () => {
   try {
+    await auth.loadUser()
     const data = unwrapData(await fileApi.listFiles({ page: 1, page_size: 5 }))
     recent.value = data.items
     total.value = data.total
@@ -40,33 +41,46 @@ onMounted(async () => {
  */
 const onDeleted = () => {
   showDelete.value = false
-  auth.logout()
+  // Account deletion already revoked every session server-side.
+  auth.clearLocalSession()
   router.push({ path: '/register', query: { deleted: '1' } })
 }
 
-const destinations = [
-  {
-    to: '/upload',
-    icon: Upload,
-    title: 'Upload & Encrypt',
-    body: 'Encrypt a new file in your browser with AES-256-GCM. Only the ciphertext is uploaded.',
-    cta: 'Encrypt a file',
-  },
-  {
-    to: '/files',
-    icon: FileIcon,
-    title: 'My Files',
-    body: 'Download and decrypt, share with another account, verify integrity, or delete what you have already uploaded.',
-    cta: 'Manage files',
-  },
-  {
-    to: '/audit-logs',
-    icon: Shield,
-    title: 'Access Records',
-    body: 'Review the tamper-evident audit log of every upload, download, and share on your account.',
-    cta: 'View records',
-  },
-]
+const destinations = computed(() => {
+  const items = [
+    {
+      to: '/upload',
+      icon: Upload,
+      title: 'Upload & Encrypt',
+      body: 'Encrypt a new file in your browser with AES-256-GCM. Only the ciphertext is uploaded.',
+      cta: 'Encrypt a file',
+    },
+    {
+      to: '/files',
+      icon: FileIcon,
+      title: 'My Files',
+      body: 'Download and decrypt, share with another account, verify integrity, or delete what you have already uploaded.',
+      cta: 'Manage files',
+    },
+    {
+      to: '/audit-logs',
+      icon: Shield,
+      title: 'Access Records',
+      body: 'Review the tamper-evident audit log of every upload, download, and share on your account.',
+      cta: 'View records',
+    },
+    {
+      to: '/admin',
+      icon: LifeBuoy,
+      title: 'Operations',
+      body: auth.isRecoveryReviewer
+        ? 'Review recovery requests, manage users and files, verify the audit hash chain, and register the recovery public key.'
+        : 'Track your recovery requests, or cancel one that is no longer needed.',
+      cta: 'Open operations',
+    },
+  ]
+  return items
+})
 </script>
 
 <template>
@@ -80,7 +94,7 @@ const destinations = [
         </p>
       </div>
 
-      <div class="grid md:grid-cols-3 gap-6 max-w-5xl mx-auto">
+      <div class="grid gap-6 max-w-5xl mx-auto sm:grid-cols-2 lg:grid-cols-4">
         <RouterLink
           v-for="item in destinations"
           :key="item.to"

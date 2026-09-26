@@ -131,12 +131,13 @@ preview and live deployment verification remain pending.
 ### Roles and administration
 
 - `USER` uses upload, download, sharing, revocation, and personal audit features.
-- `ADMIN` can use backend APIs to manage users/files, verify the audit chain, register recovery
-  public keys, and review recovery requests.
-- `RECOVERY_OFFICER` can review recovery requests but cannot approve a request they created.
-- `/admin` currently provides a limited recovery-request overview. The complete admin and
-  recovery-officer UI remains in the backlog, so some operations currently require an
-  authorized API/OpenAPI client.
+- `ADMIN` can manage users/files, verify the audit chain, register recovery public keys, and
+  review recovery requests through `/admin`.
+- `RECOVERY_OFFICER` can review recovery requests on `/admin` but cannot approve a request they
+  created.
+- Any signed-in user can open a recovery request from My Files and track or cancel it on
+  `/admin`. Executing an approved request still requires an offline rewrap with the recovery
+  private key; that private key is never accepted by the browser UI.
 
 ## HTTP Method Policy
 

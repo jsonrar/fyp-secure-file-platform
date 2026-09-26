@@ -1,11 +1,12 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Filter, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
+import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Filter, LifeBuoy, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
+import RequestRecoveryDialog from '@/components/RequestRecoveryDialog.vue'
 import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
 import { markSharesSeen, unseenSharedIds } from '@/utils/seen-shares'
 import { downloadEncryptedFile } from '@/utils/file-download'
@@ -53,6 +54,7 @@ const files = ref<EncryptedFile[]>([])
 const isLoading = ref(false)
 const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
+const recoveryFileId = ref<string | null>(null)
 const historyFileId = ref<string | null>(null)
 const actionMessage = ref('')
 const page = ref(1)
@@ -357,10 +359,15 @@ const openShare = (id: string) => {
 }
 
 const historyFile = computed(() => files.value.find((file) => file.id === historyFileId.value))
+const recoveryFile = computed(() => files.value.find((file) => file.id === recoveryFileId.value))
 
 const closeShare = () => {
   shareFileId.value = null
   pendingShareRecipient.value = ''
+}
+
+const onRecoveryRequested = () => {
+  actionMessage.value = 'Recovery request submitted. Track it under Operations (/admin).'
 }
 
 const onShared = (username: string) => {
@@ -529,6 +536,16 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                          can_share=false and can_manage=false, so these would only ever return
                          a 404 -- showing them promises something the server will refuse. -->
                     <button
+                      type="button"
+                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
+                      title="Request recovery"
+                      aria-label="Request recovery"
+                      :disabled="Boolean(file.accessError)"
+                      @click="recoveryFileId = file.id"
+                    >
+                      <LifeBuoy class="h-4 w-4" />
+                    </button>
+                    <button
                       class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
                       title="Access history"
                       @click="historyFileId = file.id"
@@ -588,6 +605,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       @shared="onShared"
       @revoked="onRevoked"
       @needs-unlock="onShareNeedsUnlock"
+    />
+    <RequestRecoveryDialog
+      v-if="recoveryFile"
+      :file-id="recoveryFile.id"
+      :filename="recoveryFile.name"
+      @close="recoveryFileId = null"
+      @requested="onRecoveryRequested"
     />
     <UnlockDialog
       v-if="showUnlock"

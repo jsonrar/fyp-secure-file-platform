@@ -18,18 +18,19 @@ const themeOptions: { value: ThemePreference; label: string; hint: string; icon:
   { value: 'dark', label: 'Dark', hint: 'Always dark', icon: Moon },
 ]
 
-function handleLogout() {
-  auth.logout()
+async function handleLogout() {
+  await auth.logout()
   router.push('/login')
 }
 
 /**
  * The account is gone server-side; clear the local session so the app does not keep
- * rendering a signed-in shell against a user that no longer exists.
+ * rendering a signed-in shell against a user that no longer exists. Sessions were already
+ * revoked with the account — do not call `POST /auth/logout` against a deleted user.
  */
 function onDeleted() {
   showDelete.value = false
-  auth.logout()
+  auth.clearLocalSession()
   router.push({ path: '/register', query: { deleted: '1' } })
 }
 </script>

@@ -53,7 +53,7 @@ contains 167 commits.
 | 4.5 | RSA-OAEP key wrapping | Done | Owner/recovery/recipient DEK wrapping; PR #34 |
 | 4.6 | SHA-256 and tamper detection | Done | Authenticated envelope, download verification and integrity UX |
 | 4.7 | Argon2id and protected private keys | Done | Password hashing and browser-protected account-key bundles |
-| 4.8 | RBAC and session management | Done | Server enforcement, refresh rotation, logout and invalidation; Issue #55 covers richer UI |
+| 4.8 | RBAC and session management | Done | Server enforcement, refresh rotation, logout revocation (#89), and role-aware admin/recovery UI (#55) |
 | 4.9 | Audit logging | Done | Hash-chained events, per-file history and corrected visibility rules |
 | 5.1 | Functional and end-to-end testing | In progress | Live MVP test passed; required browser/MySQL CI and failure paths remain in Issues #53/#58 |
 | 5.2 | Cryptographic correctness testing | Done | Primitive, envelope, tamper, upload/download and live integration tests |

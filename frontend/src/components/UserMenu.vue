@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { LogOut, Monitor, Moon, Settings, Sun, UserRound } from 'lucide-vue-next'
+import { LifeBuoy, LogOut, Monitor, Moon, Settings, Sun, UserRound } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useAuthStore } from '@/stores/auth_store'
 import type { ThemePreference } from '@/composables/useTheme'
@@ -68,13 +68,18 @@ function goToSettings() {
   router.push('/settings')
 }
 
+function goToOperations() {
+  close()
+  router.push('/admin')
+}
+
 function selectTheme(preference: ThemePreference) {
   emit('set-theme-preference', preference)
 }
 
-function handleLogout() {
+async function handleLogout() {
   close()
-  auth.logout()
+  await auth.logout()
   router.push('/login')
 }
 
@@ -183,6 +188,15 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="border-t border-border py-1">
+        <button
+          type="button"
+          role="menuitem"
+          class="flex w-full items-center gap-2.5 px-4 py-2 text-left text-sm text-foreground transition-colors hover:bg-secondary"
+          @click="goToOperations"
+        >
+          <LifeBuoy class="h-4 w-4 shrink-0 text-muted-foreground" />
+          Operations
+        </button>
         <button
           type="button"
           role="menuitem"
