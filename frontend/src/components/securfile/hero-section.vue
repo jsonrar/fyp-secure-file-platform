@@ -22,7 +22,7 @@ const highlights = [
     <div class="container relative mx-auto px-4">
       <div class="mx-auto flex max-w-4xl flex-col items-center text-center">
         <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2">
-          <Sparkles class="h-4 w-4 text-primary" />
+          <!-- <Sparkles class="h-4 w-4 text-primary" /> -->
           <span class="text-sm font-medium text-primary">Encrypted File Sharing Platform</span>
         </div>
 

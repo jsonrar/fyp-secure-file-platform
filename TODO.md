@@ -146,9 +146,9 @@ Triaged into executable Issues on 2026-09-07 and placed in the shared backlog. T
 not treated as closed by nearby UI polish; partial branch implementations are noted below.
 Each Issue carries its acceptance criteria under [#61](https://github.com/jsonrar/fyp-secure-file-platform/issues/61).
 
-- [ ] [#72 Add secondary confirmation for destructive and high-risk actions](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
-  — file deletion, share revocation, account deletion, and equivalent high-impact actions use
-  a dedicated dialog that states the exact consequence instead of a one-click icon.
+- [x] [#72 Add secondary confirmation for destructive and high-risk actions](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
+  — file deletion and share revocation use a dedicated consequence dialog; account deletion
+  keeps the password + typed-`DELETE` dialog and is available from Profile as well as Settings.
 - [ ] [#71 Add authenticated ciphertext preview and encrypted-blob download](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
   — authorized users can inspect a bounded ciphertext preview or save the opaque stored object
   without silently decrypting it or changing the normal plaintext-download flow.

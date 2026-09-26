@@ -1,11 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import { BadgeCheck, MailWarning, Settings, ShieldCheck } from 'lucide-vue-next'
-import { RouterLink } from 'vue-router'
+import { RouterLink, useRouter } from 'vue-router'
+import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
 import { useAuthStore } from '@/stores/auth_store'
 
+const router = useRouter()
 const auth = useAuthStore()
 const isLoading = ref(true)
+const showDelete = ref(false)
 
 /** Same locale rendering the file list and audit log use, so timestamps read alike. */
 function formatTimestamp(value: string | null | undefined): string {
@@ -33,6 +36,16 @@ onMounted(async () => {
   await auth.loadUser(true)
   isLoading.value = false
 })
+
+/**
+ * The account is gone server-side; clear locally and send the user to register again.
+ * Sessions were already revoked with the account.
+ */
+function onDeleted() {
+  showDelete.value = false
+  auth.clearLocalSession()
+  router.push({ path: '/register', query: { deleted: '1' } })
+}
 </script>
 
 <template>
@@ -106,6 +119,24 @@ onMounted(async () => {
           Account settings
         </RouterLink>
       </div>
+
+      <div class="mt-6 rounded-xl border border-destructive/40 bg-card p-6 md:p-8">
+        <h2 class="text-lg font-semibold text-foreground">Delete this account</h2>
+        <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
+          Removes the account and every file uploaded from it. There is no way to reverse this
+          and no way to recover the files afterwards. You will confirm with your login password
+          and by typing DELETE — a single click is not enough.
+        </p>
+        <button
+          type="button"
+          class="mt-4 h-10 rounded-md border border-destructive/50 px-4 text-sm text-destructive transition-colors hover:bg-destructive/10"
+          @click="showDelete = true"
+        >
+          Delete account
+        </button>
+      </div>
     </div>
+
+    <DeleteAccountDialog v-if="showDelete" @deleted="onDeleted" @close="showDelete = false" />
   </section>
 </template>

@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Secondary confirmation for destructive actions / 破坏性操作二次确认
+
+- Completed #72 for the product surfaces that still fired on one click: deleting a file in My Files and revoking a share now open a dedicated dialog that names the target and states whether the action is recoverable. Account deletion remains behind the existing password + typed-`DELETE` dialog, now also reachable from `/profile` as well as Settings.
+- 完成 #72 中仍为一键触发的产品面：My Files 删除文件、分享对话框撤销访问均改为独立确认弹窗，写明目标与是否可恢复。注销账户仍使用既有的「登录密码 + 输入 DELETE」弹窗，并在 `/profile` 与 Settings 均可进入。
+
 ### Server-revoking logout and role-aware operations UI / 会撤销服务端会话的登出与角色感知运维界面
 
 - Fixed #89: intentional **Log out** now calls `POST /auth/logout` while the bearer is still present, then clears the browser. Until this, the UI only wiped local tokens and left the server session family (and its refresh credential) valid. Session expiry and account deletion still clear locally only, because those paths already have no usable session or have already revoked every family server-side.

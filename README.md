@@ -108,20 +108,22 @@ preview and live deployment verification remain pending.
    saves a partial file. **Download encrypted** instead saves the ciphertext without
    unlocking; sign-in and download permission are still required. The `.ciphertext` file
    contains only the stored bytes, not the separately stored envelope, nonce, tag, or wrapped
-   key, so it is not a standalone offline-decryption backup.
+   key, so it is not a standalone offline-decryption backup. Deleting an owned file asks for
+   confirmation and states that shares are revoked and the action cannot be undone.
 5. **Share and revoke:** The owner unlocks first if needed, then enters an existing user's
    exact username or email address. The browser
    rewraps the same DEK to the recipient's public key, and the recipient opens it with their
-   own passphrase; the server never learns the DEK. Revocation stops future server-mediated
-   access but cannot recover a copy the recipient already downloaded and decrypted.
+   own passphrase; the server never learns the DEK. Revocation confirms first, then stops
+   future server-mediated access; it cannot recover a copy the recipient already downloaded
+   and decrypted.
 6. **Audit and account actions:** `/audit-logs` shows sign-in, upload, download, share, and
    revocation events. Owners can inspect activity on their files, recipients see only events
    involving themselves, and ADMIN can verify the full hash chain. An emailed code resets a
    forgotten login password; a forgotten encryption passphrase requires the separately
    retained `.pem` key, which can unlock the current session or, in `/settings`, set a new
    passphrase without changing the account key or any file. Account identity and preferences live
-   under the header avatar: `/profile` shows the signed-in account, and `/settings` covers
-   theme and account actions including deletion.
+   under the header avatar: `/profile` shows the signed-in account and can open account
+   deletion; `/settings` covers theme and the same deletion flow (password + typed `DELETE`).
 7. **Learn and get help without signing in:** `/education` covers Algorithm Explorer,
    Playground, and Knowledge Base. The homepage `#how-it-works` slideshow is the fastest first
    share guide; `/help` links to it and keeps video placeholders. `/team` is labelled
