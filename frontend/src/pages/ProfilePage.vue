@@ -1,6 +1,14 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { BadgeCheck, Camera, MailWarning, Settings, ShieldCheck, Trash2 } from 'lucide-vue-next'
+import {
+  BadgeCheck,
+  Camera,
+  Loader2,
+  MailWarning,
+  Settings,
+  ShieldCheck,
+  Trash2,
+} from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
 import { apiErrorMessage } from '@/api/http'
@@ -106,9 +114,9 @@ async function removeAvatar() {
     <div class="container mx-auto max-w-3xl px-4">
       <div class="rounded-xl border border-border bg-card p-6 md:p-8">
         <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-          <div class="relative shrink-0">
+          <div class="group relative shrink-0">
             <span
-              class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-2xl font-bold text-primary"
+              class="flex h-24 w-24 items-center justify-center overflow-hidden rounded-full border-2 border-background bg-primary/10 text-2xl font-bold text-primary shadow-sm ring-1 ring-border"
             >
               <img
                 v-if="auth.avatarObjectUrl"
@@ -118,6 +126,17 @@ async function removeAvatar() {
               />
               <template v-else>{{ auth.initials }}</template>
             </span>
+            <button
+              type="button"
+              class="absolute bottom-0 right-0 flex h-9 w-9 items-center justify-center rounded-full border-2 border-card bg-primary text-primary-foreground shadow-md transition-transform hover:scale-105 hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+              :disabled="avatarBusy || !auth.user"
+              :aria-label="auth.user?.has_avatar ? 'Change profile picture' : 'Upload profile picture'"
+              :title="auth.user?.has_avatar ? 'Change profile picture' : 'Upload profile picture'"
+              @click="openFilePicker"
+            >
+              <Loader2 v-if="avatarBusy" class="h-4 w-4 animate-spin" aria-hidden="true" />
+              <Camera v-else class="h-4 w-4" aria-hidden="true" />
+            </button>
           </div>
           <div class="min-w-0 flex-1">
             <h1 class="truncate text-2xl font-bold text-foreground md:text-3xl">
@@ -149,7 +168,7 @@ async function removeAvatar() {
                 Email not verified
               </span>
             </div>
-            <div class="mt-4 flex flex-wrap items-center gap-2">
+            <div class="mt-5 border-t border-border pt-4" :aria-busy="avatarBusy">
               <input
                 ref="fileInput"
                 type="file"
@@ -157,30 +176,44 @@ async function removeAvatar() {
                 accept="image/png,image/jpeg"
                 @change="onAvatarSelected"
               />
-              <button
-                type="button"
-                class="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
-                :disabled="avatarBusy || !auth.user"
-                @click="openFilePicker"
-              >
-                <Camera class="h-4 w-4" />
-                {{ auth.user?.has_avatar ? 'Change picture' : 'Upload picture' }}
-              </button>
-              <button
-                v-if="auth.user?.has_avatar"
-                type="button"
-                class="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-60"
-                :disabled="avatarBusy"
-                @click="removeAvatar"
-              >
-                <Trash2 class="h-4 w-4" />
-                Remove
-              </button>
+              <p class="text-sm font-medium text-foreground">Profile picture</p>
+              <p class="mt-1 text-xs text-muted-foreground">
+                PNG or JPEG, up to 512 KB. Your initials are shown when no picture is set.
+              </p>
+              <div class="mt-3 flex flex-wrap items-center gap-2">
+                <button
+                  type="button"
+                  class="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground shadow-sm transition-colors hover:bg-primary/90 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="avatarBusy || !auth.user"
+                  @click="openFilePicker"
+                >
+                  <Loader2 v-if="avatarBusy" class="h-4 w-4 animate-spin" aria-hidden="true" />
+                  <Camera v-else class="h-4 w-4" aria-hidden="true" />
+                  {{
+                    avatarBusy
+                      ? 'Updating picture…'
+                      : auth.user?.has_avatar
+                        ? 'Change profile picture'
+                        : 'Upload profile picture'
+                  }}
+                </button>
+                <button
+                  v-if="auth.user?.has_avatar"
+                  type="button"
+                  class="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm text-muted-foreground transition-colors hover:border-destructive/40 hover:bg-destructive/10 hover:text-destructive focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-destructive disabled:cursor-not-allowed disabled:opacity-60"
+                  :disabled="avatarBusy"
+                  @click="removeAvatar"
+                >
+                  <Trash2 class="h-4 w-4" aria-hidden="true" />
+                  Remove picture
+                </button>
+              </div>
             </div>
-            <p v-if="avatarMessage" class="mt-2 text-sm text-primary">{{ avatarMessage }}</p>
-            <p v-if="avatarError" class="mt-2 text-sm text-destructive">{{ avatarError }}</p>
-            <p class="mt-2 text-xs text-muted-foreground">
-              PNG or JPEG, up to 512 KB. Without a picture the header shows your initials.
+            <p v-if="avatarMessage" role="status" class="mt-3 text-sm text-primary">
+              {{ avatarMessage }}
+            </p>
+            <p v-if="avatarError" role="alert" class="mt-3 text-sm text-destructive">
+              {{ avatarError }}
             </p>
           </div>
         </div>

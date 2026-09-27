@@ -26,6 +26,8 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - 为真实 MySQL 身份验证夹具的临时 `users` 表补齐头像字段及形状约束，使其与 `0007_avatars` Schema 保持一致；门禁现在会针对 ORM 实际查询的用户结构执行身份验证流程，而不会在流程开始前失败。
 - Made the MySQL release drill derive both the current head and migration count from Alembic metadata, so adding `0007_avatars` (and future revisions) cannot leave the recovery and concurrency checks rejecting a correctly migrated database because of stale constants.
 - MySQL 发布演练现在会从 Alembic 元数据推导当前 head 与迁移数量，因此新增 `0007_avatars`（以及未来 revision）后，恢复与并发检查不会再因过期常量而误判已正确迁移的数据库。
+- Made avatar editing unmistakable on `/profile`: the picture now carries a camera action and a labelled primary Upload/Change button, with a visible busy state, accessible success/error announcements, and a separate Remove picture action when an avatar exists.
+- 强化 `/profile` 的头像编辑入口：头像右下角新增相机操作，并提供带文字的高对比度“上传/更换头像”主按钮；上传过程有明确忙碌状态，成功与错误提示可被辅助技术播报，已有头像时另设“移除头像”操作。
 
 ### Secondary confirmation for destructive actions / 破坏性操作二次确认
 
