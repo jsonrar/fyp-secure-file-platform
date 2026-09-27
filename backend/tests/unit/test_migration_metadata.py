@@ -20,8 +20,9 @@ def test_migration_history_is_a_single_ordered_chain() -> None:
     scripts = ScriptDirectory.from_config(_alembic_config())
     revisions = list(scripts.walk_revisions())
 
-    assert scripts.get_heads() == ["0006_chacha20_poly1305"]
+    assert scripts.get_heads() == ["0007_avatars_and_shelves"]
     assert [(revision.revision, revision.down_revision) for revision in revisions] == [
+        ("0007_avatars_and_shelves", "0006_chacha20_poly1305"),
         ("0006_chacha20_poly1305", "0005_selectable_aes_key_length"),
         ("0005_selectable_aes_key_length", "0004_email_verification_codes"),
         ("0004_email_verification_codes", "0003_client_key_custody"),
@@ -61,6 +62,15 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     assert "0004_email_verification_codes" in rendered_sql
     assert "0005_selectable_aes_key_length" in rendered_sql
     assert "0006_chacha20_poly1305" in rendered_sql
+    assert "0007_avatars_and_shelves" in rendered_sql
+    assert "CREATE TABLE shelves" in rendered_sql
+    assert "ALTER TABLE users ADD COLUMN avatar_object_key" in rendered_sql
+    assert "ck_users_avatar_shape" in rendered_sql
+    # The supporting index must exist before the foreign key, or MySQL invents one whose
+    # name and shape neither the models nor the production SQL record.
+    assert rendered_sql.index("CREATE INDEX idx_files_shelf_id") < rendered_sql.index(
+        "ADD CONSTRAINT fk_files_shelf"
+    )
     assert "CREATE TABLE user_key_protection_profiles" in rendered_sql
     assert "CREATE TABLE encrypted_private_key_bundles" in rendered_sql
     assert "LEGACY_EXTERNAL" in rendered_sql
@@ -72,12 +82,12 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     )
     final_structure_position = rendered_sql.index("CREATE INDEX idx_audit_logs_created_id")
     final_default_position = rendered_sql.index(
-        "ALTER COLUMN schema_revision SET DEFAULT '0006_chacha20_poly1305'"
+        "ALTER COLUMN schema_revision SET DEFAULT '0007_avatars_and_shelves'"
     )
     completed_marker_position = rendered_sql.index(
-        "SET schema_revision = '0006_chacha20_poly1305' WHERE id = 1"
+        "SET schema_revision = '0007_avatars_and_shelves' WHERE id = 1"
     )
-    alembic_marker_position = rendered_sql.index("SET version_num='0006_chacha20_poly1305'")
+    alembic_marker_position = rendered_sql.index("SET version_num='0007_avatars_and_shelves'")
     assert initial_marker_position < final_structure_position < final_default_position
     assert final_default_position < completed_marker_position
     assert completed_marker_position < alembic_marker_position

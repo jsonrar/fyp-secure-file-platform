@@ -57,6 +57,7 @@ class AuditLog(Base):
             "RECOVERY",
             "INTEGRITY",
             "SYSTEM",
+            "SHELF",
             name="audit_resource_type_enum",
         ),
         nullable=False,

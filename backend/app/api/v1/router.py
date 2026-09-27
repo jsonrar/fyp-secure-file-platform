@@ -8,6 +8,7 @@ from app.api.v1.routers import (
     key_router,
     recovery_router,
     share_router,
+    shelf_router,
 )
 
 api_router = APIRouter()
@@ -31,6 +32,11 @@ api_router.include_router(
     share_router.router,
     prefix="/files",
     tags=["Sharing"],
+)
+api_router.include_router(
+    shelf_router.router,
+    prefix="/shelves",
+    tags=["Shelves"],
 )
 api_router.include_router(
     audit_router.router,

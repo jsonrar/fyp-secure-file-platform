@@ -90,6 +90,15 @@ class FakeStorage:
         self.deleted.append(key)
 
 
+class FakeAvatarStorage:
+    def __init__(self) -> None:
+        self.deleted: list[str] = []
+
+    def delete(self, key: str | None) -> None:
+        if key:
+            self.deleted.append(key)
+
+
 class FakeAudit:
     def __init__(self) -> None:
         self.entries: list[dict] = []
@@ -116,23 +125,36 @@ def _service(*, password="correct-horse", files=None, user=None):
         email="waldo@secureview.tech",
         password_hash="argon2-hash",
         status=UserStatus.ACTIVE,
+        avatar_object_key=None,
+        avatar_content_type=None,
+        avatar_sha256=None,
+        avatar_bytes=None,
+        avatar_updated_at=None,
     )
     db = FakeDb()
     auth_repo = FakeAuthRepo(user)
     file_repo = FakeFileRepo(files if files is not None else [])
     storage = FakeStorage()
+    avatar_storage = FakeAvatarStorage()
     audit = FakeAudit()
     service = AccountDeletionService(
         db=db,
         passwords=FakePasswords(correct=password),
         storage=storage,
+        avatar_storage=avatar_storage,
         auth_repository=auth_repo,
         file_repository=file_repo,
         audit_service=audit,
         clock=lambda: NOW,
     )
     return service, SimpleNamespace(
-        db=db, auth=auth_repo, files=file_repo, storage=storage, audit=audit, user=user
+        db=db,
+        auth=auth_repo,
+        files=file_repo,
+        storage=storage,
+        avatar_storage=avatar_storage,
+        audit=audit,
+        user=user,
     )
 
 

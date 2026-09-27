@@ -9,7 +9,7 @@ from app.domain.enums import SessionStatus
 def test_all_models_are_registered_and_mappable() -> None:
     configure_mappers()
 
-    assert len(Base.metadata.tables) == 16
+    assert len(Base.metadata.tables) == 17
 
 
 def test_auth_models_expose_public_ids_and_rotation_history() -> None:
@@ -56,7 +56,73 @@ def test_auth_models_expose_public_ids_and_rotation_history() -> None:
     assert audit_logs.c.created_at.type.fsp == 6
     assert audit_chain_heads.c.id.autoincrement is False
     assert audit_chain_heads.c.updated_at.type.fsp == 6
-    assert audit_chain_heads.c.schema_revision.server_default.arg == "0006_chacha20_poly1305"
+    assert audit_chain_heads.c.schema_revision.server_default.arg == "0007_avatars_and_shelves"
+
+
+def test_avatar_columns_are_all_optional_and_described_together() -> None:
+    """A half-described avatar would be served as something the server never verified."""
+    users = Base.metadata.tables["users"]
+    avatar_columns = (
+        "avatar_object_key",
+        "avatar_content_type",
+        "avatar_sha256",
+        "avatar_bytes",
+        "avatar_updated_at",
+    )
+
+    assert all(users.c[name].nullable for name in avatar_columns)
+    assert "uq_users_avatar_object_key" in {
+        constraint.name
+        for constraint in users.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    shape = next(
+        constraint
+        for constraint in users.constraints
+        if isinstance(constraint, CheckConstraint)
+        and constraint.name == "ck_users_avatar_shape"
+    )
+    clause = str(shape.sqltext)
+    # The size ceiling has to agree with Settings.AVATAR_MAX_BYTES, or the service accepts
+    # an image the row then refuses.
+    assert "BETWEEN 1 AND 524288" in clause
+    assert "COLLATE utf8mb4_bin IN ('image/png', 'image/jpeg')" in clause
+    assert "REGEXP '^[0-9a-f]{64}$'" in clause
+
+
+def test_shelves_are_owner_scoped_and_never_take_files_with_them() -> None:
+    shelves = Base.metadata.tables["shelves"]
+    files = Base.metadata.tables["files"]
+
+    unique_column_sets = {
+        tuple(constraint.columns.keys())
+        for constraint in shelves.constraints
+        if isinstance(constraint, UniqueConstraint)
+    }
+    # Scoped to the owner rather than global: two accounts may each keep a "Coursework".
+    assert ("owner_id", "name") in unique_column_sets
+    assert ("shelf_uuid",) in unique_column_sets
+
+    shelf_owner_fk = next(
+        constraint
+        for constraint in shelves.foreign_key_constraints
+        if constraint.name == "fk_shelves_owner"
+    )
+    assert shelf_owner_fk.ondelete == "CASCADE"
+
+    # SET NULL is the whole safety property: deleting a shelf returns its files to the
+    # root, and CASCADE here would delete the uploads instead.
+    files_shelf_fk = next(
+        constraint
+        for constraint in files.foreign_key_constraints
+        if constraint.name == "fk_files_shelf"
+    )
+    assert files_shelf_fk.ondelete == "SET NULL"
+    assert files.c.shelf_id.nullable is True
+    assert {index.name for index in files.indexes} >= {
+        "idx_files_owner_shelf",
+        "idx_files_shelf_id",
+    }
 
 
 def test_client_key_custody_models_and_wrapping_invariants() -> None:

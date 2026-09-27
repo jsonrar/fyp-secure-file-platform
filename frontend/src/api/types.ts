@@ -20,6 +20,8 @@ export interface FileSummaryOut {
   owner: boolean
   /** Who uploaded it. Null only for a row whose owner row could not be loaded. */
   owner_username: string | null
+  /** Owner-only shelf, or null for root / a shared row. */
+  shelf_id: string | null
   created_at: string
   updated_at: string
 }

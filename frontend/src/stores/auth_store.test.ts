@@ -13,6 +13,14 @@ vi.mock('@/api/auth_api', () => ({
   },
 }))
 
+vi.mock('@/api/avatar_api', () => ({
+  avatarApi: {
+    getBytes: vi.fn(),
+    upload: vi.fn(),
+    delete: vi.fn(),
+  },
+}))
+
 vi.mock('@/api/session', () => ({
   clearSession: () => clearSession(),
   readAccessToken: () => 'access-token',

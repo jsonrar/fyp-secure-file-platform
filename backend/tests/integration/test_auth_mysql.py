@@ -51,7 +51,13 @@ TEMPORARY_AUTH_DDL = (
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_login_at DATETIME NULL
+        last_login_at DATETIME NULL,
+        avatar_object_key VARCHAR(500) NULL,
+        avatar_content_type VARCHAR(64) NULL,
+        avatar_sha256 CHAR(64) NULL,
+        avatar_bytes INT UNSIGNED NULL,
+        avatar_updated_at DATETIME NULL,
+        UNIQUE KEY uq_test_users_avatar_object_key (avatar_object_key)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
@@ -183,7 +189,7 @@ TEMPORARY_AUTH_DDL = (
         actor_user_id BIGINT UNSIGNED NULL,
         action VARCHAR(100) NOT NULL,
         resource_type ENUM(
-            'AUTH', 'USER', 'FILE', 'SHARE', 'RECOVERY', 'INTEGRITY', 'SYSTEM'
+            'AUTH', 'USER', 'FILE', 'SHARE', 'RECOVERY', 'INTEGRITY', 'SYSTEM', 'SHELF'
         ) NOT NULL,
         resource_id VARCHAR(100) NULL,
         target_user_id BIGINT UNSIGNED NULL,
@@ -202,7 +208,7 @@ TEMPORARY_AUTH_DDL = (
         id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
         last_log_id BIGINT UNSIGNED NULL,
         current_hash CHAR(64) NOT NULL,
-        schema_revision VARCHAR(64) NOT NULL DEFAULT '0006_chacha20_poly1305',
+        schema_revision VARCHAR(64) NOT NULL DEFAULT '0007_avatars_and_shelves',
         updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
@@ -215,7 +221,7 @@ def _create_temporary_auth_schema(connection: Connection) -> None:
     connection.exec_driver_sql(
         "INSERT INTO audit_chain_heads "
         "(id, last_log_id, current_hash, schema_revision) "
-        "VALUES (1, NULL, %s, '0006_chacha20_poly1305')",
+        "VALUES (1, NULL, %s, '0007_avatars_and_shelves')",
         ("0" * 64,),
     )
     connection.commit()
@@ -310,8 +316,8 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
             text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
         )
 
-    assert revision == "0006_chacha20_poly1305"
-    assert readiness_revision == "0006_chacha20_poly1305"
+    assert revision == "0007_avatars_and_shelves"
+    assert readiness_revision == "0007_avatars_and_shelves"
     assert {
         "session_uuid",
         "access_token_hash",

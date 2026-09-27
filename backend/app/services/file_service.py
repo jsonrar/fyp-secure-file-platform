@@ -18,6 +18,7 @@ from app.domain.errors import (
     FileResourceNotFoundError,
     FileStateConflictError,
     FileTooLargeError,
+    InputError,
     StorageUnavailableError,
 )
 from app.models.file import File
@@ -42,6 +43,7 @@ from app.services.file_storage_service import (
     VerifiedCiphertext,
 )
 from app.services.integrity_service import IntegrityService
+from app.services.shelf_service import ShelfService
 
 
 @dataclass(slots=True)
@@ -65,6 +67,7 @@ class FileService:
         repository: FileRepository | None = None,
         access_control: AccessControlService | None = None,
         integrity_service: IntegrityService | None = None,
+        shelf_service: ShelfService | None = None,
         clock=utc_now,
         uuid_factory=uuid4,
     ) -> None:
@@ -87,6 +90,11 @@ class FileService:
             audit_service=audit_service,
             repository=self.repository,
             access_control=self.access,
+            clock=clock,
+        )
+        self.shelves = shelf_service or ShelfService(
+            db=db,
+            audit_service=audit_service,
             clock=clock,
         )
         self.clock = clock
@@ -299,18 +307,31 @@ class FileService:
         page: int,
         page_size: int,
         search: str | None = None,
+        shelf_id: UUID | None = None,
+        root_only: bool = False,
     ) -> FileListOut:
         # `original_filename` is a cleartext column: the server already stores it, shows it
         # back in every listing, and the client binds it into the file AAD precisely
         # because the server could otherwise rewrite it. Matching on it here therefore
         # discloses nothing the caller could not already read, and nothing about content --
         # the ciphertext and the file key stay as opaque to this query as to every other.
+        if shelf_id is not None and root_only:
+            raise InputError("shelf_id and root_only select different pages; pass only one")
         normalized = search.strip() if search else None
+        # Resolved here rather than in the query so an id belonging to someone else's
+        # shelf is a 404 instead of an empty page that reads like an empty shelf.
+        shelf_pk = (
+            self.shelves.resolve_owned_shelf_pk(owner_id=actor.user_id, shelf_id=shelf_id)
+            if shelf_id is not None
+            else None
+        )
         records, total = self.repository.list_active_access(
             actor.user_id,
             offset=(page - 1) * page_size,
             limit=page_size,
             search=normalized or None,
+            shelf_pk=shelf_pk,
+            root_only=root_only,
         )
         return FileListOut(
             items=[self._summary(record, actor_user_id=actor.user_id) for record in records],
@@ -398,6 +419,23 @@ class FileService:
             already_deleted=already_deleted,
         )
 
+    def move(
+        self,
+        *,
+        actor: ActorContext,
+        file_id: UUID,
+        shelf_id: UUID | None,
+        context: RequestContext,
+    ) -> FileOut:
+        """File an owned upload onto one of the owner's shelves, or back to the root."""
+        self.shelves.move_file(
+            actor=actor,
+            file_id=file_id,
+            shelf_id=shelf_id,
+            context=context,
+        )
+        return self.get_file(actor=actor, file_id=file_id)
+
     def integrity_check(
         self,
         *,
@@ -417,6 +455,15 @@ class FileService:
             values[field] = value
 
     @staticmethod
+    def _shelf_public_id(file_record: File) -> UUID | None:
+        if getattr(file_record, "shelf_id", None) is None:
+            return None
+        shelf = getattr(file_record, "shelf", None)
+        if shelf is None:  # pragma: no cover - foreign-key invariant
+            return None
+        return UUID(str(shelf.shelf_uuid))
+
+    @staticmethod
     def _manifest_base64(file_record: File) -> str | None:
         manifest = getattr(file_record, "encrypted_manifest", None)
         if manifest is None:
@@ -424,6 +471,7 @@ class FileService:
         return base64.b64encode(bytes(manifest)).decode("ascii")
 
     def _summary(self, record: FileAccessRecord, *, actor_user_id: int) -> FileSummaryOut:
+        owned = record.file.owner_id == actor_user_id
         return FileSummaryOut(
             file_id=UUID(record.file.file_uuid),
             original_filename=record.file.original_filename,
@@ -432,8 +480,9 @@ class FileService:
             mime_type=record.file.mime_type,
             encryption_algorithm=record.file.encryption_algorithm,
             status=record.file.status,
-            owner=record.file.owner_id == actor_user_id,
+            owner=owned,
             owner_username=getattr(record.file.owner, "username", None),
+            shelf_id=self._shelf_public_id(record.file) if owned else None,
             created_at=to_api_utc(record.file.created_at),
             updated_at=to_api_utc(record.file.updated_at),
         )

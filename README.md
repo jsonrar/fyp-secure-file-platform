@@ -59,7 +59,9 @@ with demos and a knowledge base, `/help` points to the homepage picture guide an
 placeholders for longer clips, and `/team` (**Contact us**) shows a feedback form preview plus
 the development roster.
 Signed-in users get a header avatar menu with theme control, `/profile`, and `/settings`; the
-active nav label uses the theme primary colour so the current tab is obvious.
+active nav label uses the theme primary colour so the current tab is obvious. When an account
+has uploaded a validated profile picture, the header and profile show that image; otherwise
+they fall back to initials.
 
 Core Features now uses a seamless dual-row loop, with hover-to-pause and a static,
 complete card layout for reduced-motion preferences. This is a local frontend update;
@@ -103,7 +105,9 @@ preview and live deployment verification remain pending.
    RSA public key. The server receives ciphertext, public metadata, and wrapped keys—not the
    plaintext file or plaintext DEK.
 4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me".
-   Download first verifies the server-side ciphertext SHA-256, then the browser unwraps the
+   On My Files, a shelf sidebar lists Root and owner-created shelves; owned files can be moved
+   between them without changing encryption or shares. Download first verifies the server-side
+   ciphertext SHA-256, then the browser unwraps the
    DEK, authenticates the AEAD tag, and saves the plaintext. A failed authentication never
    saves a partial file. **Download encrypted** instead saves the ciphertext without
    unlocking; sign-in and download permission are still required. The `.ciphertext` file
@@ -122,7 +126,8 @@ preview and live deployment verification remain pending.
    forgotten login password; a forgotten encryption passphrase requires the separately
    retained `.pem` key, which can unlock the current session or, in `/settings`, set a new
    passphrase without changing the account key or any file. Account identity and preferences live
-   under the header avatar: `/profile` shows the signed-in account and can open account
+   under the header avatar: `/profile` shows the signed-in account, optional profile picture
+   upload/remove, and can open account
    deletion; `/settings` covers theme and the same deletion flow (password + typed `DELETE`).
 7. **Learn and get help without signing in:** `/education` covers Algorithm Explorer,
    Playground, and Knowledge Base. The homepage `#how-it-works` slideshow is the fastest first

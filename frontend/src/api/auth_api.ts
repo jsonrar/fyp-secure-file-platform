@@ -38,6 +38,8 @@ export interface AuthUserOut {
   email_verified: boolean
   created_at: string
   last_login_at: string | null
+  /** True when a picture is stored; the image itself is fetched separately. */
+  has_avatar: boolean
 }
 
 export interface AuthMeData {

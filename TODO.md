@@ -155,7 +155,7 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   Branch `feat/download-encrypted-file` implements the passphrase-free ciphertext download
   for owners and authorized recipients. Preview and deployment verification remain pending;
   this partial implementation does not close #71.
-- [ ] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
+- [x] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
   — create owner-scoped shelves and move owned files between them or root without changing
   encryption, sharing, file identity, or audit semantics.
 - [ ] [#54 Complete browser passphrase change, key-file reset, and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
@@ -167,7 +167,7 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
 - [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   — user-selectable product locale with complete key coverage, safe fallback, persistence, and
   mobile-compatible controls.
-- [ ] [#75 Add validated user avatar upload and display](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
+- [x] [#75 Add validated user avatar upload and display](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
   — optional profile/header image with content validation, safe serving, cleanup, rate limits,
   and initials fallback.
 - [ ] [#76 Fix mobile and narrow-viewport usability across product flows](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)

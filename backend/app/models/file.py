@@ -56,6 +56,12 @@ class File(Base):
         ),
         Index("idx_files_owner_id", "owner_id"),
         Index("idx_files_owner_status_created", "owner_id", "status", "created_at", "id"),
+        # Serves the shelf and root listings, which are always scoped to one owner.
+        Index("idx_files_owner_shelf", "owner_id", "shelf_id"),
+        # Declared rather than left to MySQL: a foreign key needs its column as an index's
+        # leftmost prefix, and idx_files_owner_shelf does not provide that, so the server
+        # would otherwise invent an index whose name and shape nothing here records.
+        Index("idx_files_shelf_id", "shelf_id"),
         Index("idx_files_status", "status"),
         Index("idx_files_created_at", "created_at"),
         {
@@ -79,6 +85,18 @@ class File(Base):
             onupdate="CASCADE",
         ),
         nullable=False,
+    )
+    # Owner-only organisation. SET NULL rather than CASCADE: deleting a shelf must return
+    # its files to the root, never take them with it.
+    shelf_id: Mapped[int | None] = mapped_column(
+        mysql.BIGINT(unsigned=True),
+        ForeignKey(
+            "shelves.id",
+            name="fk_files_shelf",
+            ondelete="SET NULL",
+            onupdate="CASCADE",
+        ),
+        nullable=True,
     )
 
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -131,6 +149,7 @@ class File(Base):
     )
 
     owner = relationship("User", back_populates="owned_files", foreign_keys=[owner_id])
+    shelf = relationship("Shelf", back_populates="files")
     key_wrappings = relationship(
         "FileKeyWrapping", back_populates="file", cascade="all, delete-orphan"
     )

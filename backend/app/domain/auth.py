@@ -25,6 +25,10 @@ class AccountSnapshot:
     email_verified: bool
     created_at: datetime
     last_login_at: datetime | None = None
+    # True when the account has a stored picture. The image bytes themselves are a separate
+    # GET; this flag is what the header and profile use to choose between the image and the
+    # initials fallback without probing `/auth/avatar` on every paint.
+    has_avatar: bool = False
 
 
 @dataclass(frozen=True, slots=True)

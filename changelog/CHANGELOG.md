@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Account avatars and file shelves / 账户头像与文件架
+
+- Completed #75: accounts can upload a validated PNG/JPEG profile picture (`POST /auth/avatar/upload`), serve it with `nosniff` (`GET /auth/avatar`), and delete it (`POST /auth/avatar/delete`). `/auth/me` and login snapshots include `has_avatar`; the header and profile show the image when present and fall back to initials otherwise. Bytes live under a dedicated avatar root, are capped and magic-sniffed, and are cleared when the account is deleted.
+- 完成 #75：账户可上传经验证的 PNG/JPEG 头像（`POST /auth/avatar/upload`），以 `nosniff` 提供（`GET /auth/avatar`），并删除（`POST /auth/avatar/delete`）。`/auth/me` 与登录快照含 `has_avatar`；页头与资料页有图则显示图片，否则回退首字母。头像存放在独立目录，有大小上限与魔数嗅探，注销账户时一并清理。
+- Completed #73: owner-scoped shelves (`/shelves`) let users organise My Files without touching encryption or shares. Owned files can move with `POST /files/{id}/move`; listing accepts `shelf_id` or `root_only`. Deleting a shelf returns its files to Root. Schema revision `0007_avatars_and_shelves` covers avatar columns, the `shelves` table, `files.shelf_id`, and audit `SHELF`.
+- 完成 #73：所有者专属文件架（`/shelves`）可在不改动加密与分享的前提下整理 My Files。自有文件经 `POST /files/{id}/move` 移动；列表支持 `shelf_id` 或 `root_only`。删除文件架后文件回到 Root。Schema 修订 `0007_avatars_and_shelves` 覆盖头像列、`shelves` 表、`files.shelf_id` 与审计 `SHELF`。
+
 ### Secondary confirmation for destructive actions / 破坏性操作二次确认
 
 - Completed #72 for the product surfaces that still fired on one click: deleting a file in My Files and revoking a share now open a dedicated dialog that names the target and states whether the action is recoverable. Account deletion remains behind the existing password + typed-`DELETE` dialog, now also reachable from `/profile` as well as Settings.

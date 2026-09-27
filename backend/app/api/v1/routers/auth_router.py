@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.responses import JSONResponse, Response
 
 from app.api.dependencies import (
     get_account_deletion_service,
     get_auth_service,
+    get_avatar_service,
     get_current_actor,
     get_request_context,
     get_settings,
@@ -24,6 +25,7 @@ from app.schemas.auth_schema import (
     AuthSessionResponse,
     AuthSessionRevokeResponse,
     AuthUserResponse,
+    AvatarStateResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
     DeleteAccountRequest,
@@ -41,6 +43,7 @@ from app.schemas.auth_schema import (
 )
 from app.services.account_deletion_service import AccountDeletionService
 from app.services.auth_service import AuthService
+from app.services.avatar_service import AvatarService, AvatarState
 
 router = APIRouter()
 
@@ -48,9 +51,19 @@ AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]
 AccountDeletionServiceDependency = Annotated[
     AccountDeletionService, Depends(get_account_deletion_service)
 ]
+AvatarServiceDependency = Annotated[AvatarService, Depends(get_avatar_service)]
 ActorDependency = Annotated[ActorContext, Depends(get_current_actor)]
 RequestContextDependency = Annotated[RequestContext, Depends(get_request_context)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
+
+
+def _avatar_state(state: AvatarState) -> AvatarStateResponse:
+    return AvatarStateResponse(
+        has_avatar=state.has_avatar,
+        content_type=state.content_type,
+        size_bytes=state.size_bytes,
+        updated_at=state.updated_at,
+    )
 
 
 @router.post(
@@ -160,6 +173,75 @@ def me(
     return ok(
         message="Current account retrieved",
         data=response_data,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post(
+    "/avatar/upload",
+    response_model=ApiSuccessResponse[AvatarStateResponse],
+)
+async def upload_avatar(
+    file: Annotated[UploadFile, File(description="PNG or JPEG profile image")],
+    actor: ActorDependency,
+    context: RequestContextDependency,
+    service: AvatarServiceDependency,
+) -> JSONResponse:
+    """Replace the account's profile picture with a validated PNG or JPEG."""
+    state = await service.upload(actor=actor, upload=file, context=context)
+    return ok(
+        message="Avatar updated",
+        data=_avatar_state(state),
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.get(
+    "/avatar",
+    response_class=Response,
+    responses={
+        200: {
+            "content": {"image/png": {}, "image/jpeg": {}},
+            "description": "The account's stored profile image",
+        }
+    },
+)
+def get_avatar(
+    actor: ActorDependency,
+    service: AvatarServiceDependency,
+) -> Response:
+    """Serve the caller's own picture.
+
+    Private and uncached: the response is tied to the bearer that asked for it, so a shared
+    cache holding it would hand one account's picture to the next request for this URL. The
+    content type comes from the stored column rather than the bytes, and `nosniff` keeps a
+    browser from deciding the payload is something else worth executing.
+    """
+    image = service.get_image(actor=actor)
+    return Response(
+        content=image.body,
+        media_type=image.content_type,
+        headers={
+            **AUTH_NO_STORE_HEADERS,
+            "Cache-Control": "private, no-store",
+            "Content-Length": str(len(image.body)),
+            "ETag": f'"{image.sha256}"',
+            "X-Content-Type-Options": "nosniff",
+            "Cross-Origin-Resource-Policy": "same-origin",
+        },
+    )
+
+
+@router.post("/avatar/delete", response_model=ApiSuccessResponse[AvatarStateResponse])
+def delete_avatar(
+    actor: ActorDependency,
+    context: RequestContextDependency,
+    service: AvatarServiceDependency,
+) -> JSONResponse:
+    state = service.delete(actor=actor, context=context)
+    return ok(
+        message="Avatar removed",
+        data=_avatar_state(state),
         headers=AUTH_NO_STORE_HEADERS,
     )
 

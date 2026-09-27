@@ -3,8 +3,19 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import uuid4
 
-from sqlalchemy import CHAR, Boolean, DateTime, Enum, Index, String, UniqueConstraint, func, text
-from sqlalchemy.dialects.mysql import BIGINT
+from sqlalchemy import (
+    CHAR,
+    Boolean,
+    CheckConstraint,
+    DateTime,
+    Enum,
+    Index,
+    String,
+    UniqueConstraint,
+    func,
+    text,
+)
+from sqlalchemy.dialects.mysql import BIGINT, INTEGER
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.core.database import Base
@@ -17,6 +28,25 @@ class User(Base):
         UniqueConstraint("user_uuid", name="uq_users_user_uuid"),
         UniqueConstraint("username", name="uq_users_username"),
         UniqueConstraint("email", name="uq_users_email"),
+        # One account per stored object, so a key cannot be pointed at two users and a
+        # replaced picture cannot leave a second row claiming the object being unlinked.
+        UniqueConstraint("avatar_object_key", name="uq_users_avatar_object_key"),
+        # Either there is no avatar at all, or every column describing it is present and
+        # within bounds. A half-set row would mean serving an image whose declared type,
+        # digest, or size the server never recorded.
+        CheckConstraint(
+            "("
+            "avatar_object_key IS NULL AND avatar_content_type IS NULL AND "
+            "avatar_sha256 IS NULL AND avatar_bytes IS NULL AND avatar_updated_at IS NULL"
+            ") OR ("
+            "avatar_object_key IS NOT NULL AND "
+            "avatar_content_type COLLATE utf8mb4_bin IN ('image/png', 'image/jpeg') AND "
+            "avatar_sha256 REGEXP '^[0-9a-f]{64}$' AND "
+            "avatar_bytes BETWEEN 1 AND 524288 AND "
+            "avatar_updated_at IS NOT NULL"
+            ")",
+            name="ck_users_avatar_shape",
+        ),
         Index("idx_users_role", "role"),
         Index("idx_users_status", "status"),
         Index("idx_users_created_at", "created_at"),
@@ -72,6 +102,15 @@ class User(Base):
     )
     last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # The picture itself is a file on disk. These columns record which object it is, what
+    # it is, and what it hashed to, so a response never has to trust the object's bytes or
+    # its name to decide the Content-Type it is served with.
+    avatar_object_key: Mapped[str | None] = mapped_column(String(500), nullable=True)
+    avatar_content_type: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    avatar_sha256: Mapped[str | None] = mapped_column(CHAR(64), nullable=True)
+    avatar_bytes: Mapped[int | None] = mapped_column(INTEGER(unsigned=True), nullable=True)
+    avatar_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+
     keys = relationship("UserKey", back_populates="user", cascade="all, delete-orphan")
     key_protection_profile = relationship(
         "UserKeyProtectionProfile",
@@ -81,6 +120,7 @@ class User(Base):
     )
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
     owned_files = relationship("File", back_populates="owner", foreign_keys="File.owner_id")
+    shelves = relationship("Shelf", back_populates="owner", cascade="all, delete-orphan")
 
     access_grants = relationship(
         "FileAccessGrant",

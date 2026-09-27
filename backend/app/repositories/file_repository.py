@@ -171,13 +171,32 @@ class FileRepository:
         offset: int,
         limit: int,
         search: str | None = None,
+        shelf_pk: int | None = None,
+        root_only: bool = False,
     ) -> tuple[list[FileAccessRecord], int]:
         access_statement = self._active_access_statement(user_id)
-        # Eager-load the owner: the listing names whoever shared each file, and resolving
-        # that lazily would be one query per row on a page of up to a hundred.
-        access_statement = access_statement.options(joinedload(File.owner))
+        # Eager-load the owner and the shelf: the listing names whoever shared each file
+        # and which shelf holds it, and resolving either lazily would be one query per row
+        # on a page of up to a hundred.
+        access_statement = access_statement.options(
+            joinedload(File.owner),
+            joinedload(File.shelf),
+        )
         if search:
             access_statement = access_statement.where(self._filename_contains(search))
+        # A shelf view is the owner's own library, so either filter also restricts the page
+        # to owned rows. Without one, the listing keeps its existing meaning: everything
+        # this account can reach, shared-with-me included.
+        if root_only:
+            access_statement = access_statement.where(
+                File.owner_id == user_id,
+                File.shelf_id.is_(None),
+            )
+        elif shelf_pk is not None:
+            access_statement = access_statement.where(
+                File.owner_id == user_id,
+                File.shelf_id == shelf_pk,
+            )
         count_statement = select(func.count()).select_from(
             access_statement.with_only_columns(File.id).order_by(None).subquery()
         )

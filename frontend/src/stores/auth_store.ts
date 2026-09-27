@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { authApi, type AuthUserOut } from '@/api/auth_api'
+import { avatarApi } from '@/api/avatar_api'
 import { clearSession, readAccessToken, writeSession } from '@/api/session'
 import { forgetUnlockedKeys } from '@/crypto/download'
 import { forgetSeenShares } from '@/utils/seen-shares'
@@ -21,6 +22,8 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: readAccessToken(),
     user: null as AuthUserOut | null,
+    /** Object URL for the cached avatar image; revoked on logout or replace. */
+    avatarUrl: null as string | null,
   }),
   getters: {
     isAuthed: (state) => Boolean(state.accessToken),
@@ -59,6 +62,7 @@ export const useAuthStore = defineStore('auth', {
     async loadUser(force = false) {
       if (!this.accessToken) {
         this.user = null
+        this.clearAvatarUrl()
         return null
       }
       if (this.user && !force) return this.user
@@ -68,7 +72,43 @@ export const useAuthStore = defineStore('auth', {
       } catch {
         this.user = null
       }
+      if (this.user?.has_avatar) {
+        void this.loadAvatarUrl(force)
+      } else {
+        this.clearAvatarUrl()
+      }
       return this.user
+    },
+    /**
+     * Fetch the picture into a blob URL the header and profile can paint.
+     *
+     * Cached until logout or a forced refresh after upload/delete: re-fetching on every
+     * menu open would hit the server for the same bytes the browser already holds.
+     */
+    async loadAvatarUrl(force = false) {
+      if (!this.user?.has_avatar) {
+        this.clearAvatarUrl()
+        return null
+      }
+      if (this.avatarUrl && !force) return this.avatarUrl
+      try {
+        const response = await avatarApi.getBytes()
+        const contentType =
+          (response.headers?.['content-type'] as string | undefined) ?? 'image/jpeg'
+        const blob = new Blob([response.data], { type: contentType })
+        this.clearAvatarUrl()
+        this.avatarUrl = URL.createObjectURL(blob)
+        return this.avatarUrl
+      } catch {
+        this.clearAvatarUrl()
+        return null
+      }
+    },
+    clearAvatarUrl() {
+      if (this.avatarUrl) {
+        URL.revokeObjectURL(this.avatarUrl)
+        this.avatarUrl = null
+      }
     },
     /**
      * Drop the local session only.
@@ -81,6 +121,7 @@ export const useAuthStore = defineStore('auth', {
       // Otherwise the next account to sign in at this machine inherits the previous one's
       // name and email in the avatar menu until `/auth/me` answers.
       this.user = null
+      this.clearAvatarUrl()
       clearSession()
       // The unwrapped account key outlives the token otherwise: the next person at this
       // machine would sign in and find the previous session's files already decryptable.

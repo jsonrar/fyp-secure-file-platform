@@ -50,7 +50,15 @@ class Settings(BaseSettings):
     AUTH_REGISTRATION_WINDOW_SECONDS: int = Field(default=60 * 60, ge=60)
     AUTH_REGISTRATION_BLOCK_SECONDS: int = Field(default=60 * 60, ge=60)
     USER_RSA_KEY_SIZE: int = Field(default=3072, ge=2048, le=4096)
-    EXPECTED_SCHEMA_REVISION: str = "0006_chacha20_poly1305"
+    EXPECTED_SCHEMA_REVISION: str = "0007_avatars_and_shelves"
+
+    # Optional profile picture. The ceiling is also written into the ck_users_avatar_shape
+    # column CHECK, so a larger value here would be accepted by the service and then
+    # refused by the database; bounding the setting keeps the two in step.
+    AVATAR_MAX_BYTES: int = Field(default=512 * 1024, gt=0, le=512 * 1024)
+    # Every replacement writes a new object and unlinks the old one. Spacing them stops a
+    # loop from churning the avatar directory for the price of one authenticated request.
+    AVATAR_MIN_INTERVAL_SECONDS: int = Field(default=30, ge=0, le=3600)
 
     # Emailed verification challenges for registration and password reset.
     VERIFICATION_CODE_LENGTH: int = Field(default=6, ge=6, le=10)
@@ -109,6 +117,9 @@ class Settings(BaseSettings):
 
     ENCRYPTED_FILE_DIR: Path = Path("backend/encrypted_files")
     TEMP_FILE_DIR: Path = Path("backend/temp_files")
+    # Avatars are plaintext images and deliberately live outside the encrypted-object root,
+    # so nothing can mistake one for ciphertext or reach it through a file object key.
+    AVATAR_DIR: Path = Path("backend/avatars")
 
     model_config = SettingsConfigDict(
         env_file=ENV_FILE,
@@ -170,6 +181,7 @@ class Settings(BaseSettings):
     @field_validator(
         "ENCRYPTED_FILE_DIR",
         "TEMP_FILE_DIR",
+        "AVATAR_DIR",
         "DB_SSL_CA",
         "DB_SSL_CERT",
         "DB_SSL_KEY",

@@ -14,12 +14,15 @@ from app.services.admin_service import AdminService
 from app.services.audit_log_service import AuditLogService
 from app.services.audit_query_service import AuditQueryService
 from app.services.auth_service import AuthService
+from app.services.avatar_service import AvatarService
+from app.services.avatar_storage_service import AvatarStorageService
 from app.services.file_service import FileService
 from app.services.file_storage_service import FileStorageService
 from app.services.key_service import KeyService
 from app.services.recovery_service import RecoveryService
 from app.services.share_notification_service import ShareNotificationService
 from app.services.sharing_service import SharingService
+from app.services.shelf_service import ShelfService
 
 _bearer_scheme = HTTPBearer(auto_error=False)
 
@@ -80,6 +83,25 @@ def get_file_service(
     )
 
 
+def get_avatar_service(
+    request: Request,
+    db: Annotated[Session, Depends(get_request_db)],
+) -> AvatarService:
+    settings = request.app.state.settings
+    return AvatarService(
+        db=db,
+        settings=settings,
+        storage=AvatarStorageService(settings=settings),
+        audit_service=AuditLogService(db),
+    )
+
+
+def get_shelf_service(
+    db: Annotated[Session, Depends(get_request_db)],
+) -> ShelfService:
+    return ShelfService(db=db, audit_service=AuditLogService(db))
+
+
 def get_account_deletion_service(
     request: Request,
     db: Annotated[Session, Depends(get_request_db)],
@@ -89,6 +111,7 @@ def get_account_deletion_service(
         db=db,
         passwords=request.app.state.password_manager,
         storage=FileStorageService(settings=settings),
+        avatar_storage=AvatarStorageService(settings=settings),
         audit_service=AuditLogService(db),
     )
 

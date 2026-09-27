@@ -81,13 +81,13 @@ def test_readiness_counts_transitions_not_probe_frequency() -> None:
 
     state.mark_readiness(
         "schema_incompatible",
-        expected_schema="0006_chacha20_poly1305",
-        observed_schema="0005_previous",
+        expected_schema="0007_avatars_and_shelves",
+        observed_schema="0006_previous",
     )
     state.mark_readiness(
         "schema_incompatible",
-        expected_schema="0006_chacha20_poly1305",
-        observed_schema="0005_previous",
+        expected_schema="0007_avatars_and_shelves",
+        observed_schema="0006_previous",
     )
     first = state.snapshot()
     assert first["readiness_failures_total"] == 1
@@ -96,8 +96,8 @@ def test_readiness_counts_transitions_not_probe_frequency() -> None:
     state.mark_readiness("ready")
     state.mark_readiness(
         "schema_incompatible",
-        expected_schema="0006_chacha20_poly1305",
-        observed_schema="0005_previous",
+        expected_schema="0007_avatars_and_shelves",
+        observed_schema="0006_previous",
     )
     second = state.snapshot()
     assert second["readiness_failures_total"] == 2

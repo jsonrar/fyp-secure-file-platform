@@ -10,6 +10,7 @@ from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_key import RecoveryKey
 from app.models.recovery_request import RecoveryRequest
 from app.models.session_refresh_token import SessionRefreshToken
+from app.models.shelf import Shelf
 from app.models.user import User
 from app.models.user_key import UserKey
 from app.models.user_key_protection_profile import UserKeyProtectionProfile
@@ -28,6 +29,7 @@ __all__ = [
     "RecoveryKey",
     "RecoveryRequest",
     "SessionRefreshToken",
+    "Shelf",
     "User",
     "UserKey",
     "UserKeyProtectionProfile",

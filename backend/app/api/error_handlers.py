@@ -12,22 +12,26 @@ from app.domain.errors import (
     AuthenticationError,
     AuthenticationRateLimitedError,
     AuthorizationError,
+    AvatarTooLargeError,
     ConflictError,
     EmailDeliveryFailedError,
     FileTooLargeError,
     InputError,
     IntegrityVerificationError,
+    RateLimitedError,
     ResourceNotFoundError,
     StorageUnavailableError,
 )
 
 _STATUS_BY_ERROR_TYPE: dict[type[AppError], int] = {
     AuthenticationRateLimitedError: 429,
+    RateLimitedError: 429,
     AuthenticationError: 401,
     AuthorizationError: 403,
     ResourceNotFoundError: 404,
     ConflictError: 409,
     FileTooLargeError: 413,
+    AvatarTooLargeError: 413,
     InputError: 422,
     StorageUnavailableError: 503,
     EmailDeliveryFailedError: 503,
@@ -41,14 +45,21 @@ def _response_headers(request: Request, error_value: AppError | None = None) -> 
     api_prefix = getattr(app_settings, "API_PREFIX", "/api/v1").rstrip("/")
     sensitive_prefixes = tuple(
         f"{api_prefix}/{segment}"
-        for segment in ("auth", "keys", "files", "audit-logs", "recovery", "admin")
+        for segment in ("auth", "keys", "files", "shelves", "audit-logs", "recovery", "admin")
     )
     route = request.scope.get("route")
     route_tags = getattr(route, "tags", ())
     is_sensitive_route = bool(
-        {"Auth", "Keys", "Files", "Sharing", "Recovery", "Audit Logs", "Admin"}.intersection(
-            route_tags
-        )
+        {
+            "Auth",
+            "Keys",
+            "Files",
+            "Sharing",
+            "Shelves",
+            "Recovery",
+            "Audit Logs",
+            "Admin",
+        }.intersection(route_tags)
     )
     is_sensitive_path = any(
         request.url.path == prefix or request.url.path.startswith(f"{prefix}/")

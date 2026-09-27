@@ -116,14 +116,20 @@ onBeforeUnmount(() => {
   >
     <button
       type="button"
-      class="flex h-9 w-9 items-center justify-center rounded-full border border-border bg-primary/10 text-sm font-semibold text-primary transition-colors hover:border-primary/60 hover:bg-primary/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+      class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-sm font-semibold text-primary transition-colors hover:border-primary/60 hover:bg-primary/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       :aria-expanded="isOpen"
       aria-haspopup="menu"
       :aria-label="`Account menu for ${auth.displayName}`"
       @click="goToProfile"
       @focus="open"
     >
-      {{ auth.initials }}
+      <img
+        v-if="auth.avatarUrl"
+        :src="auth.avatarUrl"
+        alt=""
+        class="h-full w-full object-cover"
+      />
+      <template v-else>{{ auth.initials }}</template>
     </button>
 
     <div
@@ -138,9 +144,15 @@ onBeforeUnmount(() => {
         @click="goToProfile"
       >
         <span
-          class="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-semibold text-primary"
+          class="flex h-9 w-9 shrink-0 items-center justify-center overflow-hidden rounded-full bg-primary/10 text-sm font-semibold text-primary"
         >
-          {{ auth.initials }}
+          <img
+            v-if="auth.avatarUrl"
+            :src="auth.avatarUrl"
+            alt=""
+            class="h-full w-full object-cover"
+          />
+          <template v-else>{{ auth.initials }}</template>
         </span>
         <span class="min-w-0">
           <span class="block truncate text-sm font-medium text-foreground">{{ auth.displayName }}</span>

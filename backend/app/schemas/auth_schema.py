@@ -56,6 +56,7 @@ class AuthUserResponse(_AuthResponse):
     email_verified: bool
     created_at: datetime
     last_login_at: datetime | None = None
+    has_avatar: bool = False
 
 
 class SendVerificationCodeRequest(_AuthRequest):
@@ -138,6 +139,20 @@ class AuthRefreshResponse(_AuthResponse):
 
 class AuthMeResponse(_AuthResponse):
     user: AuthUserResponse
+
+
+class AvatarStateResponse(_AuthResponse):
+    """What the account's picture is after an upload or a removal.
+
+    Deliberately describes the image rather than returning it: the bytes are served by
+    `GET /auth/avatar` so they can carry their own content type and caching rules, and so a
+    JSON response never has to embed an image.
+    """
+
+    has_avatar: bool
+    content_type: Literal["image/png", "image/jpeg"] | None = None
+    size_bytes: int | None = Field(default=None, ge=1)
+    updated_at: datetime | None = None
 
 
 class UserLogoutResponse(_AuthResponse):

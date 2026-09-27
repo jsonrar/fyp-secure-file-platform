@@ -12,7 +12,15 @@ export const fileApi = {
    * already holds, which is why the box used to answer "no results" for files that
    * existed on another page.
    */
-  listFiles(params?: { page?: number; page_size?: number; search?: string }) {
+  listFiles(params?: {
+    page?: number
+    page_size?: number
+    search?: string
+    /** List only owned files on this shelf. */
+    shelf_id?: string
+    /** List only owned files with no shelf (the root). */
+    root_only?: boolean
+  }) {
     return http.get<ApiEnvelope<FileListOut>>('/files', { params })
   },
   getFile(fileId: string) {
@@ -47,6 +55,10 @@ export const fileApi = {
   },
   delete(fileId: string) {
     return http.post(`/files/${fileId}/delete`)
+  },
+  /** Move an owned file onto a shelf, or back to the root when `shelfId` is null. */
+  move(fileId: string, shelfId: string | null) {
+    return http.post<ApiEnvelope<FileOut>>(`/files/${fileId}/move`, { shelf_id: shelfId })
   },
   integrityCheck(fileId: string) {
     return http.post(`/files/${fileId}/integrity-check`)

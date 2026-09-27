@@ -25,6 +25,7 @@ from app.schemas.file_schema import (
     FileUploadMetadata,
     IntegrityCheckOut,
 )
+from app.schemas.shelf_schema import FileMoveRequest
 from app.services.file_service import FileService
 
 router = APIRouter()
@@ -83,12 +84,22 @@ def list_files(
             description="Case-insensitive substring of the original filename",
         ),
     ] = None,
+    shelf_id: Annotated[
+        UUID | None,
+        Query(description="List only your own files on this shelf"),
+    ] = None,
+    root_only: Annotated[
+        bool,
+        Query(description="List only your own files that are on no shelf"),
+    ] = False,
 ) -> JSONResponse:
     result = service.list_files(
         actor=actor,
         page=page,
         page_size=page_size,
         search=search,
+        shelf_id=shelf_id,
+        root_only=root_only,
     )
     return ApiResponse.success(
         data=result,
@@ -159,6 +170,28 @@ def delete_file(
     return ApiResponse.success(
         data=result,
         message="File deleted",
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post("/{file_id}/move", response_model=ApiSuccessResponse[FileOut])
+def move_file(
+    file_id: UUID,
+    payload: FileMoveRequest,
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+    context: Annotated[RequestContext, Depends(get_request_context)],
+    service: Annotated[FileService, Depends(get_file_service)],
+) -> JSONResponse:
+    """Change which of your shelves holds a file. Nothing else about the file changes."""
+    result = service.move(
+        actor=actor,
+        file_id=file_id,
+        shelf_id=payload.shelf_id,
+        context=context,
+    )
+    return ApiResponse.success(
+        data=result,
+        message="File moved",
         headers=AUTH_NO_STORE_HEADERS,
     )
 

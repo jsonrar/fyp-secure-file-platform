@@ -170,6 +170,7 @@ crud_tables AS (
     UNION ALL SELECT 'recovery_keys'
     UNION ALL SELECT 'recovery_requests'
     UNION ALL SELECT 'session_refresh_tokens'
+    UNION ALL SELECT 'shelves'
     UNION ALL SELECT 'user_keys'
     UNION ALL SELECT 'user_key_protection_profiles'
     UNION ALL SELECT 'user_sessions'
@@ -389,6 +390,7 @@ expected_table_names AS (
     UNION ALL SELECT 'recovery_keys'
     UNION ALL SELECT 'recovery_requests'
     UNION ALL SELECT 'session_refresh_tokens'
+    UNION ALL SELECT 'shelves'
     UNION ALL SELECT 'user_keys'
     UNION ALL SELECT 'user_key_protection_profiles'
     UNION ALL SELECT 'user_sessions'
@@ -443,7 +445,7 @@ ORDER BY table_name, deviation;
 SELECT
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(COLUMN_DEFAULT) = '0006_chacha20_poly1305'
+         AND MAX(COLUMN_DEFAULT) = '0007_avatars_and_shelves'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS readiness_marker_default_status
@@ -483,28 +485,28 @@ SELECT
     CASE
         WHEN (SELECT COUNT(*)
               FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 201
+              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 214
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 17
+                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 18
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'UNIQUE') = 23
+                AND CONSTRAINT_TYPE = 'UNIQUE') = 26
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 26
+                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 28
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'CHECK') = 36
+                AND CONSTRAINT_TYPE = 'CHECK') = 39
          AND (SELECT COUNT(DISTINCT TABLE_NAME, INDEX_NAME)
               FROM information_schema.STATISTICS
               WHERE TABLE_SCHEMA = 'fyp_secure_file_platform'
                 AND INDEX_NAME <> 'PRIMARY'
-                AND NON_UNIQUE = 1) = 64
+                AND NON_UNIQUE = 1) = 67
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_structure_status;
@@ -559,6 +561,10 @@ expected_critical_fks AS (
     UNION ALL SELECT 'fk_recovery_requests_target_key_owner',
                      'recovery_requests', 'requested_by',
                      'user_keys', 'user_id', 'RESTRICT', 'RESTRICT'
+    UNION ALL SELECT 'fk_shelves_owner', 'shelves',
+                     'owner_id', 'users', 'id', 'CASCADE', 'CASCADE'
+    UNION ALL SELECT 'fk_files_shelf', 'files',
+                     'shelf_id', 'shelves', 'id', 'SET NULL', 'CASCADE'
 ),
 actual_critical_fks AS (
     SELECT
@@ -588,7 +594,9 @@ actual_critical_fks AS (
           'fk_file_key_wrappings_user_key_owner',
           'fk_file_key_wrappings_recovery_key',
           'fk_integrity_checks_file',
-          'fk_recovery_requests_target_key_owner'
+          'fk_recovery_requests_target_key_owner',
+          'fk_shelves_owner',
+          'fk_files_shelf'
       )
 )
 SELECT 'MISSING' AS deviation, expected.*
@@ -759,7 +767,7 @@ SELECT
     GROUP_CONCAT(version_num ORDER BY version_num) AS alembic_revisions,
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(version_num) = '0006_chacha20_poly1305'
+         AND MAX(version_num) = '0007_avatars_and_shelves'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_compatibility_status
@@ -783,14 +791,14 @@ SELECT
         AND head.last_log_id IS NULL
         AND head.current_hash =
             '0000000000000000000000000000000000000000000000000000000000000000'
-        AND head.schema_revision = '0006_chacha20_poly1305'
+        AND head.schema_revision = '0007_avatars_and_shelves'
     ), 0) AS genesis_rows,
     COALESCE(SUM(
         head.id = 1
         AND audit_state.audit_log_rows > 0
         AND head.last_log_id = audit_state.max_log_id
         AND last_log.current_hash = head.current_hash
-        AND head.schema_revision = '0006_chacha20_poly1305'
+        AND head.schema_revision = '0007_avatars_and_shelves'
     ), 0) AS live_rows,
     CASE
         WHEN COUNT(head.id) = 1
@@ -800,7 +808,7 @@ SELECT
              AND head.last_log_id IS NULL
              AND head.current_hash =
                  '0000000000000000000000000000000000000000000000000000000000000000'
-             AND head.schema_revision = '0006_chacha20_poly1305'
+             AND head.schema_revision = '0007_avatars_and_shelves'
          ), 0) = 1
         THEN 'OK'
         WHEN COUNT(head.id) = 1
@@ -809,7 +817,7 @@ SELECT
              AND audit_state.audit_log_rows > 0
              AND head.last_log_id = audit_state.max_log_id
              AND last_log.current_hash = head.current_hash
-             AND head.schema_revision = '0006_chacha20_poly1305'
+             AND head.schema_revision = '0007_avatars_and_shelves'
          ), 0) = 1
         THEN 'LIVE_DATA'
         ELSE 'REVIEW'

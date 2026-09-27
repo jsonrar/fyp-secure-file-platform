@@ -19,7 +19,7 @@
 -- verified pre-deployment backup, then restart from 01-provision.sql.
 --
 -- The DDL below is the flattened final state represented by revisions
--- 0001_initial through 0006_chacha20_poly1305. Production deployment does not
+-- 0001_initial through 0007_avatars_and_shelves. Production deployment does not
 -- run Alembic. The alembic_version row is retained only as a compatibility
 -- marker for development tooling and must be updated together with reviewed
 -- future root-executed SQL release scripts.
@@ -141,10 +141,28 @@ CREATE TABLE users (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_login_at DATETIME,
+    avatar_object_key VARCHAR(500),
+    avatar_content_type VARCHAR(64),
+    avatar_sha256 CHAR(64),
+    avatar_bytes INTEGER UNSIGNED,
+    avatar_updated_at DATETIME,
     PRIMARY KEY (id),
     CONSTRAINT uq_users_user_uuid UNIQUE (user_uuid),
     CONSTRAINT uq_users_username UNIQUE (username),
-    CONSTRAINT uq_users_email UNIQUE (email)
+    CONSTRAINT uq_users_email UNIQUE (email),
+    CONSTRAINT uq_users_avatar_object_key UNIQUE (avatar_object_key),
+    CONSTRAINT ck_users_avatar_shape CHECK (
+        (
+            avatar_object_key IS NULL AND avatar_content_type IS NULL AND
+            avatar_sha256 IS NULL AND avatar_bytes IS NULL AND avatar_updated_at IS NULL
+        ) OR (
+            avatar_object_key IS NOT NULL AND
+            avatar_content_type COLLATE utf8mb4_bin IN ('image/png', 'image/jpeg') AND
+            avatar_sha256 REGEXP '^[0-9a-f]{64}$' AND
+            avatar_bytes BETWEEN 1 AND 524288 AND
+            avatar_updated_at IS NOT NULL
+        )
+    )
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
@@ -164,7 +182,8 @@ CREATE TABLE audit_logs (
         'SHARE',
         'RECOVERY',
         'INTEGRITY',
-        'SYSTEM'
+        'SYSTEM',
+        'SHELF'
     ) NOT NULL,
     resource_id VARCHAR(100),
     target_user_id BIGINT UNSIGNED,
@@ -197,10 +216,33 @@ CREATE INDEX idx_audit_logs_resource_created_id
 CREATE INDEX idx_audit_logs_result ON audit_logs (result);
 CREATE INDEX idx_audit_logs_target_user_id ON audit_logs (target_user_id);
 
+CREATE TABLE shelves (
+    id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
+    shelf_uuid CHAR(36) NOT NULL,
+    owner_id BIGINT UNSIGNED NOT NULL,
+    name VARCHAR(100) NOT NULL,
+    created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    revision INTEGER UNSIGNED NOT NULL DEFAULT '1',
+    PRIMARY KEY (id),
+    CONSTRAINT uq_shelves_shelf_uuid UNIQUE (shelf_uuid),
+    CONSTRAINT uq_shelves_owner_name UNIQUE (owner_id, name),
+    CONSTRAINT ck_shelves_name_length CHECK (CHAR_LENGTH(name) >= 1),
+    CONSTRAINT ck_shelves_revision CHECK (revision >= 1),
+    CONSTRAINT fk_shelves_owner
+        FOREIGN KEY (owner_id) REFERENCES users (id)
+        ON DELETE CASCADE ON UPDATE CASCADE
+) ENGINE=InnoDB
+  DEFAULT CHARSET=utf8mb4
+  COLLATE=utf8mb4_unicode_ci;
+
+CREATE INDEX idx_shelves_owner_id ON shelves (owner_id);
+
 CREATE TABLE files (
     id BIGINT UNSIGNED NOT NULL AUTO_INCREMENT,
     file_uuid CHAR(36) NOT NULL,
     owner_id BIGINT UNSIGNED NOT NULL,
+    shelf_id BIGINT UNSIGNED,
     original_filename VARCHAR(255) NOT NULL,
     stored_filename VARCHAR(255) NOT NULL,
     storage_object_key VARCHAR(500) NOT NULL,
@@ -245,7 +287,10 @@ CREATE TABLE files (
     ),
     CONSTRAINT fk_files_owner
         FOREIGN KEY (owner_id) REFERENCES users (id)
-        ON DELETE RESTRICT ON UPDATE CASCADE
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_files_shelf
+        FOREIGN KEY (shelf_id) REFERENCES shelves (id)
+        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
@@ -254,6 +299,8 @@ CREATE INDEX idx_files_created_at ON files (created_at);
 CREATE INDEX idx_files_owner_id ON files (owner_id);
 CREATE INDEX idx_files_owner_status_created
     ON files (owner_id, status, created_at, id);
+CREATE INDEX idx_files_owner_shelf ON files (owner_id, shelf_id);
+CREATE INDEX idx_files_shelf_id ON files (shelf_id);
 CREATE INDEX idx_files_status ON files (status);
 
 CREATE TABLE user_keys (
@@ -812,6 +859,9 @@ GRANT SELECT, INSERT, UPDATE, DELETE
     ON `fyp_secure_file_platform`.`files`
     TO 'fyp_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE
+    ON `fyp_secure_file_platform`.`shelves`
+    TO 'fyp_user'@'localhost';
+GRANT SELECT, INSERT, UPDATE, DELETE
     ON `fyp_secure_file_platform`.`user_keys`
     TO 'fyp_user'@'localhost';
 GRANT SELECT, INSERT, UPDATE, DELETE
@@ -856,15 +906,15 @@ CREATE TABLE alembic_version (
   COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO alembic_version (version_num)
-VALUES ('0006_chacha20_poly1305');
+VALUES ('0007_avatars_and_shelves');
 
 -- Restore final-schema default parity only after every prior install statement
 -- has succeeded. The row still advertises 0002 until the final UPDATE below.
 ALTER TABLE audit_chain_heads
-ALTER COLUMN schema_revision SET DEFAULT '0006_chacha20_poly1305';
+ALTER COLUMN schema_revision SET DEFAULT '0007_avatars_and_shelves';
 
 -- This must be the final statement: readiness reads this marker rather than
 -- alembic_version because the runtime identity intentionally cannot read it.
 UPDATE audit_chain_heads
-SET schema_revision = '0006_chacha20_poly1305'
+SET schema_revision = '0007_avatars_and_shelves'
 WHERE id = 1;

@@ -18,6 +18,7 @@ from app.domain.errors import (
 from app.repositories.auth_repository import AuthRepository
 from app.repositories.file_repository import FileRepository
 from app.services.audit_log_service import AuditLogService
+from app.services.avatar_storage_service import AvatarStorageService
 from app.services.file_storage_service import FileStorageService, StorageObjectError
 
 
@@ -52,6 +53,7 @@ class AccountDeletionService:
         db: Session,
         passwords: PasswordManager,
         storage: FileStorageService,
+        avatar_storage: AvatarStorageService | None = None,
         auth_repository: AuthRepository | None = None,
         file_repository: FileRepository | None = None,
         audit_service: AuditLogService | None = None,
@@ -60,6 +62,7 @@ class AccountDeletionService:
         self.db = db
         self.passwords = passwords
         self.storage = storage
+        self.avatar_storage = avatar_storage
         self.auth = auth_repository or AuthRepository(db)
         self.files = file_repository or FileRepository(db)
         self.audit = audit_service or AuditLogService(db)
@@ -80,6 +83,7 @@ class AccountDeletionService:
         """
         now = self._clock()
         object_keys: list[str] = []
+        avatar_object_key: str | None = None
 
         try:
             user = self.auth.lock_user(actor.user_id)
@@ -88,6 +92,10 @@ class AccountDeletionService:
 
             if not self.passwords.verify(password, user.password_hash):
                 raise InvalidCurrentPasswordError()
+
+            # Captured before identifiers are released: the row will no longer name the
+            # object after commit, and the only safe moment to unlink is afterwards.
+            avatar_object_key = getattr(user, "avatar_object_key", None)
 
             owned = self.files.lock_owned_files(user.id)
             for file_record in owned:
@@ -125,6 +133,13 @@ class AccountDeletionService:
             )
 
             user.status = UserStatus.DELETED
+            # Clear avatar columns with the account so a resurrected UUID cannot claim them.
+            if hasattr(user, "avatar_object_key"):
+                user.avatar_object_key = None
+                user.avatar_content_type = None
+                user.avatar_sha256 = None
+                user.avatar_bytes = None
+                user.avatar_updated_at = None
             self.auth.release_identifiers(user, tombstone=uuid4().hex)
 
             self.db.commit()
@@ -138,6 +153,9 @@ class AccountDeletionService:
                 self.storage.delete_object(object_key)
             except StorageObjectError as exc:
                 raise StorageUnavailableError() from exc
+
+        if avatar_object_key and self.avatar_storage is not None:
+            self.avatar_storage.delete(avatar_object_key)
 
         return AccountDeletionResult(
             files_deleted=len(object_keys),

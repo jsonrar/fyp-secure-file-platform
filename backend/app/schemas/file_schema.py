@@ -174,6 +174,10 @@ class FileSummaryOut(StrictFileModel):
     # Who uploaded it. The listing mixes files you own with files shared with you, and
     # "shared with me" is not much use without saying who by.
     owner_username: str | None = None
+    # Which of your own shelves holds it, or null for the root. Always null on a row shared
+    # with you: shelves are the owner's own organisation and are not disclosed to a
+    # recipient.
+    shelf_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 

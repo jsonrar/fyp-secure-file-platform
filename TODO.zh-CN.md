@@ -136,7 +136,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   现有明文解密下载流程。
   分支 `feat/download-encrypted-file` 已实现所有者和授权接收者无需 passphrase 的密文下载。
   密文预览和部署核验仍待完成；本次部分实现不会关闭 #71。
-- [ ] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
+- [x] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
   ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
   或审计语义。
 - [ ] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
@@ -145,7 +145,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   passphrase、后继密钥轮换，以及账户信封规范文档。本次部分实现不关闭 #54。
 - [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
-- [ ] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
+- [x] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
   ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。
 - [ ] [#76 修复手机与窄屏下的产品流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
   ——修复公开页面、账户与文件流程在窄屏下的布局和交互问题，并保留可重复的手机浏览器证据。

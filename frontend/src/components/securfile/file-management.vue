@@ -1,7 +1,8 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Filter, LifeBuoy, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
+import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Filter, Folder, FolderPlus, LifeBuoy, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
+import { shelfApi, type ShelfOut } from '@/api/shelf_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileSummaryOut } from '@/api/types'
@@ -34,6 +35,8 @@ interface EncryptedFile {
   owned: boolean
   /** Who uploaded it, shown when that is not the viewer. */
   ownerName: string
+  /** Owner shelf id, or null for root / shared rows. */
+  shelfId: string | null
   /** Set when a stale shared row is no longer authorized on the server. */
   accessError?: string
 }
@@ -48,8 +51,19 @@ interface StatusConfig {
 const PAGE_SIZE = 100
 
 type FileScope = 'mine' | 'shared'
+/** Which owner shelf is selected when browsing My Files. */
+type ShelfSelection = 'all' | 'root' | string
 
 const scope = ref<FileScope>('mine')
+const shelfSelection = ref<ShelfSelection>('all')
+const shelves = ref<ShelfOut[]>([])
+const newShelfName = ref('')
+const isCreatingShelf = ref(false)
+const pendingDeleteShelf = ref<ShelfOut | null>(null)
+const isDeletingShelf = ref(false)
+const pendingMove = ref<EncryptedFile | null>(null)
+const moveTarget = ref<string>('')
+const isMoving = ref(false)
 const searchQuery = ref('')
 const files = ref<EncryptedFile[]>([])
 const isLoading = ref(false)
@@ -100,6 +114,7 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   // as though you owned and managed it, which you do not.
   owned: file.owner,
   ownerName: file.owner_username ?? 'another account',
+  shelfId: file.shelf_id,
 })
 
 const sharedIds = computed(() => files.value.filter((file) => !file.owned).map((file) => file.id))
@@ -109,22 +124,43 @@ const unseenCount = ref(0)
 /** Showing the shared list is what counts as having seen it. */
 const showShared = () => {
   scope.value = 'shared'
+  shelfSelection.value = 'all'
   markSharesSeen(sharedIds.value)
   unseenCount.value = 0
+}
+const showMine = () => {
+  scope.value = 'mine'
 }
 const ownedCount = computed(() => files.value.filter((file) => file.owned).length)
 
 let requestId = 0
+
+const loadShelves = async () => {
+  try {
+    const res = await shelfApi.list()
+    shelves.value = unwrapData(res).shelves
+  } catch {
+    // Shelf chrome is optional navigation; a load failure must not blank the file list.
+    shelves.value = []
+  }
+}
 
 const loadFiles = async () => {
   const thisRequest = ++requestId
   isLoading.value = true
   errorMessage.value = ''
   try {
+    const shelfParams =
+      scope.value === 'mine' && shelfSelection.value === 'root'
+        ? { root_only: true }
+        : scope.value === 'mine' && shelfSelection.value !== 'all'
+          ? { shelf_id: shelfSelection.value }
+          : {}
     const res = await fileApi.listFiles({
       page: page.value,
       page_size: PAGE_SIZE,
       search: searchQuery.value.trim() || undefined,
+      ...shelfParams,
     })
     // The API paginates: rows live under `items`. Reading anything else silently
     // yields an empty list, which reads as "no files" even when uploads succeeded.
@@ -146,7 +182,85 @@ const loadFiles = async () => {
   }
 }
 
-onMounted(loadFiles)
+const selectShelf = async (selection: ShelfSelection) => {
+  if (shelfSelection.value === selection) return
+  shelfSelection.value = selection
+  scope.value = 'mine'
+  page.value = 1
+  await loadFiles()
+}
+
+const createShelf = async () => {
+  const name = newShelfName.value.trim()
+  if (!name || isCreatingShelf.value) return
+  isCreatingShelf.value = true
+  actionMessage.value = ''
+  try {
+    const res = await shelfApi.create(name)
+    const created = unwrapData(res)
+    shelves.value = [...shelves.value, created].sort((a, b) => a.name.localeCompare(b.name))
+    newShelfName.value = ''
+    actionMessage.value = `Created shelf "${created.name}"`
+    await selectShelf(created.shelf_id)
+  } catch (error) {
+    actionMessage.value = apiErrorMessage(error, 'Could not create the shelf')
+  } finally {
+    isCreatingShelf.value = false
+  }
+}
+
+const confirmDeleteShelf = async () => {
+  const shelf = pendingDeleteShelf.value
+  if (!shelf) return
+  isDeletingShelf.value = true
+  try {
+    const res = await shelfApi.delete(shelf.shelf_id)
+    const result = unwrapData(res)
+    shelves.value = shelves.value.filter((row) => row.shelf_id !== shelf.shelf_id)
+    if (shelfSelection.value === shelf.shelf_id) {
+      shelfSelection.value = 'all'
+    }
+    actionMessage.value =
+      result.files_returned_to_root > 0
+        ? `Deleted "${shelf.name}"; ${result.files_returned_to_root} file(s) returned to Root`
+        : `Deleted shelf "${shelf.name}"`
+    pendingDeleteShelf.value = null
+    await loadFiles()
+  } catch (error) {
+    actionMessage.value = apiErrorMessage(error, 'Could not delete the shelf')
+  } finally {
+    isDeletingShelf.value = false
+  }
+}
+
+const openMove = (file: EncryptedFile) => {
+  if (!file.owned) return
+  pendingMove.value = file
+  moveTarget.value = file.shelfId ?? ''
+}
+
+const confirmMove = async () => {
+  const file = pendingMove.value
+  if (!file) return
+  isMoving.value = true
+  try {
+    const target = moveTarget.value || null
+    await fileApi.move(file.id, target)
+    actionMessage.value = target
+      ? `Moved ${file.name} to a shelf`
+      : `Moved ${file.name} to Root`
+    pendingMove.value = null
+    await loadFiles()
+  } catch (error) {
+    actionMessage.value = apiErrorMessage(error, 'Could not move the file')
+  } finally {
+    isMoving.value = false
+  }
+}
+
+onMounted(async () => {
+  await Promise.all([loadFiles(), loadShelves()])
+})
 
 // The account key relocks itself after a spell of disuse. Nothing on screen depends on it
 // directly, but a download started afterwards must ask for the passphrase again rather
@@ -434,6 +548,73 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       </div>
 
       <div class="bg-card border border-border rounded-xl max-w-6xl mx-auto p-6">
+        <div class="flex flex-col lg:flex-row gap-6">
+          <aside
+            v-if="scope === 'mine'"
+            class="w-full lg:w-56 shrink-0 space-y-2 border-b border-border pb-4 lg:border-b-0 lg:border-r lg:pb-0 lg:pr-4"
+          >
+            <p class="text-xs font-semibold uppercase tracking-wider text-muted-foreground">Shelves</p>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
+              :class="shelfSelection === 'all' ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'"
+              @click="selectShelf('all')"
+            >
+              <Folder class="h-4 w-4 shrink-0" />
+              All my files
+            </button>
+            <button
+              type="button"
+              class="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
+              :class="shelfSelection === 'root' ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'"
+              @click="selectShelf('root')"
+            >
+              <Folder class="h-4 w-4 shrink-0" />
+              Root
+            </button>
+            <div
+              v-for="shelf in shelves"
+              :key="shelf.shelf_id"
+              class="group flex items-center gap-1"
+            >
+              <button
+                type="button"
+                class="flex min-w-0 flex-1 items-center gap-2 rounded-md px-2 py-1.5 text-left text-sm transition-colors"
+                :class="shelfSelection === shelf.shelf_id ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:bg-secondary/60 hover:text-foreground'"
+                @click="selectShelf(shelf.shelf_id)"
+              >
+                <Folder class="h-4 w-4 shrink-0" />
+                <span class="truncate">{{ shelf.name }}</span>
+              </button>
+              <button
+                type="button"
+                class="h-8 w-8 shrink-0 items-center justify-center rounded-md text-muted-foreground opacity-0 transition-opacity hover:bg-destructive/10 hover:text-destructive group-hover:opacity-100 inline-flex"
+                :title="`Delete ${shelf.name}`"
+                :aria-label="`Delete shelf ${shelf.name}`"
+                @click="pendingDeleteShelf = shelf"
+              >
+                <Trash2 class="h-3.5 w-3.5" />
+              </button>
+            </div>
+            <form class="pt-2 space-y-2" @submit.prevent="createShelf">
+              <input
+                v-model="newShelfName"
+                maxlength="100"
+                placeholder="New shelf name"
+                class="h-9 w-full rounded-md border border-border bg-secondary px-2 text-sm"
+              />
+              <button
+                type="submit"
+                class="inline-flex h-9 w-full items-center justify-center gap-1.5 rounded-md border border-border text-sm hover:bg-secondary disabled:opacity-50"
+                :disabled="!newShelfName.trim() || isCreatingShelf"
+              >
+                <FolderPlus class="h-4 w-4" />
+                Create shelf
+              </button>
+            </form>
+          </aside>
+
+          <div class="min-w-0 flex-1">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div class="inline-flex rounded-lg border border-border p-1 mb-2">
@@ -441,7 +622,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 type="button"
                 class="h-8 px-3 rounded-md text-sm transition-colors"
                 :class="scope === 'mine' ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'"
-                @click="scope = 'mine'"
+                @click="showMine"
               >
                 My Files ({{ ownedCount }})
               </button>
@@ -577,6 +758,9 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     >
                       <Activity class="h-4 w-4" />
                     </button>
+                    <button v-if="file.owned" class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Move to shelf" @click="openMove(file)">
+                      <Folder class="h-4 w-4" />
+                    </button>
                     <button v-if="file.owned" class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
                       <Share2 class="h-4 w-4" />
                     </button>
@@ -609,6 +793,8 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
               Next
               <ChevronRight class="h-4 w-4" />
             </button>
+          </div>
+        </div>
           </div>
         </div>
       </div>
@@ -649,6 +835,62 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       @confirm="confirmDelete"
       @close="closePendingDelete"
     />
+    <ConfirmActionDialog
+      v-if="pendingDeleteShelf"
+      title="Delete this shelf?"
+      :detail="pendingDeleteShelf.name"
+      consequence="The shelf is removed. Files on it return to Root; nothing is deleted and shares stay intact."
+      confirm-label="Delete shelf"
+      busy-label="Deleting…"
+      :busy="isDeletingShelf"
+      @confirm="confirmDeleteShelf"
+      @close="pendingDeleteShelf = null"
+    />
+    <div
+      v-if="pendingMove"
+      class="fixed inset-0 z-[60] flex items-center justify-center bg-black/40 p-4"
+      @click.self="pendingMove = null"
+    >
+      <div
+        role="dialog"
+        aria-modal="true"
+        class="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl"
+      >
+        <h2 class="text-lg font-semibold text-foreground">Move to shelf</h2>
+        <p class="mt-1 text-sm text-muted-foreground">{{ pendingMove.name }}</p>
+        <label class="mt-4 block text-sm text-muted-foreground" for="move-shelf-select">
+          Destination
+        </label>
+        <select
+          id="move-shelf-select"
+          v-model="moveTarget"
+          class="mt-1 h-10 w-full rounded-md border border-border bg-secondary px-3 text-sm"
+        >
+          <option value="">Root</option>
+          <option v-for="shelf in shelves" :key="shelf.shelf_id" :value="shelf.shelf_id">
+            {{ shelf.name }}
+          </option>
+        </select>
+        <div class="mt-6 flex justify-end gap-2">
+          <button
+            type="button"
+            class="h-10 rounded-md border border-border px-4 text-sm hover:bg-secondary"
+            :disabled="isMoving"
+            @click="pendingMove = null"
+          >
+            Cancel
+          </button>
+          <button
+            type="button"
+            class="h-10 rounded-md bg-primary px-4 text-sm text-primary-foreground hover:opacity-90 disabled:opacity-50"
+            :disabled="isMoving"
+            @click="confirmMove"
+          >
+            {{ isMoving ? 'Moving…' : 'Move' }}
+          </button>
+        </div>
+      </div>
+    </div>
     <UnlockDialog
       v-if="showUnlock"
       :key-id="unlockKeyId"

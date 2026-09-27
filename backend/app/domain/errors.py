@@ -95,9 +95,34 @@ class EmailDeliveryFailedError(AppError):
     public_message = "The verification email could not be sent; please try again later"
 
 
+class AvatarInvalidError(InputError):
+    code = "invalid_avatar"
+    public_message = "The avatar must be a PNG or JPEG image"
+
+
+class AvatarTooLargeError(InputError):
+    code = "avatar_too_large"
+    public_message = "The avatar image exceeds the size limit"
+
+
 class SessionNotFoundError(ResourceNotFoundError):
     code = "session_not_found"
     public_message = "The requested session was not found"
+
+
+class AvatarNotFoundError(ResourceNotFoundError):
+    code = "avatar_not_found"
+    public_message = "This account has no avatar"
+
+
+class ShelfNotFoundError(ResourceNotFoundError):
+    code = "shelf_not_found"
+    public_message = "The requested shelf was not found"
+
+
+class ShelfNameUnavailableError(ConflictError):
+    code = "shelf_name_unavailable"
+    public_message = "A shelf with this name already exists"
 
 
 class FileResourceNotFoundError(ResourceNotFoundError):
@@ -180,9 +205,11 @@ class IntegrityVerificationError(AppError):
     public_message = "The encrypted file could not be verified"
 
 
-class AuthenticationRateLimitedError(AppError):
-    code = "auth_rate_limited"
-    public_message = "Too many authentication attempts; please try again later"
+class RateLimitedError(AppError):
+    """Refused because the same caller acted again too soon, and says when to retry."""
+
+    code = "rate_limited"
+    public_message = "This action was performed too recently; please try again shortly"
 
     def __init__(
         self,
@@ -196,3 +223,20 @@ class AuthenticationRateLimitedError(AppError):
         if retry_after_seconds is not None:
             response_headers["Retry-After"] = str(max(0, retry_after_seconds))
         super().__init__(message, details=details, headers=response_headers)
+
+
+class AuthenticationRateLimitedError(RateLimitedError):
+    code = "auth_rate_limited"
+    public_message = "Too many authentication attempts; please try again later"
+
+
+class AvatarUpdateRateLimitedError(RateLimitedError):
+    """Kept distinct from the authentication limiter so picture churn cannot mask abuse.
+
+    Both answer 429 with a `Retry-After`, but the authentication counters feed the
+    security metrics and alerts. Someone replacing their profile picture twice in a row is
+    not an authentication event and must not be counted as one.
+    """
+
+    code = "avatar_update_rate_limited"
+    public_message = "The avatar was changed too recently; please try again shortly"

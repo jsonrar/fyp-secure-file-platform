@@ -78,6 +78,12 @@ def create_app(app_settings: Settings | None = None) -> FastAPI:
             + active_settings.MAX_UPLOAD_REQUEST_OVERHEAD_BYTES
         ),
         upload_path=f"{active_settings.API_PREFIX}/files/upload",
+        extra_upload_limits={
+            f"{active_settings.API_PREFIX}/auth/avatar/upload": (
+                active_settings.AVATAR_MAX_BYTES
+                + active_settings.MAX_UPLOAD_REQUEST_OVERHEAD_BYTES
+            ),
+        },
     )
     application.add_middleware(
         CORSMiddleware,
