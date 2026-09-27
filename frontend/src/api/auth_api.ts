@@ -38,6 +38,7 @@ export interface AuthUserOut {
   email_verified: boolean
   created_at: string
   last_login_at: string | null
+  has_avatar: boolean
 }
 
 export interface AuthMeData {

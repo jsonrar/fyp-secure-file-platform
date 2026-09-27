@@ -116,6 +116,11 @@ def _service(*, password="correct-horse", files=None, user=None):
         email="waldo@secureview.tech",
         password_hash="argon2-hash",
         status=UserStatus.ACTIVE,
+        avatar_object_key=None,
+        avatar_content_type=None,
+        avatar_sha256=None,
+        avatar_bytes=None,
+        avatar_updated_at=None,
     )
     db = FakeDb()
     auth_repo = FakeAuthRepo(user)

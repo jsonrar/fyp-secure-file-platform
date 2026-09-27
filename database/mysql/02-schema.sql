@@ -19,7 +19,7 @@
 -- verified pre-deployment backup, then restart from 01-provision.sql.
 --
 -- The DDL below is the flattened final state represented by revisions
--- 0001_initial through 0007_file_folders. Production deployment does not
+-- 0001_initial through 0008_avatars. Production deployment does not
 -- run Alembic. The alembic_version row is retained only as a compatibility
 -- marker for development tooling and must be updated together with reviewed
 -- future root-executed SQL release scripts.
@@ -141,10 +141,22 @@ CREATE TABLE users (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     last_login_at DATETIME,
+    avatar_object_key VARCHAR(500),
+    avatar_content_type VARCHAR(64),
+    avatar_sha256 CHAR(64),
+    avatar_bytes INTEGER UNSIGNED,
+    avatar_updated_at DATETIME,
     PRIMARY KEY (id),
     CONSTRAINT uq_users_user_uuid UNIQUE (user_uuid),
     CONSTRAINT uq_users_username UNIQUE (username),
-    CONSTRAINT uq_users_email UNIQUE (email)
+    CONSTRAINT uq_users_email UNIQUE (email),
+    CONSTRAINT ck_users_avatar_shape CHECK (
+        (avatar_object_key IS NULL AND avatar_content_type IS NULL
+         AND avatar_sha256 IS NULL AND avatar_bytes IS NULL AND avatar_updated_at IS NULL)
+        OR (avatar_object_key IS NOT NULL AND avatar_content_type IN ('image/png', 'image/jpeg')
+            AND avatar_sha256 REGEXP '^[0-9a-f]{64}$' AND avatar_bytes BETWEEN 1 AND 524288
+            AND avatar_updated_at IS NOT NULL)
+    )
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
@@ -883,15 +895,15 @@ CREATE TABLE alembic_version (
   COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO alembic_version (version_num)
-VALUES ('0007_file_folders');
+VALUES ('0008_avatars');
 
 -- Restore final-schema default parity only after every prior install statement
 -- has succeeded. The row still advertises 0002 until the final UPDATE below.
 ALTER TABLE audit_chain_heads
-ALTER COLUMN schema_revision SET DEFAULT '0007_file_folders';
+ALTER COLUMN schema_revision SET DEFAULT '0008_avatars';
 
 -- This must be the final statement: readiness reads this marker rather than
 -- alembic_version because the runtime identity intentionally cannot read it.
 UPDATE audit_chain_heads
-SET schema_revision = '0007_file_folders'
+SET schema_revision = '0008_avatars'
 WHERE id = 1;

@@ -39,17 +39,23 @@ cd "$BACKEND_DIR"
 # Each iteration is one full 0001->head migration (~4s locally), so 8 keeps
 # the added CI time well under a minute.
 CONCURRENCY_RACE_ITERATIONS="${CONCURRENCY_RACE_ITERATIONS:-8}"
-HEAD_REVISION="0007_file_folders"
 PYTHON="$BACKEND_DIR/.venv/bin/python"
 
-# Count the actual ordered Alembic chain instead of duplicating it here. Adding a
-# revision must make the race expect one more applied upgrade, while still proving
-# that the second deployer waited and then applied none.
-EXPECTED_FULL_UPGRADES="$("$PYTHON" -m alembic history | awk '/ -> / { count++ } END { print count + 0 }')"
-if [ "$EXPECTED_FULL_UPGRADES" -lt 1 ]; then
-  echo "FAIL: Alembic reported no revisions in the migration chain" >&2
-  exit 1
-fi
+# Read the release target and migration count from Alembic itself. Keeping either
+# value as a literal made this drill reject a valid deployment whenever a new
+# migration became head.
+read -r HEAD_REVISION REVISION_COUNT < <(
+  "$PYTHON" - <<'PY'
+from alembic.config import Config
+from alembic.script import ScriptDirectory
+
+scripts = ScriptDirectory.from_config(Config("alembic.ini"))
+heads = scripts.get_heads()
+if len(heads) != 1:
+    raise SystemExit(f"mysql release gate requires one Alembic head, found: {heads}")
+print(heads[0], sum(1 for _ in scripts.walk_revisions()))
+PY
+)
 
 MYSQL_CLIENT=(mysql --host="$DB_HOST" --port="$DB_PORT" --user="$ADMIN_DB_USER" "--password=$ADMIN_DB_PASSWORD" --protocol=TCP)
 MYSQLDUMP_CLIENT=(mysqldump --host="$DB_HOST" --port="$DB_PORT" --user="$ADMIN_DB_USER" "--password=$ADMIN_DB_PASSWORD" --protocol=TCP --single-transaction --no-tablespaces --routines --triggers)
@@ -175,15 +181,15 @@ for iteration in $(seq 1 "$CONCURRENCY_RACE_ITERATIONS"); do
   APPLIED_B="$(grep -c 'Running upgrade' "$LOG_B" || true)"
   WAITED_A="$(grep -c 'is held by another migration' "$LOG_A" || true)"
   WAITED_B="$(grep -c 'is held by another migration' "$LOG_B" || true)"
-  # Exactly one deployer applies the whole revision chain; the other must have seen
+  # Exactly one deployer applies every revision; the other must have seen
   # the lock held (real contention, not a lucky non-overlap) and then applied
   # nothing at all.
-  if [ "$APPLIED_A" -eq "$EXPECTED_FULL_UPGRADES" ] && [ "$APPLIED_B" -eq 0 ] && [ "$WAITED_B" -eq 1 ] && [ "$WAITED_A" -eq 0 ]; then
+  if [ "$APPLIED_A" -eq "$REVISION_COUNT" ] && [ "$APPLIED_B" -eq 0 ] && [ "$WAITED_B" -eq 1 ] && [ "$WAITED_A" -eq 0 ]; then
     WINNER="first"
-  elif [ "$APPLIED_B" -eq "$EXPECTED_FULL_UPGRADES" ] && [ "$APPLIED_A" -eq 0 ] && [ "$WAITED_A" -eq 1 ] && [ "$WAITED_B" -eq 0 ]; then
+  elif [ "$APPLIED_B" -eq "$REVISION_COUNT" ] && [ "$APPLIED_A" -eq 0 ] && [ "$WAITED_A" -eq 1 ] && [ "$WAITED_B" -eq 0 ]; then
     WINNER="second"
   else
-    echo "FAIL: ${LABEL}: expected one deployer to apply ${EXPECTED_FULL_UPGRADES} revisions and the other to wait then apply 0; got applied=${APPLIED_A}/${APPLIED_B} waited=${WAITED_A}/${WAITED_B}" >&2
+    echo "FAIL: ${LABEL}: expected one deployer to apply ${REVISION_COUNT} revisions and the other to wait then apply 0; got applied=${APPLIED_A}/${APPLIED_B} waited=${WAITED_A}/${WAITED_B}" >&2
     cat "$LOG_A" "$LOG_B" >&2
     exit 1
   fi

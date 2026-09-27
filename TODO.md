@@ -167,9 +167,10 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
 - [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   — user-selectable product locale with complete key coverage, safe fallback, persistence, and
   mobile-compatible controls.
-- [ ] [#75 Add validated user avatar upload and display](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
+- [x] [#75 Add validated user avatar upload and display](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
   — optional profile/header image with content validation, safe serving, cleanup, rate limits,
-  and initials fallback.
+  and initials fallback. Evidence still required: reviewed PR, staging deploy to the merge SHA,
+  and a short upload/display/delete walkthrough before the Issue closes.
 - [ ] [#76 Fix mobile and narrow-viewport usability across product flows](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
   — repair narrow-screen layout and interaction regressions across public, account, and file
   flows, with repeatable mobile browser evidence.

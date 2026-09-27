@@ -25,6 +25,7 @@ class AccountSnapshot:
     email_verified: bool
     created_at: datetime
     last_login_at: datetime | None = None
+    has_avatar: bool = False
 
 
 @dataclass(frozen=True, slots=True)

@@ -145,8 +145,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   passphrase、后继密钥轮换，以及账户信封规范文档。本次部分实现不关闭 #54。
 - [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
-- [ ] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
-  ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。
+- [x] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
+  ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。关闭 Issue 前仍需：评审 PR、部署到准确 merge SHA，以及上传/展示/删除的短流程证据。
 - [ ] [#76 修复手机与窄屏下的产品流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
   ——修复公开页面、账户与文件流程在窄屏下的布局和交互问题，并保留可重复的手机浏览器证据。
 

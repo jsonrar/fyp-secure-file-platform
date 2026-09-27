@@ -47,6 +47,21 @@ Alembic revision 仍用于开发与 CI 中编写、评审及验证 Schema；生�
 `MYSQL_ROOT_PASSWORD` 和 `MYSQL_PORT` 仅供根目录 Compose 本地开发使用，不是生产管理员
 配置。生产不使用任何部署专用的管理员、迁移或账户 Host 环境变量。
 
+### 存储目录
+
+三个存储路径默认指向代码目录内部。staging 的工作目录是 `/opt/mcs21/releases/<sha>` 下的
+不可变 release，`fypapp` 无法写入，且每次部署都会被替换。因此 `backend.env` 必须把三者都指向
+由 `fypapp` 拥有的持久化数据根目录：
+
+```bash
+ENCRYPTED_FILE_DIR=/var/lib/fyp-secure-file-platform/encrypted
+TEMP_FILE_DIR=/var/lib/fyp-secure-file-platform/tmp
+AVATAR_DIR=/var/lib/fyp-secure-file-platform/avatars
+```
+
+应用会在首次上传时创建 `avatars/`。`AVATAR_DIR` 存放明文头像，绝不能与密文对象共用目录。
+`mcs21-deploy` 的部署前归档已经包含整个数据根目录。
+
 ### 同步由环境配置控制的请求上限
 
 `.env.example` 是纳入版本管理的模板，预发布服务不会直接读取它。运行中的后端读取
