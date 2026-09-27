@@ -20,7 +20,7 @@ describe('link preview tags', () => {
 
   it('points og:image at an absolute PNG that ships in public/', () => {
     const image = og('image')
-    expect(image).toMatch(/^https:\/\/secureview\.tech\/.+\.png$/)
+    expect(image).toMatch(/^https:\/\/secureview\.tech\/.+\.png(\?v=\d+)?$/)
 
     const file = readFileSync(path.join(frontendRoot, 'public', new URL(image!).pathname))
     // PNG signature, then the IHDR width and height (big-endian) at bytes 16-23.
