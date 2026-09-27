@@ -55,6 +55,7 @@ class File(Base):
             name="ck_files_status_deleted_at",
         ),
         Index("idx_files_owner_id", "owner_id"),
+        Index("idx_files_folder_id", "folder_id"),
         Index("idx_files_owner_status_created", "owner_id", "status", "created_at", "id"),
         Index("idx_files_status", "status"),
         Index("idx_files_created_at", "created_at"),
@@ -79,6 +80,16 @@ class File(Base):
             onupdate="CASCADE",
         ),
         nullable=False,
+    )
+    folder_id: Mapped[int | None] = mapped_column(
+        mysql.BIGINT(unsigned=True),
+        ForeignKey(
+            "file_folders.id",
+            name="fk_files_folder",
+            ondelete="SET NULL",
+            onupdate="CASCADE",
+        ),
+        nullable=True,
     )
 
     original_filename: Mapped[str] = mapped_column(String(255), nullable=False)
@@ -131,6 +142,7 @@ class File(Base):
     )
 
     owner = relationship("User", back_populates="owned_files", foreign_keys=[owner_id])
+    folder = relationship("FileFolder", back_populates="files")
     key_wrappings = relationship(
         "FileKeyWrapping", back_populates="file", cascade="all, delete-orphan"
     )

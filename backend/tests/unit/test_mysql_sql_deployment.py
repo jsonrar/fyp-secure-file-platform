@@ -124,7 +124,7 @@ def test_root_schema_sql_is_empty_only_and_marks_completion_last() -> None:
     assert "foreign_key_checks" not in lowered
     assert "fyp_migrator" not in schema_sql
     assert "ON `fyp_secure_file_platform`.*" not in schema_sql
-    assert len(re.findall(r"(?m)^GRANT ", schema_sql)) == 16
+    assert len(re.findall(r"(?m)^GRANT ", schema_sql)) == 17
     assert (
         "GRANT SELECT, UPDATE (last_log_id, current_hash, updated_at)\n"
         "    ON `fyp_secure_file_platform`.`audit_chain_heads`"
@@ -140,14 +140,14 @@ def test_root_schema_sql_is_empty_only_and_marks_completion_last() -> None:
     assert schema_sql.index("INSERT INTO audit_chain_heads") < schema_sql.index("GRANT SELECT")
     assert schema_sql.index("GRANT SELECT") < schema_sql.index("CREATE TABLE alembic_version")
     assert "'0002_auth_identity_sessions'\n);" in schema_sql
-    assert schema_sql.index("VALUES ('0006_chacha20_poly1305');") < schema_sql.index(
+    assert schema_sql.index("VALUES ('0007_file_folders');") < schema_sql.index(
         "ALTER TABLE audit_chain_heads\nALTER COLUMN schema_revision"
     )
     assert schema_sql.index(
         "ALTER TABLE audit_chain_heads\nALTER COLUMN schema_revision"
     ) < schema_sql.index("UPDATE audit_chain_heads")
     assert schema_sql.rstrip().endswith(
-        "SET schema_revision = '0006_chacha20_poly1305'\nWHERE id = 1;"
+        "SET schema_revision = '0007_file_folders'\nWHERE id = 1;"
     )
 
 
@@ -168,7 +168,7 @@ def test_root_verification_sql_is_read_only_and_checks_retired_identity() -> Non
     assert "'current_hash', 'UPDATE', 'NO'" in verification_sql
     assert "'updated_at', 'UPDATE', 'NO'" in verification_sql
     assert "readiness_marker_default_status" in verification_sql
-    assert "MAX(COLUMN_DEFAULT) = '0006_chacha20_poly1305'" in verification_sql
+    assert "MAX(COLUMN_DEFAULT) = '0007_file_folders'" in verification_sql
     assert "'_utf8mb4', ''" in verification_sql
     assert "'_latin1', ''" in verification_sql
     assert "CHAR(92), ''" in verification_sql
@@ -187,7 +187,7 @@ def test_root_verification_accepts_only_a_consistent_live_audit_head() -> None:
     # merge that updated only one of them let an inconsistent live deployment
     # fail its release gate, so assert the count and that no stale revision
     # string survives anywhere in the file.
-    assert verification_sql.count("head.schema_revision = '0006_chacha20_poly1305'") == 4
+    assert verification_sql.count("head.schema_revision = '0007_file_folders'") == 4
     assert "0003_client_key_custody" not in verification_sql
     assert "THEN 'LIVE_DATA'\n        ELSE 'REVIEW'" in verification_sql
     assert "ON last_log.id = head.last_log_id" in verification_sql

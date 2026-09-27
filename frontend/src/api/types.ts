@@ -20,6 +20,8 @@ export interface FileSummaryOut {
   owner: boolean
   /** Who uploaded it. Null only for a row whose owner row could not be loaded. */
   owner_username: string | null
+  /** Owner-only organization. Null means Unfiled (and is always null on shared rows). */
+  folder_id: string | null
   created_at: string
   updated_at: string
 }
@@ -48,6 +50,18 @@ export interface FileListOut {
   page: number
   page_size: number
   total: number
+}
+
+export interface FileFolderOut {
+  folder_id: string
+  name: string
+  file_count: number
+  created_at: string
+  updated_at: string
+}
+
+export interface FileFolderListOut {
+  items: FileFolderOut[]
 }
 
 /**

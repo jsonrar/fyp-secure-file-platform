@@ -68,6 +68,7 @@ FORBIDDEN_TABLES = (
     "recovery_requests",
     "file_key_wrappings",
     "file_access_grants",
+    "file_folders",
     "integrity_checks",
 )
 RECONCILED_TABLES = frozenset(

@@ -39,7 +39,7 @@ cd "$BACKEND_DIR"
 # Each iteration is one full 0001->head migration (~4s locally), so 8 keeps
 # the added CI time well under a minute.
 CONCURRENCY_RACE_ITERATIONS="${CONCURRENCY_RACE_ITERATIONS:-8}"
-HEAD_REVISION="0006_chacha20_poly1305"
+HEAD_REVISION="0007_file_folders"
 PYTHON="$BACKEND_DIR/.venv/bin/python"
 
 MYSQL_CLIENT=(mysql --host="$DB_HOST" --port="$DB_PORT" --user="$ADMIN_DB_USER" "--password=$ADMIN_DB_PASSWORD" --protocol=TCP)

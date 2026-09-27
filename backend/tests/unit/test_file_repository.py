@@ -1,7 +1,12 @@
 from __future__ import annotations
 
+from uuid import UUID
+
+from sqlalchemy import and_
 from sqlalchemy.dialects import mysql
 
+from app.models.file import File
+from app.models.file_folder import FileFolder
 from app.repositories.file_repository import FileRepository
 
 
@@ -86,3 +91,14 @@ def test_search_does_not_relax_the_access_predicates() -> None:
     assert "file_access_grants.status = 'ACTIVE'" in sql
     assert "file_key_wrappings.status = 'ACTIVE'" in sql
     assert "user_keys.status = 'ACTIVE'" in sql
+
+
+def test_folder_filter_is_owner_scoped() -> None:
+    folder_id = UUID("aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa")
+    predicate = File.folder.has(
+        and_(FileFolder.folder_uuid == str(folder_id), FileFolder.owner_id == 7)
+    )
+    sql = str(predicate.compile(dialect=mysql.dialect(), compile_kwargs={"literal_binds": True}))
+
+    assert "file_folders.folder_uuid = 'aaaaaaaa-aaaa-4aaa-8aaa-aaaaaaaaaaaa'" in sql
+    assert "file_folders.owner_id = 7" in sql

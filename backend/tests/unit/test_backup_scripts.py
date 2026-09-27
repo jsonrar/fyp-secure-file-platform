@@ -210,7 +210,7 @@ def test_backup_grant_extraction_reads_the_single_database_level_grant() -> None
     runtime = grants.extract_grants(
         grants.SCHEMA_SQL_PATH, grants.PRODUCTION_RUNTIME_USER, "gate_test_db", "rt", "%"
     )
-    assert len(runtime) == 16
+    assert len(runtime) == 17
     assert all("'rt'@'%'" in statement for statement in runtime)
 
 

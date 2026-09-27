@@ -71,7 +71,7 @@ The reason and evidence for shipped behavior belong in
 | Frontend production build | Pass | Vite production bundle builds |
 | Ruff format/check | **Fail** | Four files need formatting; three import blocks fail |
 | GitHub Actions | **Absent** | No required CI gate currently protects `main` |
-| Schema baseline | `0006_chacha20_poly1305` | 17 production SQL tables |
+| Schema baseline | `0007_file_folders` | 18 production SQL tables |
 | Live staging | `a085ae4` (PR #51, before this documentation sync) | `/`, health, docs, schema, and ReDoc return 200 |
 
 A test run with skipped integration tests is evidence about the offline subset only; it is
@@ -85,7 +85,7 @@ not a release pass.
   needs a repository admin to mark `backend` and `frontend` required — see the PR that introduced this.
 - [x] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
-  `0006_chacha20_poly1305`, runs `alembic current`/`check`, runs the whole backend suite (coverage
+  `0007_file_folders`, runs `alembic current`/`check`, runs the whole backend suite (coverage
   floor 82%) and fails on any skipped test, and checks runtime-vs-admin grants and live schema
   parity. The two gaps once deferred here are closed: the migration-lock race now runs 8 randomized
   iterations that must each show one applier and one waiter, and restores are compared by per-table
@@ -155,7 +155,7 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   Branch `feat/download-encrypted-file` implements the passphrase-free ciphertext download
   for owners and authorized recipients. Preview and deployment verification remain pending;
   this partial implementation does not close #71.
-- [ ] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
+- [ ] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73) — implemented on `Junyan#8`; staging deployment and affected-flow evidence remain before closure.
   — create owner-scoped shelves and move owned files between them or root without changing
   encryption, sharing, file identity, or audit semantics.
 - [ ] [#54 Complete browser passphrase change, key-file reset, and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)

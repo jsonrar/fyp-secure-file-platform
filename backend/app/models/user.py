@@ -81,6 +81,7 @@ class User(Base):
     )
     sessions = relationship("UserSession", back_populates="user", cascade="all, delete-orphan")
     owned_files = relationship("File", back_populates="owner", foreign_keys="File.owner_id")
+    file_folders = relationship("FileFolder", back_populates="owner", cascade="all, delete-orphan")
 
     access_grants = relationship(
         "FileAccessGrant",

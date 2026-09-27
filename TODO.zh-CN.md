@@ -62,7 +62,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 | 前端 production build | 通过 | Vite 生产 bundle 构建成功 |
 | Ruff format/check | **失败** | 4 个文件需格式化，3 个 import block 不合规 |
 | GitHub Actions | **不存在** | 当前没有 required CI gate 保护 `main` |
-| Schema 基线 | `0006_chacha20_poly1305` | 生产 SQL 共 17 张表 |
+| Schema 基线 | `0007_file_folders` | 生产 SQL 共 18 张表 |
 | 线上预发布 | `a085ae4`（PR #51，本次文档同步前） | `/`、health、docs、schema、ReDoc 均为 200 |
 
 带 integration skip 的测试只证明离线子集，不得表述为发布通过。
@@ -74,7 +74,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   MySQL 的 pytest）与 frontend（带覆盖率的测试/类型检查/构建）；Ruff 基线已真正修复而非压制。分支保护仍需仓库管理员
   将 `backend`、`frontend` 设为必需检查——详见引入本改动的 PR。
 - [x] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
-  ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0006_chacha20_poly1305` 的每一次迁移，
+  ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0007_file_folders` 的每一次迁移，
   运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，
   并检查运行时账户与管理员账户的权限边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争
   现在随机化运行 8 轮，每轮都必须出现一个应用者和一个等待者；恢复结果按逐表 `CHECKSUM TABLE` 加
@@ -136,7 +136,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   现有明文解密下载流程。
   分支 `feat/download-encrypted-file` 已实现所有者和授权接收者无需 passphrase 的密文下载。
   密文预览和部署核验仍待完成；本次部分实现不会关闭 #71。
-- [ ] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)
+- [ ] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)——已在 `Junyan#8` 实现；关闭前仍需 staging 部署与受影响流程证据。
   ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
   或审计语义。
 - [ ] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)

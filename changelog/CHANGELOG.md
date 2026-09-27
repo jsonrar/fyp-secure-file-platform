@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Per-user file folders / 用户文件夹分类
+
+- Implemented the repository side of #73 with account-scoped folders in My Files: owners can create, rename, delete, filter by, and move files between folders or Unfiled. Folder assignment is server-persisted across devices, recipients cannot reorganize another owner's shared files, and deleting a folder only clears its classification rather than deleting ciphertext. Revision `0007_file_folders` adds the ownership and assignment constraints so one account cannot name or move another account's folders. Staging deployment and affected-flow evidence remain before the Issue can close.
+- 已完成 #73 的仓库侧实现，在 My Files 中加入按账户隔离的文件夹：所有者可创建、重命名、删除、筛选文件夹，并在文件夹与“未分类”之间移动文件。分类由服务端持久化，可跨设备同步；接收者不能重组他人分享的文件；删除文件夹只清除分类，不会删除密文。Revision `0007_file_folders` 增加所有权与归属约束，防止一个账户引用或移动另一个账户的文件夹。Issue 关闭前仍需 staging 部署与受影响流程证据。
+
 ### Secondary confirmation for destructive actions / 破坏性操作二次确认
 
 - Completed #72 for the product surfaces that still fired on one click: deleting a file in My Files and revoking a share now open a dedicated dialog that names the target and states whether the action is recoverable. Account deletion remains behind the existing password + typed-`DELETE` dialog, now also reachable from `/profile` as well as Settings.
