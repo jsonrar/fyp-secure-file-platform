@@ -49,6 +49,7 @@ Core Features），`/education` 提供算法教学、演练场与知识库，`/h
 视频占位，`/team`（导航标签为 **Contact us**）提供反馈
 表单预览与开发团队名单。登录用户可通过页头
 头像菜单进入主题设置、`/profile` 与 `/settings`；当前导航标签使用主题主色高亮，便于确认所在页。
+`/profile` 可上传或移除经验证的 PNG/JPEG 头像（无图时回退首字母）。
 
 Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动态效果时静态展示全部功能卡片。
 这是本地前端更新，尚未核验部署。详见 [首页滚动条更新记录](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨)。
@@ -94,8 +95,8 @@ Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动
    自己文件上的活动，接收者只能查看与自己有关的记录，ADMIN 可以验证完整哈希链。忘记登录密码
    可通过邮箱验证码重置；忘记加密 passphrase 时只能使用注册时另存的 `.pem`：它可以解锁当前会话，也可以在 `/settings`
    中设置新的 passphrase，而不改变账户密钥或任何文件。
-   账户身份与偏好在页头头像菜单中：`/profile` 显示当前账户并可进入注销确认，`/settings` 提供主题与
-   同一套注销流程（登录密码 + 输入 `DELETE`）。
+   账户身份与偏好在页头头像菜单中：`/profile` 显示当前账户、可上传或移除头像，并可进入注销确认；
+   `/settings` 提供主题与同一套注销流程（登录密码 + 输入 `DELETE`）。
 7. **未登录也可学习与求助**：`/education` 包含 Algorithm Explorer、Playground 与 Knowledge
    Base；首页 `#how-it-works` 图文幻灯是最快上手路径，`/help` 会链过去并保留视频占位；`/team`
    导航标签为 **Contact us**，上方为演示用反馈表单，下方为团队名单。页头以主题色高亮当前标签。

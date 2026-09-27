@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Validated user avatar upload and display / 经验证的用户头像上传与展示
+
+- Completed #75: accounts can upload a validated PNG/JPEG profile picture (`POST /auth/avatar/upload`), serve it with `nosniff` (`GET /auth/avatar`), and delete it (`POST /auth/avatar/delete`). `/auth/me` and login snapshots include `has_avatar`; the header menu and `/profile` show the image when present and fall back to initials otherwise. Bytes live under a dedicated avatar root (outside ciphertext storage), are size-capped and magic-sniffed, rate-limited between updates, and cleared when the account is deleted.
+- 完成 #75：账户可上传经验证的 PNG/JPEG 头像（`POST /auth/avatar/upload`），以 `nosniff` 提供（`GET /auth/avatar`），并删除（`POST /auth/avatar/delete`）。`/auth/me` 与登录快照含 `has_avatar`；页头菜单与 `/profile` 有图则显示图片，否则回退首字母。字节存放在独立头像根目录（不进入密文存储），有大小上限与魔数校验、更新间隔限流，注销账户时一并清理。
+
 ### Secondary confirmation for destructive actions / 破坏性操作二次确认
 
 - Completed #72 for the product surfaces that still fired on one click: deleting a file in My Files and revoking a share now open a dedicated dialog that names the target and states whether the action is recoverable. Account deletion remains behind the existing password + typed-`DELETE` dialog, now also reachable from `/profile` as well as Settings.

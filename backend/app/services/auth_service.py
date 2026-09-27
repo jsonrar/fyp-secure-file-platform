@@ -1177,6 +1177,7 @@ class AuthService:
             email_verified=user.email_verified,
             created_at=to_api_utc(user.created_at),
             last_login_at=to_api_utc(user.last_login_at),
+            has_avatar=bool(user.avatar_object_key),
         )
 
     def _session_snapshot(

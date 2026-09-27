@@ -196,3 +196,23 @@ class AuthenticationRateLimitedError(AppError):
         if retry_after_seconds is not None:
             response_headers["Retry-After"] = str(max(0, retry_after_seconds))
         super().__init__(message, details=details, headers=response_headers)
+
+
+class AvatarInvalidError(InputError):
+    code = "avatar_invalid"
+    public_message = "The avatar must be a PNG or JPEG image"
+
+
+class AvatarTooLargeError(AppError):
+    code = "avatar_too_large"
+    public_message = "The avatar exceeds the upload size limit"
+
+
+class AvatarNotFoundError(ResourceNotFoundError):
+    code = "avatar_not_found"
+    public_message = "No avatar is set for this account"
+
+
+class AvatarUpdateRateLimitedError(AuthenticationRateLimitedError):
+    code = "avatar_rate_limited"
+    public_message = "Avatar updates are temporarily limited; please try again later"

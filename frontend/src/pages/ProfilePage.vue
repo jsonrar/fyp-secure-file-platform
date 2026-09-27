@@ -1,14 +1,19 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { BadgeCheck, MailWarning, Settings, ShieldCheck } from 'lucide-vue-next'
+import { BadgeCheck, Camera, MailWarning, Settings, ShieldCheck, Trash2 } from 'lucide-vue-next'
 import { RouterLink, useRouter } from 'vue-router'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
+import { apiErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth_store'
 
 const router = useRouter()
 const auth = useAuthStore()
 const isLoading = ref(true)
 const showDelete = ref(false)
+const fileInput = ref<HTMLInputElement | null>(null)
+const avatarBusy = ref(false)
+const avatarError = ref('')
+const avatarMessage = ref('')
 
 /** Same locale rendering the file list and audit log use, so timestamps read alike. */
 function formatTimestamp(value: string | null | undefined): string {
@@ -46,6 +51,54 @@ function onDeleted() {
   auth.clearLocalSession()
   router.push({ path: '/register', query: { deleted: '1' } })
 }
+
+function openFilePicker() {
+  avatarError.value = ''
+  avatarMessage.value = ''
+  fileInput.value?.click()
+}
+
+async function onAvatarSelected(event: Event) {
+  const input = event.target as HTMLInputElement
+  const file = input.files?.[0]
+  input.value = ''
+  if (!file) return
+
+  if (!['image/png', 'image/jpeg'].includes(file.type)) {
+    avatarError.value = 'Choose a PNG or JPEG image.'
+    return
+  }
+  if (file.size > 512 * 1024) {
+    avatarError.value = 'Avatar must be 512 KB or smaller.'
+    return
+  }
+
+  avatarBusy.value = true
+  avatarError.value = ''
+  avatarMessage.value = ''
+  try {
+    await auth.uploadAvatar(file)
+    avatarMessage.value = 'Profile picture updated.'
+  } catch (error) {
+    avatarError.value = apiErrorMessage(error, 'Could not upload the avatar.')
+  } finally {
+    avatarBusy.value = false
+  }
+}
+
+async function removeAvatar() {
+  avatarBusy.value = true
+  avatarError.value = ''
+  avatarMessage.value = ''
+  try {
+    await auth.deleteAvatar()
+    avatarMessage.value = 'Profile picture removed.'
+  } catch (error) {
+    avatarError.value = apiErrorMessage(error, 'Could not remove the avatar.')
+  } finally {
+    avatarBusy.value = false
+  }
+}
 </script>
 
 <template>
@@ -53,12 +106,20 @@ function onDeleted() {
     <div class="container mx-auto max-w-3xl px-4">
       <div class="rounded-xl border border-border bg-card p-6 md:p-8">
         <div class="flex flex-col items-start gap-5 sm:flex-row sm:items-center">
-          <span
-            class="flex h-20 w-20 shrink-0 items-center justify-center rounded-full border border-border bg-primary/10 text-2xl font-bold text-primary"
-          >
-            {{ auth.initials }}
-          </span>
-          <div class="min-w-0">
+          <div class="relative shrink-0">
+            <span
+              class="flex h-20 w-20 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-2xl font-bold text-primary"
+            >
+              <img
+                v-if="auth.avatarObjectUrl"
+                :src="auth.avatarObjectUrl"
+                alt=""
+                class="h-full w-full object-cover"
+              />
+              <template v-else>{{ auth.initials }}</template>
+            </span>
+          </div>
+          <div class="min-w-0 flex-1">
             <h1 class="truncate text-2xl font-bold text-foreground md:text-3xl">
               {{ auth.displayName }}
             </h1>
@@ -88,6 +149,39 @@ function onDeleted() {
                 Email not verified
               </span>
             </div>
+            <div class="mt-4 flex flex-wrap items-center gap-2">
+              <input
+                ref="fileInput"
+                type="file"
+                class="hidden"
+                accept="image/png,image/jpeg"
+                @change="onAvatarSelected"
+              />
+              <button
+                type="button"
+                class="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-foreground transition-colors hover:bg-secondary disabled:opacity-60"
+                :disabled="avatarBusy || !auth.user"
+                @click="openFilePicker"
+              >
+                <Camera class="h-4 w-4" />
+                {{ auth.user?.has_avatar ? 'Change picture' : 'Upload picture' }}
+              </button>
+              <button
+                v-if="auth.user?.has_avatar"
+                type="button"
+                class="inline-flex h-9 items-center gap-2 rounded-md border border-border px-3 text-sm text-muted-foreground transition-colors hover:bg-secondary disabled:opacity-60"
+                :disabled="avatarBusy"
+                @click="removeAvatar"
+              >
+                <Trash2 class="h-4 w-4" />
+                Remove
+              </button>
+            </div>
+            <p v-if="avatarMessage" class="mt-2 text-sm text-primary">{{ avatarMessage }}</p>
+            <p v-if="avatarError" class="mt-2 text-sm text-destructive">{{ avatarError }}</p>
+            <p class="mt-2 text-xs text-muted-foreground">
+              PNG or JPEG, up to 512 KB. Without a picture the header shows your initials.
+            </p>
           </div>
         </div>
 
