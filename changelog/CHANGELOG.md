@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Link previews for secureview.tech / secureview.tech 的链接预览
+
+- Added Open Graph and Twitter card tags to `frontend/index.html`, with a 1200×630 `og-image.png` in `public/`. Link-preview crawlers such as LinkedIn read the static HTML without running the SPA, so the page previously offered only its `<title>` and no description or image. A Vitest check keeps the tags present and the image URL absolute and matching the shipped PNG's dimensions.
+- 在 `frontend/index.html` 中加入 Open Graph 与 Twitter card 标签，并在 `public/` 中放入 1200×630 的 `og-image.png`。LinkedIn 等链接预览爬虫只读静态 HTML、不执行 SPA，因此此前页面只提供 `<title>`，没有描述和图片。新增的 Vitest 检查确保标签存在、图片 URL 为绝对地址，并与随包发布的 PNG 尺寸一致。
+- Recorded the #73 staging rollout: the merge of #103 was quarantined by `mcs21-auto-deploy` because `03-verify.sql` expected `0007_file_folders` while staging was still on `0006`. The same code-first ordering had quarantined #101 earlier. `mcs21-deploy` never changes the schema, so revision `0007` must be applied by an administrator before the release, as `docs/DEPLOYMENT.md` "Applying a schema revision to a running deployment" describes.
+- 记录 #73 在 staging 上线的问题：#103 合并后被 `mcs21-auto-deploy` 隔离，原因是 `03-verify.sql` 期待 `0007_file_folders`，而 staging 数据库仍在 `0006`。此前 #101 也因同样的「先代码后数据库」顺序被隔离。`mcs21-deploy` 从不修改 schema，revision `0007` 必须由管理员在发布前手动应用，见 `docs/DEPLOYMENT.md` 的 “Applying a schema revision to a running deployment”。
+
 ### Per-user file folders / 用户文件夹分类
 
 - Implemented the repository side of #73 with account-scoped folders in My Files: owners can create, rename, delete, filter by, and move files between folders or Unfiled. Folder assignment is server-persisted across devices, recipients cannot reorganize another owner's shared files, and deleting a folder only clears its classification rather than deleting ciphertext. Revision `0007_file_folders` adds the ownership and assignment constraints so one account cannot name or move another account's folders. Staging deployment and affected-flow evidence remain before the Issue can close.
