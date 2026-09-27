@@ -146,9 +146,7 @@ def test_root_schema_sql_is_empty_only_and_marks_completion_last() -> None:
     assert schema_sql.index(
         "ALTER TABLE audit_chain_heads\nALTER COLUMN schema_revision"
     ) < schema_sql.index("UPDATE audit_chain_heads")
-    assert schema_sql.rstrip().endswith(
-        "SET schema_revision = '0007_file_folders'\nWHERE id = 1;"
-    )
+    assert schema_sql.rstrip().endswith("SET schema_revision = '0007_file_folders'\nWHERE id = 1;")
 
 
 def test_root_verification_sql_is_read_only_and_checks_retired_identity() -> None:
