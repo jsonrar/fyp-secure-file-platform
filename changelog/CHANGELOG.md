@@ -24,6 +24,8 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - 完成 #75：账户可上传经验证的 PNG/JPEG 头像（`POST /auth/avatar/upload`），以 `nosniff` 提供（`GET /auth/avatar`），并删除（`POST /auth/avatar/delete`）。`/auth/me` 与登录快照含 `has_avatar`；页头菜单与 `/profile` 有图则显示图片，否则回退首字母。字节存放在独立头像根目录（不进入密文存储），有大小上限与魔数校验、更新间隔限流，注销账户时一并清理。
 - Kept the real-MySQL authentication fixture at the `0007_avatars` schema by adding the avatar columns and shape constraint to its temporary `users` table; the gate now exercises authentication against the same user shape the ORM queries instead of failing before the flow begins.
 - 为真实 MySQL 身份验证夹具的临时 `users` 表补齐头像字段及形状约束，使其与 `0007_avatars` Schema 保持一致；门禁现在会针对 ORM 实际查询的用户结构执行身份验证流程，而不会在流程开始前失败。
+- Made the MySQL release drill derive both the current head and migration count from Alembic metadata, so adding `0007_avatars` (and future revisions) cannot leave the recovery and concurrency checks rejecting a correctly migrated database because of stale constants.
+- MySQL 发布演练现在会从 Alembic 元数据推导当前 head 与迁移数量，因此新增 `0007_avatars`（以及未来 revision）后，恢复与并发检查不会再因过期常量而误判已正确迁移的数据库。
 
 ### Secondary confirmation for destructive actions / 破坏性操作二次确认
 

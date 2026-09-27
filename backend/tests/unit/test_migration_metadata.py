@@ -32,6 +32,16 @@ def test_migration_history_is_a_single_ordered_chain() -> None:
     ]
 
 
+def test_mysql_release_gate_derives_current_head_and_revision_count() -> None:
+    release_gate = (BACKEND_ROOT / "scripts" / "mysql_release_gate.sh").read_text(encoding="utf-8")
+
+    assert 'HEAD_REVISION="' not in release_gate
+    assert "scripts.get_heads()" in release_gate
+    assert "scripts.walk_revisions()" in release_gate
+    assert release_gate.count('-eq "$REVISION_COUNT"') == 2
+    assert "expected one deployer to apply ${REVISION_COUNT} revisions" in release_gate
+
+
 def test_full_migration_chain_renders_as_mysql_sql() -> None:
     output = StringIO()
 
