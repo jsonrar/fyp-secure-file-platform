@@ -4,11 +4,12 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Select, and_, func, select, update
+from sqlalchemy import Select, and_, delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
+from app.models.file_folder import FileFolder
 from app.models.file_key_wrapping import FileKeyWrapping
 from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_key import RecoveryKey
@@ -171,13 +172,30 @@ class FileRepository:
         offset: int,
         limit: int,
         search: str | None = None,
+        folder_id: UUID | None = None,
+        unfiled: bool = False,
     ) -> tuple[list[FileAccessRecord], int]:
         access_statement = self._active_access_statement(user_id)
         # Eager-load the owner: the listing names whoever shared each file, and resolving
         # that lazily would be one query per row on a page of up to a hundred.
-        access_statement = access_statement.options(joinedload(File.owner))
+        access_statement = access_statement.options(joinedload(File.owner), joinedload(File.folder))
         if search:
             access_statement = access_statement.where(self._filename_contains(search))
+        if folder_id is not None:
+            access_statement = access_statement.where(
+                File.owner_id == user_id,
+                File.folder.has(
+                    and_(
+                        FileFolder.folder_uuid == str(folder_id),
+                        FileFolder.owner_id == user_id,
+                    )
+                ),
+            )
+        elif unfiled:
+            access_statement = access_statement.where(
+                File.owner_id == user_id,
+                File.folder_id.is_(None),
+            )
         count_statement = select(func.count()).select_from(
             access_statement.with_only_columns(File.id).order_by(None).subquery()
         )
@@ -199,6 +217,48 @@ class FileRepository:
             ],
             total,
         )
+
+    def list_folders(self, owner_id: int) -> list[tuple[FileFolder, int]]:
+        rows = self.db.execute(
+            select(FileFolder, func.count(File.id))
+            .outerjoin(
+                File,
+                and_(
+                    File.folder_id == FileFolder.id,
+                    File.status.in_(("ACTIVE", "CORRUPTED")),
+                ),
+            )
+            .where(FileFolder.owner_id == owner_id)
+            .group_by(FileFolder.id)
+            .order_by(FileFolder.name.asc(), FileFolder.id.asc())
+        ).all()
+        return [(row[0], int(row[1])) for row in rows]
+
+    def add_folder(self, folder: FileFolder) -> None:
+        self.db.add(folder)
+
+    def get_owned_folder(
+        self, folder_id: UUID, owner_id: int, *, lock: bool = False
+    ) -> FileFolder | None:
+        statement = select(FileFolder).where(
+            FileFolder.folder_uuid == str(folder_id), FileFolder.owner_id == owner_id
+        )
+        if lock:
+            statement = statement.with_for_update()
+        return self.db.scalar(statement.limit(1))
+
+    def delete_folder(self, folder: FileFolder) -> int:
+        files_unfiled = int(
+            self.db.scalar(
+                select(func.count(File.id)).where(
+                    File.folder_id == folder.id,
+                    File.status.in_(("ACTIVE", "CORRUPTED")),
+                )
+            )
+            or 0
+        )
+        self.db.execute(delete(FileFolder).where(FileFolder.id == folder.id))
+        return files_unfiled
 
     def lock_owned_files(self, owner_id: int) -> list[File]:
         """Every file this account still owns, locked for deletion.

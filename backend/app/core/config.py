@@ -50,7 +50,7 @@ class Settings(BaseSettings):
     AUTH_REGISTRATION_WINDOW_SECONDS: int = Field(default=60 * 60, ge=60)
     AUTH_REGISTRATION_BLOCK_SECONDS: int = Field(default=60 * 60, ge=60)
     USER_RSA_KEY_SIZE: int = Field(default=3072, ge=2048, le=4096)
-    EXPECTED_SCHEMA_REVISION: str = "0006_chacha20_poly1305"
+    EXPECTED_SCHEMA_REVISION: str = "0007_file_folders"
 
     # Emailed verification challenges for registration and password reset.
     VERIFICATION_CODE_LENGTH: int = Field(default=6, ge=6, le=10)

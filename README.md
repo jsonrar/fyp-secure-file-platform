@@ -102,7 +102,7 @@ preview and live deployment verification remain pending.
    per-file DEK, performs authenticated encryption locally, and wraps the DEK to the account
    RSA public key. The server receives ciphertext, public metadata, and wrapped keys—not the
    plaintext file or plaintext DEK.
-4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me".
+4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me". Owners can create, rename, and delete folders, move files between them, and return files to Unfiled; deleting a folder never deletes its encrypted files.
    Download first verifies the server-side ciphertext SHA-256, then the browser unwraps the
    DEK, authenticates the AEAD tag, and saves the plaintext. A failed authentication never
    saves a partial file. **Download encrypted** instead saves the ciphertext without
@@ -205,7 +205,7 @@ and refresh are the main public endpoints. Other endpoints require a bearer toke
 responses use the `success/status/message/data/code` envelope, while centralized handlers
 map domain failures to stable HTTP responses. `/health/live` checks the process;
 `/health/ready` also queries MySQL and requires the stored schema revision to equal
-`0006_chacha20_poly1305`. Local development exposes `/docs`, `/redoc`, and `/openapi.json`;
+`0007_file_folders`. Local development exposes `/docs`, `/redoc`, and `/openapi.json`;
 a deployment can unmount all three with `APP_DOCS_ENABLED`.
 
 ## Repository Structure
@@ -319,7 +319,7 @@ template carries this checklist.
 All backend business routers are operational. Health, readiness, and OpenAPI are available;
 protected routes require bearer authentication and the admin/recovery routes enforce RBAC.
 Readiness checks both database connectivity and the exact
-`0006_chacha20_poly1305` schema revision.
+`0007_file_folders` schema revision.
 
 `MAX_REQUEST_BODY_BYTES` limits ordinary JSON/form bodies (1 MiB by default, configurable up
 to 8 MiB). Encrypted multipart upload has a separate
@@ -369,8 +369,8 @@ sudo mysql < database/mysql/03-verify.sql
 ```
 
 Capture the one generated `fyp_user` password directly into the deployment secret store.
-`02-schema.sql` is a non-idempotent empty-database installer: it creates 17 tables, grants
-CRUD on fourteen ordinary state tables, grants only `SELECT`/`INSERT` on `audit_logs`, and
+`02-schema.sql` is a non-idempotent empty-database installer: it creates 18 tables, grants
+CRUD on fifteen ordinary state tables, grants only `SELECT`/`INSERT` on `audit_logs`, and
 limits `audit_chain_heads` updates to `last_log_id`, `current_hash`, and `updated_at` so the
 runtime account cannot alter `schema_revision`. It has no access to `alembic_version`.
 `03-verify.sql` is read-only and must also show that the retired
@@ -436,7 +436,7 @@ npm run build
 ```
 
 A third job, `mysql-gate`, provisions a disposable MySQL 8.4 service with verified TLS, runs
-every migration from empty through `0006_chacha20_poly1305`, then `alembic current` and
+every migration from empty through `0007_file_folders`, then `alembic current` and
 `alembic check`, then the whole backend suite against it — unit tests plus every MySQL
 integration test, including the multi-connection concurrency and fault-injection suites —
 failing the job if any test is skipped or branch coverage falls below 82%, followed by grant-

@@ -20,9 +20,15 @@ from app.domain.auth import ActorContext, RequestContext
 from app.domain.errors import InputError
 from app.schemas.file_schema import (
     FileDeleteOut,
+    FileFolderDeleteOut,
+    FileFolderListOut,
+    FileFolderOut,
     FileListOut,
+    FileMoveIn,
+    FileMoveOut,
     FileOut,
     FileUploadMetadata,
+    FolderNameIn,
     IntegrityCheckOut,
 )
 from app.services.file_service import FileService
@@ -83,16 +89,95 @@ def list_files(
             description="Case-insensitive substring of the original filename",
         ),
     ] = None,
+    folder_id: Annotated[
+        UUID | None,
+        Query(description="Return owned files assigned to this folder"),
+    ] = None,
+    unfiled: Annotated[
+        bool,
+        Query(description="Return only owned files that have no folder"),
+    ] = False,
 ) -> JSONResponse:
+    if folder_id is not None and unfiled:
+        raise InputError("folder_id and unfiled cannot be used together")
     result = service.list_files(
         actor=actor,
         page=page,
         page_size=page_size,
         search=search,
+        folder_id=folder_id,
+        unfiled=unfiled,
     )
     return ApiResponse.success(
         data=result,
         message="Files retrieved",
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.get("/folders", response_model=ApiSuccessResponse[FileFolderListOut])
+def list_folders(
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+    service: Annotated[FileService, Depends(get_file_service)],
+) -> JSONResponse:
+    return ApiResponse.success(
+        data=service.list_folders(actor=actor),
+        message="File folders retrieved",
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post("/folders", response_model=ApiSuccessResponse[FileFolderOut], status_code=201)
+def create_folder(
+    body: FolderNameIn,
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+    service: Annotated[FileService, Depends(get_file_service)],
+) -> JSONResponse:
+    return ApiResponse.success(
+        data=service.create_folder(actor=actor, name=body.name),
+        message="File folder created",
+        code=201,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post("/folders/{folder_id}/rename", response_model=ApiSuccessResponse[FileFolderOut])
+def rename_folder(
+    folder_id: UUID,
+    body: FolderNameIn,
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+    service: Annotated[FileService, Depends(get_file_service)],
+) -> JSONResponse:
+    return ApiResponse.success(
+        data=service.rename_folder(actor=actor, folder_id=folder_id, name=body.name),
+        message="File folder renamed",
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post("/folders/{folder_id}/delete", response_model=ApiSuccessResponse[FileFolderDeleteOut])
+def delete_folder(
+    folder_id: UUID,
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+    service: Annotated[FileService, Depends(get_file_service)],
+) -> JSONResponse:
+    return ApiResponse.success(
+        data=service.delete_folder(actor=actor, folder_id=folder_id),
+        message="File folder deleted; its files are now unfiled",
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post("/{file_id}/move", response_model=ApiSuccessResponse[FileMoveOut])
+def move_file(
+    file_id: UUID,
+    body: FileMoveIn,
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+    service: Annotated[FileService, Depends(get_file_service)],
+) -> JSONResponse:
+    return ApiResponse.success(
+        data=service.move_file(actor=actor, file_id=file_id, folder_id=body.folder_id),
+        message="File moved",
         headers=AUTH_NO_STORE_HEADERS,
     )
 

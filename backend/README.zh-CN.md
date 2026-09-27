@@ -27,7 +27,7 @@
 
 `/keys`、`/files`、`/audit-logs`、`/recovery` 和 `/admin` 路由也已启用，并由 OpenAPI
 完整描述。`/health/live` 检查进程；`/health/ready` 还会检查数据库连接及精确的
-`0006_chacha20_poly1305` Schema revision。
+`0007_file_folders` Schema revision。
 
 这些 API 采用客户端密钥托管边界：服务器只保存公钥、加密私钥包、密文及包装密钥，不接收
 加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。浏览器前端已实现账户密钥登记

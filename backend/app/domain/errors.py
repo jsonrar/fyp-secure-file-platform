@@ -105,6 +105,16 @@ class FileResourceNotFoundError(ResourceNotFoundError):
     public_message = "The requested file was not found"
 
 
+class FileFolderNotFoundError(ResourceNotFoundError):
+    code = "file_folder_not_found"
+    public_message = "The requested file folder was not found"
+
+
+class FileFolderNameConflictError(ConflictError):
+    code = "file_folder_name_conflict"
+    public_message = "You already have a file folder with this name"
+
+
 class UserKeyNotFoundError(ResourceNotFoundError):
     code = "user_key_not_found"
     public_message = "The requested encryption key was not found"

@@ -82,7 +82,8 @@ Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动
 3. **加密上传**：在 `/upload` 选择文件和算法。浏览器先生成每文件 DEK，再在本地执行认证加密，
    用账户 RSA 公钥包装 DEK；服务器收到的是密文、公开元数据和包装后的密钥，不会收到明文文件
    或明文 DEK。
-4. **文件管理**：在 `/files` 搜索或翻页查看“我的文件”和“分享给我的文件”。下载时先校验服务端
+4. **文件管理**：在 `/files` 搜索或翻页查看“我的文件”和“分享给我的文件”。所有者可以创建、
+   重命名和删除文件夹，把文件移入不同文件夹或移回“未分类”；删除文件夹不会删除其中的加密文件。下载时先校验服务端
    密文 SHA-256，再由浏览器解包 DEK、验证 AEAD tag 并保存明文；认证失败时不会保存残缺文件。
    **Download encrypted** 则无需解锁，直接保存密文，但仍须登录且具有下载权限。`.ciphertext`
    只包含存储的密文字节，不包含单独存储的 envelope、nonce、tag 或包装后的密钥，因此不是可独立
@@ -164,7 +165,7 @@ FastAPI 是本项目的 HTTP/API 框架，不负责浏览器端文件解密。�
 端点通过 `Depends` 要求有效 Bearer token，敏感操作再执行角色或资源级授权。成功响应使用
 `success/status/message/data/code` 信封；领域异常由统一处理器映射为稳定 HTTP 响应。
 `/health/live` 只检查进程是否存活，`/health/ready` 还会执行数据库查询并要求数据库保存的
-Schema revision 精确等于 `0006_chacha20_poly1305`。本地默认提供 `/docs`、`/redoc` 和
+Schema revision 精确等于 `0007_file_folders`。本地默认提供 `/docs`、`/redoc` 和
 `/openapi.json`，部署环境可通过 `APP_DOCS_ENABLED` 整体卸载这些路由。
 
 ## 仓库结构
@@ -269,7 +270,7 @@ Pull Request 模板已包含该清单。
 
 所有后端业务路由均已可用。存活检查、readiness 和 OpenAPI 也已启用；受保护路由要求
 Bearer 身份认证，管理及恢复路由执行 RBAC。Readiness 会检查数据库连接及精确的
-`0006_chacha20_poly1305` Schema revision。
+`0007_file_folders` Schema revision。
 
 `MAX_REQUEST_BODY_BYTES` 限制普通 JSON／form 请求体（默认 1 MiB，配置上限 8 MiB）。加密
 multipart 上传另受 `MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` 独立上限
@@ -311,7 +312,7 @@ sudo mysql < database/mysql/03-verify.sql
 ```
 
 部署时应把唯一一次生成的 `fyp_user` 密码直接写入 secret store。`02-schema.sql` 是只接受
-空数据库的非幂等安装器：它创建 17 张表，对其中 14 张普通状态表授予 CRUD，
+空数据库的非幂等安装器：它创建 18 张表，对其中 15 张普通状态表授予 CRUD，
 对 `audit_logs` 仅授予 `SELECT`／`INSERT`，并把 `audit_chain_heads` 的更新权限限制在
 `last_log_id`、`current_hash` 和 `updated_at` 三列，使运行时账户无法修改
 `schema_revision`；应用也无权访问 `alembic_version`。`03-verify.sql` 只读核验精确 Schema
@@ -375,7 +376,7 @@ npm run build
 ```
 
 第三个 Job `mysql-gate` 会拉起一个经过 TLS 校验的一次性 MySQL 8.4 服务，从空数据库依次迁移到
-`0006_chacha20_poly1305`，再执行 `alembic current` 与 `alembic check`，随后对其运行完整的后端测试
+`0007_file_folders`，再执行 `alembic current` 与 `alembic check`，随后对其运行完整的后端测试
 ——单元测试加上全部 MySQL 集成测试，包括多连接并发与故障注入测试——只要有任何测试被跳过，或
 分支覆盖率低于 82%，该 Job 就直接失败；接着运行授权边界、Schema 一致性、非空数据库拒绝安装、
 中断后幂等恢复、并发迁移加锁与备份恢复等检查。开发此门禁本身时，可用

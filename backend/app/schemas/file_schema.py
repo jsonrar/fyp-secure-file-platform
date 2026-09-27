@@ -174,6 +174,9 @@ class FileSummaryOut(StrictFileModel):
     # Who uploaded it. The listing mixes files you own with files shared with you, and
     # "shared with me" is not much use without saying who by.
     owner_username: str | None = None
+    # Organizational metadata belongs to the owner and is never part of the encrypted
+    # envelope. Shared rows deliberately expose no folder assignment to recipients.
+    folder_id: UUID | None = None
     created_at: datetime
     updated_at: datetime
 
@@ -199,6 +202,50 @@ class FileListOut(StrictFileModel):
     page: int
     page_size: int
     total: int
+
+
+class FolderNameIn(StrictFileModel):
+    name: Annotated[str, Field(min_length=1, max_length=80)]
+
+    @field_validator("name")
+    @classmethod
+    def validate_name(cls, value: str) -> str:
+        normalized = unicodedata.normalize("NFC", value).strip()
+        if not normalized:
+            raise ValueError("name must contain a visible character")
+        if normalized in {".", ".."}:
+            raise ValueError("name is reserved")
+        if any(character in normalized for character in ("/", "\\", "\x00", "\r", "\n")):
+            raise ValueError("name must not contain path or control characters")
+        if any(unicodedata.category(character) == "Cc" for character in normalized):
+            raise ValueError("name must not contain control characters")
+        return normalized
+
+
+class FileFolderOut(StrictFileModel):
+    folder_id: UUID
+    name: str
+    file_count: int
+    created_at: datetime
+    updated_at: datetime
+
+
+class FileFolderListOut(StrictFileModel):
+    items: list[FileFolderOut]
+
+
+class FileMoveIn(StrictFileModel):
+    folder_id: UUID | None
+
+
+class FileMoveOut(StrictFileModel):
+    file_id: UUID
+    folder_id: UUID | None
+
+
+class FileFolderDeleteOut(StrictFileModel):
+    folder_id: UUID
+    files_unfiled: int
 
 
 class FileDeleteOut(StrictFileModel):

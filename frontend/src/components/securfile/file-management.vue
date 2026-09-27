@@ -1,10 +1,10 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Activity, AlertCircle, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Filter, LifeBuoy, Loader2, RefreshCw, Search, Shield, Share2, Trash2 } from 'lucide-vue-next'
+import { Activity, AlertCircle, Check, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
-import type { FileSummaryOut } from '@/api/types'
+import type { FileFolderOut, FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 import RequestRecoveryDialog from '@/components/RequestRecoveryDialog.vue'
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
@@ -34,6 +34,7 @@ interface EncryptedFile {
   owned: boolean
   /** Who uploaded it, shown when that is not the viewer. */
   ownerName: string
+  folderId: string | null
   /** Set when a stale shared row is no longer authorized on the server. */
   accessError?: string
 }
@@ -50,8 +51,15 @@ const PAGE_SIZE = 100
 type FileScope = 'mine' | 'shared'
 
 const scope = ref<FileScope>('mine')
+const selectedFolder = ref<'all' | 'unfiled' | string>('all')
 const searchQuery = ref('')
 const files = ref<EncryptedFile[]>([])
+const folders = ref<FileFolderOut[]>([])
+const newFolderName = ref('')
+const editingFolderId = ref<string | null>(null)
+const editingFolderName = ref('')
+const pendingFolderDelete = ref<FileFolderOut | null>(null)
+const folderBusy = ref(false)
 const isLoading = ref(false)
 const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
@@ -100,6 +108,7 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   // as though you owned and managed it, which you do not.
   owned: file.owner,
   ownerName: file.owner_username ?? 'another account',
+  folderId: file.folder_id,
 })
 
 const sharedIds = computed(() => files.value.filter((file) => !file.owned).map((file) => file.id))
@@ -109,12 +118,28 @@ const unseenCount = ref(0)
 /** Showing the shared list is what counts as having seen it. */
 const showShared = () => {
   scope.value = 'shared'
+  selectedFolder.value = 'all'
   markSharesSeen(sharedIds.value)
   unseenCount.value = 0
+  page.value = 1
+  void loadFiles()
+}
+const showMine = () => {
+  scope.value = 'mine'
+  page.value = 1
+  void loadFiles()
 }
 const ownedCount = computed(() => files.value.filter((file) => file.owned).length)
 
 let requestId = 0
+
+const loadFolders = async () => {
+  try {
+    folders.value = unwrapData(await fileApi.listFolders()).items
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error, 'Failed to load folders')
+  }
+}
 
 const loadFiles = async () => {
   const thisRequest = ++requestId
@@ -125,6 +150,11 @@ const loadFiles = async () => {
       page: page.value,
       page_size: PAGE_SIZE,
       search: searchQuery.value.trim() || undefined,
+      folder_id:
+        scope.value === 'mine' && !['all', 'unfiled'].includes(selectedFolder.value)
+          ? selectedFolder.value
+          : undefined,
+      unfiled: scope.value === 'mine' && selectedFolder.value === 'unfiled' ? true : undefined,
     })
     // The API paginates: rows live under `items`. Reading anything else silently
     // yields an empty list, which reads as "no files" even when uploads succeeded.
@@ -146,7 +176,9 @@ const loadFiles = async () => {
   }
 }
 
-onMounted(loadFiles)
+onMounted(() => {
+  void Promise.all([loadFiles(), loadFolders()])
+})
 
 // The account key relocks itself after a spell of disuse. Nothing on screen depends on it
 // directly, but a download started afterwards must ask for the passphrase again rather
@@ -195,8 +227,103 @@ onBeforeUnmount(() => {
 // The server has already applied the text search; the split by ownership is local, because
 // `GET /files` returns both in one list and only marks which is which.
 const filteredFiles = computed(() =>
-  files.value.filter((file) => (scope.value === 'mine' ? file.owned : !file.owned)),
+  files.value.filter((file) => {
+    if (scope.value === 'shared') return !file.owned
+    if (!file.owned) return false
+    if (selectedFolder.value === 'all') return true
+    if (selectedFolder.value === 'unfiled') return file.folderId === null
+    return file.folderId === selectedFolder.value
+  }),
 )
+
+const selectFolder = (folder: 'all' | 'unfiled' | string) => {
+  selectedFolder.value = folder
+  page.value = 1
+  void loadFiles()
+}
+
+const createFolder = async () => {
+  const name = newFolderName.value.trim()
+  if (!name || folderBusy.value) return
+  folderBusy.value = true
+  errorMessage.value = ''
+  try {
+    const folder = unwrapData(await fileApi.createFolder(name))
+    folders.value = [...folders.value, folder].sort((a, b) => a.name.localeCompare(b.name))
+    newFolderName.value = ''
+    selectedFolder.value = folder.folder_id
+    page.value = 1
+    await loadFiles()
+    actionMessage.value = `Created folder ${folder.name}`
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error, 'Could not create folder')
+  } finally {
+    folderBusy.value = false
+  }
+}
+
+const startRenameFolder = (folder: FileFolderOut) => {
+  editingFolderId.value = folder.folder_id
+  editingFolderName.value = folder.name
+}
+
+const renameFolder = async () => {
+  const id = editingFolderId.value
+  const name = editingFolderName.value.trim()
+  if (!id || !name || folderBusy.value) return
+  folderBusy.value = true
+  try {
+    const updated = unwrapData(await fileApi.renameFolder(id, name))
+    folders.value = folders.value
+      .map((folder) => (folder.folder_id === id ? updated : folder))
+      .sort((a, b) => a.name.localeCompare(b.name))
+    editingFolderId.value = null
+    actionMessage.value = `Renamed folder to ${updated.name}`
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error, 'Could not rename folder')
+  } finally {
+    folderBusy.value = false
+  }
+}
+
+const deleteFolder = async () => {
+  const folder = pendingFolderDelete.value
+  if (!folder || folderBusy.value) return
+  folderBusy.value = true
+  try {
+    await fileApi.deleteFolder(folder.folder_id)
+    files.value.forEach((file) => {
+      if (file.folderId === folder.folder_id) file.folderId = null
+    })
+    folders.value = folders.value.filter((item) => item.folder_id !== folder.folder_id)
+    if (selectedFolder.value === folder.folder_id) selectedFolder.value = 'unfiled'
+    page.value = 1
+    await loadFiles()
+    actionMessage.value = `Deleted folder ${folder.name}; its files are now unfiled`
+    pendingFolderDelete.value = null
+  } catch (error) {
+    errorMessage.value = apiErrorMessage(error, 'Could not delete folder')
+  } finally {
+    folderBusy.value = false
+  }
+}
+
+const moveFile = async (file: EncryptedFile, folderId: string) => {
+  const previous = file.folderId
+  const next = folderId || null
+  if (previous === next) return
+  file.folderId = next
+  try {
+    await fileApi.moveFile(file.id, next)
+    await Promise.all([loadFiles(), loadFolders()])
+    actionMessage.value = next
+      ? `Moved ${file.name} to ${folders.value.find((folder) => folder.folder_id === next)?.name ?? 'folder'}`
+      : `Moved ${file.name} to Unfiled`
+  } catch (error) {
+    file.folderId = previous
+    errorMessage.value = apiErrorMessage(error, 'Could not move file')
+  }
+}
 
 const revokedAccessMessage =
   'This shared file is no longer available. Its owner may have revoked access or deleted it. Contact the person who shared it with you.'
@@ -237,6 +364,7 @@ const confirmDelete = async () => {
     }
     actionMessage.value = `Deleted ${file.name}`
     pendingDelete.value = null
+    await loadFolders()
   } catch (error) {
     actionMessage.value = error instanceof Error ? error.message : 'Delete failed'
   } finally {
@@ -441,7 +569,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 type="button"
                 class="h-8 px-3 rounded-md text-sm transition-colors"
                 :class="scope === 'mine' ? 'bg-secondary text-foreground font-medium' : 'text-muted-foreground hover:text-foreground'"
-                @click="scope = 'mine'"
+                @click="showMine"
               >
                 My Files ({{ ownedCount }})
               </button>
@@ -471,7 +599,72 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
             <button class="h-10 w-10 inline-flex items-center justify-center rounded-md border border-border hover:bg-secondary" @click="loadFiles">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
             </button>
-            <button class="h-10 w-10 inline-flex items-center justify-center rounded-md border border-border hover:bg-secondary"><Filter class="h-4 w-4" /></button>
+          </div>
+        </div>
+
+        <div v-if="scope === 'mine'" class="mb-6 rounded-lg border border-border bg-secondary/30 p-4">
+          <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div class="flex items-center gap-2">
+              <Folder class="h-4 w-4 text-primary" />
+              <h3 class="font-medium text-foreground">Folders</h3>
+              <span class="text-xs text-muted-foreground">Organize metadata only; ciphertext does not move.</span>
+            </div>
+            <form class="flex gap-2" @submit.prevent="createFolder">
+              <input
+                v-model="newFolderName"
+                aria-label="New folder name"
+                maxlength="80"
+                placeholder="New folder"
+                class="h-9 min-w-0 rounded-md border border-border bg-card px-3 text-sm"
+              />
+              <button
+                type="submit"
+                class="h-9 inline-flex items-center gap-1 rounded-md bg-primary px-3 text-sm text-primary-foreground disabled:opacity-50"
+                :disabled="!newFolderName.trim() || folderBusy"
+              >
+                <FolderPlus class="h-4 w-4" /> Add
+              </button>
+            </form>
+          </div>
+          <div class="flex flex-wrap gap-2">
+            <button
+              type="button"
+              class="h-9 rounded-md border px-3 text-sm"
+              :class="selectedFolder === 'all' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'"
+              @click="selectFolder('all')"
+            >All files</button>
+            <button
+              type="button"
+              class="h-9 rounded-md border px-3 text-sm"
+              :class="selectedFolder === 'unfiled' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'"
+              @click="selectFolder('unfiled')"
+            >Unfiled</button>
+            <div
+              v-for="folder in folders"
+              :key="folder.folder_id"
+              class="inline-flex h-9 items-center rounded-md border"
+              :class="selectedFolder === folder.folder_id ? 'border-primary bg-primary/10' : 'border-border bg-card'"
+            >
+              <template v-if="editingFolderId === folder.folder_id">
+                <input
+                  v-model="editingFolderName"
+                  :aria-label="`Rename ${folder.name}`"
+                  maxlength="80"
+                  class="h-8 w-32 bg-transparent px-2 text-sm outline-none"
+                  @keyup.enter="renameFolder"
+                  @keyup.escape="editingFolderId = null"
+                />
+                <button type="button" class="h-8 w-8" aria-label="Save folder name" @click="renameFolder"><Check class="mx-auto h-3.5 w-3.5" /></button>
+                <button type="button" class="h-8 w-8" aria-label="Cancel rename" @click="editingFolderId = null"><X class="mx-auto h-3.5 w-3.5" /></button>
+              </template>
+              <template v-else>
+                <button type="button" class="h-8 px-3 text-sm" @click="selectFolder(folder.folder_id)">
+                  {{ folder.name }} ({{ folder.file_count }})
+                </button>
+                <button type="button" class="h-8 w-8 text-muted-foreground hover:text-foreground" :aria-label="`Rename ${folder.name}`" @click="startRenameFolder(folder)"><Pencil class="mx-auto h-3.5 w-3.5" /></button>
+                <button type="button" class="h-8 w-8 text-muted-foreground hover:text-destructive" :aria-label="`Delete ${folder.name}`" @click="pendingFolderDelete = folder"><Trash2 class="mx-auto h-3.5 w-3.5" /></button>
+              </template>
+            </div>
           </div>
         </div>
 
@@ -508,6 +701,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <th class="text-left py-3 hidden md:table-cell">Original Size</th>
                 <th class="text-left py-3 hidden md:table-cell">Encrypted Size</th>
                 <th class="text-left py-3 hidden lg:table-cell">Encrypted At</th>
+                <th v-if="scope === 'mine'" class="text-left py-3">Folder</th>
                 <th class="text-left py-3">Status</th>
                 <th class="text-right py-3">Actions</th>
               </tr>
@@ -528,6 +722,17 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <td class="text-muted-foreground hidden md:table-cell">{{ file.originalSize }}</td>
                 <td class="text-muted-foreground hidden md:table-cell">{{ file.encryptedSize }}</td>
                 <td class="text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
+                <td v-if="scope === 'mine'">
+                  <select
+                    :value="file.folderId ?? ''"
+                    :aria-label="`Folder for ${file.name}`"
+                    class="h-8 max-w-36 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
+                    @change="moveFile(file, ($event.target as HTMLSelectElement).value)"
+                  >
+                    <option value="">Unfiled</option>
+                    <option v-for="folder in folders" :key="folder.folder_id" :value="folder.folder_id">{{ folder.name }}</option>
+                  </select>
+                </td>
                 <td>
                   <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
                     <component :is="statusConfig[file.status].icon" class="h-3 w-3" />
@@ -637,6 +842,17 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       :filename="recoveryFile.name"
       @close="recoveryFileId = null"
       @requested="onRecoveryRequested"
+    />
+    <ConfirmActionDialog
+      v-if="pendingFolderDelete"
+      title="Delete this folder?"
+      :detail="pendingFolderDelete.name"
+      consequence="The encrypted files stay safe and move to Unfiled. Only this organizational folder is removed."
+      confirm-label="Delete folder"
+      busy-label="Deleting…"
+      :busy="folderBusy"
+      @confirm="deleteFolder"
+      @close="pendingFolderDelete = null"
     />
     <ConfirmActionDialog
       v-if="pendingDelete"

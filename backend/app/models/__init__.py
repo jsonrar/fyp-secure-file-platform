@@ -5,6 +5,7 @@ from app.models.email_verification_code import EmailVerificationCode
 from app.models.encrypted_private_key_bundle import EncryptedPrivateKeyBundle
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
+from app.models.file_folder import FileFolder
 from app.models.file_key_wrapping import FileKeyWrapping
 from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_key import RecoveryKey
@@ -23,6 +24,7 @@ __all__ = [
     "EncryptedPrivateKeyBundle",
     "File",
     "FileAccessGrant",
+    "FileFolder",
     "FileKeyWrapping",
     "IntegrityCheck",
     "RecoveryKey",

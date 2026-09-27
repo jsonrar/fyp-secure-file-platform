@@ -39,8 +39,17 @@ cd "$BACKEND_DIR"
 # Each iteration is one full 0001->head migration (~4s locally), so 8 keeps
 # the added CI time well under a minute.
 CONCURRENCY_RACE_ITERATIONS="${CONCURRENCY_RACE_ITERATIONS:-8}"
-HEAD_REVISION="0006_chacha20_poly1305"
+HEAD_REVISION="0007_file_folders"
 PYTHON="$BACKEND_DIR/.venv/bin/python"
+
+# Count the actual ordered Alembic chain instead of duplicating it here. Adding a
+# revision must make the race expect one more applied upgrade, while still proving
+# that the second deployer waited and then applied none.
+EXPECTED_FULL_UPGRADES="$("$PYTHON" -m alembic history | awk '/ -> / { count++ } END { print count + 0 }')"
+if [ "$EXPECTED_FULL_UPGRADES" -lt 1 ]; then
+  echo "FAIL: Alembic reported no revisions in the migration chain" >&2
+  exit 1
+fi
 
 MYSQL_CLIENT=(mysql --host="$DB_HOST" --port="$DB_PORT" --user="$ADMIN_DB_USER" "--password=$ADMIN_DB_PASSWORD" --protocol=TCP)
 MYSQLDUMP_CLIENT=(mysqldump --host="$DB_HOST" --port="$DB_PORT" --user="$ADMIN_DB_USER" "--password=$ADMIN_DB_PASSWORD" --protocol=TCP --single-transaction --no-tablespaces --routines --triggers)
@@ -166,15 +175,15 @@ for iteration in $(seq 1 "$CONCURRENCY_RACE_ITERATIONS"); do
   APPLIED_B="$(grep -c 'Running upgrade' "$LOG_B" || true)"
   WAITED_A="$(grep -c 'is held by another migration' "$LOG_A" || true)"
   WAITED_B="$(grep -c 'is held by another migration' "$LOG_B" || true)"
-  # Exactly one deployer applies all six revisions; the other must have seen
+  # Exactly one deployer applies the whole revision chain; the other must have seen
   # the lock held (real contention, not a lucky non-overlap) and then applied
   # nothing at all.
-  if [ "$APPLIED_A" -eq 6 ] && [ "$APPLIED_B" -eq 0 ] && [ "$WAITED_B" -eq 1 ] && [ "$WAITED_A" -eq 0 ]; then
+  if [ "$APPLIED_A" -eq "$EXPECTED_FULL_UPGRADES" ] && [ "$APPLIED_B" -eq 0 ] && [ "$WAITED_B" -eq 1 ] && [ "$WAITED_A" -eq 0 ]; then
     WINNER="first"
-  elif [ "$APPLIED_B" -eq 6 ] && [ "$APPLIED_A" -eq 0 ] && [ "$WAITED_A" -eq 1 ] && [ "$WAITED_B" -eq 0 ]; then
+  elif [ "$APPLIED_B" -eq "$EXPECTED_FULL_UPGRADES" ] && [ "$APPLIED_A" -eq 0 ] && [ "$WAITED_A" -eq 1 ] && [ "$WAITED_B" -eq 0 ]; then
     WINNER="second"
   else
-    echo "FAIL: ${LABEL}: expected one deployer to apply 6 revisions and the other to wait then apply 0; got applied=${APPLIED_A}/${APPLIED_B} waited=${WAITED_A}/${WAITED_B}" >&2
+    echo "FAIL: ${LABEL}: expected one deployer to apply ${EXPECTED_FULL_UPGRADES} revisions and the other to wait then apply 0; got applied=${APPLIED_A}/${APPLIED_B} waited=${WAITED_A}/${WAITED_B}" >&2
     cat "$LOG_A" "$LOG_B" >&2
     exit 1
   fi
@@ -249,12 +258,12 @@ echo "OK: restoring the pre-upgrade backup returned the database to 0005 with id
 run_sql "DROP DATABASE \`${ROLLBACK_DB}\`;"
 
 echo "== phase: multi-revision release interrupted between revisions resumes forward =="
-# The release under test is 0005 + 0006, deployed onto a database at 0004.
+# The release under test is every revision after 0004, deployed onto a database at 0004.
 BETWEEN_DB="fyp_release_gate_between_test"
 fresh_database "$BETWEEN_DB"
 run_alembic "$BETWEEN_DB" upgrade 0004_email_verification_codes
 insert_marker_user "$BETWEEN_DB" 06
-# The deploy dies after 0005 was fully applied and stamped, before 0006.
+# The deploy dies after 0005 was fully applied and stamped, before later revisions.
 run_alembic "$BETWEEN_DB" upgrade 0005_selectable_aes_key_length
 expect_revision "$BETWEEN_DB" 0005_selectable_aes_key_length "interrupted between revisions"
 run_migrate_sh "$BETWEEN_DB" upgrade head

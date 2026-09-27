@@ -1,6 +1,6 @@
 import { http } from './http'
 import type { ApiEnvelope } from './auth_api'
-import type { FileListOut, FileOut } from './types'
+import type { FileFolderListOut, FileFolderOut, FileListOut, FileOut } from './types'
 import type { UploadPayload } from '@/crypto/file_envelope'
 
 export const fileApi = {
@@ -12,11 +12,32 @@ export const fileApi = {
    * already holds, which is why the box used to answer "no results" for files that
    * existed on another page.
    */
-  listFiles(params?: { page?: number; page_size?: number; search?: string }) {
+  listFiles(params?: {
+    page?: number
+    page_size?: number
+    search?: string
+    folder_id?: string
+    unfiled?: boolean
+  }) {
     return http.get<ApiEnvelope<FileListOut>>('/files', { params })
   },
   getFile(fileId: string) {
     return http.get<ApiEnvelope<FileOut>>(`/files/${fileId}`)
+  },
+  listFolders() {
+    return http.get<ApiEnvelope<FileFolderListOut>>('/files/folders')
+  },
+  createFolder(name: string) {
+    return http.post<ApiEnvelope<FileFolderOut>>('/files/folders', { name })
+  },
+  renameFolder(folderId: string, name: string) {
+    return http.post<ApiEnvelope<FileFolderOut>>(`/files/folders/${folderId}/rename`, { name })
+  },
+  deleteFolder(folderId: string) {
+    return http.post(`/files/folders/${folderId}/delete`)
+  },
+  moveFile(fileId: string, folderId: string | null) {
+    return http.post(`/files/${fileId}/move`, { folder_id: folderId })
   },
 
   /**

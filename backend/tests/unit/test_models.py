@@ -9,7 +9,11 @@ from app.domain.enums import SessionStatus
 def test_all_models_are_registered_and_mappable() -> None:
     configure_mappers()
 
-    assert len(Base.metadata.tables) == 16
+    assert len(Base.metadata.tables) == 17
+    folders = Base.metadata.tables["file_folders"]
+    files = Base.metadata.tables["files"]
+    assert folders.c.name.type.length == 80
+    assert next(iter(files.c.folder_id.foreign_keys)).ondelete == "SET NULL"
 
 
 def test_auth_models_expose_public_ids_and_rotation_history() -> None:
@@ -56,7 +60,7 @@ def test_auth_models_expose_public_ids_and_rotation_history() -> None:
     assert audit_logs.c.created_at.type.fsp == 6
     assert audit_chain_heads.c.id.autoincrement is False
     assert audit_chain_heads.c.updated_at.type.fsp == 6
-    assert audit_chain_heads.c.schema_revision.server_default.arg == "0006_chacha20_poly1305"
+    assert audit_chain_heads.c.schema_revision.server_default.arg == "0007_file_folders"
 
 
 def test_client_key_custody_models_and_wrapping_invariants() -> None:

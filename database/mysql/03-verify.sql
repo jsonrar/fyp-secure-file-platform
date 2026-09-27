@@ -164,6 +164,7 @@ crud_tables AS (
     UNION ALL SELECT 'email_verification_codes'
     UNION ALL SELECT 'encrypted_private_key_bundles'
     UNION ALL SELECT 'file_access_grants'
+    UNION ALL SELECT 'file_folders'
     UNION ALL SELECT 'file_key_wrappings'
     UNION ALL SELECT 'files'
     UNION ALL SELECT 'integrity_checks'
@@ -383,6 +384,7 @@ expected_table_names AS (
     UNION ALL SELECT 'email_verification_codes'
     UNION ALL SELECT 'encrypted_private_key_bundles'
     UNION ALL SELECT 'file_access_grants'
+    UNION ALL SELECT 'file_folders'
     UNION ALL SELECT 'file_key_wrappings'
     UNION ALL SELECT 'files'
     UNION ALL SELECT 'integrity_checks'
@@ -443,7 +445,7 @@ ORDER BY table_name, deviation;
 SELECT
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(COLUMN_DEFAULT) = '0006_chacha20_poly1305'
+         AND MAX(COLUMN_DEFAULT) = '0007_file_folders'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS readiness_marker_default_status
@@ -483,19 +485,19 @@ SELECT
     CASE
         WHEN (SELECT COUNT(*)
               FROM information_schema.COLUMNS
-              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 201
+              WHERE TABLE_SCHEMA = 'fyp_secure_file_platform') = 208
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 17
+                AND CONSTRAINT_TYPE = 'PRIMARY KEY') = 18
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'UNIQUE') = 23
+                AND CONSTRAINT_TYPE = 'UNIQUE') = 25
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
-                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 26
+                AND CONSTRAINT_TYPE = 'FOREIGN KEY') = 28
          AND (SELECT COUNT(*)
               FROM information_schema.TABLE_CONSTRAINTS
               WHERE CONSTRAINT_SCHEMA = 'fyp_secure_file_platform'
@@ -504,7 +506,7 @@ SELECT
               FROM information_schema.STATISTICS
               WHERE TABLE_SCHEMA = 'fyp_secure_file_platform'
                 AND INDEX_NAME <> 'PRIMARY'
-                AND NON_UNIQUE = 1) = 64
+                AND NON_UNIQUE = 1) = 66
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_structure_status;
@@ -759,7 +761,7 @@ SELECT
     GROUP_CONCAT(version_num ORDER BY version_num) AS alembic_revisions,
     CASE
         WHEN COUNT(*) = 1
-         AND MAX(version_num) = '0006_chacha20_poly1305'
+         AND MAX(version_num) = '0007_file_folders'
         THEN 'OK'
         ELSE 'REVIEW'
     END AS schema_compatibility_status
@@ -783,14 +785,14 @@ SELECT
         AND head.last_log_id IS NULL
         AND head.current_hash =
             '0000000000000000000000000000000000000000000000000000000000000000'
-        AND head.schema_revision = '0006_chacha20_poly1305'
+        AND head.schema_revision = '0007_file_folders'
     ), 0) AS genesis_rows,
     COALESCE(SUM(
         head.id = 1
         AND audit_state.audit_log_rows > 0
         AND head.last_log_id = audit_state.max_log_id
         AND last_log.current_hash = head.current_hash
-        AND head.schema_revision = '0006_chacha20_poly1305'
+        AND head.schema_revision = '0007_file_folders'
     ), 0) AS live_rows,
     CASE
         WHEN COUNT(head.id) = 1
@@ -800,7 +802,7 @@ SELECT
              AND head.last_log_id IS NULL
              AND head.current_hash =
                  '0000000000000000000000000000000000000000000000000000000000000000'
-             AND head.schema_revision = '0006_chacha20_poly1305'
+             AND head.schema_revision = '0007_file_folders'
          ), 0) = 1
         THEN 'OK'
         WHEN COUNT(head.id) = 1
@@ -809,7 +811,7 @@ SELECT
              AND audit_state.audit_log_rows > 0
              AND head.last_log_id = audit_state.max_log_id
              AND last_log.current_hash = head.current_hash
-             AND head.schema_revision = '0006_chacha20_poly1305'
+             AND head.schema_revision = '0007_file_folders'
          ), 0) = 1
         THEN 'LIVE_DATA'
         ELSE 'REVIEW'

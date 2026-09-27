@@ -15,6 +15,8 @@ from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import FileCapability
 from app.domain.errors import (
     FileEnvelopeInvalidError,
+    FileFolderNameConflictError,
+    FileFolderNotFoundError,
     FileResourceNotFoundError,
     FileStateConflictError,
     FileTooLargeError,
@@ -22,12 +24,17 @@ from app.domain.errors import (
 )
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
+from app.models.file_folder import FileFolder
 from app.models.file_key_wrapping import FileKeyWrapping
 from app.repositories.file_repository import FileAccessRecord, FileRepository
 from app.schemas.file_schema import (
     FileCryptoEnvelopeOut,
     FileDeleteOut,
+    FileFolderDeleteOut,
+    FileFolderListOut,
+    FileFolderOut,
     FileListOut,
+    FileMoveOut,
     FileOut,
     FileSummaryOut,
     FileUploadMetadata,
@@ -299,6 +306,8 @@ class FileService:
         page: int,
         page_size: int,
         search: str | None = None,
+        folder_id: UUID | None = None,
+        unfiled: bool = False,
     ) -> FileListOut:
         # `original_filename` is a cleartext column: the server already stores it, shows it
         # back in every listing, and the client binds it into the file AAD precisely
@@ -311,6 +320,8 @@ class FileService:
             offset=(page - 1) * page_size,
             limit=page_size,
             search=normalized or None,
+            folder_id=folder_id,
+            unfiled=unfiled,
         )
         return FileListOut(
             items=[self._summary(record, actor_user_id=actor.user_id) for record in records],
@@ -318,6 +329,80 @@ class FileService:
             page_size=page_size,
             total=total,
         )
+
+    def list_folders(self, *, actor: ActorContext) -> FileFolderListOut:
+        return FileFolderListOut(
+            items=[
+                self._folder_out(folder, count)
+                for folder, count in self.repository.list_folders(actor.user_id)
+            ]
+        )
+
+    def create_folder(self, *, actor: ActorContext, name: str) -> FileFolderOut:
+        folder = FileFolder(owner_id=actor.user_id, name=name)
+        self.repository.add_folder(folder)
+        try:
+            self.repository.flush()
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise FileFolderNameConflictError() from exc
+        return self._folder_out(folder, 0)
+
+    def rename_folder(self, *, actor: ActorContext, folder_id: UUID, name: str) -> FileFolderOut:
+        folder = self.repository.get_owned_folder(folder_id, actor.user_id, lock=True)
+        if folder is None:
+            raise FileFolderNotFoundError()
+        folder.name = name
+        folder.updated_at = self._now()
+        try:
+            self.db.commit()
+        except IntegrityError as exc:
+            self.db.rollback()
+            raise FileFolderNameConflictError() from exc
+        count = next(
+            (
+                value
+                for item, value in self.repository.list_folders(actor.user_id)
+                if item.id == folder.id
+            ),
+            0,
+        )
+        return self._folder_out(folder, count)
+
+    def delete_folder(self, *, actor: ActorContext, folder_id: UUID) -> FileFolderDeleteOut:
+        folder = self.repository.get_owned_folder(folder_id, actor.user_id, lock=True)
+        if folder is None:
+            raise FileFolderNotFoundError()
+        files_unfiled = self.repository.delete_folder(folder)
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return FileFolderDeleteOut(folder_id=folder_id, files_unfiled=files_unfiled)
+
+    def move_file(
+        self, *, actor: ActorContext, file_id: UUID, folder_id: UUID | None
+    ) -> FileMoveOut:
+        file_record = self.repository.lock_owned_file(file_id, actor.user_id)
+        if file_record is None or file_record.status == "DELETED":
+            raise FileResourceNotFoundError()
+        folder = None
+        if folder_id is not None:
+            folder = self.repository.get_owned_folder(folder_id, actor.user_id, lock=True)
+            if folder is None:
+                raise FileFolderNotFoundError()
+        file_record.folder_id = folder.id if folder else None
+        file_record.updated_at = self._now()
+        if hasattr(file_record, "revision"):
+            file_record.revision += 1
+        try:
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return FileMoveOut(file_id=file_id, folder_id=folder_id)
 
     def get_file(self, *, actor: ActorContext, file_id: UUID) -> FileOut:
         record = self.access.require(
@@ -424,6 +509,7 @@ class FileService:
         return base64.b64encode(bytes(manifest)).decode("ascii")
 
     def _summary(self, record: FileAccessRecord, *, actor_user_id: int) -> FileSummaryOut:
+        owned = record.file.owner_id == actor_user_id
         return FileSummaryOut(
             file_id=UUID(record.file.file_uuid),
             original_filename=record.file.original_filename,
@@ -432,10 +518,25 @@ class FileService:
             mime_type=record.file.mime_type,
             encryption_algorithm=record.file.encryption_algorithm,
             status=record.file.status,
-            owner=record.file.owner_id == actor_user_id,
+            owner=owned,
             owner_username=getattr(record.file.owner, "username", None),
+            folder_id=(
+                UUID(record.file.folder.folder_uuid)
+                if owned and getattr(record.file, "folder", None) is not None
+                else None
+            ),
             created_at=to_api_utc(record.file.created_at),
             updated_at=to_api_utc(record.file.updated_at),
+        )
+
+    @staticmethod
+    def _folder_out(folder: FileFolder, file_count: int) -> FileFolderOut:
+        return FileFolderOut(
+            folder_id=UUID(folder.folder_uuid),
+            name=folder.name,
+            file_count=file_count,
+            created_at=to_api_utc(folder.created_at),
+            updated_at=to_api_utc(folder.updated_at),
         )
 
     def _file_out(self, record: FileAccessRecord, *, actor_user_id: int) -> FileOut:

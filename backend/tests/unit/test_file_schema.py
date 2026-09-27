@@ -7,7 +7,7 @@ from uuid import UUID
 import pytest
 from pydantic import ValidationError
 
-from app.schemas.file_schema import FileUploadMetadata
+from app.schemas.file_schema import FileUploadMetadata, FolderNameIn
 
 FILE_ID = UUID("11111111-1111-4111-8111-111111111111")
 KEY_ID = UUID("22222222-2222-4222-8222-222222222222")
@@ -75,3 +75,11 @@ def test_upload_metadata_rejects_unknown_fields_and_noncanonical_base64() -> Non
 
     with pytest.raises(ValidationError):
         _metadata(nonce=f"{_b64(b'n' * 12)}\n")
+
+
+def test_folder_name_is_normalized_and_rejects_path_syntax() -> None:
+    assert FolderNameIn(name="  Coursework  ").name == "Coursework"
+
+    for unsafe in ("..", "work/reports", "work\\reports", "line\nbreak"):
+        with pytest.raises(ValidationError):
+            FolderNameIn(name=unsafe)

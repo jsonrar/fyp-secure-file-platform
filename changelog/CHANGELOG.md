@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Per-user file folders / 用户文件夹分类
+
+- Implemented the repository side of #73 with account-scoped folders in My Files: owners can create, rename, delete, filter by, and move files between folders or Unfiled. Folder assignment is server-persisted across devices, recipients cannot reorganize another owner's shared files, and deleting a folder only clears its classification rather than deleting ciphertext. Revision `0007_file_folders` adds the ownership and assignment constraints so one account cannot name or move another account's folders. Staging deployment and affected-flow evidence remain before the Issue can close.
+- 已完成 #73 的仓库侧实现，在 My Files 中加入按账户隔离的文件夹：所有者可创建、重命名、删除、筛选文件夹，并在文件夹与“未分类”之间移动文件。分类由服务端持久化，可跨设备同步；接收者不能重组他人分享的文件；删除文件夹只清除分类，不会删除密文。Revision `0007_file_folders` 增加所有权与归属约束，防止一个账户引用或移动另一个账户的文件夹。Issue 关闭前仍需 staging 部署与受影响流程证据。
+- Fixed the release-gate race assertion to derive the migration count from Alembic history. Adding revision `0007` correctly made one concurrent deployer apply seven upgrades, but the gate still expected the previous six and rejected a healthy serialized migration; future revisions no longer require another manual count change. Also formatted the SQL deployment test that blocked the backend Ruff job.
+- 修复发布门禁的并发断言，改为从 Alembic history 推导迁移数量。新增 `0007` 后，一个并发部署者正确执行了七次升级，但门禁仍期待旧的六次，因而误判正常的串行迁移失败；今后新增 revision 不再需要手动同步计数。同时格式化了阻断 backend Ruff Job 的 SQL 部署测试。
+
 ### Secondary confirmation for destructive actions / 破坏性操作二次确认
 
 - Completed #72 for the product surfaces that still fired on one click: deleting a file in My Files and revoking a share now open a dedicated dialog that names the target and states whether the action is recoverable. Account deletion remains behind the existing password + typed-`DELETE` dialog, now also reachable from `/profile` as well as Settings.
