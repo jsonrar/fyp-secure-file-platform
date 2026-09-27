@@ -11,7 +11,11 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
-from app.domain.errors import AvatarNotFoundError, AvatarUpdateRateLimitedError, ResourceNotFoundError
+from app.domain.errors import (
+    AvatarNotFoundError,
+    AvatarUpdateRateLimitedError,
+    ResourceNotFoundError,
+)
 from app.models.user import User
 from app.services.audit_log_service import AuditLogService
 from app.services.avatar_storage_service import AvatarStorageService

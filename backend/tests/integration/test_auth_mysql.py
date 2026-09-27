@@ -51,7 +51,22 @@ TEMPORARY_AUTH_DDL = (
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_login_at DATETIME NULL
+        last_login_at DATETIME NULL,
+        avatar_object_key VARCHAR(500) NULL,
+        avatar_content_type VARCHAR(64) NULL,
+        avatar_sha256 CHAR(64) NULL,
+        avatar_bytes INTEGER UNSIGNED NULL,
+        avatar_updated_at DATETIME NULL,
+        CONSTRAINT ck_users_avatar_shape CHECK (
+            (avatar_object_key IS NULL AND avatar_content_type IS NULL
+                AND avatar_sha256 IS NULL AND avatar_bytes IS NULL
+                AND avatar_updated_at IS NULL)
+            OR (avatar_object_key IS NOT NULL
+                AND avatar_content_type IN ('image/png', 'image/jpeg')
+                AND avatar_sha256 REGEXP '^[0-9a-f]{64}$'
+                AND avatar_bytes BETWEEN 1 AND 524288
+                AND avatar_updated_at IS NOT NULL)
+        )
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
