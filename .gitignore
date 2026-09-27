@@ -38,6 +38,8 @@ backend/encrypted_files/*
 !backend/encrypted_files/.gitkeep
 backend/temp_files/*
 !backend/temp_files/.gitkeep
+backend/avatars/*
+!backend/avatars/.gitkeep
 backend/logs/*
 !backend/logs/.gitkeep
 

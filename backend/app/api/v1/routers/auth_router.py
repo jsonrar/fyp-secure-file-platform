@@ -3,12 +3,13 @@ from __future__ import annotations
 from typing import Annotated
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, status
-from fastapi.responses import JSONResponse
+from fastapi import APIRouter, Depends, File, UploadFile, status
+from fastapi.responses import JSONResponse, Response
 
 from app.api.dependencies import (
     get_account_deletion_service,
     get_auth_service,
+    get_avatar_service,
     get_current_actor,
     get_request_context,
     get_settings,
@@ -24,6 +25,7 @@ from app.schemas.auth_schema import (
     AuthSessionResponse,
     AuthSessionRevokeResponse,
     AuthUserResponse,
+    AvatarMetaResponse,
     ChangePasswordRequest,
     ChangePasswordResponse,
     DeleteAccountRequest,
@@ -41,6 +43,7 @@ from app.schemas.auth_schema import (
 )
 from app.services.account_deletion_service import AccountDeletionService
 from app.services.auth_service import AuthService
+from app.services.avatar_service import AvatarService
 
 router = APIRouter()
 
@@ -48,6 +51,7 @@ AuthServiceDependency = Annotated[AuthService, Depends(get_auth_service)]
 AccountDeletionServiceDependency = Annotated[
     AccountDeletionService, Depends(get_account_deletion_service)
 ]
+AvatarServiceDependency = Annotated[AvatarService, Depends(get_avatar_service)]
 ActorDependency = Annotated[ActorContext, Depends(get_current_actor)]
 RequestContextDependency = Annotated[RequestContext, Depends(get_request_context)]
 SettingsDependency = Annotated[Settings, Depends(get_settings)]
@@ -160,6 +164,73 @@ def me(
     return ok(
         message="Current account retrieved",
         data=response_data,
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.post(
+    "/avatar/upload",
+    response_model=ApiSuccessResponse[AvatarMetaResponse],
+)
+async def upload_avatar(
+    actor: ActorDependency,
+    context: RequestContextDependency,
+    service: AvatarServiceDependency,
+    file: UploadFile = File(...),
+) -> JSONResponse:
+    """Replace the caller's profile picture with a validated PNG or JPEG."""
+    meta = await service.upload(actor=actor, upload=file, context=context)
+    return ok(
+        message="Avatar updated",
+        data=AvatarMetaResponse(
+            has_avatar=meta.has_avatar,
+            content_type=meta.content_type,
+            updated_at=meta.updated_at,
+            size_bytes=meta.size_bytes,
+        ),
+        headers=AUTH_NO_STORE_HEADERS,
+    )
+
+
+@router.get("/avatar")
+async def get_avatar(
+    actor: ActorDependency,
+    service: AvatarServiceDependency,
+) -> Response:
+    """Serve the caller's avatar bytes. Auth required; never cache across users."""
+    payload = await service.get_bytes(actor=actor)
+    headers = {
+        **AUTH_NO_STORE_HEADERS,
+        "X-Content-Type-Options": "nosniff",
+        "Content-Disposition": "inline",
+    }
+    if payload.sha256:
+        headers["ETag"] = f'"{payload.sha256}"'
+    return Response(
+        content=payload.body,
+        media_type=payload.content_type,
+        headers=headers,
+    )
+
+
+@router.post(
+    "/avatar/delete",
+    response_model=ApiSuccessResponse[AvatarMetaResponse],
+)
+async def delete_avatar(
+    actor: ActorDependency,
+    context: RequestContextDependency,
+    service: AvatarServiceDependency,
+) -> JSONResponse:
+    meta = await service.delete(actor=actor, context=context)
+    return ok(
+        message="Avatar removed",
+        data=AvatarMetaResponse(
+            has_avatar=meta.has_avatar,
+            content_type=meta.content_type,
+            updated_at=meta.updated_at,
+            size_bytes=meta.size_bytes,
+        ),
         headers=AUTH_NO_STORE_HEADERS,
     )
 

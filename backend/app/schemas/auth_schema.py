@@ -56,6 +56,14 @@ class AuthUserResponse(_AuthResponse):
     email_verified: bool
     created_at: datetime
     last_login_at: datetime | None = None
+    has_avatar: bool = False
+
+
+class AvatarMetaResponse(_AuthResponse):
+    has_avatar: bool
+    content_type: str | None = None
+    updated_at: datetime | None = None
+    size_bytes: int | None = None
 
 
 class SendVerificationCodeRequest(_AuthRequest):

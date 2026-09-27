@@ -1,6 +1,7 @@
 import { defineStore } from 'pinia'
 
 import { authApi, type AuthUserOut } from '@/api/auth_api'
+import { avatarApi } from '@/api/avatar_api'
 import { clearSession, readAccessToken, writeSession } from '@/api/session'
 import { forgetUnlockedKeys } from '@/crypto/download'
 import { forgetSeenShares } from '@/utils/seen-shares'
@@ -21,6 +22,8 @@ export const useAuthStore = defineStore('auth', {
   state: () => ({
     accessToken: readAccessToken(),
     user: null as AuthUserOut | null,
+    /** Object URL for the current avatar image; revoked when replaced or cleared. */
+    avatarObjectUrl: null as string | null,
   }),
   getters: {
     isAuthed: (state) => Boolean(state.accessToken),
@@ -49,6 +52,29 @@ export const useAuthStore = defineStore('auth', {
     syncFromStorage() {
       this.accessToken = readAccessToken()
     },
+    _revokeAvatarUrl() {
+      if (this.avatarObjectUrl) {
+        URL.revokeObjectURL(this.avatarObjectUrl)
+        this.avatarObjectUrl = null
+      }
+    },
+    /**
+     * Fetch the authenticated avatar bytes into a blob URL for `<img>` tags.
+     * Failures leave initials visible — the menu must not break when the image is missing.
+     */
+    async refreshAvatarImage() {
+      this._revokeAvatarUrl()
+      if (!this.accessToken || !this.user?.has_avatar) return
+      try {
+        const response = await avatarApi.download()
+        const contentType =
+          (response.headers?.['content-type'] as string | undefined) || 'image/jpeg'
+        const blob = new Blob([response.data], { type: contentType })
+        this.avatarObjectUrl = URL.createObjectURL(blob)
+      } catch {
+        this.avatarObjectUrl = null
+      }
+    },
     /**
      * Who is signed in, for the avatar and the profile page.
      *
@@ -59,6 +85,7 @@ export const useAuthStore = defineStore('auth', {
     async loadUser(force = false) {
       if (!this.accessToken) {
         this.user = null
+        this._revokeAvatarUrl()
         return null
       }
       if (this.user && !force) return this.user
@@ -68,7 +95,20 @@ export const useAuthStore = defineStore('auth', {
       } catch {
         this.user = null
       }
+      await this.refreshAvatarImage()
       return this.user
+    },
+    /** Upload a new profile picture and refresh the cached image. */
+    async uploadAvatar(file: File | Blob) {
+      await avatarApi.upload(file)
+      if (this.user) this.user = { ...this.user, has_avatar: true }
+      await this.refreshAvatarImage()
+    },
+    /** Remove the profile picture and fall back to initials. */
+    async deleteAvatar() {
+      await avatarApi.delete()
+      if (this.user) this.user = { ...this.user, has_avatar: false }
+      this._revokeAvatarUrl()
     },
     /**
      * Drop the local session only.
@@ -81,6 +121,7 @@ export const useAuthStore = defineStore('auth', {
       // Otherwise the next account to sign in at this machine inherits the previous one's
       // name and email in the avatar menu until `/auth/me` answers.
       this.user = null
+      this._revokeAvatarUrl()
       clearSession()
       // The unwrapped account key outlives the token otherwise: the next person at this
       // machine would sign in and find the previous session's files already decryptable.

@@ -20,8 +20,9 @@ def test_migration_history_is_a_single_ordered_chain() -> None:
     scripts = ScriptDirectory.from_config(_alembic_config())
     revisions = list(scripts.walk_revisions())
 
-    assert scripts.get_heads() == ["0007_file_folders"]
+    assert scripts.get_heads() == ["0008_avatars"]
     assert [(revision.revision, revision.down_revision) for revision in revisions] == [
+        ("0008_avatars", "0007_file_folders"),
         ("0007_file_folders", "0006_chacha20_poly1305"),
         ("0006_chacha20_poly1305", "0005_selectable_aes_key_length"),
         ("0005_selectable_aes_key_length", "0004_email_verification_codes"),
@@ -30,6 +31,16 @@ def test_migration_history_is_a_single_ordered_chain() -> None:
         ("0002_auth_identity_sessions", "0001_initial"),
         ("0001_initial", None),
     ]
+
+
+def test_mysql_release_gate_derives_current_head_and_revision_count() -> None:
+    release_gate = (BACKEND_ROOT / "scripts" / "mysql_release_gate.sh").read_text(encoding="utf-8")
+
+    assert 'HEAD_REVISION="' not in release_gate
+    assert "scripts.get_heads()" in release_gate
+    assert "scripts.walk_revisions()" in release_gate
+    assert release_gate.count('-eq "$REVISION_COUNT"') == 2
+    assert "expected one deployer to apply ${REVISION_COUNT} revisions" in release_gate
 
 
 def test_full_migration_chain_renders_as_mysql_sql() -> None:
@@ -65,6 +76,8 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     assert "0007_file_folders" in rendered_sql
     assert "CREATE TABLE file_folders" in rendered_sql
     assert "ADD COLUMN folder_id" in rendered_sql
+    assert "0008_avatars" in rendered_sql
+    assert "ck_users_avatar_shape" in rendered_sql
     assert "CREATE TABLE user_key_protection_profiles" in rendered_sql
     assert "CREATE TABLE encrypted_private_key_bundles" in rendered_sql
     assert "LEGACY_EXTERNAL" in rendered_sql
@@ -76,12 +89,12 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     )
     final_structure_position = rendered_sql.index("CREATE INDEX idx_audit_logs_created_id")
     final_default_position = rendered_sql.index(
-        "ALTER COLUMN schema_revision SET DEFAULT '0007_file_folders'"
+        "ALTER COLUMN schema_revision SET DEFAULT '0008_avatars'"
     )
     completed_marker_position = rendered_sql.index(
-        "SET schema_revision = '0007_file_folders' WHERE id = 1"
+        "SET schema_revision = '0008_avatars' WHERE id = 1"
     )
-    alembic_marker_position = rendered_sql.index("SET version_num='0007_file_folders'")
+    alembic_marker_position = rendered_sql.index("SET version_num='0008_avatars'")
     assert initial_marker_position < final_structure_position < final_default_position
     assert final_default_position < completed_marker_position
     assert completed_marker_position < alembic_marker_position

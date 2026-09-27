@@ -51,7 +51,22 @@ TEMPORARY_AUTH_DDL = (
         created_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
         password_changed_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
-        last_login_at DATETIME NULL
+        last_login_at DATETIME NULL,
+        avatar_object_key VARCHAR(500) NULL,
+        avatar_content_type VARCHAR(64) NULL,
+        avatar_sha256 CHAR(64) NULL,
+        avatar_bytes INTEGER UNSIGNED NULL,
+        avatar_updated_at DATETIME NULL,
+        CONSTRAINT ck_users_avatar_shape CHECK (
+            (avatar_object_key IS NULL AND avatar_content_type IS NULL
+                AND avatar_sha256 IS NULL AND avatar_bytes IS NULL
+                AND avatar_updated_at IS NULL)
+            OR (avatar_object_key IS NOT NULL
+                AND avatar_content_type IN ('image/png', 'image/jpeg')
+                AND avatar_sha256 REGEXP '^[0-9a-f]{64}$'
+                AND avatar_bytes BETWEEN 1 AND 524288
+                AND avatar_updated_at IS NOT NULL)
+        )
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
     """
@@ -202,7 +217,7 @@ TEMPORARY_AUTH_DDL = (
         id TINYINT UNSIGNED NOT NULL PRIMARY KEY,
         last_log_id BIGINT UNSIGNED NULL,
         current_hash CHAR(64) NOT NULL,
-        schema_revision VARCHAR(64) NOT NULL DEFAULT '0007_file_folders',
+        schema_revision VARCHAR(64) NOT NULL DEFAULT '0008_avatars',
         updated_at DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
     """,
@@ -215,7 +230,7 @@ def _create_temporary_auth_schema(connection: Connection) -> None:
     connection.exec_driver_sql(
         "INSERT INTO audit_chain_heads "
         "(id, last_log_id, current_hash, schema_revision) "
-        "VALUES (1, NULL, %s, '0007_file_folders')",
+        "VALUES (1, NULL, %s, '0008_avatars')",
         ("0" * 64,),
     )
     connection.commit()
@@ -310,8 +325,8 @@ def test_auth_database_is_migrated_to_expected_schema(auth_mysql_engine: Engine)
             text("SELECT schema_revision FROM audit_chain_heads WHERE id = 1")
         )
 
-    assert revision == "0007_file_folders"
-    assert readiness_revision == "0007_file_folders"
+    assert revision == "0008_avatars"
+    assert readiness_revision == "0008_avatars"
     assert {
         "session_uuid",
         "access_token_hash",

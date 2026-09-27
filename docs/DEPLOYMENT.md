@@ -47,6 +47,23 @@ or should be reintroduced. `MYSQL_ROOT_PASSWORD` and `MYSQL_PORT` in `.env.examp
 local-Compose settings only; production administrator credentials never enter the application
 environment.
 
+### Storage directories
+
+The three storage paths default to directories inside the checkout. On staging the working
+directory is an immutable release under `/opt/mcs21/releases/<sha>`, which `fypapp` cannot write
+and which is replaced by every deploy, so `backend.env` must point all three at the persistent
+data root owned by `fypapp`:
+
+```bash
+ENCRYPTED_FILE_DIR=/var/lib/fyp-secure-file-platform/encrypted
+TEMP_FILE_DIR=/var/lib/fyp-secure-file-platform/tmp
+AVATAR_DIR=/var/lib/fyp-secure-file-platform/avatars
+```
+
+The application creates `avatars/` on the first upload. `AVATAR_DIR` holds plaintext profile
+pictures and must never share a directory with ciphertext objects. `mcs21-deploy` already
+includes the whole data root in its pre-deploy archive.
+
 ### Synchronize environment-backed request limits
 
 `.env.example` is a versioned template; the staging service does not read it. The running
