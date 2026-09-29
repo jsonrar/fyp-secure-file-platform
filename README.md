@@ -42,7 +42,8 @@ offline-governed recovery, and admin/RBAC APIs are implemented. The server persi
 public keys, encrypted private-key bundles, ciphertext, and wrapped file keys; a user's
 vault passphrase, KEK, AMK, plaintext private key, file DEK, and plaintext file never belong
 in an API request or database row. Registration and file/key flows are documented in
-[SECURITY_FLOWS.md](docs/SECURITY_FLOWS.md).
+[SECURITY_FLOWS.md](docs/SECURITY_FLOWS.md); what those flows do and do not defend against, and
+the open findings, are in the self-assessed [THREAT_MODEL.md](docs/THREAT_MODEL.md).
 
 The browser MVP is operational end to end: emailed-code registration and password reset,
 client-held account-key enrolment, passphrase or private-key-file unlock, passphrase reset
@@ -252,6 +253,7 @@ fyp-secure-file-platform/
 |   |-- AUTOMATIC_DEPLOYMENT.md
 |   |-- E2E_TESTING.md
 |   |-- SECURITY_FLOWS.md
+|   |-- THREAT_MODEL.md
 |   |-- PROJECT_SCOPE.md
 |   `-- crypto/
 |       |-- FILE_ENVELOPE.md

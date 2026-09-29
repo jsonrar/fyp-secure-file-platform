@@ -138,7 +138,10 @@ not a release pass.
 
 - [ ] [#60 Complete the formal threat model and independent security review](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
   — cover account envelopes, Argon2id, token/key custody, metadata, recovery, CSP, dependencies,
-  and residual trust boundaries without claiming certification.
+  and residual trust boundaries without claiming certification. Step 1 of 4 is in
+  [THREAT_MODEL.md](docs/THREAT_MODEL.md): assets, actors, trust boundaries, non-goals, STRIDE and
+  abuse cases. Still open: Argon2id benchmarks, the cryptographic trust-anchor decisions, supply
+  chain, and the findings register. The review is a self-assessment, not an independent one.
 
 ## P3 — planned product UX
 
