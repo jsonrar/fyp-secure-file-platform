@@ -36,7 +36,8 @@ HTTPS 不只关系到地址栏那把锁，而是产品能否运行的前提：�
 后端身份认证、客户端包装密钥托管、加密文件、共享、审计查询、由离线流程治理的恢复及管理／RBAC
 API 均已实现。服务器只持久化公钥、加密私钥包、密文和已包装的文件密钥；用户的加密
 passphrase、KEK、AMK、明文私钥、文件 DEK 和文件明文都不得出现在 API 请求或数据库记录中。
-注册及文件／密钥流程详见 [SECURITY_FLOWS.zh-CN.md](docs/SECURITY_FLOWS.zh-CN.md)。
+注册及文件／密钥流程详见 [SECURITY_FLOWS.zh-CN.md](docs/SECURITY_FLOWS.zh-CN.md)；这些流程能防御和不能防御
+什么、以及尚未解决的发现，见自评性质的 [THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md)。
 
 浏览器 MVP 已端到端可运行：邮箱验证码注册与重置登录密码、客户端账户密钥登记、使用
 passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲自动上锁、上传前认证加密、下载后本地解密、文件名搜索、将
@@ -211,6 +212,7 @@ fyp-secure-file-platform/
 |   |-- AUTOMATIC_DEPLOYMENT.md
 |   |-- E2E_TESTING.md
 |   |-- SECURITY_FLOWS.md
+|   |-- THREAT_MODEL.md
 |   |-- PROJECT_SCOPE.md
 |   `-- crypto/
 |       |-- FILE_ENVELOPE.md

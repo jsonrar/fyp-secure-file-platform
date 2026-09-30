@@ -120,7 +120,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 - [ ] [#60 完成正式威胁模型与独立安全评审](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
   ——覆盖账户信封、Argon2id、token/密钥托管、metadata、恢复、CSP、依赖及残余信任边界，
-  且不得声称已经认证。
+  且不得声称已经认证。4 步中的第 1 步已写入 [THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md)：
+  资产、参与者、信任边界、非目标、STRIDE 与滥用场景。仍待完成：Argon2id 实测、密码学信任锚相关决定、
+  供应链，以及发现登记表。该评审为自评，而非独立评审。
 
 ## P3 — 计划中的产品 UX
 

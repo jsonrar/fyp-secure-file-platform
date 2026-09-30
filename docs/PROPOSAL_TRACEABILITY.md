@@ -39,7 +39,7 @@ contains 167 commits.
 | 1.2 | Scope definition and supervisor review | Done | Supervisor reviewed the MVP demonstration, signed the submitted proposal material, accepted the checkpoint, and assessed the whole project as approximately 70–80% complete at that time |
 | 1.3 | Goals and core vision | Done | README goal and deployed product |
 | 2.1 | Competitive analysis | Done | Proposal background study and selected differentiators |
-| 2.2 | Privacy and OWASP threat modelling | In progress | Implemented controls; formal assessment and independent review remain in Issue #60 |
+| 2.2 | Privacy and OWASP threat modelling | In progress | [THREAT_MODEL.md](THREAT_MODEL.md) v0.1: assets, actors, trust boundaries, non-goals and STRIDE; Argon2id benchmarks, cryptographic trust-anchor decisions, supply chain and the findings register remain in Issue #60 |
 | 2.3 | Target users and stakeholders | Done | Proposal stakeholders and implemented user/RBAC roles |
 | 3.1 | UI/UX and Figma prototypes | Done | Implemented/deployed user journeys and PR #46 |
 | 3.2 | REST API and FastAPI module design | Done | `docs/API_DESIGN.md` and public OpenAPI/Swagger contract |
