@@ -318,9 +318,9 @@ function downloadPrivateKey() {
               <p class="text-xs text-muted-foreground mt-1 flex gap-1.5">
                 <ShieldCheck class="h-4 w-4 shrink-0 text-primary" />
                 <span>
-                  This never leaves your browser. It unlocks your private key, so if you lose it
-                  your encrypted files cannot be recovered. That is why it stays longer than your
-                  login password.
+                  This never leaves your browser. It unlocks your private key. If you lose both
+                  it and the private key file you are given next, your encrypted files cannot be
+                  recovered. That is why it stays longer than your login password.
                 </span>
               </p>
             </template>
@@ -416,9 +416,9 @@ function downloadPrivateKey() {
 
         <p class="text-sm text-muted-foreground mb-4">
           <strong class="text-foreground">Save it.</strong> It is the only way back into your
-          files if you forget your encryption passphrase: the passphrase cannot be reset, and
-          neither the team nor the server holds anything that can open your files without one
-          of the two. The download is a plain text <code class="text-xs">.pem</code> file —
+          files if you forget your encryption passphrase: with it you can set a new passphrase
+          in Settings, and without it neither the team nor the server holds anything that can
+          open your files. The download is a plain text <code class="text-xs">.pem</code> file —
           your computer may have no application associated with it, which is expected; any
           text editor can open it.
         </p>
