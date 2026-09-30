@@ -48,7 +48,8 @@ passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲�
 公开产品页与登录后工作台并列：`/` 为营销落地页（"Encryption and Sharing" 主标题与横向滚动
 Core Features），`/education` 提供算法教学、演练场与知识库，`/help` 优先指向首页图文引导并保留
 视频占位，`/team`（导航标签为 **Contact us**）提供反馈
-表单预览与开发团队名单。登录用户可通过页头
+表单预览与开发团队名单。`/benchmark/argon2` 不在任何菜单中出现，用于在访问设备上测量解锁时密钥派生的
+耗时，是威胁模型中 passphrase 分析的依据。登录用户可通过页头
 头像菜单进入主题设置、`/profile` 与 `/settings`；当前导航标签使用主题主色高亮，便于确认所在页。
 `/profile` 可上传或移除经验证的 PNG/JPEG 头像（无图时回退首字母）。
 

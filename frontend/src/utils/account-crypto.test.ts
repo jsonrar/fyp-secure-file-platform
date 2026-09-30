@@ -1,6 +1,10 @@
+import { readFileSync } from 'node:fs'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+
 import { describe, expect, it } from 'vitest'
 
-import { fromBase64, toBase64 } from '@/crypto/encoding'
+import { bytesToHex, fromBase64, hexToBytes, toBase64 } from '@/crypto/encoding'
 import { AES_GCM_NONCE_BYTES, AES_GCM_TAG_BYTES, AES_KEY_BYTES } from '@/crypto/primitives'
 import {
   AccountKeySelfTestError,
@@ -242,4 +246,35 @@ describe('key derivation', () => {
     expect(bound).toHaveLength(AES_KEY_BYTES)
     expect(bound).not.toEqual(other)
   })
+})
+
+describe('Argon2id KEK against the native reference implementation', () => {
+  // Generated with argon2-cffi -- the C reference an offline attacker would run. Matching it
+  // byte for byte means the threat model's attacker benchmark measures the same function the
+  // browser computes at unlock, so its guesses-per-second figures apply to real envelopes.
+  const vectors = JSON.parse(
+    readFileSync(
+      path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../../../docs/crypto/test_vectors.json'),
+      'utf8',
+    ),
+  ) as {
+    argon2id_kek: {
+      case: string
+      passphrase_utf8: string
+      salt_hex: string
+      memory_kib: number
+      iterations: number
+      parallelism: number
+      kek_hex: string
+    }[]
+  }
+
+  it.each(vectors.argon2id_kek)('derives the reference KEK for $case', async (vector) => {
+    const kek = await deriveKek(vector.passphrase_utf8, hexToBytes(vector.salt_hex), {
+      memorySize: vector.memory_kib,
+      iterations: vector.iterations,
+      parallelism: vector.parallelism,
+    })
+    expect(bytesToHex(kek)).toBe(vector.kek_hex)
+  }, 30_000)
 })

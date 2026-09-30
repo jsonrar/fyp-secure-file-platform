@@ -58,7 +58,8 @@ Public product pages sit beside the authenticated workspace: `/` is the marketin
 ("Encryption and Sharing" hero plus scrolling Core Features), `/education` teaches algorithms
 with demos and a knowledge base, `/help` points to the homepage picture guide and keeps video
 placeholders for longer clips, and `/team` (**Contact us**) shows a feedback form preview plus
-the development roster.
+the development roster. `/benchmark/argon2`, linked from no menu, times the unlock key derivation
+on the visiting device; it is the evidence behind the threat model's passphrase analysis.
 Signed-in users get a header avatar menu with theme control, `/profile`, and `/settings`; the
 active nav label uses the theme primary colour so the current tab is obvious. `/profile` can
 upload or remove a validated PNG/JPEG picture (initials remain the fallback).
