@@ -4,7 +4,7 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 
 | | |
 |---|---|
-| Version | 0.4 — key custody, public-key identity and metadata decisions (§10) |
+| Version | 1.0 — complete for Issue #60: review of supply chain, CSP, uploads, tokens and recovery operations (§11), findings register (§12), review record (§13) |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
 | Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech` |
@@ -58,7 +58,7 @@ credit the system with protections it does not claim.
 | # | Non-goal | Why |
 |---|---|---|
 | N1 | Protection from an **actively malicious server** that serves substituted code, keys, or ciphertext. | The browser runs JavaScript the server delivers. A server willing to ship hostile code can exfiltrate the passphrase. Zero-knowledge holds at the **API boundary**, not against the code supplier. See [SECURITY_FLOWS.md § Metadata Leakage](SECURITY_FLOWS.md#metadata-leakage-and-threat-limits). |
-| N2 | Confidentiality of **file metadata**: filename, MIME type, size, timestamps, ownership, sharing graph. | Stored in cleartext columns so the server can list, search and enforce policy. Filename, MIME type and plaintext size are bound into AAD-3, so altering them is detected at decryption; timestamps, ownership and the sharing graph are cleartext, server-controlled, and not covered by any file tag. Revisited in step 3. |
+| N2 | Confidentiality of **file metadata**: filename, MIME type, size, timestamps, ownership, sharing graph. | Stored in cleartext columns so the server can list, search and enforce policy. Filename, MIME type and plaintext size are bound into AAD-3, so altering them is detected at decryption; timestamps, ownership and the sharing graph are cleartext, server-controlled, and not covered by any file tag. Decided in [§10.3](#103-metadata-and-traffic-leakage). |
 | N3 | Anonymity and resistance to **traffic analysis**. | Access timing, IP addresses and ciphertext sizes are visible to the server and the network. |
 | N4 | Protection of a **compromised endpoint**: malware, a malicious browser extension, or someone at the unlocked keyboard. | Whatever can read the page can read what the user decrypts. |
 | N5 | **Retracting** plaintext or keys a recipient already obtained. | Revocation stops future server-mediated access; it cannot erase a download or a DEK already unwrapped. |
@@ -131,14 +131,14 @@ credit the system with protections it does not claim.
 
 ## 7. STRIDE analysis
 
-Each threat has a stable ID for later steps and for the findings register (step 4).
+Each threat has a stable ID; §12 collects every open, accepted or deferred one into the findings register.
 
 ### 7.1 Spoofing
 
 | ID | Threat | Control | Status |
 |---|---|---|---|
 | T-S1 | Password guessing against login | Argon2id hashes; per-account and per-IP throttles in `auth_login_throttles`; nginx `secureview_auth` at 12 requests per minute per IP | Mitigated |
-| T-S2 | Account enumeration through registration, code sending or password reset | Code sending and password reset answer identically whether or not the account exists, and spend the allowance either way | Partial — `POST /auth/register` answers `409 account_identifier_unavailable` for a taken username **or** email, and checks this *before* the verification code, so existence can be probed without a valid code. Bounded only by the per-IP registration throttle. Step 4. |
+| T-S2 | Account enumeration through registration, code sending or password reset | Code sending and password reset answer identically whether or not the account exists, and spend the allowance either way | Partial — `POST /auth/register` answers `409 account_identifier_unavailable` for a taken username **or** email, and checks this *before* the verification code, so existence can be probed without a valid code. Bounded only by the per-IP registration throttle. → F-08 |
 | T-S3 | Session hijack by token theft | Tokens stored only as SHA-256; access 30 min, refresh 7 days, absolute 7 days; a replayed refresh token revokes the whole session family (`AUTH_REFRESH_REPLAY_DETECTED`) | Partial — see T-I4 for where tokens are kept |
 | T-S4 | Substituted **recovery public key**, so every future upload is wrapped to an attacker | Browser recomputes the fingerprint from the PEM and displays it; the API's own fingerprint field is never trusted | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The highest-impact of the three substitutions, and the first to fix if the project continues. |
 | T-S5 | Substituted **recipient public key** during sharing | Recipient resolved by exact username or email; the browser wraps the DEK to whatever `public_key_pem` the API returns | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The sharing flow neither recomputes, shows, pins nor asks the sender to confirm the recipient's fingerprint. |
@@ -153,7 +153,7 @@ Each threat has a stable ID for later steps and for the findings register (step 
 | T-T2 | Relabelling a file's name, MIME type, size or algorithm | All bound into AAD-3; any change fails authentication ([FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md)) | Mitigated |
 | T-T3 | Replacing a user's key envelopes with garbage to lock them out | Rewrap, key addition and passphrase reset all require an RSA-PSS signature by the account private key, each under its own domain label | Mitigated |
 | T-T4 | **Rolling back** a key bundle, protection profile or file to an earlier valid version | Optimistic revisions stop concurrent writers; files are immutable and AAD-3 binds `file_id`, so one file cannot be served as another | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The dangerous case, re-activating a retired public key, is the substitution case again. |
-| T-T5 | Malicious dependency version | Lockfiles; `@noble/ciphers` chosen for zero transitive dependencies | Partial — no provenance or audit gate. Step 4. |
+| T-T5 | Malicious dependency version | Lockfiles; `@noble/ciphers` chosen for zero transitive dependencies | Partial — no provenance or audit gate. → F-12 |
 | T-T6 | Rewriting the audit log consistently | Hash chain in the database; external HMAC-authenticated chain-head checkpoints implemented in `backend/scripts/audit_checkpoint.py`, with the HMAC key never given to the backend | Partial — the hash chain is live. The external checkpoints exist in the repository, but the first staging upload and its off-host verification are still pending, so no external trust anchor is in operation yet. |
 | T-T7 | Tampering with an execution package during offline recovery | Server rechecks identities, lengths and the live grant before accepting the rewrap | Partial — the offline workstation is procedural (TB8) |
 
@@ -171,12 +171,12 @@ Each threat has a stable ID for later steps and for the findings register (step 
 |---|---|---|---|
 | T-I1 | Database or disk theft exposes file contents | Nothing on the server opens a DEK (O1) | Mitigated |
 | T-I2 | Database theft enables **offline passphrase guessing** | Argon2id at 64 MiB and 3 iterations; minimum 10 characters | Partial — measured in [§9](#9-argon2id-cost-and-the-passphrase-minimum): the KDF cost is adequate, but the length-only check admits passphrases that fall in minutes. |
-| T-I3 | Metadata leakage: filenames, sizes, sharing graph | None beyond access control | Accepted — decided in [§10.3](#103-metadata-and-traffic-leakage); the encrypted-manifest decision is step 3 |
+| T-I3 | Metadata leakage: filenames, sizes, sharing graph | None beyond access control | Accepted — decided in [§10.3](#103-metadata-and-traffic-leakage), where the encrypted manifest was declined. → F-17 |
 | T-I4 | **XSS steals tokens** from `localStorage` | CSP `script-src 'self' 'wasm-unsafe-eval'`, `object-src 'none'`, `frame-ancestors 'none'`. Vue escapes interpolation; the only two `v-html` sinks render bundled content — the logo SVG and the static knowledge-base articles, which `render-knowledge-content.ts` escapes before formatting — so no user- or server-supplied string reaches them today. | Partial — any future XSS reads both tokens. It still cannot extract the private key: it is held as a non-extractable `CryptoKey` and relocks after 15 idle minutes. It *can* use the key to decrypt while it is unlocked. |
 | T-I5 | Secrets in logs | Documented exclusion list; `repr=False` on secret fields; [OBSERVABILITY § 7](OBSERVABILITY_AND_INCIDENT_RESPONSE.md#7-verification-that-sensitive-data-stays-out) | Partial — controls are in code; the live check that redaction markers are absent from staging outputs is still pending in OBSERVABILITY § 8 |
-| T-I6 | **Public API documentation on staging** | `/docs`, `/redoc` and `/openapi.json` answer `200` on `https://secureview.tech`, and those locations use a relaxed CSP that loads script from `cdn.jsdelivr.net` | Open — low severity. Recorded in step 4. |
+| T-I6 | **Public API documentation on staging** | `/docs`, `/redoc` and `/openapi.json` answer `200` on `https://secureview.tech`, and those locations use a relaxed CSP that loads script from `cdn.jsdelivr.net` | Open — **Medium**, raised from low in §11.2: the relaxed CSP loads a floating, unpinned third-party script on the origin that stores tokens. → F-03 |
 | T-I7 | The plaintext PEM export is mishandled by the user | Shown once with a warning; read locally and never uploaded when used | Accepted — custody decided in [§10.1](#101-the-exported-private-key-and-the-limits-of-a-lost-passphrase) |
-| T-I8 | Recovery private key exposure | Custody procedure in [BACKUP_AND_RECOVERY.md § 7](BACKUP_AND_RECOVERY.md#7-recovery-key-custody) | Open — the procedure is marked *proposed*, and the current staging recovery key is held as an unencrypted PEM on a team member's workstation, not offline. Step 3. |
+| T-I8 | Recovery private key exposure | Custody procedure in [BACKUP_AND_RECOVERY.md § 7](BACKUP_AND_RECOVERY.md#7-recovery-key-custody) | Open — the procedure is marked *proposed*, and the current staging recovery key is held as an unencrypted PEM on a team member's workstation, not offline. → F-02 |
 | T-I9 | A share recipient keeps what they downloaded | — | Accepted (N5) |
 
 ### 7.5 Denial of service
@@ -184,8 +184,8 @@ Each threat has a stable ID for later steps and for the findings register (step 
 | ID | Threat | Control | Status |
 |---|---|---|---|
 | T-D1 | Request flooding | nginx `secureview_api` at 10 requests per second per IP, burst 20 | Partial — per-IP only |
-| T-D2 | Upload abuse filling the disk | 500 MiB per upload in nginx and backend; per-user quota not enforced | Open — step 4 |
-| T-D3 | Very large uploads exhaust the **browser** | — | Accepted — the in-memory design peaks near four times the file size; owned by the upload work, not this model |
+| T-D2 | Upload abuse filling the disk | 500 MiB per upload in nginx and backend; per-user quota not enforced | Accepted — the 85 % filesystem alert is the only control. → F-09 |
+| T-D3 | Very large uploads exhaust the **browser** | — | Accepted — the in-memory design peaks near four times the file size; owned by the upload work, not this model → F-19 |
 | T-D4 | Lock-out by envelope overwrite | See T-T3 | Mitigated |
 
 ### 7.6 Elevation of privilege
@@ -196,7 +196,7 @@ Each threat has a stable ID for later steps and for the findings register (step 
 | T-E2 | A recipient re-shares without permission | `can_share` checked server-side | Mitigated |
 | T-E3 | A stolen session seizes key custody (e.g. resets the passphrase) | Reset requires a signature by the private key, not a session | Mitigated |
 | T-E4 | A requester self-approves recovery | Requester ≠ reviewer enforced by a database CHECK | Mitigated |
-| T-E5 | Code reaches production without review | CI runs on every pull request and on every push to `main` | Open — `main` has **no branch protection**, so a direct push bypasses PR review. CI still runs on it, but the server-pull deployment neither waits for CI nor requires it to pass before deploying that commit. Step 4. |
+| T-E5 | Code reaches production without review | CI runs on every pull request and on every push to `main` | Open — `main` has **no branch protection**, so a direct push bypasses PR review. CI still runs on it, but the server-pull deployment neither waits for CI nor requires it to pass before deploying that commit. → F-01 |
 | T-E6 | Running application reaches the host | Unprivileged `fypapp` service user; loopback-only binding | Partial — no container or systemd sandboxing is claimed here |
 
 ## 8. Abuse cases
@@ -314,7 +314,7 @@ Times are to exhaust the whole space; the expected time to success is half.
    so the server can neither check it against a deny-list nor enforce anything about it. Any
    strength check must run client-side.
 
-This leads to two recommendations for the findings register (step 4):
+This leads to two recommendations, registered as F-04 and F-15 (§12):
 
 - **R-1 (the one that matters): reject known-weak passphrases in the browser.** Apply the login
   password's deny-list, reject repeated and sequential patterns and the account's own
@@ -431,15 +431,139 @@ What the server can therefore observe, recorded rather than implied:
 | Chosen encryption algorithm and KDF cost | `files`, `user_key_protection_profiles` | Exact |
 | On the wire, to a network observer under TLS | — | Transfer sizes and timing; download size equals the file size |
 
-## 11. Planned sections
+## 11. Supply chain, CSP, upload abuse, tokens and recovery operations
 
-Filled in by the last step of Issue #60.
+Issue #60 criterion 6. Each subsection states what is in place, what was measured, and the
+finding it produces in §12.
 
-| Step | Section | Issue #60 criterion |
+### 11.1 Dependencies and supply chain
+
+| Area | In place | Gap |
 |---|---|---|
-| 4 | Dependency and supply-chain policy, CSP exceptions, upload abuse, token storage, offline recovery operations; findings register with severity, disposition and evidence | 6, 7 |
+| Frontend | `package-lock.json`; both CI and deployment install with `npm ci`, so every build uses the exact locked tree | `package.json` uses `^` ranges, but the lockfile pins what is installed |
+| Backend | All 14 direct dependencies pinned with `==` in `requirements.txt` | Transitive dependencies are not pinned and there are no hashes, so a later install can resolve different indirect versions |
+| Cryptographic libraries | `@noble/ciphers` chosen for zero transitive dependencies; `hash-wasm` and python-cryptography are the only other crypto code | — |
+| Scripts on application pages | CSP `script-src 'self'`: the app loads no third-party script | `/docs` and `/redoc` do — see §11.2 |
+| Automation | CI runs lint, type checks and tests on every PR and every push to `main` | No Dependabot or Renovate; no `npm audit` or `pip-audit` in CI; GitHub Actions pinned by major tag (`@v4`), not by commit |
 
-## 12. Revision history
+**Point-in-time scan, 2026-09-30:** `npm audit` (production and development) and `pip-audit -r
+backend/requirements.txt`, the latter run in an isolated virtual environment, both reported **no
+known vulnerabilities**. That is a snapshot, not a policy: nothing re-runs it. → F-12.
+
+### 11.2 Content Security Policy and its exceptions
+
+The application's CSP is strict: `default-src 'self'`, `script-src 'self' 'wasm-unsafe-eval'`,
+`connect-src 'self'`, `object-src 'none'`, `frame-ancestors 'none'`. Each relaxation is listed
+with the reason it exists.
+
+| Where | Relaxation | Why | Risk |
+|---|---|---|---|
+| App | `'wasm-unsafe-eval'` | hash-wasm compiles Argon2id as WebAssembly. Without it no account could unlock. Confirmed working on staging by `/benchmark/argon2` (§9) | Permits WebAssembly compilation only, not `eval` of JavaScript |
+| App | `style-src 'unsafe-inline'` | Inline styles from Vue components and libraries | CSS injection only. Tokens are not in the DOM for selectors to read |
+| App | `img-src data: blob:` | Images from `data:` and `blob:` URLs | Images carry no script |
+| `/docs`, `/redoc` | `script-src 'unsafe-inline' https://cdn.jsdelivr.net` | FastAPI's Swagger UI and ReDoc pages | **The one place third-party code runs on the application's origin** → F-03 |
+
+`/docs` loads `https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js`. The version
+floats across every future 5.x release, and there is **no Subresource Integrity** attribute
+(checked on staging: zero `integrity=` attributes). It runs on `https://secureview.tech`, the same
+origin whose `localStorage` holds every signed-in user's access and refresh tokens (T-I4). A
+compromised release of that package, or of the CDN, could read the tokens of any signed-in user
+who opens `/docs`. It could not decrypt files, which still need the passphrase or key file, but it
+could take over sessions. This raises T-I6 from the low severity recorded in v0.1.
+
+### 11.3 Upload abuse
+
+Each upload is capped at 500 MiB, in both nginx and the backend, and `/api/` is rate-limited to 10
+requests per second per IP with a burst of 20. There is **no per-user storage quota**, so one
+verified account can keep uploading until the disk fills. The filesystem alert at 85 % is the only
+control → F-09. Separately, in-browser encryption holds about four times the file size in memory
+at its peak — measured at exactly 4.00× — which is ~2 GB for a 500 MiB file, and phones are
+likely to fail → F-19.
+
+### 11.4 Token storage
+
+Access tokens (30 minutes) and refresh tokens (7 days) are stored in `localStorage`, readable by
+any script running on the origin. The alternative, `HttpOnly` cookies, keeps tokens away from
+scripts, but it needs CSRF protection and changes to how the backend issues and reads sessions.
+The existing controls are the strict application CSP, hashed tokens server-side, and refresh
+rotation with family revocation on replay. The private key is unaffected: it is held as a
+non-extractable `CryptoKey`, and `localStorage` never contains it. **Decision:** accept at FYP
+scope, and remove the one weakening of the CSP (F-03) → F-07.
+
+### 11.5 Offline recovery operations
+
+The recovery workflow's code enforces maker ≠ checker, rechecks the live grant before executing,
+and accepts no recovery private key on any endpoint. What the code cannot enforce is the custody
+around it:
+
+- The custody procedure in [BACKUP_AND_RECOVERY.md § 7](BACKUP_AND_RECOVERY.md#7-recovery-key-custody)
+  is marked *proposed*. In practice, the staging recovery private key is an **unencrypted PEM on a
+  team member's workstation**, which also keeps a plaintext copy → F-02.
+- One RECOVERY_OFFICER may both approve and execute a request → F-13.
+- An execution package already delivered cannot be recalled after revocation. This was already
+  recorded in [SECURITY_FLOWS.md](SECURITY_FLOWS.md#offline-recovery-boundary) and is accepted.
+
+## 12. Findings register
+
+Issue #60 criterion 7. Every open, accepted or deferred item from §7–§11, in one place.
+
+**Severity** is impact × likelihood *in this deployment*:
+- *High* — a realistic path to many users' file plaintext or keys, or to shipping arbitrary code.
+- *Medium* — sessions or one user's data, given a plausible precondition.
+- *Low* — limited impact, a demanding precondition, or a defence-in-depth gap.
+- *Info* — a recorded fact, a coverage gap, or usability.
+
+**Disposition:**
+- *Recommended* — small, worth doing, not done in this review.
+- *Accepted* — the risk is carried deliberately at FYP scope.
+- *Deferred* — would be done if the project continues.
+- *Resolved* — fixed during the review.
+
+The owner column names one of the project's two defined roles, or *Unassigned* where neither fits.
+
+| ID | Finding | Threats | Severity | Disposition | Owner | Evidence |
+|---|---|---|---|---|---|---|
+| F-01 | `main` has no branch protection, and server-pull deployment does not wait for CI. A direct push reaches production unreviewed | T-E5 | **High** | Recommended — enable branch protection with required review and CI; gate the deploy on a green CI run | Testing & Deployment Lead | `gh api …/branches/main/protection` → 404; `mcs21-auto-deploy` never queries CI |
+| F-02 | Staging recovery private key held as an unencrypted PEM on a workstation, with a plaintext copy, not in the proposed offline custody | T-I8 | **High** | Recommended — move it into the proposed custody: passphrase-protected, offline, two holders | Crypto & Security Lead | §11.5; BACKUP_AND_RECOVERY § 7 marked *proposed* |
+| F-03 | `/docs` runs a floating third-party script (`swagger-ui-dist@5`, no SRI) on the origin that stores tokens | T-I6, T-I4 | **Medium** | Recommended — set `APP_DOCS_ENABLED=false` on staging; configuration only | Testing & Deployment Lead | §11.2; `/docs` → 200, zero `integrity=` |
+| F-04 | Passphrase check is length-only, so leaked-list passphrases pass and fall in under two days on one laptop | T-I2 | **Medium** | Recommended — reject known-weak passphrases in the browser (R-1) | Crypto & Security Lead | §9.4–9.5 |
+| F-05 | Recovery public key can be substituted by a data writer; every later upload is then wrapped to it, silently | T-S4 | **Medium** | Accepted; first control if continued: compile allowed fingerprints into the frontend | Crypto & Security Lead | §10.2 |
+| F-06 | Recipient and owner public keys can be substituted by a data writer | T-S5, T-S7 | Low | Accepted | Crypto & Security Lead | §10.2 |
+| F-07 | Access and refresh tokens are readable by any script on the origin | T-I4, T-S3 | **Medium** | Accepted, conditional on F-03 being fixed | Unassigned | §11.4 |
+| F-08 | Registration reveals whether a username or email exists, before checking the verification code | T-S2 | Low | Deferred — check the code first, and answer uniformly | Unassigned | §7.1 |
+| F-09 | No per-user storage quota; one account can fill the disk | T-D2 | Low | Accepted — 85 % filesystem alert | Testing & Deployment Lead | §11.3 |
+| F-10 | External audit checkpoints are implemented but not operating on staging | T-T6, T-R2 | Low | Deferred — complete OBSERVABILITY § 8 | Testing & Deployment Lead | OBSERVABILITY § 8 `<pending>` rows |
+| F-11 | Other staging verifications pending: loopback bind, 30-day bucket lock, log-redaction check | TB2, TB7, T-I5 | Low | Deferred — same evidence table | Testing & Deployment Lead | OBSERVABILITY § 8; BACKUP staging record |
+| F-12 | Backend transitive dependencies unpinned and unhashed; no automated vulnerability scanning; Actions pinned by tag | T-T5 | Low | Accepted — no known vulnerabilities on 2026-09-30; deferred: lock with hashes and add `pip-audit` / `npm audit` to CI | Testing & Deployment Lead | §11.1 |
+| F-13 | One recovery officer may both approve and execute | T-R3 | Low | Accepted | Unassigned | SECURITY_FLOWS § Offline Recovery |
+| F-14 | Key bundles, profiles and public keys can be rolled back to older valid versions | T-T4 | Low | Accepted | Crypto & Security Lead | §10.2 |
+| F-15 | KDF cost could be quadrupled at under 0.6 s per unlock on the tested clients | T-I2 | Info | Deferred until a low-end Android device is measured (R-2) | Crypto & Security Lead | §9.5 |
+| F-16 | Argon2id not measured on Android, Firefox or low-end hardware; Safari unexplainedly 6× slower at 128 MiB | — | Info | Deferred | Crypto & Security Lead | §9.2 |
+| F-17 | Filenames, MIME types, exact sizes, timestamps and the sharing graph are visible to the server | T-I3 | Info | Accepted — decided in §10.3 | Crypto & Security Lead | §10.3 |
+| F-18 | The exported private key is a plaintext `.pem` | T-I7 | Info | Accepted — decided in §10.1 | Crypto & Security Lead | §10.1 |
+| F-19 | In-browser encryption peaks at ~4× file size, so large uploads can fail on phones | T-D3 | Low | Accepted — belongs to the upload work | Unassigned | §11.3 |
+| F-20 | Unknown routes render a blank page instead of a "not found" page | — | Info | Deferred — usability | Unassigned | Observed on staging |
+
+**Resolved during the review:**
+- The ten corrections from the peer review of v0.1 (#109), covered in §13.
+- The registration page no longer claims the passphrase cannot be reset (#110).
+
+## 13. Review record
+
+Issue #60's title asks for an *independent* security review. What actually happened is recorded
+here, without upgrading it.
+
+| Review | By | What it covered | Outcome |
+|---|---|---|---|
+| Self-assessment, v0.1–1.0 | The Crypto & Security Lead, who implemented much of the cryptography under review | This whole document | Findings in §12 |
+| Peer review of v0.1 (#107) | A teammate who did not write the cryptography | Accuracy of every claim in §1–§8 against the code | 10 points raised, all confirmed against the implementation and corrected in v0.3 (#109). Applying its principle — *implemented is not deployed* — downgraded three further rows |
+
+**No independent external review took place.** The peer review is independent of the author but
+not of the project. Nothing in this document certifies SecureView against any standard, and it
+should not be cited as though it did. An external review would start from §12, and from F-01 and
+F-02 in particular.
+
+## 14. Revision history
 
 | Version | Change |
 |---|---|
@@ -447,3 +571,4 @@ Filled in by the last step of Issue #60.
 | 0.2 | §9: Argon2id measured on three clients and against a native attacker; verdict on the 10-character minimum; recommendations R-1 and R-2. |
 | 0.3 | Peer-review corrections: O1 scoped to trusted client code; TB0 lists everything that actually crosses; N2 and AAD scope; AMK and KEK separated; recipient fingerprint is **not** shown (T-S5); CI does run on pushes to `main` but deployment does not wait for it (T-E5); download audit proves authorization, not receipt (T-R1); recovery-key custody split into intended vs staging; external checkpoints, bucket lock, loopback bind and log redaction marked implemented-but-unverified; owner-key substitution added as T-S7. |
 | 0.4 | §10: decisions on the exported private key and lost-passphrase limits, on public-key identity, rollback and the trust anchor (new adversary X8), and on cleartext metadata with a leakage inventory. T-S4, T-S5, T-S7, T-T4, T-I3 and T-I7 now point to their decisions. |
+| 1.0 | §11: supply chain (point-in-time scans clean), CSP exceptions, upload abuse, token storage and recovery operations. T-I6 raised to Medium: `/docs` runs an unpinned third-party script on the token-bearing origin. §12: register of 20 findings with severity, disposition, owner and evidence. §13: review record, stating that no independent external review took place. |

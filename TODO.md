@@ -136,14 +136,14 @@ not a release pass.
   `VALID`/`ACTIVE`, and the SHA-256 versus AEAD trust boundary; CI retains a sanitized report
   ([runbook](security-lab/README.md)).
 
-- [ ] [#60 Complete the formal threat model and independent security review](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
-  — cover account envelopes, Argon2id, token/key custody, metadata, recovery, CSP, dependencies,
-  and residual trust boundaries without claiming certification. Steps 1–3 of 4 are in
-  [THREAT_MODEL.md](docs/THREAT_MODEL.md): assets, actors, trust boundaries, non-goals, STRIDE,
-  abuse cases, measured Argon2id cost with a verdict on the passphrase minimum, and decisions on
-  key-file custody, public-key identity and cleartext metadata. Still open: supply chain and the
-  findings register. The review is a
-  self-assessment, not an independent one.
+- [x] [#60 Complete the formal threat model and independent security review](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
+  — complete in [THREAT_MODEL.md](docs/THREAT_MODEL.md) v1.0: objectives and non-goals, STRIDE,
+  measured Argon2id cost, key-custody, key-identity and metadata decisions, a review of supply chain,
+  CSP, uploads, tokens and recovery operations, and a register of 20 findings with severity and
+  disposition. It is a self-assessment with one peer review, not an independent external review,
+  and certifies nothing. Four *Recommended* findings remain unimplemented: F-01 branch protection
+  and CI-gated deploys, F-02 recovery-key custody, F-03 disabling `/docs` on staging, and F-04
+  weak-passphrase rejection.
 
 ## P3 — planned product UX
 
