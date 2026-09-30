@@ -38,6 +38,9 @@ const router = createRouter({
     { path: '/education', component: CommunityPage },
     { path: '/help', component: HelpPage },
     { path: '/team', component: TeamPage },
+    // Threat-model evidence (Issue #60). Public and account-free; lazy so it adds nothing to
+    // the main bundle.
+    { path: '/benchmark/argon2', component: () => import('@/pages/Argon2BenchmarkPage.vue') },
   ],
 })
 
