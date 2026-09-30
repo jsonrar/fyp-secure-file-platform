@@ -4,7 +4,7 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 
 | | |
 |---|---|
-| Version | 0.3 — accuracy corrections from peer review of v0.1; owner-key substitution added |
+| Version | 0.4 — key custody, public-key identity and metadata decisions (§10) |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
 | Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech` |
@@ -101,6 +101,7 @@ credit the system with protections it does not claim.
 | X5 | Supply-chain attacker | Publish a malicious version of a dependency or push to `main` | See T-T5 and T-E5 |
 | X6 | Insider on the team with repository write access | Merge to `main`, which auto-deploys | Bypass review (currently possible — T-E5) |
 | X7 | Malicious recipient | Everything U3 can | Anything beyond N5 |
+| X8 | **Data writer without code control:** a compromised backend process, a leaked runtime database credential, or an injection flaw | Read and **rewrite any database row** — public keys, recovery keys, bundles, grants. It **cannot** change the code browsers run: the release tree is owned by `mcs21-deploy`, world-readable only, and served by nginx, while the backend runs as `fypapp` | Read files (O1 still holds); see §10.2 for what rewriting public keys gains it |
 
 ## 6. Trust boundaries
 
@@ -139,10 +140,10 @@ Each threat has a stable ID for later steps and for the findings register (step 
 | T-S1 | Password guessing against login | Argon2id hashes; per-account and per-IP throttles in `auth_login_throttles`; nginx `secureview_auth` at 12 requests per minute per IP | Mitigated |
 | T-S2 | Account enumeration through registration, code sending or password reset | Code sending and password reset answer identically whether or not the account exists, and spend the allowance either way | Partial — `POST /auth/register` answers `409 account_identifier_unavailable` for a taken username **or** email, and checks this *before* the verification code, so existence can be probed without a valid code. Bounded only by the per-IP registration throttle. Step 4. |
 | T-S3 | Session hijack by token theft | Tokens stored only as SHA-256; access 30 min, refresh 7 days, absolute 7 days; a replayed refresh token revokes the whole session family (`AUTH_REFRESH_REPLAY_DETECTED`) | Partial — see T-I4 for where tokens are kept |
-| T-S4 | Substituted **recovery public key**, so every future upload is wrapped to an attacker | Browser recomputes the fingerprint from the PEM and displays it; the API's own fingerprint field is never trusted | Partial — nothing pins it; the user must compare out of band. Step 3. |
-| T-S5 | Substituted **recipient public key** during sharing | Recipient resolved by exact username or email; the browser wraps the DEK to whatever `public_key_pem` the API returns | Open — the sharing flow neither recomputes, shows, pins nor asks the sender to confirm the recipient's fingerprint. Step 3. |
+| T-S4 | Substituted **recovery public key**, so every future upload is wrapped to an attacker | Browser recomputes the fingerprint from the PEM and displays it; the API's own fingerprint field is never trusted | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The highest-impact of the three substitutions, and the first to fix if the project continues. |
+| T-S5 | Substituted **recipient public key** during sharing | Recipient resolved by exact username or email; the browser wraps the DEK to whatever `public_key_pem` the API returns | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The sharing flow neither recomputes, shows, pins nor asks the sender to confirm the recipient's fingerprint. |
 | T-S6 | Forged emailed verification code | 10-minute TTL, attempt limit, HMAC digest keyed by `SECRET_KEY`, purpose and address | Mitigated |
-| T-S7 | Substituted **owner public key** during upload, so the owner's own wrapping goes to an attacker | The browser takes the owner key from `GET /keys/me` and wraps the DEK to it | Open — like T-S4 and T-S5, nothing pins the owner's own key. Step 3 treats all three as one public-key identity problem. |
+| T-S7 | Substituted **owner public key** during upload, so the owner's own wrapping goes to an attacker | The browser takes the owner key from `GET /keys/me` and wraps the DEK to it | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). Detected, late, when the owner first fails to open a new file. |
 
 ### 7.2 Tampering
 
@@ -151,7 +152,7 @@ Each threat has a stable ID for later steps and for the findings register (step 
 | T-T1 | Altering ciphertext at rest or in transit | AEAD tag; the server also verifies SHA-256 before serving | Mitigated |
 | T-T2 | Relabelling a file's name, MIME type, size or algorithm | All bound into AAD-3; any change fails authentication ([FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md)) | Mitigated |
 | T-T3 | Replacing a user's key envelopes with garbage to lock them out | Rewrap, key addition and passphrase reset all require an RSA-PSS signature by the account private key, each under its own domain label | Mitigated |
-| T-T4 | **Rolling back** a key bundle, protection profile or file to an earlier valid version | Optimistic revisions stop concurrent writers, but the client does not pin what it last saw | Open — a malicious server can serve an older valid state. Step 3. |
+| T-T4 | **Rolling back** a key bundle, protection profile or file to an earlier valid version | Optimistic revisions stop concurrent writers; files are immutable and AAD-3 binds `file_id`, so one file cannot be served as another | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The dangerous case, re-activating a retired public key, is the substitution case again. |
 | T-T5 | Malicious dependency version | Lockfiles; `@noble/ciphers` chosen for zero transitive dependencies | Partial — no provenance or audit gate. Step 4. |
 | T-T6 | Rewriting the audit log consistently | Hash chain in the database; external HMAC-authenticated chain-head checkpoints implemented in `backend/scripts/audit_checkpoint.py`, with the HMAC key never given to the backend | Partial — the hash chain is live. The external checkpoints exist in the repository, but the first staging upload and its off-host verification are still pending, so no external trust anchor is in operation yet. |
 | T-T7 | Tampering with an execution package during offline recovery | Server rechecks identities, lengths and the live grant before accepting the rewrap | Partial — the offline workstation is procedural (TB8) |
@@ -170,11 +171,11 @@ Each threat has a stable ID for later steps and for the findings register (step 
 |---|---|---|---|
 | T-I1 | Database or disk theft exposes file contents | Nothing on the server opens a DEK (O1) | Mitigated |
 | T-I2 | Database theft enables **offline passphrase guessing** | Argon2id at 64 MiB and 3 iterations; minimum 10 characters | Partial — measured in [§9](#9-argon2id-cost-and-the-passphrase-minimum): the KDF cost is adequate, but the length-only check admits passphrases that fall in minutes. |
-| T-I3 | Metadata leakage: filenames, sizes, sharing graph | None beyond access control | Accepted (N2); the encrypted-manifest decision is step 3 |
+| T-I3 | Metadata leakage: filenames, sizes, sharing graph | None beyond access control | Accepted — decided in [§10.3](#103-metadata-and-traffic-leakage); the encrypted-manifest decision is step 3 |
 | T-I4 | **XSS steals tokens** from `localStorage` | CSP `script-src 'self' 'wasm-unsafe-eval'`, `object-src 'none'`, `frame-ancestors 'none'`. Vue escapes interpolation; the only two `v-html` sinks render bundled content — the logo SVG and the static knowledge-base articles, which `render-knowledge-content.ts` escapes before formatting — so no user- or server-supplied string reaches them today. | Partial — any future XSS reads both tokens. It still cannot extract the private key: it is held as a non-extractable `CryptoKey` and relocks after 15 idle minutes. It *can* use the key to decrypt while it is unlocked. |
 | T-I5 | Secrets in logs | Documented exclusion list; `repr=False` on secret fields; [OBSERVABILITY § 7](OBSERVABILITY_AND_INCIDENT_RESPONSE.md#7-verification-that-sensitive-data-stays-out) | Partial — controls are in code; the live check that redaction markers are absent from staging outputs is still pending in OBSERVABILITY § 8 |
 | T-I6 | **Public API documentation on staging** | `/docs`, `/redoc` and `/openapi.json` answer `200` on `https://secureview.tech`, and those locations use a relaxed CSP that loads script from `cdn.jsdelivr.net` | Open — low severity. Recorded in step 4. |
-| T-I7 | The plaintext PEM export is mishandled by the user | Shown once with a warning; read locally and never uploaded when used | Accepted — custody decision in step 3 |
+| T-I7 | The plaintext PEM export is mishandled by the user | Shown once with a warning; read locally and never uploaded when used | Accepted — custody decided in [§10.1](#101-the-exported-private-key-and-the-limits-of-a-lost-passphrase) |
 | T-I8 | Recovery private key exposure | Custody procedure in [BACKUP_AND_RECOVERY.md § 7](BACKUP_AND_RECOVERY.md#7-recovery-key-custody) | Open — the procedure is marked *proposed*, and the current staging recovery key is held as an unencrypted PEM on a team member's workstation, not offline. Step 3. |
 | T-I9 | A share recipient keeps what they downloaded | — | Accepted (N5) |
 
@@ -325,19 +326,124 @@ This leads to two recommendations for the findings register (step 4):
   their next passphrase change or reset. **Do not change it until** a low-end Android device has
   been measured and the Safari 128 MiB anomaly reproduced.
 
-## 10. Planned sections
+## 10. Key custody, public-key identity and metadata
 
-Filled in by the next steps of Issue #60.
+Issue #60 criteria 3, 4 and 5. Each asks for a **decision**, not only an analysis. The decisions
+below are taken at FYP scope: none of these items appears in `TODO.md` or any Issue, and the
+project deliberately does not build them. Each decision records what it accepts and, where it
+matters, the cheapest effective control if the project continues.
+
+### 10.1 The exported private key and the limits of a lost passphrase
+
+**What the file is.** At registration the browser shows, once, the account private key as a
+plaintext PKCS#8 `.pem` and offers it as a download. It carries no passphrase. Whoever holds it:
+
+- can open every file key wrapped to the account, given the ciphertext and wrapped keys — which
+  take a signed-in session or a database dump to obtain;
+- together with a signed-in session, can set a new encryption passphrase (§ Passphrase reset in
+  [SECURITY_FLOWS.md](SECURITY_FLOWS.md#passphrase-reset-with-the-private-key-file)).
+
+It is therefore the account's master credential for everything cryptographic, and more powerful
+than the passphrase, which only opens a stored copy of it.
+
+**What losing things costs.**
+
+| Lost | Outcome |
+|---|---|
+| Login password only | Reset by emailed code; files unaffected |
+| Encryption passphrase, key file kept | Set a new passphrase in Settings with the key file (single-key accounts); files unaffected |
+| Both passphrase and key file | **Files are unrecoverable.** Admin recovery does not help: it rewraps a DEK to the user's *registered* public key, whose private half is exactly what was lost, and it cannot register a replacement key |
+| Key file stolen | The thief needs a session or a dump as well to reach ciphertext. Resetting the passphrase does not help — the key pair is unchanged — and there is no key-revocation flow in the browser |
+
+**Decision.** Keep the plaintext `.pem` export. It is the only recovery factor independent of the
+passphrase, and adding an encrypted export would mean a second secret the user must also keep,
+which is what makes people lose both. Custody guidance stays in the product, not only here. The
+registration page now states the limits correctly. Until this change it still told users the
+passphrase "cannot be reset", which stopped being true when the key-file reset shipped.
+
+*If the project continues:* an encrypted recovery kit — a random recovery code that derives a
+second KEK wrapping the same AMK — would let a user print something safe to store. It needs a
+second protection profile, which is a schema change.
+
+### 10.2 Public-key identity, rollback and the trust anchor
+
+Every wrap the browser performs uses a public key the server supplied: the owner's own key from
+`GET /keys/me`, a recipient's from the identifier lookup, and the recovery key from
+`GET /recovery/public-key`. The question is who can substitute them.
+
+- **Against a malicious code supplier (X4), nothing here helps.** Code that can replace keys can
+  also delete the check that would catch it. This is N1, and it stands.
+- **Against a data writer without code control (X8), a check in the browser does help**, because
+  X8 can rewrite the rows the browser reads but not the browser's code. The release tree is
+  owned by `mcs21-deploy` and only readable by others, while the backend runs as `fypapp`.
+  X8 is the adversary this section is about.
+
+What X8 gains by substituting each key:
+
+| Key | Gain for X8 | Noticed? | Cheapest effective control |
+|---|---|---|---|
+| Recovery (T-S4) | Every later upload's recovery wrapping — X8 can decrypt **every new file of every user** | Only if someone compares the fingerprint the upload page shows | A list of allowed recovery fingerprints **compiled into the frontend**, refusing to upload on mismatch. Rotation becomes a reviewed code change. |
+| Recipient (T-S5) | Every file shared to that recipient from then on | Late — the real recipient cannot open the file | Show the recipient's fingerprint in the share dialog; pin it on the sender's device on first use and warn if it changes |
+| Owner (T-S7) | The owner-wrapping of each new upload | Late — the owner cannot open the new file | Pin the owner's own fingerprint on the device at registration or first unlock — the registration page already shows it — and compare before each upload |
+
+**Rollback (T-T4).** Files cannot be rolled back meaningfully: they are immutable, and AAD-3 binds
+each ciphertext to its own `file_id`. Serving an older protection profile only helps someone who
+knows the older passphrase, and they already hold a copy of that envelope. The one dangerous
+rollback is re-activating a *retired public key*, for instance a recovery key rotated after
+suspected compromise. That is the substitution case in the table above, with the same control.
+
+**The trust anchor.** Only one thing the browser can trust is independent of the server's data:
+the code it was built from, which comes from reviewed Git history. Any durable pinning has to
+live there. Device-local trust-on-first-use is weaker — it binds nothing on a new device and
+nothing after cleared storage. The build-time anchor, in turn, is only as strong as the path from
+Git to production, which makes **T-E5 (no branch protection, deployment not gated on CI) a
+prerequisite**, not a separate concern.
+
+**Decision.** Accept T-S4, T-S5, T-S7 and T-T4 at FYP scope. None is in `TODO.md` or any Issue, and
+X8 is an adversary that has already compromised the backend or its database. If the project
+continues, the recovery-key pin comes first: it has the largest blast radius, it is silent, and
+it is the smallest change.
+
+### 10.3 Metadata and traffic leakage
+
+**Decision.** Keep the filename and MIME type in cleartext. The server-side filename search
+(`File.original_filename LIKE …`) and the file list depend on them. Moving them into the
+`encrypted_manifest` column the schema already reserves would require an unlock before any
+filename could be shown, and would move search into the browser — a large change against a
+privacy gain that N2 already declares out of scope. Their *integrity* is protected either way: all
+three are bound into AAD-3.
+
+*If the project continues:* the path is `envelope_version = 2`, carrying the filename and MIME type
+in the encrypted manifest and exposing only padded or coarse values, as
+[FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md) already notes.
+
+What the server can therefore observe, recorded rather than implied:
+
+| Observable | Source | Precision |
+|---|---|---|
+| Filename, MIME type | `files` columns | Exact |
+| File size | `file_size_bytes`; AES-GCM and ChaCha20-Poly1305 ciphertext is the same length as the plaintext | **Exact** — no padding |
+| Upload, update and deletion times | `files` timestamps | Exact |
+| Who owns what and who shares with whom, with which capabilities | `files`, `file_access_grants` | Exact |
+| When each file was requested for download, and by whom | `FILE_DOWNLOAD_AUTHORIZED` audit rows | Exact, per request |
+| Recovery activity | `recovery_requests`, audit rows | Exact |
+| IP address and user agent per session and per audited action | `user_sessions`, `audit_logs` | Exact |
+| Chosen encryption algorithm and KDF cost | `files`, `user_key_protection_profiles` | Exact |
+| On the wire, to a network observer under TLS | — | Transfer sizes and timing; download size equals the file size |
+
+## 11. Planned sections
+
+Filled in by the last step of Issue #60.
 
 | Step | Section | Issue #60 criterion |
 |---|---|---|
-| 3 | PEM export custody and lost-passphrase limits; rollback; owner-, recipient- and recovery-key substitution (T-S4, T-S5, T-S7) with fingerprint and revision pinning and an independent trust anchor; encrypted-manifest decision and residual metadata leakage | 3, 4, 5 |
 | 4 | Dependency and supply-chain policy, CSP exceptions, upload abuse, token storage, offline recovery operations; findings register with severity, disposition and evidence | 6, 7 |
 
-## 11. Revision history
+## 12. Revision history
 
 | Version | Change |
 |---|---|
 | 0.1 | Objectives, non-goals, assets, actors, trust boundaries, STRIDE analysis, abuse cases. |
 | 0.2 | §9: Argon2id measured on three clients and against a native attacker; verdict on the 10-character minimum; recommendations R-1 and R-2. |
 | 0.3 | Peer-review corrections: O1 scoped to trusted client code; TB0 lists everything that actually crosses; N2 and AAD scope; AMK and KEK separated; recipient fingerprint is **not** shown (T-S5); CI does run on pushes to `main` but deployment does not wait for it (T-E5); download audit proves authorization, not receipt (T-R1); recovery-key custody split into intended vs staging; external checkpoints, bucket lock, loopback bind and log redaction marked implemented-but-unverified; owner-key substitution added as T-S7. |
+| 0.4 | §10: decisions on the exported private key and lost-passphrase limits, on public-key identity, rollback and the trust anchor (new adversary X8), and on cleartext metadata with a leakage inventory. T-S4, T-S5, T-S7, T-T4, T-I3 and T-I7 now point to their decisions. |
