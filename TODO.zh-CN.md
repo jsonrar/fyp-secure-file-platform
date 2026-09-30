@@ -118,11 +118,12 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   `MODIFIED`/`CORRUPTED`、下载拒绝、`MISSING`、恢复到 `VALID`/`ACTIVE`，以及 SHA-256 与 AEAD
   的信任边界；CI 会保留脱敏报告（[运行手册](security-lab/README.md)）。
 
-- [ ] [#60 完成正式威胁模型与独立安全评审](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
-  ——覆盖账户信封、Argon2id、token/密钥托管、metadata、恢复、CSP、依赖及残余信任边界，
-  且不得声称已经认证。4 步中的第 1–3 步已写入 [THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md)：
-  资产、参与者、信任边界、非目标、STRIDE、滥用场景、Argon2id 实测成本和对 passphrase 最短长度的结论，
-  以及关于密钥文件保管、公钥身份与明文元数据的决定。仍待完成：供应链，以及发现登记表。该评审为自评，而非独立评审。
+- [x] [#60 完成正式威胁模型与独立安全评审](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
+  ——已在 [THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md) v1.0 中完成：目标与非目标、STRIDE、Argon2id
+  实测成本、密钥保管、公钥身份与元数据的决定，对供应链、CSP、上传、令牌与恢复操作的评审，以及含严重度与处置
+  的 20 项发现登记表。它是一份经过一次同行评审的自评，而非独立的外部评审，不构成任何认证。有四项*建议修复*
+  的发现尚未实施：F-01 分支保护与以 CI 为门槛的部署、F-02 恢复私钥保管、F-03 在预发布环境关闭 `/docs`、
+  F-04 拒绝弱 passphrase。
 
 ## P3 — 计划中的产品 UX
 
