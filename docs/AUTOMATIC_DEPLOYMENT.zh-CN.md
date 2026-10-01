@@ -100,25 +100,34 @@ sudo mcs21-deploy all
 
 ### 发布自己安装的运维 unit
 
-发布上线且健康之后，`mcs21-deploy` 会从该发布中安装并启用**一个**运维 unit：`mcs21-integrity-sweep.{service,timer}`
-（每日完整性扫描，见 [BACKUP_AND_RECOVERY.zh-CN.md](BACKUP_AND_RECOVERY.zh-CN.md) 第 9 节）。名单在脚本里固定
+发布上线且健康之后，`mcs21-deploy` 会从该发布中安装并启用**两个**运维 unit：`mcs21-integrity-sweep.{service,timer}`
+（每日 05:30 的完整性扫描，见 [BACKUP_AND_RECOVERY.zh-CN.md](BACKUP_AND_RECOVERY.zh-CN.md) 第 9 节）和
+`mcs21-security-agent.{service,timer}`（每日 06:00 的安全 Agent 检查，有 Critical 或 High 发现时发邮件，见
+[SECURITY_AGENT.zh-CN.md](SECURITY_AGENT.zh-CN.md)）。两者都以 `fypapp` 运行且只读：扫描读对象存储，Agent 读数据库。名单在脚本里固定
 （`ops_units`），因为放进 `/etc/systemd/system` 的文件会以它指定的账户运行，若发布里任何文件都能变成 unit，
 “通过 CI 的提交”就等于“以 root 运行任意代码”。安装前脚本检查：服务以 `fypapp` 运行，只启动
 `/opt/mcs21/current/backend/.venv/bin/python scripts/<名称>.py`，没有 `+`/`!` 特权钩子，timer 启动的就是同一服务；
 然后与已安装的副本比较，仅在变化时原子替换，运行 `systemd-analyze verify`，重载 systemd，若 timer 尚未启用则启用。
 失败只会打印并记审计警告，不会让已经健康的部署变成失败。`test_ops_units.py` 会用脚本自己的检查去验证随附的
-unit，以及必须被拒绝的各种变体。
+两个 unit，以及必须被拒绝的各种变体，并把名单固定为恰好 `(mcs21-integrity-sweep mcs21-security-agent)`。
 
 其余运维 unit（`mcs21-reconcile`、`mcs21-audit-checkpoint`、备份与 observe）仍是有意的手动安装：有的以 root
 运行，有的会删除数据。
 
-这要在 VPS 上装上更新后的 `/usr/local/sbin/mcs21-deploy` 之后才生效，只有拥有 root 的人能做：
+这要在 VPS 上装上更新后的 `/usr/local/sbin/mcs21-deploy` 之后才生效，只有拥有 root 的人能做。名单写在这个脚本里，
+所以名单一变就要重新安装（加入安全 Agent 时就变了）。`install` 成功时不输出任何内容。unit 是在部署过程中安装的，
+所以要么等下一次发布，要么把当前版本重新部署一次：
 
 ```bash
 sudo install -m 0755 -o root -g root /opt/mcs21/current/deployment/server/mcs21-deploy /usr/local/sbin/mcs21-deploy
+sudo mcs21-auto-deploy force
+systemctl list-timers mcs21-integrity-sweep.timer mcs21-security-agent.timer
 ```
 
-此后的下一次发布，timer 会自动出现，无需其他步骤。
+一定要等 `/opt/mcs21/current` 指向的发布里已经有你要的名单之后再复制
+（`grep '^ops_units=' /opt/mcs21/current/deployment/server/mcs21-deploy`）；旧发布还是 current 时复制，装上的就是旧脚本。
+告警邮件脚本（`/usr/local/sbin/mcs21-alert`）同样是手动安装；重新安装后，安全 Agent 的告警才会带上“去管理后台查看”的提示，
+可用 `sudo systemctl start mcs21-alert@test.service` 测试。
 
 服务器还单独保存环境专用的 Git mirror、Deploy Key、Secret、备份与 sudo policy；这些
 环境专用内容不得复制进 Git。

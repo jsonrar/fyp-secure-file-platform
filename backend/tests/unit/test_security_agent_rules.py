@@ -282,3 +282,166 @@ def test_the_agent_only_ever_suggests_the_dry_run_of_a_restore() -> None:
         # "run without --apply first" is the instruction; a command that applies is never given.
         text = finding.recommended_action.replace("without --apply", "")
         assert "--apply" not in text
+
+
+# --- v2: a sign-in that worked after guessing, and throttle blocks ---------------------------
+
+
+def _success(at=None, *, actor="victim", source="203.0.113.7", admin=False) -> Event:
+    return Event(at=at or NOW - timedelta(minutes=30), actor=actor, source=source, admin=admin)
+
+
+def _takeovers(findings):
+    return [f for f in findings if f.rule_id == "SIGN_IN_AFTER_GUESSING"]
+
+
+def test_a_sign_in_after_five_failures_on_the_account_is_high_and_four_is_nothing() -> None:
+    success = _success()
+    start = success.at - timedelta(minutes=5)
+
+    four = _events(
+        4, every=timedelta(seconds=30), actor="victim", source="198.51.100.1", start=start
+    )
+    assert _takeovers(evaluate(_inputs(login_failures=four, login_successes=[success]))[0]) == []
+
+    five = _events(
+        5, every=timedelta(seconds=30), actor="victim", source="198.51.100.1", start=start
+    )
+    (finding,) = _takeovers(evaluate(_inputs(login_failures=five, login_successes=[success]))[0])
+    assert finding.priority == Priority.HIGH
+    assert finding.title == "victim signed in right after a run of failed sign-ins"
+    text = " ".join(finding.evidence)
+    assert "5 failed sign-ins" in text and "5 against this account, 0 from the address" in text
+    assert "Failures came from 1 address" in text
+    assert "from 203.0.113.7" in text  # where the success came from
+    assert "disable the account on the Users tab" in finding.recommended_action
+    assert "Access Records" in finding.recommended_action
+
+
+def test_five_failures_from_the_same_address_at_other_accounts_also_fire() -> None:
+    # Credential stuffing: one address tries several accounts, then gets into one of them,
+    # which itself had no failed attempt.
+    success = _success(actor="carol", source="203.0.113.50")
+    tried = [
+        Event(
+            at=success.at - timedelta(minutes=4, seconds=i * 20), actor=name, source="203.0.113.50"
+        )
+        for i, name in enumerate(["a1", "a2", "a3", "a4", None])
+    ]
+
+    (finding,) = _takeovers(evaluate(_inputs(login_failures=tried, login_successes=[success]))[0])
+    assert "0 against this account, 5 from the address that then signed in" in " ".join(
+        finding.evidence
+    )
+
+
+def test_an_administrator_signing_in_after_guessing_is_critical() -> None:
+    success = _success(actor="root-admin", admin=True)
+    failures = _events(
+        6, every=timedelta(seconds=10), actor="root-admin", start=success.at - timedelta(minutes=2)
+    )
+
+    (finding,) = _takeovers(
+        evaluate(_inputs(login_failures=failures, login_successes=[success]))[0]
+    )
+    assert finding.priority == Priority.CRITICAL
+    assert "Account: root-admin (administrator)" in finding.evidence
+
+
+def test_failures_older_than_the_span_or_after_the_success_do_not_count() -> None:
+    success = _success()
+    old = _events(
+        10, every=timedelta(seconds=5), actor="victim", start=success.at - timedelta(minutes=40)
+    )
+    after = _events(
+        10, every=timedelta(seconds=5), actor="victim", start=success.at + timedelta(seconds=5)
+    )
+
+    assert (
+        _takeovers(evaluate(_inputs(login_failures=old + after, login_successes=[success]))[0])
+        == []
+    )
+
+
+def test_failures_elsewhere_are_not_attributed_to_an_unrelated_sign_in() -> None:
+    success = _success(actor="bystander", source="192.0.2.200")
+    guessing = _events(
+        9,
+        every=timedelta(seconds=10),
+        actor="victim",
+        source="203.0.113.7",
+        start=success.at - timedelta(minutes=3),
+    )
+
+    assert (
+        _takeovers(evaluate(_inputs(login_failures=guessing, login_successes=[success]))[0]) == []
+    )
+
+
+def test_signing_in_again_on_the_same_failures_is_one_incident_not_two() -> None:
+    first = _success()
+    again = _success(first.at + timedelta(minutes=2))
+    failures = _events(
+        7, every=timedelta(seconds=10), actor="victim", start=first.at - timedelta(minutes=3)
+    )
+
+    findings, outcomes = evaluate(_inputs(login_failures=failures, login_successes=[first, again]))
+    (finding,) = _takeovers(findings)
+    assert "1 more sign-in to this account after that, with no new failures" in finding.evidence
+    assert next(o for o in outcomes if o.info.rule_id == "SIGN_IN_AFTER_GUESSING").findings == 1
+
+
+def test_a_second_run_of_guessing_that_works_again_is_a_second_incident() -> None:
+    first = _success()
+    later = _success(first.at + timedelta(hours=2))
+    failures = _events(
+        5, every=timedelta(seconds=10), actor="victim", start=first.at - timedelta(minutes=2)
+    )
+    failures += _events(
+        5, every=timedelta(seconds=10), actor="victim", start=later.at - timedelta(minutes=2)
+    )
+
+    assert (
+        len(
+            _takeovers(
+                evaluate(_inputs(login_failures=failures, login_successes=[first, later]))[0]
+            )
+        )
+        == 2
+    )
+
+
+def test_the_takeover_is_added_to_the_guessing_finding_not_a_third_finding_for_it() -> None:
+    success = _success()
+    failures = _events(
+        12, every=timedelta(seconds=10), actor="victim", start=success.at - timedelta(minutes=3)
+    )
+
+    findings, _ = evaluate(_inputs(login_failures=failures, login_successes=[success]))
+    # That guessing happened (source rule) and that it worked (takeover rule): two facts, two
+    # findings. The account rule stays quiet because it was one address.
+    assert sorted(f.rule_id for f in findings) == [
+        "LOGIN_GUESSING_SOURCE",
+        "SIGN_IN_AFTER_GUESSING",
+    ]
+
+
+def test_a_success_with_no_failures_before_it_is_nothing() -> None:
+    assert (
+        evaluate(_inputs(login_successes=[_success(), _success(actor="x", source=None)]))[0] == []
+    )
+
+
+def test_throttle_blocks_are_counted_and_graded_by_scope() -> None:
+    assert evaluate(_inputs())[0] == []
+
+    (accounts_only,) = evaluate(_inputs(throttled_accounts=2, throttle_policy="policy text"))[0]
+    assert accounts_only.rule_id == "SIGN_IN_THROTTLE_ACTIVE"
+    assert accounts_only.priority == Priority.LOW
+    assert "Blocked right now: 0 addresses, 2 accounts" in accounts_only.evidence
+    assert "Throttle policy: policy text" in accounts_only.evidence
+
+    (with_address,) = evaluate(_inputs(throttled_addresses=1, throttled_accounts=3))[0]
+    assert with_address.priority == Priority.MEDIUM
+    assert with_address.title == "The sign-in throttle is blocking 1 address and 3 accounts"
+    assert "not in the audit log" in " ".join(with_address.evidence)

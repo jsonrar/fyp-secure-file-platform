@@ -101,6 +101,15 @@ local, _, domain = address.partition("@")
 sender = str(Address(name, local, domain)) if name else address
 recipients = [part.strip() for part in os.environ["ALERT_TO"].split(",") if part.strip()]
 unit = os.environ["ALERT_UNIT"]
+# A fixed sentence per unit, never anything read from the unit's output.
+hint = []
+if unit == "mcs21-security-agent.service":
+    hint = [
+        "ExecMainStatus=3 means the security agent has Critical or High findings for the",
+        "last 24 hours; open Admin -> Security agent on the site for the details. Any other",
+        "status means the check itself could not run.",
+        "",
+    ]
 text = "\n".join(
     [
         f"Unit:  {unit}",
@@ -109,6 +118,7 @@ text = "\n".join(
         "",
         (work / "status").read_text(errors="replace").strip(),
         "",
+        *hint,
         "Journal output is intentionally withheld from email to prevent secret or user-data leakage.",
         f"Inspect locally: sudo journalctl -u {unit} -n 100 --no-pager",
         "",

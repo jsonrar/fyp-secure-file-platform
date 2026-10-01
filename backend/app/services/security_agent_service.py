@@ -6,9 +6,10 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
+from app.core.config import Settings, get_settings
+from app.core.time import to_api_utc, to_database_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext
-from app.domain.enums import SystemRole
+from app.domain.enums import LoginThrottleScope, SystemRole
 from app.domain.errors import AuthorizationError
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.agent_repository import AgentRepository, DamagedFileHistory
@@ -42,6 +43,7 @@ BOUNDARIES = [
 
 _WATCHED = {
     "login": "AUTH_LOGIN_FAILED",
+    "login_ok": "AUTH_LOGIN_SUCCEEDED",
     "replay": "AUTH_REFRESH_REPLAY_DETECTED",
     "download": "FILE_DOWNLOAD_AUTHORIZED",
     "share": "FILE_SHARED",
@@ -82,17 +84,52 @@ class SecurityAgentService:
         repository: AgentRepository | None = None,
         admin_repository: AdminRepository | None = None,
         audit_query: AuditQueryService | None = None,
+        settings: Settings | None = None,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self.db = db
         self.repository = repository or AgentRepository(db)
         self.admin_repository = admin_repository or AdminRepository(db)
         self.audit_query = audit_query or AuditQueryService(db=db)
+        self.settings = settings or get_settings()
         self.clock = clock
 
     def report(self, *, actor: ActorContext, window_hours: int) -> AgentReportOut:
+        """The report for the Security agent tab. Administrators only."""
         if actor.role is not SystemRole.ADMIN:
             raise AuthorizationError()
+        return self._build(
+            window_hours=window_hours,
+            verify_chain=lambda: self.audit_query.verify_chain(actor=actor),
+        )
+
+    def report_for_scheduled_check(self, *, window_hours: int) -> AgentReportOut:
+        """The same report for the daily check (scripts/security_agent_check.py).
+
+        That script runs on the server as the service account, so there is no signed-in actor to
+        check; the audit chain is verified through the clearly named trusted-job path instead.
+        No HTTP route calls this.
+        """
+        return self._build(
+            window_hours=window_hours,
+            verify_chain=self.audit_query.verify_chain_for_trusted_job,
+        )
+
+    def _throttle_policy(self) -> str:
+        s = self.settings
+        window = s.AUTH_LOGIN_WINDOW_SECONDS // 60
+        return (
+            f"an account is blocked for {s.AUTH_LOGIN_ACCOUNT_BLOCK_SECONDS // 60} minutes after "
+            f"{s.AUTH_LOGIN_ACCOUNT_MAX_FAILURES} failures in {window} minutes, an address for "
+            f"{s.AUTH_LOGIN_IP_BLOCK_SECONDS // 60} minutes after {s.AUTH_LOGIN_IP_MAX_FAILURES}"
+        )
+
+    def _build(
+        self,
+        *,
+        window_hours: int,
+        verify_chain: Callable[[], dict[str, int | bool | None | str]],
+    ) -> AgentReportOut:
         now = self.clock()
         window = timedelta(hours=window_hours)
         since = to_second_resolution_utc(now - window)
@@ -101,7 +138,12 @@ class SecurityAgentService:
         by_action: dict[str, list[Event]] = {action: [] for action in _WATCHED.values()}
         for row in rows:
             by_action[row.action].append(
-                Event(at=row.created_at, actor=row.actor_username, source=row.ip_address)
+                Event(
+                    at=row.created_at,
+                    actor=row.actor_username,
+                    source=row.ip_address,
+                    admin=row.actor_role == SystemRole.ADMIN,
+                )
             )
 
         damaged: list[DamagedFile] = []
@@ -121,12 +163,14 @@ class SecurityAgentService:
             )
 
         candidates, never_checked, _, last_sweep = self.admin_repository.integrity_coverage(since)
-        chain = self.audit_query.verify_chain(actor=actor)
+        chain = verify_chain()
+        blocks = self.repository.active_login_blocks(to_database_utc(now))
 
         inputs = AgentInputs(
             now=now.replace(tzinfo=None) if now.tzinfo else now,
             window=window,
             login_failures=by_action[_WATCHED["login"]],
+            login_successes=by_action[_WATCHED["login_ok"]],
             refresh_replays=by_action[_WATCHED["replay"]],
             downloads=by_action[_WATCHED["download"]],
             shares=by_action[_WATCHED["share"]],
@@ -142,6 +186,9 @@ class SecurityAgentService:
             last_sweep_at=last_sweep,
             checkable_files=candidates,
             never_checked_files=never_checked,
+            throttled_addresses=blocks.get(LoginThrottleScope.IP, 0),
+            throttled_accounts=blocks.get(LoginThrottleScope.ACCOUNT, 0),
+            throttle_policy=self._throttle_policy(),
         )
         findings, outcomes = evaluate(inputs)
 

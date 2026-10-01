@@ -291,7 +291,7 @@ verify_live() {
 # in /etc/systemd/system runs as whatever user it names, so letting any file in a release become
 # one would turn "a commit that passed CI" into "arbitrary code as root". Each name here must
 # pass the checks below, which pin the account, the program and the absence of root-only hooks.
-ops_units=(mcs21-integrity-sweep)
+ops_units=(mcs21-integrity-sweep mcs21-security-agent)
 systemd_dir="/etc/systemd/system"
 
 ops_unit_acceptable() {

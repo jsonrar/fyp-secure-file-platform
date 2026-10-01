@@ -1,5 +1,5 @@
-# Installed and enabled by `mcs21-deploy` after each healthy release (it is the one ops unit on
-# that script's closed list, and the script refuses it if it stops running as fypapp or starts
+# Installed and enabled by `mcs21-deploy` after each healthy release (it is on that script's
+# closed list of ops units, and the script refuses it if it stops running as fypapp or starts
 # anything but scripts/<name>.py). docs/BACKUP_AND_RECOVERY.md section 9 says what a failure of
 # this unit means and how to put a damaged object back.
 #
