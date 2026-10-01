@@ -71,7 +71,11 @@ class FileRepository:
             .limit(1)
         )
         value = (metadata or {}).get("ciphertext_sha256") if isinstance(metadata, dict) else None
-        if isinstance(value, str) and len(value) == 64 and all(c in "0123456789abcdef" for c in value):
+        if (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(c in "0123456789abcdef" for c in value)
+        ):
             return value
         return None
 
@@ -99,7 +103,9 @@ class FileRepository:
     def count_scan_candidates(self) -> int:
         return int(
             self.db.scalar(
-                select(func.count()).select_from(File).where(File.status.in_(("ACTIVE", "CORRUPTED")))
+                select(func.count())
+                .select_from(File)
+                .where(File.status.in_(("ACTIVE", "CORRUPTED")))
             )
             or 0
         )

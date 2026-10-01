@@ -118,6 +118,7 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 | AC2 Algorithm choice and ciphertext-only upload | Done | Selectable authenticated ciphers and client-side encryption |
 | AC3 Recipient decrypts with own passphrase | Done | Recipient-key rewrap and live two-account proof |
 | AC4 Tamper detection before successful decrypt | Done | Authenticated decryption/integrity refusal and UI error |
+| AC4a Recovery after tampering (teacher's integrity-and-recovery ask) | Done in code; timer not yet installed | Daily sweep, admin Integrity tab, `restore_file.py`, drill step in `mysql-gate` (BACKUP_AND_RECOVERY §9) |
 | AC5 Timestamped actor/access audit | Done | Upload/download/share/revoke events and per-file history |
 | AC6 Interactive crypto education | Done | AES/RSA/SHA/Argon2id content and playgrounds |
 | AC7 Dismissible four-stage progress pipeline | In progress | Per-file spinner/result exists; inspection→encryption→upload→complete stages and dismissal do not |

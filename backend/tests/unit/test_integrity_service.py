@@ -290,10 +290,14 @@ def test_a_matching_anchor_changes_nothing() -> None:
         repository=FakeRepository(anchor="d" * 64),
     )
 
-    assert service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext()).status == "VALID"
+    assert (
+        service.check(actor=_actor(), file_id=FILE_ID, context=RequestContext()).status == "VALID"
+    )
 
 
-def _stored_file(file_id: int, *, sha: str = "d" * 64, status: str = "ACTIVE", key: str | None = None):
+def _stored_file(
+    file_id: int, *, sha: str = "d" * 64, status: str = "ACTIVE", key: str | None = None
+):
     return SimpleNamespace(
         id=file_id,
         file_uuid=f"00000000-0000-4000-8000-{file_id:012d}",
@@ -336,7 +340,7 @@ def _sweep(files, answers, **kwargs):
 
 def test_a_sweep_checks_every_stored_object_without_a_requesting_user() -> None:
     good, bad, gone = _stored_file(1), _stored_file(2), _stored_file(3)
-    service, repository, summary = _sweep(
+    _, repository, summary = _sweep(
         [good, bad, gone],
         {
             good.storage_object_key: ("d" * 64, 5),

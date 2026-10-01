@@ -76,7 +76,10 @@ def test_admin_stats_reject_authenticated_non_admin_before_service(
 def test_admin_integrity_routes_reject_authenticated_non_admin_before_service(
     protected_api: TestClient,
 ) -> None:
-    for method, path in (("get", "/api/v1/admin/integrity"), ("post", "/api/v1/admin/integrity/scan")):
+    for method, path in (
+        ("get", "/api/v1/admin/integrity"),
+        ("post", "/api/v1/admin/integrity/scan"),
+    ):
         response = getattr(protected_api, method)(path)
 
         assert response.status_code == 403, path

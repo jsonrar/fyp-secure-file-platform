@@ -18,6 +18,17 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Integrity and recovery: find a modified file, then put the original back / 完整性与恢复：发现被修改的文件，并把原件找回来
+
+- Until now a modified stored file was only noticed when someone downloaded it or clicked the integrity check, and there was no way to recover it short of restoring the whole service. Now a daily sweep (`scripts/integrity_sweep.py`, `mcs21-integrity-sweep.timer`) hashes every stored object, records the findings and exits non-zero so the failure alert fires; Admin gets an **Integrity** tab listing damaged files, how much of the store has been checked and a "Scan now" button.
+- 此前被修改的存储文件只有在有人下载或点击完整性检查时才会被发现，而且除了恢复整个服务之外没有办法找回原件。现在每日扫描（`scripts/integrity_sweep.py`、`mcs21-integrity-sweep.timer`）会对每个存储对象做哈希、记录发现并以非零退出码触发失败告警；管理员页面新增 **Integrity** 标签，列出受损文件、已检查的覆盖情况，并提供 “Scan now” 按钮。
+- `scripts/restore_file.py` puts one object back from an encrypted backup set. Objects are write-once, so a backup copy whose SHA-256 equals the recorded digest *is* the original; there is no version history to maintain. It refuses a set that does not authenticate, does not hold the object, or holds different bytes; keeps the damaged copy in quarantine; replaces the object atomically; re-verifies; and writes `FILE_RESTORED_FROM_BACKUP` to the audit chain. It needs the offline backup key, so there is deliberately no web button for it.
+- `scripts/restore_file.py` 从加密备份集中把一个对象放回去。对象只写一次，所以 SHA-256 等于记录摘要的备份副本*就是*原件，无需维护版本历史。它会拒绝无法认证、不含该对象或字节不同的备份集；把受损副本保存到隔离目录；原子替换；重新验证；并把 `FILE_RESTORED_FROM_BACKUP` 写入审计链。它需要离线备份密钥，因此有意不提供网页按钮。
+- The upload's audit row now records the ciphertext SHA-256, and every check and download compares against it. Before, rewriting an object *and* `files.encrypted_sha256` together left them agreeing with each other, so nothing flagged it; now the audit chain disagrees. Files uploaded earlier have no audit digest and still rely on the column.
+- 上传的审计行现在记录密文 SHA-256，每次检查和下载都会与它比对。此前把对象*和* `files.encrypted_sha256` 一起改写会让两者互相一致，没有任何东西报警；现在审计链会不一致。更早上传的文件没有审计摘要，仍依赖该列。
+- The CI backup drill now tampers one object, requires the sweep to exit 3 and mark it corrupted, refuses the wrong key, and then requires a byte-identical restore with the damaged copy quarantined, the file `ACTIVE` again and the audit row written. Limits (a file newer than the last nightly backup cannot be restored; the timer is not installed until enabled deliberately) are in `docs/BACKUP_AND_RECOVERY.md` §9.
+- CI 的备份演练现在会篡改一个对象，要求扫描退出码为 3 并标记为受损，拒绝错误的密钥，然后要求逐字节一致的恢复，且受损副本被隔离、文件重新为 `ACTIVE`、审计行已写入。限制（比最近一次夜间备份更新的文件无法恢复；定时器需有意启用才会安装）见 `docs/BACKUP_AND_RECOVERY.md` 第 9 节。
+
 ### Contact us: uniform team tiles, the supervisor's full introduction, a plainer heading / 联系我们：统一大小的团队瓦片、导师完整介绍、更自然的标题
 
 - The supervisor tile is back to carrying everything the earlier version had, in the same sticker-tile style: portrait, role, name, title (Lecturer and Cybersecurity Group Leader), affiliation (School of Information Technology, Monash University Malaysia), what he guides the project on, research interests and the Monash profile link. The previous tile showed only a one-line intro, so his position and affiliation had dropped out of sight.

@@ -159,7 +159,9 @@ def test_replace_object_swaps_the_bytes_and_keeps_the_damaged_copy(tmp_path) -> 
     assert kept is not None and kept.read_bytes() == b"tampered bytes"
     assert kept.parent == tmp_path / "quarantine" and kept.stat().st_mode & 0o077 == 0
     assert [p.name for p in path.parent.iterdir()] == [path.name]  # no temporary left behind
-    assert storage.hash_object(key)[0] == __import__("hashlib").sha256(good.read_bytes()).hexdigest()
+    assert (
+        storage.hash_object(key)[0] == __import__("hashlib").sha256(good.read_bytes()).hexdigest()
+    )
 
 
 def test_replace_object_puts_back_an_object_that_is_gone(tmp_path) -> None:

@@ -15,7 +15,6 @@ import tarfile
 from pathlib import Path
 
 import pytest
-from cryptography.hazmat.primitives import serialization
 from cryptography.hazmat.primitives.asymmetric import rsa
 
 SCRIPTS = Path(__file__).resolve().parents[2] / "scripts"
@@ -168,7 +167,7 @@ def test_a_tampered_backup_artifact_is_refused_before_anything_is_decrypted(
     data[len(data) // 2] ^= 1
     artifact.write_bytes(bytes(data))
 
-    with pytest.raises(restore_file.RestoreRefused, match="does not match index.json"):
+    with pytest.raises(restore_file.RestoreRefused, match=r"does not match index\.json"):
         _locate(set_dir, private, tmp_path)
 
 
@@ -203,7 +202,7 @@ def test_a_set_without_its_index_is_refused(tmp_path, keypair) -> None:
     set_dir = _build_set(tmp_path, public, objects={OBJECT_KEY: ORIGINAL})
     (set_dir / "index.json").unlink()
 
-    with pytest.raises(restore_file.RestoreRefused, match="index.json is missing"):
+    with pytest.raises(restore_file.RestoreRefused, match=r"index\.json is missing"):
         _locate(set_dir, private, tmp_path)
 
 

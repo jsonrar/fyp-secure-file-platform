@@ -300,6 +300,89 @@ release. For any partially applied production DDL release the supported recovery
 release. Forward resume is supported only where Alembic and `migrate.sh` run (development, CI,
 disposable databases), and only after an interruption on a revision boundary.
 
+## 9. Finding and restoring one damaged file
+
+Sections 1 to 8 recover the whole service. This one answers a narrower question: *a stored file
+was modified; how is it found, and how does the original come back?*
+
+**There is no version history, and none is needed.** A stored ciphertext object is write-once: it
+never changes legitimately. So a backup copy whose SHA-256 equals the digest the system recorded
+for the file is, byte for byte, the original. The "last known good version" is simply a backup
+set that holds the right bytes. The digest that decides is the one written into the audit hash
+chain when the file was uploaded (`FILE_UPLOADED.metadata.ciphertext_sha256`), not only the
+`files.encrypted_sha256` column, because someone who can rewrite an object can often rewrite
+that column as well. Files uploaded before this was recorded have no audit digest and fall back
+to the column.
+
+### Finding it
+
+| Where | What it does |
+|---|---|
+| Download | The server hashes the object before streaming it and refuses on a mismatch (existing) |
+| **Daily sweep** `scripts/integrity_sweep.py`, `mcs21-integrity-sweep.timer` (05:30 Kuala Lumpur) | Hashes every stored object, least recently checked first; writes `integrity_checks` rows and an audit event for each finding; exits 3 if anything is damaged so the failure alert fires |
+| **Admin → Integrity** | Lists damaged files and how much of the store has been checked; "Scan now" verifies a batch of up to 50 files within 20 seconds and says how many remain |
+
+A result of `MODIFIED` is evidence about the bytes and marks the file `CORRUPTED`. `MISSING` and
+`ERROR` describe the storage (an unmounted volume, an I/O error) and do not change the file's
+status, so a short outage does not condemn intact files. The next passing check heals the status.
+
+Install the timer deliberately, after one manual run has been read:
+
+```bash
+sudo systemd-run --pipe --wait --quiet --uid=fypapp --gid=fypapp \
+  --working-directory=/opt/mcs21/current/backend \
+  --property=EnvironmentFile=/etc/fyp-secure-file-platform/backend.env \
+  /opt/mcs21/current/backend/.venv/bin/python scripts/integrity_sweep.py
+R=/opt/mcs21/current/deployment/server
+sudo install -m 0644 "$R/mcs21-integrity-sweep.service" "$R/mcs21-integrity-sweep.timer" /etc/systemd/system/
+sudo systemd-analyze verify /etc/systemd/system/mcs21-integrity-sweep.service
+sudo systemctl daemon-reload && sudo systemctl enable --now mcs21-integrity-sweep.timer
+```
+
+### Putting the original back
+
+`backend/scripts/restore_file.py`, run on the server as the service account, with the **offline
+backup private key** brought by the custodian for the duration of the restore:
+
+```bash
+cd /opt/mcs21/current/backend
+.venv/bin/python scripts/restore_file.py --file-id <file uuid> \
+    --backup-set /path/to/<manifest-id> --private-key /path/to/backup_priv.pem          # dry run
+.venv/bin/python scripts/restore_file.py ... --apply                                      # write
+```
+
+The first command changes nothing and reports which backup set it would use. With `--apply` it:
+
+1. refuses unless the set's artifacts match `index.json`, decrypt and authenticate under this key
+   and this set's manifest id, and the archive matches its manifest;
+2. refuses unless the set holds this object **and** its SHA-256 and size equal the recorded ones
+   (a set taken before the upload, or one that already held tampered bytes, is not used);
+3. copies the damaged bytes to a quarantine directory (`<storage parent>/quarantine`, or
+   `--quarantine-dir`), because a tampered object is evidence;
+4. writes the original beside the object and renames it into place atomically;
+5. if the database digest had been rewritten to match the tampered object, puts the audit-chain
+   digest back in `files.encrypted_sha256`;
+6. re-verifies the file by the same rule that condemned it, which records a `VALID` check and
+   returns the status to `ACTIVE`, and writes `FILE_RESTORED_FROM_BACKUP` to the audit chain.
+
+The private key never goes on the server permanently and there is no web button for this: the
+admin page shows what is damaged and the command to run, and the decision stays with a person who
+holds the key.
+
+### Limits, stated plainly
+
+- A file uploaded after the last nightly backup is in no backup and cannot be restored this way.
+  The window is the 24 h RPO of §1.
+- Decrypting `objects.tar.enc` to take out one object costs the same as decrypting the objects
+  half of a full restore, because the archive is one authenticated stream.
+- If the backup set itself already holds tampered bytes, the digest check refuses it; try an
+  earlier set (35 nights are kept off-server).
+- The sweep detects a rewritten digest only for files whose upload recorded the audit digest.
+- `scripts/backup_restore_drill.sh` (CI `mysql-gate`) tampers an object, requires the sweep to
+  exit 3 and mark it `CORRUPTED`, refuses the wrong key, checks the dry run changes nothing, then
+  restores and requires a byte-identical object, a quarantined damaged copy, status `ACTIVE`, and
+  the audit row.
+
 ## Running it locally
 
 ```bash

@@ -26,7 +26,6 @@ from app.services.file_storage_service import (
     VerifiedCiphertext,
 )
 
-
 ANCHOR_MISMATCH_MESSAGE = (
     "The digest recorded for this file differs from the one the audit chain recorded at upload"
 )

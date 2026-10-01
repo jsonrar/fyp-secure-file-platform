@@ -51,13 +51,13 @@ from uuid import UUID
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from backup_encrypted import (  # noqa: E402
+from backup_encrypted import (
     ARTIFACTS,
     MANIFEST_ID_RE,
     envelope_context,
     is_object_key,
 )
-from backup_envelope import (  # noqa: E402
+from backup_envelope import (
     EnvelopeError,
     decrypt_file,
     load_private_key,
@@ -79,7 +79,9 @@ class LocatedObject:
 
 def _decrypt(set_dir: Path, role: str, destination: Path, key, manifest_id: str) -> None:
     try:
-        decrypt_file(set_dir / ARTIFACTS[role], destination, key, envelope_context(manifest_id, role))
+        decrypt_file(
+            set_dir / ARTIFACTS[role], destination, key, envelope_context(manifest_id, role)
+        )
     except EnvelopeError as exc:
         raise RestoreRefused(f"{role} artifact: {exc}") from exc
 
@@ -169,12 +171,17 @@ def locate_object(
 def _private_key(path: Path):
     passphrase = os.getenv("BACKUP_PRIVATE_KEY_PASSPHRASE")
     if path.stat().st_mode & 0o077:
-        print("restore_file: warning: the private key file is readable by group/others", file=sys.stderr)
+        print(
+            "restore_file: warning: the private key file is readable by group/others",
+            file=sys.stderr,
+        )
     try:
         return load_private_key(path, passphrase.encode() if passphrase else None)
     except EnvelopeError:
         if passphrase is None and sys.stdin.isatty():
-            return load_private_key(path, getpass.getpass("Backup private key passphrase: ").encode())
+            return load_private_key(
+                path, getpass.getpass("Backup private key passphrase: ").encode()
+            )
         raise
 
 
@@ -293,7 +300,9 @@ def parse_args(argv: list[str]) -> argparse.Namespace:
     parser.add_argument("--file-id", required=True, type=UUID, help="the file's public UUID")
     parser.add_argument("--backup-set", required=True, help="directory <dest>/<manifest-id>")
     parser.add_argument("--private-key", required=True, help="PEM backup private key")
-    parser.add_argument("--quarantine-dir", help="where the damaged bytes are kept before replacing them")
+    parser.add_argument(
+        "--quarantine-dir", help="where the damaged bytes are kept before replacing them"
+    )
     parser.add_argument("--apply", action="store_true", help="write; without it only report")
     return parser.parse_args(argv)
 

@@ -285,7 +285,9 @@ def test_the_integrity_report_is_refused_to_a_non_administrator() -> None:
 
 
 def test_the_integrity_report_lists_damage_and_how_much_was_checked() -> None:
-    repository = FakeIntegrityRepository([_damaged(1), _damaged(2, status="ACTIVE", result="MISSING")])
+    repository = FakeIntegrityRepository(
+        [_damaged(1), _damaged(2, status="ACTIVE", result="MISSING")]
+    )
 
     report = _service(repository).integrity_report(actor=_actor(SystemRole.ADMIN), limit=10)
 
@@ -315,7 +317,17 @@ def test_the_integrity_report_names_no_key_material_or_address() -> None:
 
     names = _walk_field_names(AdminIntegrityReportOut)
 
-    assert names.isdisjoint({"email", "ip_address", "user_agent", "wrapped_file_key", "nonce", "auth_tag", "storage_object_key"})
+    assert names.isdisjoint(
+        {
+            "email",
+            "ip_address",
+            "user_agent",
+            "wrapped_file_key",
+            "nonce",
+            "auth_tag",
+            "storage_object_key",
+        }
+    )
 
 
 def test_a_scan_is_refused_to_a_non_administrator_before_it_reads_anything() -> None:
@@ -374,7 +386,9 @@ def test_a_scan_runs_the_sweep_as_the_administrator_and_reports_counts() -> None
     assert len(result.damaged_file_ids) == 1
 
 
-def test_the_damaged_list_covers_corrupted_files_and_unreadable_objects_but_never_deleted_ones() -> None:
+def test_the_damaged_list_covers_corrupted_files_and_unreadable_objects_but_never_deleted_ones() -> (
+    None
+):
     sql = _sql_of(lambda repo: repo.damaged_files(limit=11))
 
     assert "files.status != 'DELETED'" in sql
