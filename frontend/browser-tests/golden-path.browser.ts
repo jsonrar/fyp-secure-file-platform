@@ -191,6 +191,25 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await expect(preview).toBeHidden()
   })
 
+  await test.step('a file can be filed into a folder and unfiled again', async () => {
+    // Regression: choosing any folder answered 422 "folder_id: Input should be an instance of
+    // UUID", because the request body validated strictly. Only a real click reaches that path.
+    await owner.getByRole('textbox', { name: 'New folder name' }).fill('Reports')
+    await owner.getByRole('button', { name: 'Add', exact: true }).click()
+    await expect(owner.getByText('Created folder Reports')).toBeVisible()
+    // Creating a folder selects it, which hides every file that is not in it.
+    await owner.getByRole('button', { name: 'All files' }).click()
+
+    const row = owner.getByRole('row').filter({ hasText: fileName })
+    const folderSelect = row.getByLabel(`Folder for ${fileName}`)
+    await folderSelect.selectOption({ label: 'Reports' })
+    await expect(owner.getByText(`Moved ${fileName} to Reports`)).toBeVisible()
+    await expect(owner.getByText(/Input should be an instance of UUID/)).toHaveCount(0)
+
+    await folderSelect.selectOption({ label: 'Unfiled' })
+    await expect(owner.getByText(`Moved ${fileName} to Unfiled`)).toBeVisible()
+  })
+
   await test.step('unlock the account key and download the original bytes', async () => {
     const bytes = await downloadDecrypted(owner, alice)
     expect(bytes.equals(fileBytes), 'the decrypted download equals the uploaded file').toBe(true)

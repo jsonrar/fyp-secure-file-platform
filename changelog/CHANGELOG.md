@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Fix: moving a file into a folder failed with "Input should be an instance of UUID" / 修复：把文件移入文件夹报 “Input should be an instance of UUID”
+
+- Choosing a folder in the My Files folder dropdown answered 422 with `folder_id: Input should be an instance of UUID`, so a file could be created into "Unfiled" but never filed into any folder. `FileMoveIn` inherited strict validation, and FastAPI validates a request body from the already-parsed JSON, where a UUID can only be text; strict mode refuses text for a UUID. The field now opts out of strictness (`Field(strict=False)`) and is still validated as a UUID, `null` still means "unfiled", an unknown field or a missing `folder_id` is still refused. Nothing else in the model is loosened.
+- 在 My Files 的文件夹下拉框里选择任何文件夹，都会返回 422 `folder_id: Input should be an instance of UUID`，所以文件只能留在“未分类”，无法放进任何文件夹。`FileMoveIn` 继承了严格校验，而 FastAPI 是对已经解析好的 JSON 做校验，JSON 里的 UUID 只能是文本，严格模式拒绝文本形式的 UUID。现在该字段单独关闭严格模式（`Field(strict=False)`），仍按 UUID 校验；`null` 仍表示“未分类”，未知字段或缺少 `folder_id` 仍会被拒绝，模型的其他部分没有放宽。
+- Why it shipped: the folder feature (#103) was only exercised through unit tests that build the model from a `UUID` object or a raw JSON string, and neither takes the path an HTTP request takes. Two tests now do: an HTTP-level contract test (`test_file_move_contract.py`, which fails with exactly the user's error when the fix is reverted) and a step in the Chromium golden path that creates a folder, files a file into it and unfiles it again.
+- 为什么会漏掉：文件夹功能（#103）只被单元测试覆盖，这些测试用 `UUID` 对象或原始 JSON 字符串构造模型，都不走 HTTP 请求的路径。现在有两个测试走这条路径：HTTP 层的契约测试（`test_file_move_contract.py`，撤销修复时会以与用户所见完全相同的错误失败），以及 Chromium 黄金路径里的一步：创建文件夹、把文件放进去、再移出来。
+
 ### Administrator overview with platform statistics / 带平台统计的管理员概览
 
 - The Operations page now opens on a new **Overview** tab for administrators, answering "how many users and files does the platform have, and is it healthy?": accounts by status (total, active, disabled, deleted, administrators, new in 7 days, signed in within 24 hours), encrypted files and their health, total bytes stored, the algorithm mix, active shares, the last day's integrity checks and failures, recovery requests awaiting review, and audit totals with the five newest failed events. Anything that needs attention (a corrupted file, a failed integrity check, a pending recovery request, failed events) is listed first, in red when it means damaged data. A supervisor asked whether the administrator can see how many users and files the site has; the page had only enable/disable controls.

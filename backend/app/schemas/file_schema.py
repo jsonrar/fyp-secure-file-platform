@@ -235,7 +235,11 @@ class FileFolderListOut(StrictFileModel):
 
 
 class FileMoveIn(StrictFileModel):
-    folder_id: UUID | None
+    # Strict mode refuses a UUID given as text when FastAPI hands it an already-parsed JSON
+    # body ("Input should be an instance of UUID"), and a JSON body can only ever carry text.
+    # Moving a file into any folder therefore failed. `strict=False` on this one field lets the
+    # string through; it is still validated as a UUID, and `null` still means "unfiled".
+    folder_id: Annotated[UUID | None, Field(strict=False)]
 
 
 class FileMoveOut(StrictFileModel):
