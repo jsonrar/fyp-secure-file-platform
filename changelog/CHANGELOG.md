@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Dialogs that fit long file names, and "No folder" instead of "Unfiled" / 弹框适配长文件名，以及用 “No folder” 取代 “Unfiled”
+
+- A file with a long name and no spaces ran straight out of the Request file recovery dialog, because a browser has nowhere to break an unbroken string. Every dialog that prints a file name (recovery request, share, access history, confirm-delete and confirm-revoke) now wraps it anywhere, and each dialog panel is capped at 90 % of the viewport height and scrolls inside itself, so tall content cannot run off a small screen either. Checked in Chromium with a 112-character name at desktop and phone width: the name stays inside the dialog at both.
+- 文件名很长又没有空格时，会直接冲出 Request file recovery 弹框，因为浏览器对一整串不间断的字符没有地方断行。现在所有显示文件名的弹框（恢复请求、分享、访问历史、确认删除、确认撤销）都允许在任意位置换行，并且每个弹框面板高度不超过视口的 90%，超出时在内部滚动，所以内容过高也不会跑出小屏幕。已在 Chromium 中用 112 个字符的文件名在桌面和手机宽度下检查：两种宽度下文件名都留在弹框内。
+- "Unfiled" read as an odd, unfinished word for "in no folder", so the filter chip, the per-file dropdown and the messages now say **No folder** (the message is "<file> is no longer in a folder"; deleting a folder says its files are no longer in any folder). No data or API value changed: a null `folder_id` still means no folder.
+- “Unfiled” 作为“不在任何文件夹中”的说法既生僻又像没写完，所以筛选标签、每个文件的下拉框和提示信息现在都写作 **No folder**（提示为 “<文件> is no longer in a folder”；删除文件夹时说明其中的文件不再位于任何文件夹）。没有任何数据或 API 取值改变：`folder_id` 为 null 仍表示没有文件夹。
+- Fixed a side effect of the file-table layout change in #120: on a phone the file-name column was squeezed to a few characters per line. The table now has a minimum width, so a narrow screen scrolls sideways and the name column keeps about 200 px. A proper mobile layout is still Issue #76.
+- 修复了 #120 里文件表格布局改动的一个副作用：在手机上文件名列被压成每行几个字符。表格现在有最小宽度，窄屏改为横向滚动，文件名列保持约 200 px。真正的手机端布局仍属 Issue #76。
+
 ### Fix: moving a file into a folder failed with "Input should be an instance of UUID" / 修复：把文件移入文件夹报 “Input should be an instance of UUID”
 
 - Choosing a folder in the My Files folder dropdown answered 422 with `folder_id: Input should be an instance of UUID`, so a file could be created into "Unfiled" but never filed into any folder. `FileMoveIn` inherited strict validation, and FastAPI validates a request body from the already-parsed JSON, where a UUID can only be text; strict mode refuses text for a UUID. The field now opts out of strictness (`Field(strict=False)`) and is still validated as a UUID, `null` still means "unfiled", an unknown field or a missing `folder_id` is still refused. Nothing else in the model is loosened.

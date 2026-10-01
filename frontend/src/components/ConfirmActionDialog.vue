@@ -45,7 +45,7 @@ onMounted(async () => {
       role="dialog"
       aria-modal="true"
       :aria-labelledby="'confirm-action-title'"
-      class="w-full max-w-md rounded-xl border border-destructive/40 bg-card p-6 shadow-xl"
+      class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-destructive/40 bg-card p-6 shadow-xl"
     >
       <div class="mb-2 flex items-center gap-2">
         <div class="rounded-lg bg-destructive/10 p-2">
@@ -56,8 +56,8 @@ onMounted(async () => {
         </h2>
       </div>
 
-      <p v-if="detail" class="mb-2 text-sm font-medium text-foreground">{{ detail }}</p>
-      <p class="text-sm text-muted-foreground">{{ consequence }}</p>
+      <p v-if="detail" class="mb-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{{ detail }}</p>
+      <p class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ consequence }}</p>
 
       <div class="mt-5 flex gap-2">
         <button

@@ -206,8 +206,8 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await expect(owner.getByText(`Moved ${fileName} to Reports`)).toBeVisible()
     await expect(owner.getByText(/Input should be an instance of UUID/)).toHaveCount(0)
 
-    await folderSelect.selectOption({ label: 'Unfiled' })
-    await expect(owner.getByText(`Moved ${fileName} to Unfiled`)).toBeVisible()
+    await folderSelect.selectOption({ label: 'No folder' })
+    await expect(owner.getByText(`${fileName} is no longer in a folder`)).toBeVisible()
   })
 
   await test.step('unlock the account key and download the original bytes', async () => {

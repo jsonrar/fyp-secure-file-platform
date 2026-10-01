@@ -104,7 +104,7 @@ async function useKeyFile(event: Event) {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     @click.self="emit('close')"
   >
-    <div class="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+    <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-xl">
       <div class="flex items-center gap-2 mb-2">
         <div class="p-2 rounded-lg bg-secondary"><KeyRound class="h-4 w-4 text-primary" /></div>
         <h2 class="text-lg font-semibold text-foreground">Unlock your files</h2>

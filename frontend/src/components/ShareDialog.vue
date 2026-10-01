@@ -137,14 +137,14 @@ async function share() {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     @click.self="emit('close')"
   >
-    <div class="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-xl">
+    <div class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-xl">
       <div class="flex items-center gap-2 mb-2">
         <div class="p-2 rounded-lg bg-secondary"><Share2 class="h-4 w-4 text-primary" /></div>
         <h2 class="text-lg font-semibold text-foreground">Share this file</h2>
       </div>
 
       <p class="text-sm text-muted-foreground mb-4">
-        <span v-if="props.filename" class="text-foreground">{{ props.filename }}</span>
+        <span v-if="props.filename" class="text-foreground [overflow-wrap:anywhere]">{{ props.filename }}</span>
         <span v-else>This file</span>
         is re-encrypted to the recipient's own key in this browser. They open it with their
         own passphrase — never yours — and the server never sees the file's key.
