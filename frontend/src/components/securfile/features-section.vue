@@ -13,36 +13,37 @@ const features: FeatureItem[] = [
     icon: Upload,
     title: 'File Upload',
     description:
-      'Drag and drop or click to upload any file type. Batch processing supported for quick and convenient uploads.',
+      'Drag and drop or click to add files of any type, up to 500 MB each. Several files can be encrypted and uploaded in one go.',
   },
   {
     icon: Key,
     title: 'Key Generation',
     description:
-      'Automatically generate strong random keys or use custom passwords to protect your files securely.',
+      'Your browser makes a fresh random key for every file and seals it with your own public key. The server never sees it.',
   },
   {
     icon: ShieldCheck,
     title: 'Strong Encryption',
-    description: 'Uses AES-256 encryption standard to provide bank-level security protection.',
+    description:
+      'AES-256-GCM by default, or AES-128/192-GCM and ChaCha20-Poly1305: authenticated encryption, so a change is detected, not just hidden.',
   },
   {
     icon: Share2,
     title: 'Secure Sharing',
     description:
-      'Generate secure links to share encrypted files with others. Set access permissions and expiration times.',
+      'Share with a named account by re-sealing the file key for them. No public links to leak, and access can be revoked at any time.',
   },
   {
     icon: FileCheck,
     title: 'Integrity Verification',
     description:
-      "Use hash verification to ensure files haven't been tampered with or modified during transmission.",
+      'Every download is checked against its authentication tag and SHA-256 fingerprint, and a daily scan checks every stored file.',
   },
   {
     icon: Settings,
     title: 'File Management',
     description:
-      'Easily manage all your encrypted files including viewing, downloading, and deletion operations.',
+      'Search, sort into folders, download and decrypt, see who opened a file, and delete what you no longer need.',
   },
 ]
 
@@ -57,7 +58,7 @@ const secondRow = features.slice(splitIndex)
       <div class="mb-16 text-center">
         <h2 class="mb-4 text-3xl font-bold text-foreground md:text-4xl">Core Features</h2>
         <p class="mx-auto max-w-2xl text-pretty text-muted-foreground">
-          Comprehensive file encryption solution to ensure your data is always secure and protected
+          Everything is encrypted in your browser first, so the server only ever stores what it cannot read
         </p>
       </div>
 

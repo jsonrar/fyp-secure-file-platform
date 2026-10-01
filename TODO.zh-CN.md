@@ -49,6 +49,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   Help（`/help`：How to Use 操作演示）、Contact us（`/team`：反馈表单预览 + 导师简介 + 团队卡片）、页头当前标签主题色高亮，
   以及含 `/profile` 与 `/settings` 的头像菜单。证据与理由见
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 的 `[Unreleased]`。
+- [x] 面向新用户的讲解（2026-10-02）：`/how-it-works` 和首页的可逐步查看的原理动画，Help 页三段从真实产品录制、
+  带字幕的视频，与普通网盘的对比，以及四步快速上手。各自内容见更新日志。
 
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。

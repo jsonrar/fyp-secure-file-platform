@@ -20,5 +20,5 @@ but backend results and the recipient list are fixtures. This captures UI states
 it is not an end-to-end backend sharing or decryption test.
 
 The home slideshow is in `src/components/securfile/workflow-section.vue`; text and
-image mapping are in `src/data/workflow-guide.ts`. The Help page's separate video
-placeholders are unchanged.
+image mapping are in `src/data/workflow-guide.ts`. The Help page's videos are separate:
+see `../videos/README.md`.
