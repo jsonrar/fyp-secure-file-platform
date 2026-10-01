@@ -87,7 +87,11 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——`.github/workflows/ci.yml` 在每个 PR 及推送到 `main` 时运行 backend（Ruff + 带覆盖率下限、不依赖
   MySQL 的 pytest）与 frontend（带覆盖率的测试/类型检查/构建）；Ruff 基线已真正修复而非压制。当前套餐下**无法**启用
   分支保护：仓库是 GitHub 免费版的私有仓库，分支保护与 rulesets 的 API 都拒绝它（2026-10-01 核实；威胁模型 F-01）。
-  需要付费套餐或将仓库公开，所以这些检查目前只靠约定与评审来“必需”。
+  需要付费套餐或将仓库公开，所以这些检查目前只靠约定与评审来“必需”。取而代之的是
+  [#117](https://github.com/jsonrar/fyp-secure-file-platform/pull/117)：预发布环境只部署由 CI 在某个 commit 上全部 Job
+  通过后才向前推进的 `deploy` 分支（[文档](docs/AUTOMATIC_DEPLOYMENT.zh-CN.md#ci-门禁)）。2026-10-01 已核实：`promote`
+  作业在合并提交上创建了 `deploy`，新脚本已安装到 VPS，并报告运行中的 release 已与最新通过 CI 的 commit 一致。它不
+  要求评审，`mcs21-deploy all main` 仍按设计绕过 CI。
 - [x] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0007_file_folders` 的每一次迁移，
   运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，
@@ -104,8 +108,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 ## P1 — 补全已有后端能力与运维
 
-- [ ] [#54 完成浏览器修改 passphrase 与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
-  ——使用带签名的后端契约，并发布规范化账户信封文档。
+- [x] [#54 完成浏览器修改 passphrase 与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  ——只满足了部分验收标准就被关闭；见下方 P3 条目以及 Issue 上的范围记录。
 - [x] [#55 完成管理员、恢复专员及审计验证流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
   ——`/admin` 按角色展示：ADMIN 可管理用户/文件、验证审计链、登记恢复公钥并复核恢复；
   RECOVERY_OFFICER 可复核并执行（离线重封装后回填）；普通用户从 My Files 发起请求，并在此
@@ -146,8 +150,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——已在 [THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md) v1.0 中完成：目标与非目标、STRIDE、Argon2id
   实测成本、密钥保管、公钥身份与元数据的决定，对供应链、CSP、上传、令牌与恢复操作的评审，以及含严重度与处置
   的 20 项发现登记表。它是一份经过一次同行评审的自评，而非独立的外部评审，不构成任何认证。登记表已于 2026-10-01
-  刷新（v1.1）：F-10、F-11、F-20 已解决，F-12 部分解决，F-19 已缓解。有四项*建议修复*的发现尚未实施：F-01 以 CI
-  为门槛的部署（分支保护本身需要付费套餐）、F-02 恢复私钥保管、F-03 在预发布环境关闭 `/docs`、F-04 拒绝弱 passphrase。
+  刷新（v1.1）：F-10、F-11、F-20 已解决，F-12 部分解决，F-19 已缓解；F-01 当天由以 CI 为门槛的部署缓解（#117，见下）。
+  有三项*建议修复*的发现尚未实施：F-02 恢复私钥保管、F-03 在预发布环境关闭 `/docs`、F-04 拒绝弱 passphrase。
 
 ## P3 — 计划中的产品 UX
 
@@ -158,20 +162,19 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] [#72 高危与破坏性操作二次确认](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
   ——删除文件与撤销分享使用独立后果确认弹窗；注销账户仍为「登录密码 + 输入 DELETE」，并在
   Profile 与 Settings 均可进入。
-- [ ] [#71 认证后的密文预览与加密文件下载](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
-  ——授权用户可查看有限长度的密文预览或保存服务器实际存储的加密对象；不得静默解密，也不改变
-  现有明文解密下载流程。
-  所有者和授权接收者无需 passphrase 的密文下载已合并（#78）并部署。有限长度的密文**预览**在 `main` 中没有任何
-  实现（2026-10-01 检索）。该 GitHub Issue 在 2026-09-10 被标为已完成关闭，当时这一条尚未满足，所以请重新打开它，
-  或把预览拆成独立的 Issue。
+- [x] [#71 认证后的密文预览与加密文件下载](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
+  ——**只完成了下载这一半。**所有者和授权接收者无需 passphrase 即可保存存储的密文（#78，#79 中改进），并已部署。
+  有限长度的密文**预览**从未实现（2026-10-01 检索 `main`）。该 Issue 在这一条未满足时被关闭；项目负责人选择
+  如实记录而不是重新打开，所以预览**不**作为未完成工作被跟踪（如需要，要新开 Issue）。见 Issue 上的范围记录。
 - [x] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)——已在 #103 合并并部署（2026-10-01 staging 的 OpenAPI 列出了文件夹路由）。该 Issue 于 2026-09-29 关闭，但没有对受影响流程的书面演示记录。
   ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
   或审计语义。
-- [ ] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
-  ——密钥文件重置已完成：Settings 会用账户公钥验证保存的私钥文件，在新 AMK 与新 passphrase 下重新
-  封装它，并以 RSA-PSS 签名证明持有；明文私钥不离开浏览器。仍待完成：在记得旧 passphrase 时修改
-  passphrase、后继密钥轮换，以及账户信封规范文档。这三项在 `frontend/src` 中都没有（2026-10-01 检索），但该 GitHub
-  Issue 已在 2026-09-23 被标为已完成关闭。请重新打开它或拆分剩余部分，让 backlog 与代码一致。
+- [x] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  ——**只完成了密钥文件重置**（#80）：Settings 会用账户公钥验证保存的私钥文件，在新 AMK 与新 passphrase 下重新
+  封装它，并以 RSA-PSS 签名证明持有；明文私钥不离开浏览器。**未实现，且不作为未完成工作被跟踪：**在记得旧
+  passphrase 时修改 passphrase、浏览器端的后继密钥轮换、规范化的账户信封规范文档，以及重置流程的浏览器 E2E
+  （2026-10-01 检索 `frontend/src` 与 `docs`）。该 Issue 在这些未满足时被关闭；项目负责人选择如实记录而不是重新
+  打开。见 Issue 上的范围记录。
 - [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
 - [x] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)

@@ -68,9 +68,9 @@ Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)。
 
 文件管理页面还提供 **Download encrypted**：所有者和具有下载权限的接收者可在保险库锁定时，
-无需 passphrase 或私钥，将已校验的原始密文保存为 `<filename>.ciphertext`。本分支实现了
-[#71](https://github.com/jsonrar/fyp-secure-file-platform/issues/71) 的下载部分；密文预览和线上
-部署核验仍待完成。
+无需 passphrase 或私钥，将已校验的原始密文保存为 `<filename>.ciphertext`。这是
+[#71](https://github.com/jsonrar/fyp-secure-file-platform/issues/71) 的下载部分；该 Issue 同时提到的有限长度密文
+预览从未实现。
 
 ## 网站如何使用
 

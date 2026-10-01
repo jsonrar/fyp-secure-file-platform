@@ -196,7 +196,7 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 | T-E2 | A recipient re-shares without permission | `can_share` checked server-side | Mitigated |
 | T-E3 | A stolen session seizes key custody (e.g. resets the passphrase) | Reset requires a signature by the private key, not a session | Mitigated |
 | T-E4 | A requester self-approves recovery | Requester ≠ reviewer enforced by a database CHECK | Mitigated |
-| T-E5 | Code reaches production without review | CI runs on every pull request and on every push to `main` | Open — `main` has **no branch protection**, so a direct push bypasses PR review. CI still runs on it, but the server-pull deployment neither waits for CI nor requires it to pass before deploying that commit. → F-01 |
+| T-E5 | Code reaches production without review | CI runs on every pull request and on every push to `main`; since 2026-10-01 the server deploys only commits CI has promoted | Mitigated — `main` still has **no branch protection** (unavailable on this plan), so a direct push bypasses PR review, but deployment now waits for every CI job to pass on that commit. `mcs21-deploy all main` bypasses the gate by design. → F-01 |
 | T-E6 | Running application reaches the host | Unprivileged `fypapp` service user; loopback-only binding | Partial — no container or systemd sandboxing is claimed here |
 
 ## 8. Abuse cases
@@ -523,7 +523,7 @@ The owner column names one of the project's two defined roles, or *Unassigned* w
 
 | ID | Finding | Threats | Severity | Disposition | Owner | Evidence |
 |---|---|---|---|---|---|---|
-| F-01 | `main` has no branch protection, and server-pull deployment does not wait for CI. A direct push reaches production unreviewed | T-E5 | **High** | Recommended — gate the deploy on a green CI run. Branch protection itself is **not available**: the repository is private on a free plan (re-checked 2026-10-01: the rulesets API answers 403 "Upgrade to GitHub Pro or make this repository public", branch protection 404), so it needs a paid plan or a public repository | Testing & Deployment Lead | `gh api …/branches/main/protection` → 404; `mcs21-auto-deploy` never queries CI |
+| F-01 | `main` has no branch protection, so a direct push bypasses review; until 2026-10-01 server-pull deployment also did not wait for CI | T-E5 | **High** | **Mitigated 2026-10-01** — deployment now waits for CI: the `promote` job moves a `deploy` branch only after every job passes on a commit, and `mcs21-auto-deploy` deploys that branch (#117, [AUTOMATIC_DEPLOYMENT.md](AUTOMATIC_DEPLOYMENT.md#the-ci-gate)). Still open: no review is required, because branch protection is unavailable (private repository on a free plan; rulesets API 403, branch protection 404), and `mcs21-deploy all main` bypasses CI by design. Closing it fully needs a paid plan or a public repository | Testing & Deployment Lead | `promote` created `deploy` on the merge commit (CI run 36807852633); the new script was installed on the VPS and reported the running release matches the latest CI-passed commit, 2026-10-01 |
 | F-02 | Staging recovery private key held as an unencrypted PEM on a workstation, with a plaintext copy, not in the proposed offline custody | T-I8 | **High** | Recommended — move it into the proposed custody: passphrase-protected, offline, two holders | Crypto & Security Lead | §11.5; BACKUP_AND_RECOVERY § 7 marked *proposed* |
 | F-03 | `/docs` runs a floating third-party script (`swagger-ui-dist@5`, no SRI) on the origin that stores tokens | T-I6, T-I4 | **Medium** | Recommended — set `APP_DOCS_ENABLED=false` on staging; configuration only. Still open on 2026-10-01 (`APP_DOCS_ENABLED=true`, `/docs` loads `swagger-ui-dist@5` from jsDelivr). Note the supervisor evaluation path uses `/docs`, so switch it off after the demo or pin the script with SRI | Testing & Deployment Lead | §11.2; `/docs` → 200, zero `integrity=` |
 | F-04 | Passphrase check is length-only, so leaked-list passphrases pass and fall in under two days on one laptop | T-I2 | **Medium** | Recommended — reject known-weak passphrases in the browser (R-1) | Crypto & Security Lead | §9.4–9.5 |
@@ -548,7 +548,7 @@ The owner column names one of the project's two defined roles, or *Unassigned* w
 - The ten corrections from the peer review of v0.1 (#109), covered in §13.
 - The registration page no longer claims the passphrase cannot be reset (#110).
 
-**Status changes since v1.0 (2026-10-01):** F-10 and F-11 are resolved by the staging evidence in Issue #59, F-20 is resolved and F-19 mitigated by #113, and F-12 is partly resolved by #112. F-01 gained the fact that branch protection is unavailable on this plan. F-02, F-03 and F-04 are unchanged and still open.
+**Status changes since v1.0 (2026-10-01):** F-10 and F-11 are resolved by the staging evidence in Issue #59, F-20 is resolved and F-19 mitigated by #113, and F-12 is partly resolved by #112. F-01 is mitigated by CI-gated deployment (#117, installed the same day), with the residual that branch protection is unavailable on this plan and no review is enforced. F-02, F-03 and F-04 are unchanged and still open.
 
 ## 13. Review record
 
@@ -575,3 +575,4 @@ F-02 in particular.
 | 0.4 | §10: decisions on the exported private key and lost-passphrase limits, on public-key identity, rollback and the trust anchor (new adversary X8), and on cleartext metadata with a leakage inventory. T-S4, T-S5, T-S7, T-T4, T-I3 and T-I7 now point to their decisions. |
 | 1.0 | §11: supply chain (point-in-time scans clean), CSP exceptions, upload abuse, token storage and recovery operations. T-I6 raised to Medium: `/docs` runs an unpinned third-party script on the token-bearing origin. §12: register of 20 findings with severity, disposition, owner and evidence. §13: review record, stating that no independent external review took place. |
 | 1.1 | Register statuses refreshed against the live staging state on 2026-10-01: F-10, F-11, F-20 resolved; F-12 partly resolved and F-19 mitigated; F-01 records that branch protection needs a paid plan. No analysis changed. |
+| 1.2 | F-01 and T-E5 updated: deployment is gated on CI (#117, installed 2026-10-01). No analysis changed. |

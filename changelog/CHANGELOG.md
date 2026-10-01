@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Scope of #54 and #71 recorded, and the deploy gate confirmed live / 记录 #54 与 #71 的实际范围，并确认部署门禁已上线
+
+- Wrote down what the two Issues closed in September actually delivered, on the Issues and in `TODO.md`/`TODO.zh-CN.md`/README. #54 delivered the key-file passphrase reset (#80) but not changing the passphrase while the old one is known, browser successor-key rotation, the account-envelope specification or browser E2E for the reset; #71 delivered the ciphertext download (#78, #79) but not the bounded preview. The project owner chose to record this and leave them closed rather than reopen them, so the TODO now marks both done *for what shipped*, lists the unbuilt parts, and says they are not tracked as open work. Without this, a closed Issue read as full completion of criteria that were never built.
+- 把九月关闭的两个 Issue 实际交付了什么写了下来：写在 Issue 上，也写进 `TODO.md`/`TODO.zh-CN.md`/README。#54 交付了用密钥文件重置 passphrase（#80），但没有在记得旧 passphrase 时修改 passphrase、浏览器端后继密钥轮换、账户信封规范，以及重置流程的浏览器 E2E；#71 交付了密文下载（#78、#79），但没有有限长度的预览。项目负责人选择如实记录并保持关闭，而不是重新打开，所以 TODO 现在按“已交付的部分”把两者标为完成，列出未实现的部分，并说明它们不作为未完成工作被跟踪。否则，一个已关闭的 Issue 会被读成对从未实现的验收标准的完全达成。
+- Confirmed the CI-gated deploy (#117) is live: the `promote` job created `deploy` on its own merge commit, including a commit that edits a workflow file, the new script was installed on the VPS, and its first run reported the running release already matches the latest CI-passed commit. Threat-model F-01 and T-E5 are now *mitigated* (v1.2). The severity is left as the author rated it; the residual is that no review is enforced and `mcs21-deploy all main` still bypasses CI by design.
+- 确认以 CI 为门槛的部署（#117）已上线：`promote` 作业在自己的合并提交上创建了 `deploy`（该提交还修改了一个 workflow 文件），新脚本已安装到 VPS，首次运行报告运行中的 release 已与最新通过 CI 的 commit 一致。威胁模型 F-01 与 T-E5 现为*已缓解*（v1.2）。严重度保持作者原先的评级；残留的是不强制评审，以及 `mcs21-deploy all main` 仍按设计绕过 CI。
+
 ### Usability study: the answer key for losing both secrets / 可用性研究：同时丢失两个秘密的标准答案
 
 - Settled the open question in the study plan: with the passphrase or the private key file an account can be reopened, but with neither the files cannot be recovered by anyone, and the only way forward is to delete the account and register again. This matches `docs/SECURITY_FLOWS.md` (*Request recovery* only rewraps a file key to a registered key the requester can still use) and the registration copy, so no wording changes; Probe 2 now has an answer key, and a second probe checks the half people should get right (key file plus forgotten passphrase). What remains for the study to answer is whether a *Request recovery* button on every file row makes people think they are safe.
