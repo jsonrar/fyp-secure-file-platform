@@ -183,7 +183,8 @@ def _acceptable(tmp_path: Path, service_text: str, timer_text: str) -> bool:
         [
             "bash",
             "-c",
-            match.group(0) + f'\nops_unit_acceptable "{tmp_path}/x.service" "{tmp_path}/x.timer" mcs21-integrity-sweep',
+            match.group(0)
+            + f'\nops_unit_acceptable "{tmp_path}/x.service" "{tmp_path}/x.timer" mcs21-integrity-sweep',
         ],
         capture_output=True,
         check=False,
@@ -191,7 +192,9 @@ def _acceptable(tmp_path: Path, service_text: str, timer_text: str) -> bool:
     return result.returncode == 0
 
 
-@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required to run the deploy script's check")
+@pytest.mark.skipif(
+    shutil.which("bash") is None, reason="bash is required to run the deploy script's check"
+)
 def test_the_deploy_script_accepts_exactly_the_shipped_sweep_unit(tmp_path: Path) -> None:
     service = _read("mcs21-integrity-sweep.service")
     timer = _read("mcs21-integrity-sweep.timer")
@@ -202,14 +205,18 @@ def test_the_deploy_script_accepts_exactly_the_shipped_sweep_unit(tmp_path: Path
     assert not _acceptable(tmp_path, service.replace("Group=fypapp", "Group=root"), timer)
     assert not _acceptable(
         tmp_path,
-        service.replace("ExecStart=/opt/mcs21/current/backend/.venv/bin/python", "ExecStart=/bin/sh"),
+        service.replace(
+            "ExecStart=/opt/mcs21/current/backend/.venv/bin/python", "ExecStart=/bin/sh"
+        ),
         timer,
     )
     assert not _acceptable(
         tmp_path, service.replace("ExecStart=/opt/mcs21", "ExecStart=+/opt/mcs21"), timer
     )
     assert not _acceptable(tmp_path, service + "\nExecStartPost=+/bin/sh -c id\n", timer)
-    assert not _acceptable(tmp_path, service, timer.replace("Unit=mcs21-integrity-sweep.service", "Unit=other.service"))
+    assert not _acceptable(
+        tmp_path, service, timer.replace("Unit=mcs21-integrity-sweep.service", "Unit=other.service")
+    )
 
 
 def test_the_deploy_script_installs_only_the_closed_list_and_never_fails_a_good_release() -> None:
