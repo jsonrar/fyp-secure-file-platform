@@ -361,8 +361,8 @@ npm run dev
 ## 持续集成
 
 `.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行，包含五个 Job。`backend` 与
-`frontend` 是必需检查；仓库管理员还需在分支保护中将它们设为必需（具体 Job 名称参见引入该
-workflow 的 PR）。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
+`frontend` 按约定是必需检查：仓库为免费套餐下的私有仓库，无法使用 GitHub 分支保护，所以 CI 变红时除了评审人
+之外没有任何机制阻止合并。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
 
 ```bash
 # 后端（在 backend/ 下执行，对应 "backend" Job；分支覆盖率低于 78% 即失败）
