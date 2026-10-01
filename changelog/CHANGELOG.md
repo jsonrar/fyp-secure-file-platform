@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Security agent v1: three fixes from a review / 安全 Agent v1：评审后的三处修正
+
+- One address guessing one account was reported twice, as a source finding and an account finding, so a single incident counted as two Medium findings. It is now reported once by the source rule, which names the accounts it tried and how many attempts went to names with no account; the account rule now fires only for guessing spread across two or more addresses, which is the case the per-address view cannot see.
+- 同一地址猜同一账户此前会被报告两次（来源发现和账户发现），一起事件算成两个 Medium。现在只由来源规则报告一次，并列出它尝试过的账户，以及有多少次尝试针对不存在的用户名；账户规则只在猜测分散于两个或以上地址时触发，这正是按地址看无法发现的情况。
+- Events were read with one shared cap of 20,000, newest first, so a flood of one kind (a bulk download) could push every other kind out of the read and the report would still look complete. The cap is now 5,000 per event type, and the report says which types hit it.
+- 此前所有事件共用一个 20,000 条的读取上限（最新优先），一种事件的洪流（如批量下载）可能把其他所有事件挤出读取范围，报告看起来却仍然完整。现在每种事件各有 5,000 条上限，报告会写明哪些类型触顶。
+- The newest-check join for damaged files now aliases its inner table and states `file_id = files.id`, which removes a SQLAlchemy cartesian-product warning (the SQL result is unchanged). The live-stack suite in CI now drives the agent end to end: ten real failed sign-ins against the running API become one ranked finding with evidence and an action, and an ordinary user is refused.
+- 受损文件的“最新检查”连接现在为内层表起了别名并写明 `file_id = files.id`，消除了 SQLAlchemy 的笛卡尔积警告（SQL 结果不变）。CI 的 live-stack 套件现在端到端驱动 Agent：对运行中的 API 做十次真实的登录失败，得到一条带证据和建议动作的排序发现；普通用户被拒绝。
+
 ### The daily integrity scan installs itself / 每日完整性扫描自动安装
 
 - After each healthy release `mcs21-deploy` now installs and enables `mcs21-integrity-sweep.timer` from the release, so nobody has to remember to. The list of units it may install is closed (this one only), because a file in `/etc/systemd/system` runs as the account it names; before installing it checks that the service runs as `fypapp`, starts only `scripts/<name>.py` from the release's virtualenv, has no `+`/`!` privileged hooks, and that the timer starts that same service. A failure warns and is audited but never fails a deployment that is already healthy. `test_ops_units.py` runs the script's own check against the shipped unit and against variants that must be refused. It takes effect once the updated `mcs21-deploy` is installed on the VPS (one `install` command, in `docs/AUTOMATIC_DEPLOYMENT.md`); the other ops units, some of which run as root or delete data, stay manual installs.

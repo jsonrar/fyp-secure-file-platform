@@ -72,14 +72,49 @@ def test_login_guessing_is_graded_by_how_fast_and_how_many() -> None:
 
     medium = _events(12, every=timedelta(minutes=1))
     findings, _ = evaluate(_inputs(login_failures=medium))
-    assert {f.priority for f in findings} == {Priority.MEDIUM}
-    assert {f.rule_id for f in findings} == {"LOGIN_GUESSING_SOURCE", "LOGIN_GUESSING_ACCOUNT"}
+    assert [(f.rule_id, f.priority) for f in findings] == [
+        ("LOGIN_GUESSING_SOURCE", Priority.MEDIUM)
+    ]
 
     high = _events(35, every=timedelta(seconds=20))
     findings, _ = evaluate(_inputs(login_failures=high))
-    by_rule = {f.rule_id: f.priority for f in findings}
-    assert by_rule["LOGIN_GUESSING_SOURCE"] is Priority.HIGH
-    assert by_rule["LOGIN_GUESSING_ACCOUNT"] is Priority.MEDIUM
+    assert [(f.rule_id, f.priority) for f in findings] == [("LOGIN_GUESSING_SOURCE", Priority.HIGH)]
+
+
+def test_one_address_guessing_one_account_is_one_finding_that_names_the_account() -> None:
+    findings, _ = evaluate(
+        _inputs(login_failures=_events(12, every=timedelta(minutes=1), actor="alice"))
+    )
+
+    (finding,) = findings
+    assert "Accounts tried: alice" in finding.evidence
+
+
+def test_the_source_finding_counts_attempts_at_names_that_do_not_exist() -> None:
+    events = _events(6, every=timedelta(minutes=1), actor=None) + _events(
+        6, every=timedelta(minutes=1), actor="bob"
+    )
+
+    (finding,) = evaluate(_inputs(login_failures=events))[0]
+
+    assert "Accounts tried: bob" in finding.evidence
+    assert "6 attempts at names with no account" in finding.evidence
+
+
+def test_an_account_tried_from_many_addresses_is_caught_even_when_no_address_is_busy() -> None:
+    spread = [
+        Event(
+            at=NOW - timedelta(minutes=10) + timedelta(seconds=30 * i),
+            actor="alice",
+            source=f"198.51.100.{i}",
+        )
+        for i in range(12)
+    ]
+
+    findings, _ = evaluate(_inputs(login_failures=spread))
+
+    assert [f.rule_id for f in findings] == ["LOGIN_GUESSING_ACCOUNT"]
+    assert "From 12 addresses" in findings[0].evidence
 
 
 def test_slow_guessing_that_never_bunches_up_is_not_flagged() -> None:

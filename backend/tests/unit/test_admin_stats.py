@@ -3,6 +3,7 @@ they stay numbers."""
 
 from __future__ import annotations
 
+import re
 from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
 from uuid import UUID
@@ -394,7 +395,7 @@ def test_the_damaged_list_covers_corrupted_files_and_unreadable_objects_but_neve
     assert "files.status != 'DELETED'" in sql
     assert "files.status = 'CORRUPTED'" in sql
     assert "integrity_checks.result IN ('MODIFIED', 'MISSING', 'ERROR')" in sql
-    assert "max(integrity_checks.id)" in sql.lower()  # the newest check per file
+    assert re.search(r"max\(integrity_checks_\d+\.id\)", sql.lower())  # the newest check per file
     assert "LIMIT 11" in sql
     select_list = sql.split("FROM", maxsplit=1)[0]
     for private in ("iv", "auth_tag", "encrypted_manifest", "storage_object_key"):
