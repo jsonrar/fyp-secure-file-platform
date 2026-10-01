@@ -160,6 +160,14 @@ not a release pass.
   external checkpoint downloaded and HMAC-verified on a separate machine, and a test alert with no journal
   contents. The checkpoint timer was still publishing hourly on 2026-10-01.
 
+- [ ] [#140 Measure server capacity and performance on staging (meeting items 4–6)](https://github.com/jsonrar/fyp-secure-file-platform/issues/140)
+  — the tool, scenarios, server sampler, account seeder and procedure are ready
+  ([docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md)) and the local dry run passes end to end.
+  **No staging number exists yet**: the run waits for the server to be otherwise idle.
+- [ ] [#139 Two MySQL deadlocks under concurrent use return HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
+  — found by the load tool: simultaneous sign-ins (session-limit gap lock) and download vs share (audit
+  chain head vs a `users` row). Backend fix to choose; reproduction and InnoDB's report are on the Issue.
+
 - [ ] [#115 Run the non-expert usability study (WBS 5.4, NFR2)](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)
   — the kit is ready in [`docs/usability/`](docs/usability/STUDY_PLAN.md): plan, consent sheet,
   screener, ten task cards, SUS questionnaire, templates and a scoring script with pre-registered

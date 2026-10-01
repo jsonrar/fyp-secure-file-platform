@@ -135,6 +135,14 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   loopback 绑定、nginx 未暴露 metrics、外部 checkpoint 已在另一台机器下载并完成 HMAC 校验、测试告警不含 journal 内容。
   checkpoint timer 在 2026-10-01 仍在每小时发布。
 
+- [ ] [#140 在 staging 上测量服务器容量与性能（会议行动项 4–6）](https://github.com/jsonrar/fyp-secure-file-platform/issues/140)
+  — 工具、场景、服务器采样、测试账号脚本和操作步骤都已就绪
+  （[docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md)），本地预演端到端通过。
+  **目前还没有任何 staging 数据**：要等服务器空闲时再测。
+- [ ] [#139 并发使用下两个 MySQL 死锁返回 HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
+  — 由压测工具发现：同时登录（会话上限检查的间隙锁），以及下载与分享（审计链头与 `users` 行）。需要选定后端修法；
+  复现方法和 InnoDB 死锁报告在 Issue 里。
+
 - [ ] [#115 运行非专业用户可用性研究（WBS 5.4、NFR2）](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)
   ——研究套件已在 [`docs/usability/`](docs/usability/STUDY_PLAN.zh-CN.md) 就绪：计划、同意书、筛选表、十张任务卡、
   SUS 问卷、模板，以及带预先登记阈值的计分脚本。**尚未进行任何场次，没有任何结果。**开始前需要导师就伦理审查
