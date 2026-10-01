@@ -68,6 +68,19 @@ class AuditQueryService:
     def verify_chain(self, *, actor: ActorContext) -> dict[str, int | bool | None | str]:
         if actor.role is not SystemRole.ADMIN:
             raise AuthorizationError()
+        return self._verify_chain()
+
+    def verify_chain_for_trusted_job(self) -> dict[str, int | bool | None | str]:
+        """Verify the chain with no signed-in actor, for a server-side job run by the operator.
+
+        Only scripts started on the server call this (the daily security-agent check). No HTTP
+        route does, and a unit test fails if one starts to: over HTTP, `verify_chain` and its
+        administrator check are the only way in. The result is the same verdict either way, and
+        verifying writes nothing.
+        """
+        return self._verify_chain()
+
+    def _verify_chain(self) -> dict[str, int | bool | None | str]:
         logs, head = self.repository.chain_rows()
         previous_hash = self.audit_log_service.GENESIS_HASH
         for position, log in enumerate(logs, start=1):

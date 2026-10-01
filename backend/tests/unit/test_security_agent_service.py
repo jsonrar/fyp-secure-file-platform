@@ -3,12 +3,14 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
 from sqlalchemy.dialects import mysql
 
+from app.core.config import Settings
 from app.domain.auth import ActorContext
 from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import AuthorizationError
@@ -40,16 +42,21 @@ def _actor(role: SystemRole = SystemRole.ADMIN) -> ActorContext:
 
 
 class FakeAgentRepository:
-    def __init__(self, events=(), histories=(), pending_old=0) -> None:
+    def __init__(self, events=(), histories=(), pending_old=0, blocks=None) -> None:
         self.events = list(events)
         self.histories = list(histories)
         self.pending_old = pending_old
+        self.blocks = blocks or {}
         self.asked: dict = {}
+
+    def active_login_blocks(self, now):
+        self.asked["blocks_at"] = now
+        return self.blocks
 
     def audit_events(self, actions, *, since):
         self.asked["actions"] = set(actions)
         self.asked["since"] = since
-        return [e for e in self.events if e.action in actions and e.created_at >= since]
+        return [e for e in self.events if e.action in actions and e.created_at >= since], []
 
     def count_recovery_requests_pending_before(self, cutoff):
         self.asked["recovery_cutoff"] = cutoff
@@ -75,8 +82,14 @@ class FakeAuditQuery:
             "checked_entries": checked,
             "first_invalid_position": position,
         }
+        self.calls: list[str] = []
 
     def verify_chain(self, *, actor):
+        self.calls.append("admin")
+        return self.result
+
+    def verify_chain_for_trusted_job(self):
+        self.calls.append("trusted-job")
         return self.result
 
 
@@ -86,6 +99,10 @@ def _service(repository=None, admin=None, audit=None) -> SecurityAgentService:
         repository=repository or FakeAgentRepository(),
         admin_repository=admin or FakeAdminRepository(),
         audit_query=audit or FakeAuditQuery(),
+        # The default throttle policy, whatever the environment running the tests sets.
+        settings=Settings(
+            _env_file=None, APP_ENV="test", SECRET_KEY="agent-unit-test-secret-key-32-chars"
+        ),
         clock=lambda: NOW,
     )
 
@@ -128,7 +145,7 @@ def test_a_quiet_platform_gives_an_empty_report_that_still_shows_what_was_read()
     assert report.inputs.audit_events_read == 0
     assert report.inputs.files_checkable == 5 and report.inputs.audit_chain_entries_verified == 120
     assert report.inputs.last_scan_at is not None
-    assert len(report.rules) == 10 and all(rule.findings == 0 for rule in report.rules)
+    assert len(report.rules) == 12 and all(rule.findings == 0 for rule in report.rules)
     assert report.boundaries == BOUNDARIES
 
 
@@ -140,6 +157,7 @@ def test_the_window_is_measured_back_from_now_and_only_watched_events_are_reques
     assert repository.asked["since"] == (NOW - timedelta(hours=48)).replace(tzinfo=None)
     assert repository.asked["actions"] == {
         "AUTH_LOGIN_FAILED",
+        "AUTH_LOGIN_SUCCEEDED",
         "AUTH_REFRESH_REPLAY_DETECTED",
         "FILE_DOWNLOAD_AUTHORIZED",
         "FILE_SHARED",
@@ -147,6 +165,7 @@ def test_the_window_is_measured_back_from_now_and_only_watched_events_are_reques
         "RECOVERY_REQUEST_EXECUTED",
     }
     assert repository.asked["recovery_cutoff"] == (NOW - timedelta(hours=24)).replace(tzinfo=None)
+    assert repository.asked["blocks_at"] == NAIVE_NOW
 
 
 def test_a_burst_of_failed_sign_ins_becomes_a_ranked_finding_with_an_action() -> None:
@@ -154,8 +173,10 @@ def test_a_burst_of_failed_sign_ins_becomes_a_ranked_finding_with_an_action() ->
         actor=_actor(), window_hours=24
     )
 
-    assert report.counts.medium == 2
+    # One address guessing one account is one incident, reported once, naming the account.
+    assert report.counts.medium == 1
     source = next(f for f in report.findings if f.rule_id == "LOGIN_GUESSING_SOURCE")
+    assert "Accounts tried: alice" in source.evidence
     assert source.priority == "MEDIUM" and "203.0.113.9" in source.title
     assert "fail2ban" in source.recommended_action
     assert report.inputs.audit_events_read == 14
@@ -238,6 +259,59 @@ def test_a_damaged_file_and_a_broken_chain_are_critical_and_listed_first() -> No
     assert "position 57" in " ".join(chain.evidence)
 
 
+def test_a_sign_in_after_guessing_carries_the_role_through_to_a_critical_finding() -> None:
+    success = AuditEventRow(
+        "AUTH_LOGIN_SUCCEEDED", NAIVE_NOW - timedelta(minutes=29), "alice", "203.0.113.9", "ADMIN"
+    )
+
+    report = _service(FakeAgentRepository(events=[*_failures(6), success])).report(
+        actor=_actor(), window_hours=24
+    )
+
+    takeover = next(f for f in report.findings if f.rule_id == "SIGN_IN_AFTER_GUESSING")
+    assert takeover.priority == "CRITICAL" and "(administrator)" in takeover.evidence[0]
+    assert report.findings[0] is takeover
+
+
+def test_throttle_blocks_are_read_by_scope_and_carry_the_configured_policy() -> None:
+    from app.domain.enums import LoginThrottleScope
+
+    repository = FakeAgentRepository(
+        blocks={LoginThrottleScope.IP: 1, LoginThrottleScope.ACCOUNT: 2}
+    )
+
+    report = _service(repository).report(actor=_actor(), window_hours=24)
+
+    (finding,) = report.findings
+    assert finding.rule_id == "SIGN_IN_THROTTLE_ACTIVE" and finding.priority == "MEDIUM"
+    assert (
+        "Throttle policy: an account is blocked for 5 minutes after 10 failures in 15 minutes, "
+        "an address for 15 minutes after 50"
+    ) in finding.evidence
+
+
+def test_the_scheduled_check_needs_no_actor_and_uses_the_trusted_job_chain_path() -> None:
+    audit = FakeAuditQuery()
+
+    report = _service(
+        FakeAgentRepository(events=_failures(14)), audit=audit
+    ).report_for_scheduled_check(window_hours=24)
+
+    assert audit.calls == ["trusted-job"]
+    assert report.counts.medium == 1 and report.window_hours == 24
+    # And the administrator route still goes through the checked path.
+    _service(audit=audit).report(actor=_actor(), window_hours=24)
+    assert audit.calls == ["trusted-job", "admin"]
+
+
+def test_no_http_route_reaches_the_unchecked_entry_points() -> None:
+    routers = Path(__file__).resolve().parents[2] / "app" / "api"
+    source = "\n".join(path.read_text() for path in routers.rglob("*.py"))
+
+    assert "verify_chain_for_trusted_job" not in source
+    assert "report_for_scheduled_check" not in source
+
+
 def test_a_stale_scan_is_reported_from_the_coverage_figures() -> None:
     admin = FakeAdminRepository(last_sweep=None, candidates=4, never=4)
 
@@ -275,7 +349,7 @@ class _Db:
         return 0
 
 
-def test_the_event_query_selects_four_columns_and_never_metadata_or_user_agents() -> None:
+def test_the_event_query_selects_five_columns_and_never_metadata_or_user_agents() -> None:
     db = _Db()
     AgentRepository(db).audit_events(["AUTH_LOGIN_FAILED"], since=NAIVE_NOW)  # type: ignore[arg-type]
 
@@ -292,8 +366,32 @@ def test_the_event_query_selects_four_columns_and_never_metadata_or_user_agents(
         "email",
     ):
         assert private not in select_list
-    assert "audit_logs.action IN ('AUTH_LOGIN_FAILED')" in sql
-    assert "audit_logs.created_at >= " in sql and "LIMIT 20000" in sql
+    assert "audit_logs.action = 'AUTH_LOGIN_FAILED'" in sql
+    assert "audit_logs.created_at >= " in sql and "LIMIT 5000" in sql
+    assert "users.`role`" in select_list
+
+
+def test_the_throttle_query_counts_blocks_and_never_selects_the_hashed_keys() -> None:
+    db = _Db()
+    blocks = AgentRepository(db).active_login_blocks(NAIVE_NOW)  # type: ignore[arg-type]
+
+    sql = db.statements[0]
+    select_list = sql.split("FROM", maxsplit=1)[0]
+    assert "count(*)" in select_list and "key_hash" not in select_list
+    assert "auth_login_throttles.blocked_until > " in sql and "GROUP BY" in sql
+    assert "'IP'" in sql and "'ACCOUNT'" in sql and "REAUTH" not in sql
+    assert set(blocks.values()) == {0}
+
+
+def test_each_event_type_has_its_own_read_cap_so_one_flood_cannot_hide_another() -> None:
+    db = _Db()
+    rows, capped = AgentRepository(db).audit_events(  # type: ignore[arg-type]
+        ["FILE_DOWNLOAD_AUTHORIZED", "AUTH_LOGIN_FAILED"], since=NAIVE_NOW
+    )
+
+    assert len(db.statements) == 2
+    assert all("LIMIT 5000" in sql for sql in db.statements)
+    assert rows == [] and capped == []
 
 
 def test_the_damaged_file_query_never_selects_keys_nonces_or_ciphertext_columns() -> None:
@@ -314,10 +412,20 @@ def test_the_agent_modules_have_no_database_write_path() -> None:
     from app.repositories import agent_repository
     from app.services import security_agent_rules, security_agent_service
 
-    write = re.compile(
-        r"\.(add|add_all|delete|merge|flush|commit|rollback)\(|\b(insert|update|delete)\("
-    )
+    # Only reads may be called on the session. A set's .add() is not a database write.
+    write = re.compile(r"self\.db\.(?!execute\b|scalar\b|scalars\b)\w+|\b(insert|update|delete)\(")
+    assert write.search("self.db.add(row)") and write.search("self.db.commit()")
+    assert not write.search("seen.add(x)") and not write.search("self.db.execute(q)")
     for module in (agent_repository, security_agent_rules, security_agent_service):
         source = inspect.getsource(module)
         assert not write.search(source), f"{module.__name__} can write to the database"
         assert "AuditLogService" not in source, f"{module.__name__} could append to the audit log"
+
+    # The daily check script holds its session as `db`, and must only hand it to the agent.
+    script = (
+        Path(__file__).resolve().parents[2] / "scripts" / "security_agent_check.py"
+    ).read_text()
+    script = script.replace("sys.path.insert(0,", "")  # the import-path line, not a database write
+    assert not write.search(script), "the daily check script can write to the database"
+    assert re.search(r"\bdb\.\w+", script) is None, "the daily check script uses the session itself"
+    assert "AuditLogService" not in script and "commit" not in script

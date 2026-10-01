@@ -287,6 +287,58 @@ verify_live() {
   return 1
 }
 
+# Ops units that a release may install by itself. The list is closed on purpose: a unit placed
+# in /etc/systemd/system runs as whatever user it names, so letting any file in a release become
+# one would turn "a commit that passed CI" into "arbitrary code as root". Each name here must
+# pass the checks below, which pin the account, the program and the absence of root-only hooks.
+ops_units=(mcs21-integrity-sweep mcs21-security-agent)
+systemd_dir="/etc/systemd/system"
+
+ops_unit_acceptable() {
+  local service="$1" timer="$2" name="$3"
+  grep -qx 'User=fypapp' "$service" || return 1
+  grep -qx 'Group=fypapp' "$service" || return 1
+  grep -Eq '^ExecStart=/opt/mcs21/current/backend/\.venv/bin/python scripts/[a-z_]+\.py( |$)' "$service" || return 1
+  # `+` and `!` prefixes run a command with full privileges whatever User= says.
+  ! grep -Eq '^(ExecStart|ExecStartPre|ExecStartPost|ExecStop|ExecStopPost|ExecReload)=[+!]' "$service" || return 1
+  ! grep -Eq '^(User|Group)=root' "$service" || return 1
+  grep -qx "Unit=$name.service" "$timer" || return 1
+}
+
+install_ops_units() {
+  local release="$1" name service timer changed=0 installed=()
+  for name in "${ops_units[@]}"; do
+    service="$release/deployment/server/$name.service"
+    timer="$release/deployment/server/$name.timer"
+    if [[ ! -f "$service" || ! -f "$timer" ]]; then
+      printf 'Ops unit %s is not part of this release; skipped.\n' "$name"
+      continue
+    fi
+    if ! ops_unit_acceptable "$service" "$timer" "$name"; then
+      printf 'Ops unit %s does not meet the install rules; not installed.\n' "$name" >&2
+      return 1
+    fi
+    for unit in "$name.service" "$name.timer"; do
+      if ! cmp -s "$release/deployment/server/$unit" "$systemd_dir/$unit"; then
+        install -m 0644 -o root -g root "$release/deployment/server/$unit" "$systemd_dir/.$unit.new"
+        mv -f "$systemd_dir/.$unit.new" "$systemd_dir/$unit"
+        changed=1
+      fi
+    done
+    systemd-analyze verify "$systemd_dir/$name.service" >&2 || return 1
+    if [[ "$changed" == 1 ]]; then
+      systemctl daemon-reload
+    fi
+    if ! systemctl is-enabled --quiet "$name.timer"; then
+      systemctl enable --now "$name.timer"
+    fi
+    installed+=("$name")
+  done
+  if [[ "${#installed[@]}" -gt 0 ]]; then
+    audit success "ops_units=${installed[*]} changed=$changed"
+  fi
+}
+
 deploy_release() {
   local sha release old_target backup_dir
   fetch_main
@@ -313,6 +365,12 @@ deploy_release() {
   fi
   audit success "commit=$sha backup=$backup_dir previous=$(printf '%q' "$old_target")"
   printf 'Deployment succeeded.\n'
+  # The release is already live and healthy, so a unit that cannot be installed is reported
+  # and audited but never turns a good deployment into a failed one.
+  if ! install_ops_units "$release"; then
+    printf 'WARNING: the ops units were not installed or updated; see above.\n' >&2
+    audit warning "message=ops_units_not_installed"
+  fi
   show_status
 }
 

@@ -22,9 +22,10 @@ tested without a database. `SecurityAgentService` gathers the snapshot.
 
 from __future__ import annotations
 
+from bisect import bisect_left, bisect_right
 from collections import defaultdict
 from collections.abc import Callable, Sequence
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 
@@ -42,6 +43,7 @@ _PRIORITY_ORDER = {Priority.CRITICAL: 0, Priority.HIGH: 1, Priority.MEDIUM: 2, P
 LOGIN_FAILURE_SPAN = timedelta(minutes=15)
 LOGIN_FAILURES_MEDIUM = 10
 LOGIN_FAILURES_HIGH = 30
+SIGN_IN_AFTER_FAILURES = 5  # failures in LOGIN_FAILURE_SPAN before a success, per account or source
 DOWNLOAD_SPAN = timedelta(minutes=10)
 DOWNLOADS_MEDIUM = 20
 DOWNLOADS_HIGH = 60
@@ -60,6 +62,7 @@ class Event:
     at: datetime
     actor: str | None = None  # account name, when the event had one
     source: str | None = None  # source address, when the event had one
+    admin: bool = False  # the account is an administrator
 
 
 @dataclass(frozen=True, slots=True)
@@ -79,6 +82,7 @@ class AgentInputs:
     now: datetime
     window: timedelta
     login_failures: Sequence[Event] = ()
+    login_successes: Sequence[Event] = ()
     refresh_replays: Sequence[Event] = ()
     downloads: Sequence[Event] = ()
     shares: Sequence[Event] = ()
@@ -92,6 +96,11 @@ class AgentInputs:
     last_sweep_at: datetime | None = None
     checkable_files: int = 0
     never_checked_files: int = 0
+    # Sign-in throttle buckets blocked right now. The throttle keeps only hashes of the address
+    # and the account name, so these are counts and nothing more.
+    throttled_addresses: int = 0
+    throttled_accounts: int = 0
+    throttle_policy: str = ""
 
 
 @dataclass(frozen=True, slots=True)
@@ -136,7 +145,9 @@ def _stamp(value: datetime) -> str:
 
 
 def _plural(count: int, noun: str) -> str:
-    return f"{count} {noun}{'' if count == 1 else 's'}"
+    if count == 1:
+        return f"{count} {noun}"
+    return f"{count} {noun}{'es' if noun.endswith(('s', 'sh', 'ch', 'x')) else 's'}"
 
 
 def _group(
@@ -297,6 +308,7 @@ def _burst_findings(
     summary: str,
     action: Callable[[str], str],
     describe_subject: str,
+    extra_evidence: Callable[[str], list[str]] | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     minutes = int(span.total_seconds() // 60)
@@ -323,11 +335,25 @@ def _burst_findings(
                     f"{describe_subject}: {subject}",
                     window_text,
                     f"{_plural(len(times), 'event')} in the whole analysis window",
+                    *(extra_evidence(subject) if extra_evidence else ()),
                 ),
                 recommended_action=action(subject),
             )
         )
     return findings
+
+
+def _accounts_tried(events: Sequence[Event], source: str) -> list[str]:
+    """Which accounts one address tried, so the source finding also names its targets."""
+    named = sorted({e.actor for e in events if e.source == source and e.actor})
+    unknown = sum(1 for e in events if e.source == source and not e.actor)
+    lines: list[str] = []
+    if named:
+        shown = ", ".join(named[:5]) + (f" and {len(named) - 5} more" if len(named) > 5 else "")
+        lines.append(f"Accounts tried: {shown}")
+    if unknown:
+        lines.append(f"{_plural(unknown, 'attempt')} at names with no account")
+    return lines
 
 
 def rule_login_guessing_by_source(inputs: AgentInputs) -> list[Finding]:
@@ -348,25 +374,183 @@ def rule_login_guessing_by_source(inputs: AgentInputs) -> list[Finding]:
             "firewall or with fail2ban; the sign-in throttle already slows it but does not stop it."
         ),
         describe_subject="Source address",
+        extra_evidence=lambda s: _accounts_tried(inputs.login_failures, s),
     )
 
 
 def rule_login_guessing_by_account(inputs: AgentInputs) -> list[Finding]:
+    """Guessing at one account from **several** addresses.
+
+    Guessing from a single address is already reported, with the accounts it tried, by the
+    source rule. Reporting the same ten failures a second time under the account only doubled
+    the count for one incident. What only this rule can see is an account tried from many
+    places, which the per-address view splits into pieces too small to notice.
+    """
+    sources: dict[str, set[str]] = defaultdict(set)
+    for event in inputs.login_failures:
+        if event.actor and event.source:
+            sources[event.actor].add(event.source)
+    distributed = [e for e in inputs.login_failures if e.actor and len(sources[e.actor]) >= 2]
     return _burst_findings(
         rule_id="LOGIN_GUESSING_ACCOUNT",
-        events=inputs.login_failures,
+        events=distributed,
         key=lambda e: e.actor,
         span=LOGIN_FAILURE_SPAN,
         medium=LOGIN_FAILURES_MEDIUM,
         high=None,
-        title=lambda s, n: f"{n} failed sign-ins against account {s}",
-        summary="One account is being tried repeatedly, whoever it is coming from.",
+        title=lambda s, n: f"{n} failed sign-ins against account {s} from several addresses",
+        summary=(
+            "One account is being tried from more than one address, which spreads the attempts "
+            "so that no single address looks busy."
+        ),
         action=lambda s: (
             f"Ask the owner of {s} whether it was them. If not, disable the account on the Users "
             "tab (this also ends its sessions) and have them reset the password before enabling it."
         ),
         describe_subject="Account",
+        extra_evidence=lambda s: [f"From {_plural(len(sources[s]), 'address')}"],
     )
+
+
+@dataclass(slots=True)
+class _Takeover:
+    success: Event
+    on_account: int
+    from_source: int
+    failures: set[int]
+    first_failure: datetime
+    sources: int
+    later_successes: int = field(default=0)
+
+
+def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
+    """A sign-in that succeeded right after a run of failures: guessing that may have worked.
+
+    For each success, the failures in the `LOGIN_FAILURE_SPAN` before it are counted two ways:
+    against the same account, and from the same source address. Either reaching
+    `SIGN_IN_AFTER_FAILURES` fires. The account count catches guessing spread over several
+    addresses; the address count catches credential stuffing, where one address tries many
+    accounts and the one it got into may have had no failure of its own.
+
+    A successful sign-in clears the account's throttle bucket, but not the audit log, so the
+    failures are still here to count.
+
+    One incident is reported once. A later success to the same account whose failures were all
+    counted already (the intruder signing in a second time, say) is added to that finding instead
+    of raising another. The guessing itself may still be reported by LOGIN_GUESSING_SOURCE or
+    LOGIN_GUESSING_ACCOUNT: that the guessing happened and that it worked are different facts.
+    """
+    failures = sorted(inputs.login_failures, key=lambda e: e.at)
+    times = [e.at for e in failures]
+    incidents: list[_Takeover] = []
+    latest: dict[str, _Takeover] = {}
+    for success in sorted(inputs.login_successes, key=lambda e: e.at):
+        lo = bisect_left(times, success.at - LOGIN_FAILURE_SPAN)
+        hi = bisect_right(times, success.at)
+        on_account = {
+            i for i in range(lo, hi) if success.actor and failures[i].actor == success.actor
+        }
+        from_source = {
+            i for i in range(lo, hi) if success.source and failures[i].source == success.source
+        }
+        if max(len(on_account), len(from_source)) < SIGN_IN_AFTER_FAILURES:
+            continue
+        matched = on_account | from_source
+        key = success.actor or ""
+        previous = latest.get(key)
+        if previous is not None and matched <= previous.failures:
+            previous.later_successes += 1
+            continue
+        incident = _Takeover(
+            success=success,
+            on_account=len(on_account),
+            from_source=len(from_source),
+            failures=matched,
+            first_failure=min(failures[i].at for i in matched),
+            sources=len({failures[i].source for i in matched if failures[i].source}),
+        )
+        latest[key] = incident
+        incidents.append(incident)
+
+    findings: list[Finding] = []
+    for incident in incidents:
+        success = incident.success
+        account = success.actor or "an unknown account"
+        evidence = [
+            f"Account: {account}" + (" (administrator)" if success.admin else ""),
+            f"{_plural(len(incident.failures), 'failed sign-in')} between "
+            f"{_stamp(incident.first_failure)} and the success: {incident.on_account} against "
+            f"this account, {incident.from_source} from the address that then signed in",
+            f"Failures came from {_plural(incident.sources, 'address')}",
+            f"Successful sign-in at {_stamp(success.at)} from "
+            f"{success.source or 'an unrecorded address'}",
+        ]
+        if incident.later_successes:
+            evidence.append(
+                f"{_plural(incident.later_successes, 'more sign-in')} to this account after "
+                "that, with no new failures"
+            )
+        findings.append(
+            Finding(
+                rule_id="SIGN_IN_AFTER_GUESSING",
+                priority=Priority.CRITICAL if success.admin else Priority.HIGH,
+                title=f"{account} signed in right after a run of failed sign-ins",
+                summary=(
+                    "A sign-in succeeded straight after repeated failures. If the failures were "
+                    "someone guessing, the guess worked: this is what an account takeover looks "
+                    "like."
+                ),
+                evidence=tuple(evidence),
+                recommended_action=(
+                    f"Confirm with the owner of {account} that it was them. If it was not, "
+                    "disable the account on the Users tab (this ends its sessions), have them "
+                    "reset the password, and review the account's Access Records from "
+                    f"{_stamp(success.at)} onwards."
+                ),
+            )
+        )
+    return findings
+
+
+def rule_sign_in_throttle_active(inputs: AgentInputs) -> list[Finding]:
+    """Sign-in throttle blocks in force now, which the audit log cannot show.
+
+    Attempts the throttle refuses with 429 are deliberately not audited (an attacker could
+    otherwise flood the hash-chained log), so while a block lasts the rules above cannot see
+    whether the guessing goes on. This is a rule of its own rather than extra evidence on the
+    guessing findings because the throttle keys are hashed: a count cannot be tied to any one
+    address or account, and printing it under one would claim a link nobody can check.
+    """
+    addresses, accounts = inputs.throttled_addresses, inputs.throttled_accounts
+    if not addresses and not accounts:
+        return []
+    evidence = [
+        f"Blocked right now: {_plural(addresses, 'address')}, {_plural(accounts, 'account')}",
+        "Attempts refused while blocked are not in the audit log, so they are not counted "
+        "anywhere in this report",
+    ]
+    if inputs.throttle_policy:
+        evidence.append(f"Throttle policy: {inputs.throttle_policy}")
+    return [
+        Finding(
+            rule_id="SIGN_IN_THROTTLE_ACTIVE",
+            priority=Priority.MEDIUM if addresses else Priority.LOW,
+            title=(
+                f"The sign-in throttle is blocking {_plural(addresses, 'address')} and "
+                f"{_plural(accounts, 'account')}"
+            ),
+            summary=(
+                "Someone failed to sign in often enough to be blocked. An address block takes "
+                "many failures, so it is rarely a user who forgot a password."
+            ),
+            evidence=tuple(evidence),
+            recommended_action=(
+                "Look at the failed sign-in findings in this report, or the Audit chain tab, for "
+                "the guessing that caused it. A block ends by itself; an address that keeps "
+                "getting blocked should be blocked at the firewall or with fail2ban."
+            ),
+        )
+    ]
 
 
 def rule_refresh_replay(inputs: AgentInputs) -> list[Finding]:
@@ -537,10 +721,30 @@ RULES: tuple[tuple[RuleInfo, Callable[[AgentInputs], list[Finding]]], ...] = (
         RuleInfo(
             "LOGIN_GUESSING_ACCOUNT",
             "Password guessing against one account",
-            "Failed sign-ins, grouped by the account they targeted",
+            "Failed sign-ins against one account from two or more addresses",
             f"{LOGIN_FAILURES_MEDIUM}+ in 15 minutes is medium",
         ),
         rule_login_guessing_by_account,
+    ),
+    (
+        RuleInfo(
+            "SIGN_IN_AFTER_GUESSING",
+            "Guessing that worked",
+            "Successful sign-ins, against the failures in the 15 minutes before them on the same "
+            "account or from the same address",
+            f"{SIGN_IN_AFTER_FAILURES}+ failures before a success is high, critical for an "
+            "administrator",
+        ),
+        rule_sign_in_after_guessing,
+    ),
+    (
+        RuleInfo(
+            "SIGN_IN_THROTTLE_ACTIVE",
+            "Sign-in blocks in force",
+            "Sign-in throttle buckets blocked right now (counts only; the keys are hashed)",
+            "Any blocked address is medium, blocked accounts only low",
+        ),
+        rule_sign_in_throttle_active,
     ),
     (
         RuleInfo(

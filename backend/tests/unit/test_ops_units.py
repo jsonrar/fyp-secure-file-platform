@@ -7,7 +7,11 @@ host's own paths -- so the facts the staging runbooks rely on are pinned here in
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 SERVER = Path(__file__).resolve().parents[3] / "deployment" / "server"
 
@@ -75,6 +79,7 @@ def test_every_ops_job_alerts_on_failure() -> None:
     for name in (
         "mcs21-reconcile.service",
         "mcs21-integrity-sweep.service",
+        "mcs21-security-agent.service",
         "mcs21-offsite-backup.service",
         "mcs21-observe.service",
         "mcs21-audit-checkpoint.service",
@@ -97,6 +102,9 @@ def test_the_alert_never_puts_the_api_key_on_a_command_line_or_journal_in_email(
     assert "journalctl --no-pager --output" not in script
     assert "Journal output is intentionally withheld from email" in script
     assert "Inspect locally: sudo journalctl -u" in script
+    # The security agent's mail adds a fixed pointer to the admin tab, never its output.
+    assert 'if unit == "mcs21-security-agent.service":' in script
+    assert "open Admin -> Security agent" in script
 
 
 def test_observability_watcher_is_redacted_hardened_and_thresholded() -> None:
@@ -163,3 +171,87 @@ def test_backup_verify_derives_its_expectations() -> None:
     assert "-m alembic heads" in script
     assert 'expected="$live_tables|$expected_version|1"' in script
     assert "CHECK TABLE" in script
+
+
+def test_the_security_agent_check_reads_the_database_only_and_runs_after_the_sweep() -> None:
+    unit = _directives("mcs21-security-agent.service")
+
+    assert unit["User"] == ["fypapp"] and unit["Group"] == ["fypapp"]
+    assert unit["EnvironmentFile"] == ["/etc/fyp-secure-file-platform/backend.env"]
+    assert unit["ProtectSystem"] == ["strict"] and unit["NoNewPrivileges"] == ["true"]
+    assert unit["OnFailure"] == ["mcs21-alert@%n.service"]
+    # No write path anywhere, and not even read access to the stored objects.
+    assert "ReadWritePaths" not in unit and "StateDirectory" not in unit
+    assert unit["InaccessiblePaths"] == ["/var/lib/fyp-secure-file-platform"]
+    assert unit["ExecStart"] == [
+        "/opt/mcs21/current/backend/.venv/bin/python scripts/security_agent_check.py"
+    ]
+    timer = _directives("mcs21-security-agent.timer")
+    assert timer["OnCalendar"] == ["*-*-* 06:00:00 Asia/Kuala_Lumpur"]
+    assert timer["Persistent"] == ["true"]
+    assert timer["Unit"] == ["mcs21-security-agent.service"]
+    # After the 05:30 sweep, so a file it has just found damaged is in the same morning's run.
+    (sweep,) = _directives("mcs21-integrity-sweep.timer")["OnCalendar"]
+    assert sweep.split()[1] < timer["OnCalendar"][0].split()[1]
+
+
+# --- a release may install its two ops timers by itself, and nothing else ------------------
+
+
+def _acceptable(
+    tmp_path: Path, service_text: str, timer_text: str, name: str = "mcs21-integrity-sweep"
+) -> bool:
+    """Run the deploy script's own `ops_unit_acceptable` against the given unit text."""
+    script = _read("mcs21-deploy")
+    match = re.search(r"^ops_unit_acceptable\(\) \{\n.*?^\}\n", script, flags=re.S | re.M)
+    assert match, "ops_unit_acceptable is missing from mcs21-deploy"
+    (tmp_path / "x.service").write_text(service_text)
+    (tmp_path / "x.timer").write_text(timer_text)
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            match.group(0)
+            + f'\nops_unit_acceptable "{tmp_path}/x.service" "{tmp_path}/x.timer" {name}',
+        ],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+@pytest.mark.skipif(
+    shutil.which("bash") is None, reason="bash is required to run the deploy script's check"
+)
+@pytest.mark.parametrize("name", ["mcs21-integrity-sweep", "mcs21-security-agent"])
+def test_the_deploy_script_accepts_exactly_the_shipped_units(tmp_path: Path, name: str) -> None:
+    service = _read(f"{name}.service")
+    timer = _read(f"{name}.timer")
+
+    def ok(service_text: str, timer_text: str = timer) -> bool:
+        return _acceptable(tmp_path, service_text, timer_text, name)
+
+    assert ok(service)
+    # Each of these would turn "a commit that passed CI" into code run with more privilege.
+    assert not ok(service.replace("User=fypapp", "User=root"))
+    assert not ok(service.replace("Group=fypapp", "Group=root"))
+    assert not ok(
+        service.replace(
+            "ExecStart=/opt/mcs21/current/backend/.venv/bin/python", "ExecStart=/bin/sh"
+        )
+    )
+    assert not ok(service.replace("ExecStart=/opt/mcs21", "ExecStart=+/opt/mcs21"))
+    assert not ok(service + "\nExecStartPost=+/bin/sh -c id\n")
+    assert not ok(service, timer.replace(f"Unit={name}.service", "Unit=other.service"))
+
+
+def test_the_deploy_script_installs_only_the_closed_list_and_never_fails_a_good_release() -> None:
+    script = _read("mcs21-deploy")
+
+    (line,) = [entry for entry in script.splitlines() if entry.startswith("ops_units=")]
+    assert line == "ops_units=(mcs21-integrity-sweep mcs21-security-agent)"
+    # Called after the release is live and audited, and guarded so a failure only warns.
+    deploy = script.split("deploy_release() {", 1)[1].split("rollback_release() {", 1)[0]
+    assert deploy.index('audit success "commit=$sha') < deploy.index('install_ops_units "$release"')
+    assert 'if ! install_ops_units "$release"; then' in deploy
+    assert "systemd-analyze verify" in script and "cmp -s" in script

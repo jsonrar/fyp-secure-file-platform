@@ -113,6 +113,46 @@ installed as:
   by deploy operators;
 - `mcs21-auto-deploy.service` and `mcs21-auto-deploy.timer` -> `/etc/systemd/system/`.
 
+### Ops units a release installs by itself
+
+After a release is live and healthy, `mcs21-deploy` installs and enables **two** ops units from the
+release: `mcs21-integrity-sweep.{service,timer}` (the daily integrity scan at 05:30,
+[BACKUP_AND_RECOVERY.md §9](BACKUP_AND_RECOVERY.md#9-finding-and-restoring-one-damaged-file)) and
+`mcs21-security-agent.{service,timer}` (the daily security-agent check at 06:00, which mails when
+anything is Critical or High, [SECURITY_AGENT.md](SECURITY_AGENT.md#proactive-alerts-daily)).
+Both run as `fypapp` and only read: the sweep reads the object store, the agent reads the database.
+The list is closed in the script (`ops_units`), because a file in `/etc/systemd/system` runs as the
+account it names, and letting any file in a release become one would turn "a commit that passed
+CI" into "arbitrary code as root". Before installing, the script checks that the service runs as
+`fypapp`, starts only `/opt/mcs21/current/backend/.venv/bin/python scripts/<name>.py`, has no
+`+`/`!` privileged hooks and that the timer starts that same service; then it compares with the
+installed copy, replaces it atomically only if it changed, runs `systemd-analyze verify`, reloads
+systemd and enables the timer if it is not already. A failure is printed and audited as a warning
+and never fails a deployment that is already healthy. `test_ops_units.py` runs the script's own
+check against both shipped units and against variants that must be refused, and pins the list to
+exactly `(mcs21-integrity-sweep mcs21-security-agent)`.
+
+The other ops units (`mcs21-reconcile`, `mcs21-audit-checkpoint`, the backup and observe units)
+stay deliberate manual installs: some run as root or delete data.
+
+This takes effect once the updated `/usr/local/sbin/mcs21-deploy` is installed on the VPS, which
+only a person with root can do. The list lives in that script, so it must be reinstalled whenever
+the list changes (it did for the security agent). `install` prints nothing when it succeeds. The
+units are installed during a deployment, so either wait for the next release or redeploy the
+current one:
+
+```bash
+sudo install -m 0755 -o root -g root /opt/mcs21/current/deployment/server/mcs21-deploy /usr/local/sbin/mcs21-deploy
+sudo mcs21-auto-deploy force
+systemctl list-timers mcs21-integrity-sweep.timer mcs21-security-agent.timer
+```
+
+Copy the script only after `/opt/mcs21/current` points at a release that contains the list you
+want (`grep '^ops_units=' /opt/mcs21/current/deployment/server/mcs21-deploy`); copying it while an
+older release is current installs the older script. The alert mail itself
+(`/usr/local/sbin/mcs21-alert`) is a manual install too; reinstall it to get the security agent's
+pointer to the admin tab, and test it with `sudo systemctl start mcs21-alert@test.service`.
+
 The server additionally provides its environment-specific mirror, Deploy Key, release command,
 secrets, backup storage, and sudo policy. Environment-specific values must not be copied into
 Git.

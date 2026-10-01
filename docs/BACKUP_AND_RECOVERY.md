@@ -326,7 +326,11 @@ A result of `MODIFIED` is evidence about the bytes and marks the file `CORRUPTED
 `ERROR` describe the storage (an unmounted volume, an I/O error) and do not change the file's
 status, so a short outage does not condemn intact files. The next passing check heals the status.
 
-Install the timer deliberately, after one manual run has been read:
+The timer is installed **automatically**: after each healthy release `mcs21-deploy` installs and
+enables `mcs21-integrity-sweep.timer` from it (a closed list; see
+[AUTOMATIC_DEPLOYMENT.md](AUTOMATIC_DEPLOYMENT.md#ops-units-a-release-installs-by-itself)). That
+takes effect once the updated `mcs21-deploy` has been installed on the VPS. To install by hand
+instead, or to read a first run before relying on it:
 
 ```bash
 sudo systemd-run --pipe --wait --quiet --uid=fypapp --gid=fypapp \

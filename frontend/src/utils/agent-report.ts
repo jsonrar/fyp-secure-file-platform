@@ -78,9 +78,14 @@ export function headline(report: AgentReport): string {
 export function coverageLine(report: AgentReport): string {
   const i = report.inputs
   const checked = i.files_checkable - i.files_never_checked
-  return (
+  const line =
     `Read ${i.audit_events_read.toLocaleString('en-US')} audit events, verified ` +
     `${i.audit_chain_entries_verified.toLocaleString('en-US')} audit-chain entries, and ` +
     `${checked.toLocaleString('en-US')} of ${i.files_checkable.toLocaleString('en-US')} stored files have been integrity-checked.`
+  const capped = i.event_types_capped ?? []
+  if (!capped.length) return line
+  return (
+    `${line} So many ${capped.join(', ')} events were recorded that only the newest were read; ` +
+    'choose a shorter window to see all of them.'
   )
 }

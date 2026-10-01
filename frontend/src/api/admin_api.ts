@@ -125,6 +125,8 @@ export interface AgentReport {
   rules: { rule_id: string; name: string; watches: string; threshold: string; findings: number }[]
   inputs: {
     audit_events_read: number
+    /** Event types that hit the per-type read cap, so their oldest events were not read. */
+    event_types_capped: string[]
     files_checkable: number
     files_never_checked: number
     audit_chain_entries_verified: number
