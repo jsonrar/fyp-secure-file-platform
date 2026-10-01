@@ -6,7 +6,12 @@ from uuid import UUID
 from fastapi import APIRouter, Depends, Query
 from fastapi.responses import JSONResponse
 
-from app.api.dependencies import get_admin_service, get_request_context, require_admin
+from app.api.dependencies import (
+    get_admin_service,
+    get_request_context,
+    get_security_agent_service,
+    require_admin,
+)
 from app.api.responses import AUTH_NO_STORE_HEADERS, ApiSuccessResponse, ok
 from app.core.time import to_api_utc
 from app.domain.auth import ActorContext, RequestContext
@@ -20,13 +25,16 @@ from app.schemas.admin_schema import (
     AdminUserOut,
     AdminUserStatusResponse,
 )
+from app.schemas.agent_schema import AgentReportOut
 from app.services.admin_service import AdminService
+from app.services.security_agent_service import SecurityAgentService
 
 router = APIRouter()
 
 AdminActorDependency = Annotated[ActorContext, Depends(require_admin)]
 AdminServiceDependency = Annotated[AdminService, Depends(get_admin_service)]
 RequestContextDependency = Annotated[RequestContext, Depends(get_request_context)]
+AgentServiceDependency = Annotated[SecurityAgentService, Depends(get_security_agent_service)]
 
 
 @router.get("/users", response_model=ApiSuccessResponse[AdminUserListResponse])
@@ -95,6 +103,17 @@ def scan_integrity(
         budget_seconds=SCAN_BUDGET_SECONDS,
     )
     return ok(message="Integrity scan finished", data=data, headers=AUTH_NO_STORE_HEADERS)
+
+
+@router.get("/agent/report", response_model=ApiSuccessResponse[AgentReportOut])
+def security_agent_report(
+    actor: AdminActorDependency,
+    service: AgentServiceDependency,
+    window_hours: Annotated[int, Query(ge=1, le=168)] = 24,
+) -> JSONResponse:
+    """The security agent's ranked findings. Read-only, metadata only, rule-based."""
+    data = service.report(actor=actor, window_hours=window_hours)
+    return ok(message="Security agent report generated", data=data, headers=AUTH_NO_STORE_HEADERS)
 
 
 @router.get("/files", response_model=ApiSuccessResponse[AdminFileListResponse])
