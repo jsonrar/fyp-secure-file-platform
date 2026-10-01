@@ -368,12 +368,14 @@ workflow 的 PR）。推送前请在本地执行相同命令，避免失败在 C
 # 后端（在 backend/ 下执行，对应 "backend" Job；分支覆盖率低于 78% 即失败）
 uv venv --python /opt/homebrew/bin/python3.12 .venv   # 或任意 Python 3.12 解释器
 uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+uv pip install --python .venv/bin/python pip-audit && .venv/bin/pip-audit -r requirements.txt
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
 .venv/bin/python -m pytest -m "not integration" --cov
 
 # 前端（在 frontend/ 下执行，对应 "frontend" Job；阈值见 vite.config.ts）
 npm ci
+npm audit --audit-level=high
 npm run test:coverage
 npm run typecheck
 npm run build
