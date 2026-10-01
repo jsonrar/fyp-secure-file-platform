@@ -98,6 +98,28 @@ sudo mcs21-deploy all
 - `mcs21-auto-deploy` -> `/usr/local/sbin/mcs21-auto-deploy`，由 root 持有，部署队员不可修改；
 - `mcs21-auto-deploy.service` 和 `mcs21-auto-deploy.timer` -> `/etc/systemd/system/`。
 
+### 发布自己安装的运维 unit
+
+发布上线且健康之后，`mcs21-deploy` 会从该发布中安装并启用**一个**运维 unit：`mcs21-integrity-sweep.{service,timer}`
+（每日完整性扫描，见 [BACKUP_AND_RECOVERY.zh-CN.md](BACKUP_AND_RECOVERY.zh-CN.md) 第 9 节）。名单在脚本里固定
+（`ops_units`），因为放进 `/etc/systemd/system` 的文件会以它指定的账户运行，若发布里任何文件都能变成 unit，
+“通过 CI 的提交”就等于“以 root 运行任意代码”。安装前脚本检查：服务以 `fypapp` 运行，只启动
+`/opt/mcs21/current/backend/.venv/bin/python scripts/<名称>.py`，没有 `+`/`!` 特权钩子，timer 启动的就是同一服务；
+然后与已安装的副本比较，仅在变化时原子替换，运行 `systemd-analyze verify`，重载 systemd，若 timer 尚未启用则启用。
+失败只会打印并记审计警告，不会让已经健康的部署变成失败。`test_ops_units.py` 会用脚本自己的检查去验证随附的
+unit，以及必须被拒绝的各种变体。
+
+其余运维 unit（`mcs21-reconcile`、`mcs21-audit-checkpoint`、备份与 observe）仍是有意的手动安装：有的以 root
+运行，有的会删除数据。
+
+这要在 VPS 上装上更新后的 `/usr/local/sbin/mcs21-deploy` 之后才生效，只有拥有 root 的人能做：
+
+```bash
+sudo install -m 0755 -o root -g root /opt/mcs21/current/deployment/server/mcs21-deploy /usr/local/sbin/mcs21-deploy
+```
+
+此后的下一次发布，timer 会自动出现，无需其他步骤。
+
 服务器还单独保存环境专用的 Git mirror、Deploy Key、Secret、备份与 sudo policy；这些
 环境专用内容不得复制进 Git。
 
