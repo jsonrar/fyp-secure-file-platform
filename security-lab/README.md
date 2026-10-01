@@ -33,17 +33,21 @@ are written under `security-lab/reports/` and are ignored by Git.
 3. Restoring the original bytes returns `VALID` and heals the durable status to `ACTIVE`.
 4. Temporarily removing an object returns `MISSING` without permanently changing its status.
 5. If an attacker controls both storage and the database, they can replace the recorded digest
-   and make the server-side SHA-256 comparison pass. The original AEAD tag still rejects the
-   modified ciphertext on the client. SHA-256 is therefore a useful detector, not a trusted root
-   after simultaneous database-and-storage compromise.
+   so the object matches its row. The upload's audit row recorded the original digest in the hash
+   chain, and the integrity check compares against it, so this returns `MODIFIED`, persists
+   `CORRUPTED` and refuses download. The original AEAD tag also still rejects the modified
+   ciphertext on the client. The row's digest alone is a useful detector, not a trusted root; the
+   audit chain's digest is the stronger reference, and the client's authentication is the last one
+   if the audit log is compromised too.
 
 1. 基线密文显示 `VALID`、持久状态为 `ACTIVE`，并且可下载。
 2. 翻转一个密文字节后显示 `MODIFIED`、持久状态变为 `CORRUPTED`，下载被拒绝。
 3. 恢复原始密文后重新显示 `VALID`，持久状态恢复为 `ACTIVE`。
 4. 临时移走对象时显示 `MISSING`，不会永久改变文件状态。
-5. 如果攻击者同时控制存储和数据库，就能替换记录中的摘要，使服务端 SHA-256 比较通过；但
-   原来的 AEAD 认证标签仍会让客户端拒绝被修改的密文。因此 SHA-256 是有效检测器，却不能在
-   数据库与对象存储同时失陷后继续充当可信根。
+5. 如果攻击者同时控制存储和数据库，可以替换记录中的摘要，使对象与其记录一致。上传的审计行已把
+   原始摘要记入哈希链，完整性检查会与它比对，因此这种情况会返回 `MODIFIED`、持久状态变为
+   `CORRUPTED` 并拒绝下载；原来的 AEAD 认证标签也仍会让客户端拒绝被修改的密文。记录行里的摘要
+   只是有效的检测器，不是可信根；审计链中的摘要是更强的参照，若审计日志也失陷，最后一道防线是客户端的认证。
 
 Do not point this lab at another system, change its database name to a non-test name, or add any
 production mount. Both Python entry points independently refuse those conditions.

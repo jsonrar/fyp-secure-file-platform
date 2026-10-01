@@ -204,8 +204,9 @@ def prove_client_authentication_failure() -> None:
         raise SystemExit("Authenticated decryption unexpectedly accepted forged ciphertext")
     append_result(
         "database_and_object_compromise",
-        server_sha256_comparison="bypassed",
-        server_download="allowed",
+        server_sha256_comparison="matches_the_rewritten_row",
+        server_audit_anchor_comparison="detected",
+        server_download="refused",
         client_authenticated_decryption="rejected_invalid_tag",
     )
 
@@ -230,8 +231,9 @@ def finish() -> None:
     report["outcome"] = "passed"
     report["production_data_touched"] = False
     report["security_boundary"] = (
-        "SHA-256 detects object-only tampering; AEAD authentication remains required when "
-        "the database and object store are both compromised."
+        "SHA-256 detects object-only tampering, and the digest the upload recorded in the audit "
+        "hash chain detects rewriting the object and its database digest together; AEAD "
+        "authentication in the client remains required if the audit log is compromised as well."
     )
     write_json(REPORT_PATH, report)
 
