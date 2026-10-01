@@ -57,7 +57,7 @@ live deployment and repeatable browser coverage remain separate acceptance work.
   [OpenAPI JSON](https://secureview.tech/openapi.json).
 - [x] Public product pages and signed-in account chrome: landing `/`, Education
   (`/education`: algorithms, playground, knowledge), Help (`/help`: How to Use walkthroughs),
-  Development Team mosaic under Contact us (`/team`), header active-tab theme colour, and the avatar menu with
+  supervisor profile and Development Team cards under Contact us (`/team`), header active-tab theme colour, and the avatar menu with
   `/profile` and `/settings`. Evidence and rationale live in
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) under `[Unreleased]`.
 
