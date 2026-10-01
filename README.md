@@ -85,9 +85,9 @@ and the team's [SecureView Development Board](https://github.com/users/Waldo0926
 
 The file manager also offers **Download encrypted** for owners and authorized recipients,
 including while the vault is locked. It saves the verified stored bytes as
-`<filename>.ciphertext` without a passphrase or private key. This branch implements the
-download portion of [#71](https://github.com/jsonrar/fyp-secure-file-platform/issues/71);
-preview and live deployment verification remain pending.
+`<filename>.ciphertext` without a passphrase or private key. This is the download half of
+[#71](https://github.com/jsonrar/fyp-secure-file-platform/issues/71); the bounded ciphertext
+preview that Issue also described was never built.
 
 ## Using the Website
 

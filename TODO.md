@@ -100,7 +100,12 @@ not a release pass.
   on every PR and push to `main`; the Ruff baseline is fixed, not suppressed. Branch protection is **not
   available** on the current plan: the repository is private on GitHub's free tier, and the protection and
   rulesets APIs refuse it (checked 2026-10-01; threat-model F-01). It needs a paid plan or a public
-  repository, so the checks are required by convention and review only.
+  repository, so the checks are required by convention and review only. What replaced it is
+  [#117](https://github.com/jsonrar/fyp-secure-file-platform/pull/117): staging deploys only a `deploy` branch
+  that CI moves forward after every job has passed on a commit ([docs](docs/AUTOMATIC_DEPLOYMENT.md#the-ci-gate)).
+  Verified 2026-10-01: the `promote` job created `deploy` on the merge commit, the new script was installed on
+  the VPS, and it reported the running release already matches the latest CI-passed commit. It does not require
+  a review, and `mcs21-deploy all main` still bypasses CI by design.
 - [x] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
   `0007_file_folders`, runs `alembic current`/`check`, runs the whole backend suite (coverage
@@ -121,8 +126,8 @@ not a release pass.
 
 ## P1 — complete implemented backend capabilities and operations
 
-- [ ] [#54 Complete browser passphrase change and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
-  — use the signed backend contracts and publish a normative account-envelope specification.
+- [x] [#54 Complete browser passphrase change and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  — closed with only part of its criteria met; see the P3 entry below and the scope record on the Issue.
 - [x] [#55 Complete admin, recovery-officer, and audit-verification workflows](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
   — `/admin` is role-aware: ADMIN gets users, files, audit-chain verify, recovery-key
   registration, and recovery review; RECOVERY_OFFICER reviews and executes (offline rewrap
@@ -172,9 +177,9 @@ not a release pass.
   CSP, uploads, tokens and recovery operations, and a register of 20 findings with severity and
   disposition. It is a self-assessment with one peer review, not an independent external review,
   and certifies nothing. Register refreshed on 2026-10-01 (v1.1): F-10, F-11 and F-20 resolved, F-12
-  partly and F-19 mitigated. Four *Recommended* findings remain unimplemented: F-01 CI-gated deploys
-  (branch protection itself needs a paid plan), F-02 recovery-key custody, F-03 disabling `/docs` on staging,
-  and F-04 weak-passphrase rejection.
+  partly and F-19 mitigated; F-01 mitigated the same day by CI-gated deploys (#117, below). Three
+  *Recommended* findings remain unimplemented: F-02 recovery-key custody, F-03 disabling `/docs` on
+  staging, and F-04 weak-passphrase rejection.
 
 ## P3 — planned product UX
 
@@ -185,23 +190,25 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
 - [x] [#72 Add secondary confirmation for destructive and high-risk actions](https://github.com/jsonrar/fyp-secure-file-platform/issues/72)
   — file deletion and share revocation use a dedicated consequence dialog; account deletion
   keeps the password + typed-`DELETE` dialog and is available from Profile as well as Settings.
-- [ ] [#71 Add authenticated ciphertext preview and encrypted-blob download](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
-  — authorized users can inspect a bounded ciphertext preview or save the opaque stored object
-  without silently decrypting it or changing the normal plaintext-download flow.
-  The passphrase-free ciphertext download for owners and authorized recipients is merged (#78) and
-  deployed. The bounded ciphertext **preview** is not implemented anywhere in `main` (searched
-  2026-10-01). The GitHub Issue was closed as completed on 2026-09-10 before that criterion was met,
-  so reopen it or split the preview into its own Issue.
+- [x] [#71 Add authenticated ciphertext preview and encrypted-blob download](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
+  — **the download half only.** Owners and authorized recipients can save the stored ciphertext
+  without a passphrase (#78, refined in #79), and it is deployed. The bounded ciphertext
+  **preview** was never implemented (searched `main` on 2026-10-01). The Issue was closed with
+  that criterion unmet; the project owner chose to record this rather than reopen it, so the
+  preview is **not** tracked as open work (a new Issue would be needed). See the scope record on
+  the Issue.
 - [x] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73) — merged in #103 and deployed (staging's OpenAPI lists the folder routes, 2026-10-01). The Issue was closed 2026-09-29 without a written walkthrough of the affected flow.
   — create owner-scoped shelves and move owned files between them or root without changing
   encryption, sharing, file identity, or audit semantics.
-- [ ] [#54 Complete browser passphrase change, key-file reset, and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
-  — the key-file reset is done: Settings verifies the saved private-key file against the
+- [x] [#54 Complete browser passphrase change, key-file reset, and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
+  — **the key-file reset only** (#80): Settings verifies the saved private-key file against the
   account public key, re-seals it under a new AMK and passphrase, and proves possession with an
-  RSA-PSS signature; plaintext private keys never leave the browser. Still open: changing the
-  passphrase while the old one is known, successor-key rotation, and the account-envelope
-  specification. None of those three is in `frontend/src` (searched 2026-10-01), yet the GitHub Issue was
-  closed as completed on 2026-09-23. Reopen it or split the remainder so the backlog matches the code.
+  RSA-PSS signature; plaintext private keys never leave the browser. **Not implemented**, and not
+  tracked as open work: changing the passphrase while the old one is known, successor-key
+  rotation in the browser, the normative account-envelope specification, and browser E2E for the
+  reset (searched `frontend/src` and `docs` on 2026-10-01). The Issue was closed with these
+  unmet; the project owner chose to record that rather than reopen it. See the scope record on
+  the Issue.
 - [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   — user-selectable product locale with complete key coverage, safe fallback, persistence, and
   mobile-compatible controls.

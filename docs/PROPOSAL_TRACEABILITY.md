@@ -60,7 +60,7 @@ two open and six closed without merge (#2, #3, #17, #95, #97, #100). The recheck
 | 4.9 | Audit logging | Done | Hash-chained events, per-file history and corrected visibility rules |
 | 5.1 | Functional and end-to-end testing | Done | `e2e-live` runs every live-backend suite un-skipped and a Chromium golden-path test; `mysql-gate` runs the whole suite against MySQL 8.4 with concurrency and fault-injection and fails on any skip; a tamper drill runs in CI (Issues #53, #58, #90, #93). Still not a long-running chaos test |
 | 5.2 | Cryptographic correctness testing | Done | Primitive, envelope, tamper, upload/download and live integration tests |
-| 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, and four *Recommended* findings (F-01 to F-04) are open |
+| 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, F-01 is mitigated by CI-gated deployment (#117) and three *Recommended* findings (F-02 to F-04) are open |
 | 5.4 | Non-expert usability testing | In progress | The study kit exists — plan, consent sheet, screener, ten task cards, SUS questionnaire, templates and a tested scoring script with pre-registered thresholds ([`docs/usability/`](usability/STUDY_PLAN.md), Issue #115). **No session has been run and there is no result**; it becomes Done only when `RESULTS.md` records real sessions |
 
 **WBS summary:** 22 Done, 1 In review, 1 In progress, 0 Backlog. The simple board completion
@@ -127,11 +127,10 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 1. Conduct and document non-expert usability testing (WBS 5.4, Issue #115), after the supervisor's
    written answer on ethics review and the pilot session.
 2. Implement the exact four-stage, dismissible processing feedback required by AC7.
-3. Decide the four open *Recommended* security findings (F-01 to F-04): gate deployment on CI, move
-   the recovery key into proposed custody, switch off `/docs` after the demo, reject known-weak passphrases.
-4. Reconcile Issues closed ahead of their acceptance criteria (#54 browser passphrase change and
-   successor-key rotation; #71 ciphertext preview) with the code, by reopening or splitting them.
-5. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
+3. Decide the three open *Recommended* security findings (F-02 to F-04): move the recovery key into
+   proposed custody, switch off `/docs` after the demo, reject known-weak passphrases. (F-01, CI-gated
+   deployment, was done and installed on 2026-10-01.)
+4. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
 
 These records should be updated in the same PR that changes their evidence. A runtime change is
 not Done until the merged SHA is deployed and the affected live path is verified.
