@@ -1,17 +1,27 @@
 from __future__ import annotations
 
 from collections.abc import Callable
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.time import to_second_resolution_utc, utc_now
+from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import AuthorizationError, ConflictError, ResourceNotFoundError
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.auth_repository import AuthRepository
+from app.schemas.admin_schema import (
+    AdminAuditEventOut,
+    AdminAuditStats,
+    AdminFileStats,
+    AdminIntegrityStats,
+    AdminRecoveryStats,
+    AdminShareStats,
+    AdminStatsOut,
+    AdminUserStats,
+)
 from app.services.audit_log_service import AuditLogService
 
 
@@ -35,6 +45,64 @@ class AdminService:
     def _require_admin(actor: ActorContext) -> None:
         if actor.role is not SystemRole.ADMIN:
             raise AuthorizationError()
+
+    def platform_stats(self, *, actor: ActorContext) -> AdminStatsOut:
+        """Summarise the platform with counts only, for the administrator dashboard."""
+        self._require_admin(actor)
+        now = self.clock()
+        since_day = to_second_resolution_utc(now - timedelta(hours=24))
+        since_week = to_second_resolution_utc(now - timedelta(days=7))
+        repo = self.repository
+
+        users = repo.user_counts_by_status()
+        files = repo.file_counts_by_status()
+        original_bytes, stored_bytes = repo.stored_totals()
+        active_shares, files_shared = repo.share_counts()
+        checks, failed_checks = repo.integrity_check_counts_since(since_day)
+        events_total, events_day, failures_day = repo.audit_counts(since_day)
+
+        existing_files = files.get("ACTIVE", 0) + files.get("CORRUPTED", 0)
+        return AdminStatsOut(
+            generated_at=to_api_utc(now),
+            users=AdminUserStats(
+                total=sum(users.values()),
+                active=users.get(UserStatus.ACTIVE.value, 0),
+                disabled=users.get(UserStatus.DISABLED.value, 0),
+                deleted=users.get(UserStatus.DELETED.value, 0),
+                administrators=repo.count_administrators(),
+                created_last_7_days=repo.count_users_created_since(since_week),
+                signed_in_last_24_hours=repo.count_users_signed_in_since(since_day),
+            ),
+            files=AdminFileStats(
+                total=existing_files,
+                active=files.get("ACTIVE", 0),
+                corrupted=files.get("CORRUPTED", 0),
+                deleted=files.get("DELETED", 0),
+                uploaded_last_24_hours=repo.count_files_uploaded_since(since_day),
+                original_bytes=original_bytes,
+                stored_bytes=stored_bytes,
+                by_algorithm=repo.file_counts_by_algorithm(),
+            ),
+            shares=AdminShareStats(active_shares=active_shares, files_shared=files_shared),
+            integrity=AdminIntegrityStats(
+                checks_last_24_hours=checks, failed_checks_last_24_hours=failed_checks
+            ),
+            recovery=AdminRecoveryStats(pending_requests=repo.count_pending_recovery_requests()),
+            audit=AdminAuditStats(
+                events_total=events_total,
+                events_last_24_hours=events_day,
+                failures_last_24_hours=failures_day,
+                recent_failures=[
+                    AdminAuditEventOut(
+                        action=action,
+                        result=result,
+                        created_at=to_api_utc(created_at),
+                        actor_username=username,
+                    )
+                    for action, result, created_at, username in repo.recent_audit_failures(limit=5)
+                ],
+            ),
+        )
 
     def list_users(self, *, actor: ActorContext, limit: int, offset: int):
         self._require_admin(actor)

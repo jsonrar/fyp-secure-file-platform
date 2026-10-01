@@ -37,6 +37,43 @@ export interface AdminFileList {
   has_more: boolean
 }
 
+export interface AdminStats {
+  generated_at: string
+  users: {
+    total: number
+    active: number
+    disabled: number
+    deleted: number
+    administrators: number
+    created_last_7_days: number
+    signed_in_last_24_hours: number
+  }
+  files: {
+    total: number
+    active: number
+    corrupted: number
+    deleted: number
+    uploaded_last_24_hours: number
+    original_bytes: number
+    stored_bytes: number
+    by_algorithm: Record<string, number>
+  }
+  shares: { active_shares: number; files_shared: number }
+  integrity: { checks_last_24_hours: number; failed_checks_last_24_hours: number }
+  recovery: { pending_requests: number }
+  audit: {
+    events_total: number
+    events_last_24_hours: number
+    failures_last_24_hours: number
+    recent_failures: {
+      action: string
+      result: string
+      created_at: string
+      actor_username: string | null
+    }[]
+  }
+}
+
 export interface AdminUserStatusResult {
   user_id: string
   status: string
@@ -47,6 +84,10 @@ export interface AdminUserStatusResult {
 export const adminApi = {
   listUsers(params?: { limit?: number; offset?: number }) {
     return http.get<ApiEnvelope<AdminUserList>>('/admin/users', { params })
+  },
+  /** Counts only: how big the platform is and how healthy. No names, keys or addresses. */
+  stats() {
+    return http.get<ApiEnvelope<AdminStats>>('/admin/stats')
   },
   listFiles(params?: { limit?: number; offset?: number }) {
     return http.get<ApiEnvelope<AdminFileList>>('/admin/files', { params })
