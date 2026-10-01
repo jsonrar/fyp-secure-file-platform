@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Contact us: Junyan's sticker-tile design restored, with the new content / Contact us：恢复 Junyan 的贴纸瓦片设计，并保留新内容
+
+- Put back the tilted sticker tiles, the hold-to-enlarge pop-up and the tile layout that Junyan Li designed for the team section. The previous change (#125) replaced them with a plain card grid because I read "fill in the details from the presentation" as "make it look like the presentation". The request was to keep his design and correct the information on it; the layout and styling are now his original code again.
+- 恢复了 Junyan Li 为团队部分设计的倾斜贴纸瓦片、长按放大弹窗和瓦片布局。上一次改动（#125）把它们换成了朴素的卡片网格，因为我把“按演示文稿填写资料”理解成了“做成演示文稿的样子”。真正的要求是保留他的设计、只更正上面的信息；现在布局和样式又是他原来的代码。
+- What stays from #125: the tidier top of the page (the feedback pitch beside the form, instead of a narrow card with the right half empty). What the tiles now carry: names written given name first as the presentation does (Shuoxun Wen, Tai Chen, Junyan Li, Jason Huang; the old page mixed "Wen Shuoxun" with "Jason Huang"), the presentation's roles and one-line responsibilities, each member's GitHub profile and Monash student email (emails break after the `@` so a narrow tile does not cut the domain in half), and a supervisor tile for Dr. Asad Malik with his portrait in the sticker, title, research interests and a link to his Monash research profile.
+- 保留 #125 的部分：页面顶部更整齐的布局（反馈说明在表单旁边，而不是右半边空着的窄卡片）。瓦片现在承载的内容：按演示文稿的写法名在前（Shuoxun Wen、Tai Chen、Junyan Li、Jason Huang；旧页面把“Wen Shuoxun”和“Jason Huang”混着写）、演示文稿里的角色与一句话职责、每位成员的 GitHub 主页和 Monash 学生邮箱（邮箱在 `@` 之后换行，窄瓦片不会把域名从中间切开），以及 Dr. Asad Malik 的导师瓦片：贴纸里是他的照片，并带有职位、研究方向和指向其 Monash 研究主页的链接。
+
 ### Phone and narrow-screen usability (Issue #76), measured and fixed / 手机与窄屏可用性（Issue #76）：先测量，再修复
 
 - Audited 23 screens (public pages, sign-in and registration, upload, My Files and its five dialogs, access records, profile, settings, the administrator pages) at 360 and 320 px with an automated browser check that measures sideways overflow, controls past the screen edge, tap targets under 32 px and text under 11.5 px, rather than judging by eye. Findings: the Education page scrolled sideways at 562 px wide because one wide demo stretched its grid column; at 320 px the registration and forgot-password "Send code" button left the screen and the upload card was wider than the screen when a long file name was chosen; the footer's GitHub, X and Discord links were 9–50 px wide and 20 px tall on every page; and My Files, a seven-column table, either squeezed the file name to a few characters per line or pushed its action buttons off the right edge.

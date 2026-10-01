@@ -18,7 +18,7 @@ test('the team page shows the supervisor, the four members and the feedback form
   await expect(supervisor.getByRole('heading', { name: 'Dr. Asad Malik' })).toBeVisible()
   await expect(supervisor).toContainText('Cybersecurity Group Leader')
   await expect(supervisor).toContainText('Malaysia School of Information Technology')
-  const link = supervisor.getByRole('link', { name: /View Monash profile/ })
+  const link = supervisor.getByTestId('supervisor-profile-link')
   await expect(link).toHaveAttribute('href', PROFILE)
   await expect(link).toHaveAttribute('rel', /noopener/)
 
@@ -36,7 +36,7 @@ test('the team page shows the supervisor, the four members and the feedback form
     ['Junyan Li', 'Frontend and Interface', 'https://github.com/jlii0421', 'jlii0421@student.monash.edu'],
     ['Tai Chen', 'Cryptography', 'https://github.com/Charter888', 'tche0186@student.monash.edu'],
   ]) {
-    const card = members.filter({ hasText: name })
+    const card = members.filter({ has: page.getByRole('heading', { name }) })
     await expect(card).toContainText(role)
     await expect(card.getByTestId('member-github')).toHaveAttribute('href', github)
     await expect(card.getByTestId('member-github')).toHaveAttribute('rel', /noopener/)
