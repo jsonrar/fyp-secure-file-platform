@@ -28,6 +28,12 @@ interface UploadedFile {
   error: string
 }
 
+/**
+ * The limit is a binary megabyte count (524,288,000 bytes), and the file list's "MB" is too, so
+ * name the unit rather than let it read as the 500,000,000 bytes a decimal MB would be.
+ */
+const MAX_UPLOAD_LABEL = `${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB`
+
 const router = useRouter()
 const files = ref<UploadedFile[]>([])
 const isEncrypting = ref(false)
@@ -161,7 +167,7 @@ const goToFiles = () => {
     <div class="container mx-auto px-4">
       <div class="text-center mb-16">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Encrypt Your Files</h2>
-        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Files are encrypted in your browser with AES-256-GCM. Only ciphertext is uploaded; the server never receives your file or its key.</p>
+        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Files are encrypted in your browser with the algorithm you choose below (AES-256-GCM by default). Only ciphertext is uploaded; the server never receives your file or its key.</p>
       </div>
       <div class="max-w-4xl mx-auto rounded-xl bg-card border border-border p-6">
         <div class="grid lg:grid-cols-2 gap-8">
@@ -195,7 +201,7 @@ const goToFiles = () => {
                       class="text-xs text-destructive mt-1"
                       data-testid="upload-too-large"
                     >
-                      Over the {{ formatFileSize(MAX_UPLOAD_BYTES) }} limit. Remove it to continue.
+                      Over the {{ MAX_UPLOAD_LABEL }} limit. Remove it to continue.
                     </p>
                     <p
                       v-else-if="file.status === 'pending' && classifyUploadSize(file.size) === 'large'"
@@ -237,17 +243,21 @@ const goToFiles = () => {
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">File key wrapping</span>
-                  <span class="font-semibold text-primary">RSA-OAEP-SHA256</span>
+                  <span
+                    class="cursor-help font-semibold text-primary underline decoration-dotted decoration-primary/40 underline-offset-4"
+                    title="RSA public-key encryption with OAEP padding. SHA-256 is the hash OAEP uses inside that padding; it is not a checksum of your file."
+                  >RSA-OAEP (SHA-256)</span>
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">Maximum size</span>
-                  <span class="text-foreground">{{ formatFileSize(MAX_UPLOAD_BYTES) }}</span>
+                  <span class="text-foreground">{{ MAX_UPLOAD_LABEL }}</span>
                 </div>
               </div>
               <p class="text-xs text-muted-foreground">
-                {{ ALGORITHM_NOTES[algorithm] }} A fresh key is generated per file and wrapped to
-                your public key and to the recovery key. Neither key nor plaintext leaves this
-                browser.
+                {{ ALGORITHM_NOTES[algorithm] }} A fresh key is generated per file and wrapped, with
+                RSA-OAEP, to your public key and to the recovery key. (SHA-256 appears in that name
+                because OAEP uses it inside its padding; it is not a checksum of your file.) Neither
+                key nor plaintext leaves this browser.
               </p>
               <p class="text-xs text-muted-foreground">
                 The choice is recorded with the file and is covered by its authentication tag, so

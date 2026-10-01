@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Upload page wording: three things that read wrong / 上传页措辞：三处读起来不对的地方
+
+- The page said "Files are encrypted in your browser with AES-256-GCM" while offering four algorithms in the dropdown beside it. It now says "with the algorithm you choose below (AES-256-GCM by default)".
+- 页面写着 “Files are encrypted in your browser with AES-256-GCM”，旁边的下拉框却提供四种算法。现在改为 “with the algorithm you choose below (AES-256-GCM by default)”。
+- "File key wrapping: RSA-OAEP-SHA256" made a reader ask why a key-wrapping step involves SHA-256. It is one name, not two steps: RSA public-key encryption with OAEP padding, which uses SHA-256 inside the padding; it is not a checksum of the file (the SHA-256 that detects tampering is a different one, computed over the stored ciphertext). The row now reads "RSA-OAEP (SHA-256)" with a hover explanation, and the note beneath says the same in a sentence. Display text only: the algorithm identifier the API and the envelope carry is still `RSA-OAEP-SHA256`.
+- “File key wrapping: RSA-OAEP-SHA256” 会让人疑惑：密钥包装为什么会牵涉 SHA-256。它是一个整体的名字，而不是两个步骤：带 OAEP 填充的 RSA 公钥加密，SHA-256 是填充内部使用的哈希，并不是文件的校验和（用来检测篡改的 SHA-256 是另一个，计算对象是存储的密文）。这一行现在写作 “RSA-OAEP (SHA-256)”并带悬停说明，下面的注释也用一句话说明了同样的事。只改显示文字：API 和信封里携带的算法标识仍是 `RSA-OAEP-SHA256`。
+- "Maximum size 500 MB" is 500 MiB, 524,288,000 bytes, because the limit and the file list both count in 1024s while a reader takes "MB" as 1,000,000. The upload page now says **500 MiB** (and the "over the limit" message with it).
+- “Maximum size 500 MB” 实际是 500 MiB，即 524,288,000 字节，因为上限和文件列表都按 1024 计数，而读者会把 “MB” 当作 1,000,000。上传页现在写 **500 MiB**（超限提示也是）。
+
 ### Phone and narrow-screen usability (Issue #76), measured and fixed / 手机与窄屏可用性（Issue #76）：先测量，再修复
 
 - Audited 23 screens (public pages, sign-in and registration, upload, My Files and its five dialogs, access records, profile, settings, the administrator pages) at 360 and 320 px with an automated browser check that measures sideways overflow, controls past the screen edge, tap targets under 32 px and text under 11.5 px, rather than judging by eye. Findings: the Education page scrolled sideways at 562 px wide because one wide demo stretched its grid column; at 320 px the registration and forgot-password "Send code" button left the screen and the upload card was wider than the screen when a long file name was chosen; the footer's GitHub, X and Discord links were 9–50 px wide and 20 px tall on every page; and My Files, a seven-column table, either squeezed the file name to a few characters per line or pushed its action buttons off the right edge.
