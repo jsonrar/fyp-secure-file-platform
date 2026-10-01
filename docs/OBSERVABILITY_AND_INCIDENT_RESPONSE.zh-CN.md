@@ -269,15 +269,15 @@ CI/unit test 应持续证明：
 
 ## 8. Staging 证据记录
 
-以下各项都填完之前不要关闭 #59：
+以下各行已根据 Issue #59（2026-09-25）中记录的主机实测结果填写，该 Issue 已据此关闭；2026-10-01 再次观察过预发布环境的地方已注明：
 
 | 项目 | 证据 |
 |---|---|
-| 精确 merged/deployed SHA | `<pending>` |
-| Live Uvicorn bind + trusted proxy 参数已核验 | `<pending>` |
-| `/internal/metrics` 仅 loopback 可访问，nginx 未暴露 | `<pending>` |
-| 首个 external checkpoint 已上传且 stamp 新鲜 | `<pending>` |
-| checkpoint 已在另一台机器独立验证 | `<pending>` |
-| `mcs21-observe` 基线健康，两个 timer 已启用 | `<pending>` |
-| synthetic redaction marker 在 local/alert/checkpoint 输出中均不存在 | `<pending>` |
-| 测试告警已收到且邮件不含 journal 内容 | `<pending>` |
+| 精确 merged/deployed SHA | `0beb967949442a72b9553e7842d82041e39ff27b`，2026-09-25 在预发布环境健康运行（此后预发布环境已前进，2026-10-01 运行的是 `70fcb6d`） |
+| Live Uvicorn bind + trusted proxy 参数已核验 | 后端仅监听 loopback，且仅信任来自 `127.0.0.1` 的转发头，2026-09-25；2026-10-01 再次观察到 127.0.0.1:8000 与 127.0.0.1:3306 |
+| `/internal/metrics` 仅 loopback 可访问，nginx 未暴露 | 本地可访问；同一路径经 HTTPS 访问时 nginx 返回 404，2026-09-25 |
+| 首个 external checkpoint 已上传且 stamp 新鲜 | 2026-09-25 已发布到 R2；2026-10-01 timer 仍在每小时发布（`audit-checkpoint-20261001T011600Z-602.json`） |
+| checkpoint 已在另一台机器独立验证 | 下载后 SHA-256 一致，并在另一台 Mac 上完成 HMAC 校验，2026-09-25 |
+| `mcs21-observe` 基线健康，两个 timer 已启用 | 基线 `health_status=ready`、无活动告警、checkpoint 新鲜、磁盘正常；两个 timer 均已启用并运行，2026-09-25；2026-10-01 无活动告警 |
+| synthetic redaction marker 在 local/alert/checkpoint 输出中均不存在 | 本地失败单元 journal 中的合成 marker 没有出现在告警邮件或原始 journal 输出中，2026-09-25 |
+| 测试告警已收到且邮件不含 journal 内容 | 已送达；收到的邮件既不含该 marker，也不含原始 journal 输出，2026-09-25 |

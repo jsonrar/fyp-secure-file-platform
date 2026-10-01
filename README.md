@@ -420,10 +420,10 @@ Frontend: <http://localhost:5173>
 ## Continuous Integration
 
 `.github/workflows/ci.yml` runs on every pull request and on push to `main`, with five jobs.
-`backend` and `frontend` are required checks; a repository admin must also mark them required
-in branch protection (see the pull request that introduced this workflow for the exact job
-names to add). Run the same commands locally before pushing so a failure never arrives as a
-surprise in CI:
+`backend` and `frontend` are required checks by convention: GitHub branch protection is not
+available while the repository is private on the free plan, so nothing stops a merge on red CI
+except the reviewer. Run the same commands locally before pushing so a failure never arrives
+as a surprise in CI:
 
 ```bash
 # backend (from backend/, matches the "backend" job; fails below 78% branch coverage)
