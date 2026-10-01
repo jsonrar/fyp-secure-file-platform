@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### The daily integrity scan installs itself / 每日完整性扫描自动安装
+
+- After each healthy release `mcs21-deploy` now installs and enables `mcs21-integrity-sweep.timer` from the release, so nobody has to remember to. The list of units it may install is closed (this one only), because a file in `/etc/systemd/system` runs as the account it names; before installing it checks that the service runs as `fypapp`, starts only `scripts/<name>.py` from the release's virtualenv, has no `+`/`!` privileged hooks, and that the timer starts that same service. A failure warns and is audited but never fails a deployment that is already healthy. `test_ops_units.py` runs the script's own check against the shipped unit and against variants that must be refused. It takes effect once the updated `mcs21-deploy` is installed on the VPS (one `install` command, in `docs/AUTOMATIC_DEPLOYMENT.md`); the other ops units, some of which run as root or delete data, stay manual installs.
+- 每次健康的发布之后，`mcs21-deploy` 现在会从该发布中安装并启用 `mcs21-integrity-sweep.timer`，不再需要有人记得去装。它能安装的 unit 名单是固定的（只有这一个），因为放进 `/etc/systemd/system` 的文件会以它指定的账户运行；安装前会检查服务以 `fypapp` 运行、只启动发布虚拟环境里的 `scripts/<名称>.py`、没有 `+`/`!` 特权钩子、timer 启动的是同一服务。失败只会警告并记审计，不会让已经健康的部署失败。`test_ops_units.py` 用脚本自己的检查去验证随附的 unit 以及必须被拒绝的变体。VPS 上装上更新后的 `mcs21-deploy` 后生效（一条 `install` 命令，见 `docs/AUTOMATIC_DEPLOYMENT.md`）；其余运维 unit 有的以 root 运行、有的会删除数据，仍是手动安装。
+
 ### Integrity and recovery: find a modified file, then put the original back / 完整性与恢复：发现被修改的文件，并把原件找回来
 
 - Until now a modified stored file was only noticed when someone downloaded it or clicked the integrity check, and there was no way to recover it short of restoring the whole service. Now a daily sweep (`scripts/integrity_sweep.py`, `mcs21-integrity-sweep.timer`) hashes every stored object, records the findings and exits non-zero so the failure alert fires; Admin gets an **Integrity** tab listing damaged files, how much of the store has been checked and a "Scan now" button.

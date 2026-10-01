@@ -268,7 +268,7 @@ U 盘上，离线保存在两个不同地点。指定保管人是 **Testing & De
 结果 `MODIFIED` 是关于字节内容的证据，会把文件标为 `CORRUPTED`。`MISSING` 与 `ERROR` 描述的是存储环境
 （卷未挂载、I/O 错误），不会改变文件状态，因此短暂故障不会误判完好的文件。下一次检查通过后状态自动恢复。
 
-定时器应在读过一次手动运行结果之后再有意地安装：
+定时器会**自动安装**：每次健康的发布之后，`mcs21-deploy` 会从该发布中安装并启用 `mcs21-integrity-sweep.timer`（白名单固定，见 [AUTOMATIC_DEPLOYMENT.zh-CN.md](AUTOMATIC_DEPLOYMENT.zh-CN.md)）。这在 VPS 上装上更新后的 `mcs21-deploy` 之后生效。若想手动安装，或想在依赖它之前先读一次运行结果：
 
 ```bash
 sudo systemd-run --pipe --wait --quiet --uid=fypapp --gid=fypapp \

@@ -7,7 +7,11 @@ host's own paths -- so the facts the staging runbooks rely on are pinned here in
 from __future__ import annotations
 
 import re
+import shutil
+import subprocess
 from pathlib import Path
+
+import pytest
 
 SERVER = Path(__file__).resolve().parents[3] / "deployment" / "server"
 
@@ -163,3 +167,58 @@ def test_backup_verify_derives_its_expectations() -> None:
     assert "-m alembic heads" in script
     assert 'expected="$live_tables|$expected_version|1"' in script
     assert "CHECK TABLE" in script
+
+
+# --- a release may install the integrity-sweep timer by itself, and nothing else -----------
+
+
+def _acceptable(tmp_path: Path, service_text: str, timer_text: str) -> bool:
+    """Run the deploy script's own `ops_unit_acceptable` against the given unit text."""
+    script = _read("mcs21-deploy")
+    match = re.search(r"^ops_unit_acceptable\(\) \{\n.*?^\}\n", script, flags=re.S | re.M)
+    assert match, "ops_unit_acceptable is missing from mcs21-deploy"
+    (tmp_path / "x.service").write_text(service_text)
+    (tmp_path / "x.timer").write_text(timer_text)
+    result = subprocess.run(
+        [
+            "bash",
+            "-c",
+            match.group(0) + f'\nops_unit_acceptable "{tmp_path}/x.service" "{tmp_path}/x.timer" mcs21-integrity-sweep',
+        ],
+        capture_output=True,
+        check=False,
+    )
+    return result.returncode == 0
+
+
+@pytest.mark.skipif(shutil.which("bash") is None, reason="bash is required to run the deploy script's check")
+def test_the_deploy_script_accepts_exactly_the_shipped_sweep_unit(tmp_path: Path) -> None:
+    service = _read("mcs21-integrity-sweep.service")
+    timer = _read("mcs21-integrity-sweep.timer")
+
+    assert _acceptable(tmp_path, service, timer)
+    # Each of these would turn "a commit that passed CI" into code run with more privilege.
+    assert not _acceptable(tmp_path, service.replace("User=fypapp", "User=root"), timer)
+    assert not _acceptable(tmp_path, service.replace("Group=fypapp", "Group=root"), timer)
+    assert not _acceptable(
+        tmp_path,
+        service.replace("ExecStart=/opt/mcs21/current/backend/.venv/bin/python", "ExecStart=/bin/sh"),
+        timer,
+    )
+    assert not _acceptable(
+        tmp_path, service.replace("ExecStart=/opt/mcs21", "ExecStart=+/opt/mcs21"), timer
+    )
+    assert not _acceptable(tmp_path, service + "\nExecStartPost=+/bin/sh -c id\n", timer)
+    assert not _acceptable(tmp_path, service, timer.replace("Unit=mcs21-integrity-sweep.service", "Unit=other.service"))
+
+
+def test_the_deploy_script_installs_only_the_closed_list_and_never_fails_a_good_release() -> None:
+    script = _read("mcs21-deploy")
+
+    assert "ops_units=(mcs21-integrity-sweep)" in script
+    assert "mcs21-audit-checkpoint" not in script.split("ops_units=")[1].splitlines()[0]
+    # Called after the release is live and audited, and guarded so a failure only warns.
+    deploy = script.split("deploy_release() {", 1)[1].split("rollback_release() {", 1)[0]
+    assert deploy.index('audit success "commit=$sha') < deploy.index('install_ops_units "$release"')
+    assert 'if ! install_ops_units "$release"; then' in deploy
+    assert "systemd-analyze verify" in script and "cmp -s" in script
