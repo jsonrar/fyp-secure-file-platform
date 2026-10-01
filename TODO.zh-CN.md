@@ -46,7 +46,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   [Swagger UI](https://secureview.tech/docs)、
   [OpenAPI JSON](https://secureview.tech/openapi.json)。
 - [x] 公开产品页与登录后账户壳层：落地页 `/`、Education（`/education`：算法、演练场、知识库）、
-  Help（`/help`：How to Use 操作演示）、Contact us（`/team`：反馈表单预览 + 团队拼贴）、页头当前标签主题色高亮，
+  Help（`/help`：How to Use 操作演示）、Contact us（`/team`：反馈表单预览 + 导师简介 + 团队卡片）、页头当前标签主题色高亮，
   以及含 `/profile` 与 `/settings` 的头像菜单。证据与理由见
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 的 `[Unreleased]`。
 
