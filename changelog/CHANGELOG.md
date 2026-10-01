@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Security agent v1 / 安全 Agent v1
+
+- New **Security agent** tab for administrators (`GET /api/v1/admin/agent/report`). It reads the audit log, the audit hash chain, integrity-check history and recovery requests and returns ranked Critical / High / Medium / Low findings, each with the evidence that raised it and a recommended action. Ten rules cover damaged stored files, a broken audit chain, a stopped integrity scan, password guessing (by source and by account), reused session tokens, bulk downloading, bursts of sharing, failed password changes and recovery activity. Bursts use a sliding window, so 40 failures spread over a day are not one. For a damaged file the action names the dry-run restore command and which backup sets can hold the original, worked out from the file's own check history.
+- 管理员新增 **Security agent** 标签（`GET /api/v1/admin/agent/report`）。它读取审计日志、审计哈希链、完整性检查历史和恢复请求，返回按 Critical / High / Medium / Low 排序的发现，每条都带触发它的证据和建议动作。十条规则覆盖：受损的存储文件、审计链断裂、完整性扫描停止、猜密码（按来源和按账户）、会话令牌被重复使用、批量下载、分享突增、改密失败和恢复活动。突发用滑动窗口判断，所以分散在一天里的 40 次失败不算一次突发。对受损文件，建议动作会给出演练模式的恢复命令，并根据该文件自己的检查历史推算哪些备份集可能持有原件。
+- Deliberately rule-based, read-only and metadata-only: no language model is asked to judge anything, nothing leaves the server, it cannot change a file or run a recovery, and a test fails if its modules gain a database write path. Every report says how much it read, and a clean report says it is not proof that nothing happened. Inputs, rules, output format and boundaries are in `docs/SECURITY_AGENT.md`.
+- 有意设计为基于规则、只读、只用元数据：没有语言模型被用来判断任何事，没有任何东西离开服务器，它不能改动文件或执行恢复，且一旦它的模块出现数据库写入路径就会有测试失败。每份报告都说明读了多少数据，结果为空时也说明这不等于什么都没发生。输入、规则、输出格式与边界见 `docs/SECURITY_AGENT.md`。
+
 ### Integrity and recovery: find a modified file, then put the original back / 完整性与恢复：发现被修改的文件，并把原件找回来
 
 - Until now a modified stored file was only noticed when someone downloaded it or clicked the integrity check, and there was no way to recover it short of restoring the whole service. Now a daily sweep (`scripts/integrity_sweep.py`, `mcs21-integrity-sweep.timer`) hashes every stored object, records the findings and exits non-zero so the failure alert fires; Admin gets an **Integrity** tab listing damaged files, how much of the store has been checked and a "Scan now" button.

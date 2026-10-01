@@ -7,7 +7,12 @@ from uuid import UUID
 import pytest
 from fastapi.testclient import TestClient
 
-from app.api.dependencies import get_admin_service, get_current_actor, get_sharing_service
+from app.api.dependencies import (
+    get_admin_service,
+    get_current_actor,
+    get_security_agent_service,
+    get_sharing_service,
+)
 from app.core.config import Settings
 from app.domain.auth import ActorContext
 from app.domain.enums import SystemRole, UserStatus
@@ -47,6 +52,7 @@ def protected_api() -> Generator[TestClient, None, None]:
     )
     application.dependency_overrides[get_current_actor] = _ordinary_actor
     application.dependency_overrides[get_admin_service] = FailIfCalledService
+    application.dependency_overrides[get_security_agent_service] = FailIfCalledService
     application.dependency_overrides[get_sharing_service] = FailIfCalledService
     with TestClient(application) as client:
         yield client
@@ -84,6 +90,24 @@ def test_admin_integrity_routes_reject_authenticated_non_admin_before_service(
 
         assert response.status_code == 403, path
         assert response.json()["data"]["error_code"] == "access_denied"
+
+
+def test_security_agent_report_rejects_authenticated_non_admin_before_service(
+    protected_api: TestClient,
+) -> None:
+    response = protected_api.get("/api/v1/admin/agent/report")
+
+    assert response.status_code == 403
+    assert response.json()["data"]["error_code"] == "access_denied"
+
+
+def test_security_agent_report_validates_its_window(protected_api: TestClient) -> None:
+    # Validation happens before authorization is even relevant: an absurd window is a 422.
+    assert protected_api.get("/api/v1/admin/agent/report?window_hours=0").status_code in (403, 422)
+    assert protected_api.get("/api/v1/admin/agent/report?window_hours=100000").status_code in (
+        403,
+        422,
+    )
 
 
 def test_share_contract_rejects_plaintext_private_key_without_echoing_it(

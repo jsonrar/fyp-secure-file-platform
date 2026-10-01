@@ -1,8 +1,9 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, type Component } from 'vue'
-import { FileIcon, KeyRound, LayoutDashboard, LifeBuoy, ScanSearch, ShieldCheck, Users } from 'lucide-vue-next'
+import { Bot, FileIcon, KeyRound, LayoutDashboard, LifeBuoy, ScanSearch, ShieldCheck, Users } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 
+import AdminAgentPanel from '@/components/admin/AdminAgentPanel.vue'
 import AdminAuditPanel from '@/components/admin/AdminAuditPanel.vue'
 import AdminFilesPanel from '@/components/admin/AdminFilesPanel.vue'
 import AdminIntegrityPanel from '@/components/admin/AdminIntegrityPanel.vue'
@@ -12,7 +13,15 @@ import AdminRecoveryRequestsPanel from '@/components/admin/AdminRecoveryRequests
 import AdminUsersPanel from '@/components/admin/AdminUsersPanel.vue'
 import { useAuthStore } from '@/stores/auth_store'
 
-type TabId = 'overview' | 'recovery' | 'users' | 'files' | 'integrity' | 'audit' | 'recovery-key'
+type TabId =
+  | 'overview'
+  | 'recovery'
+  | 'users'
+  | 'files'
+  | 'integrity'
+  | 'agent'
+  | 'audit'
+  | 'recovery-key'
 
 interface Tab {
   id: TabId
@@ -32,6 +41,7 @@ const tabs = computed<Tab[]>(() => {
     { id: 'users', label: 'Users', icon: Users, adminOnly: true },
     { id: 'files', label: 'Files', icon: FileIcon, adminOnly: true },
     { id: 'integrity', label: 'Integrity', icon: ScanSearch, adminOnly: true },
+    { id: 'agent', label: 'Security agent', icon: Bot, adminOnly: true },
     { id: 'audit', label: 'Audit chain', icon: ShieldCheck, adminOnly: true },
     { id: 'recovery-key', label: 'Recovery key', icon: KeyRound, adminOnly: true },
   ]
@@ -45,6 +55,7 @@ const panelMap: Record<TabId, Component> = {
   users: AdminUsersPanel,
   files: AdminFilesPanel,
   integrity: AdminIntegrityPanel,
+  agent: AdminAgentPanel,
   audit: AdminAuditPanel,
   'recovery-key': AdminRecoveryKeyPanel,
 }

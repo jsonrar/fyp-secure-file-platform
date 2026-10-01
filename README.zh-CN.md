@@ -422,6 +422,12 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_t
 各测试套件证明了什么，参见 [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md)；各检查脚本参见
 `backend/scripts/`；尚未完成的部分记录在 `TODO.md`。
 
+### 安全 Agent
+
+管理员页面 → **Security agent** 会根据审计日志、完整性检查和恢复请求，把需要管理员关注的事项排成
+Critical / High / Medium / Low 的发现，并附上证据和建议动作。它基于规则、只读、只看元数据；输入、规则、输出与边界见
+[docs/SECURITY_AGENT.zh-CN.md](docs/SECURITY_AGENT.zh-CN.md)。
+
 ### 备份与恢复演练
 
 MySQL 元数据与密文对象的协调加密备份，以及证明其可用的洁净主机恢复，见
