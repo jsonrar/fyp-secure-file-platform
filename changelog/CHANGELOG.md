@@ -18,6 +18,10 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Access Records: say that a file can be opened for its history / 访问记录：提示文件可以点开查看历史
+
+- The Access Records page showed each file as a card but gave no sign that the card opens a full history, so the detail most people came for (who uploaded, shared or downloaded a file, and when) stayed hidden behind a click nobody knew to make. A line above the list now says "Select a file below to open its full access history: who uploaded, shared or downloaded it, and when", and each card ends in a **View history** / **Hide history** control with a chevron (the chevron alone on a narrow screen), exposed to assistive technology through `aria-expanded`. The card was already a button; it now looks like one.
+- 访问记录页把每个文件显示为一张卡片，却没有任何迹象表明卡片可以点开查看完整历史，所以大多数人最想看的内容（谁上传、分享或下载了文件，以及时间）一直藏在一个没人知道要点的地方。列表上方现在有一行提示：“Select a file below to open its full access history: who uploaded, shared or downloaded it, and when”，每张卡片末尾有 **View history** / **Hide history** 控件和箭头（窄屏上只显示箭头），并通过 `aria-expanded` 暴露给辅助技术。这张卡片本来就是一个按钮，现在它看起来也像按钮了。
 ### Contact us: a tidier page, the supervisor's profile, and the team as the group presents it / Contact us：更整齐的页面、导师简介，以及按小组展示口径的团队
 
 - Rebuilt the Contact us page. The feedback form used to sit in a narrow card on the left of a wide screen with the right half empty, and the team was a set of tilted tiles that only opened a profile after hovering for two seconds. It is now three plain sections: feedback (the pitch and topic hints on the left, the form on the right, stacked on a phone), the supervisor, and four equal team cards. The tilted mosaic, the two-second hover and its pop-up are gone, along with about 300 lines of CSS that only they used. Checked in Chromium at desktop, phone and dark theme: no sideways scrolling, and the photo loads.
