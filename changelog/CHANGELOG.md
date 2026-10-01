@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Dependency vulnerability gates / 依赖漏洞门禁
+
+- CI now audits dependencies on every pull request: `pip-audit -r requirements.txt` in the `backend` job and `npm audit --audit-level=high` in the `frontend` job. The 2026-10-01 project check found a high-severity `axios` advisory sitting in the lockfile that nothing was positioned to notice; the threat model had already recorded the gap as F-12 ("no automated vulnerability scanning"). The browser build uses axios' fetch/XHR adapters, so the Node-only advisories were not reachable from the shipped bundle, but a known-vulnerable HTTP client in a security product is not something to carry by argument.
+- CI 现在在每个 PR 上审计依赖：`backend` Job 运行 `pip-audit -r requirements.txt`，`frontend` Job 运行 `npm audit --audit-level=high`。2026-10-01 的项目检查发现 lockfile 里躺着一个高危的 `axios` 公告，而当时没有任何环节会发现它；威胁模型已把这一缺口登记为 F-12（“没有自动化漏洞扫描”）。浏览器构建使用 axios 的 fetch/XHR 适配器，这些仅针对 Node 的公告在已发布的 bundle 中无法触发，但安全产品里留着一个已知有漏洞的 HTTP 客户端，不该靠“推理上不可达”来交代。
+- Upgraded `axios` from 1.18.1 to 1.20.0 (lockfile and the `package.json` floor, so a fresh resolve cannot fall back below it); `npm audit` reports 0 vulnerabilities and the unit tests, typecheck and build are unchanged. The trade-off to know about: a newly published advisory can now turn an unrelated PR red until the package is upgraded or the finding is triaged. That is the intended behaviour of the gate, and the fix is normally a one-line lockfile bump.
+- 将 `axios` 从 1.18.1 升级到 1.20.0（lockfile 与 `package.json` 下限一并更新，避免重新解析时回落到更低版本）；`npm audit` 报告 0 个漏洞，单元测试、类型检查与构建均不受影响。需要知道的代价：新发布的公告可能让一个无关的 PR 变红，直到升级该包或完成问题研判。这正是门禁的预期行为，通常只需把 lockfile 升一行。
+
 ### Argon2id measured, and what the passphrase minimum is worth / Argon2id 实测，以及 passphrase 最短长度的实际价值
 
 - Measured the key derivation behind every unlock on real clients, for step 2 of Issue #60. A new public page, `/benchmark/argon2`, runs the production `deriveKek` — the same code, hash-wasm build and parameters as the unlock dialog — and reports timings a user can copy. On Chrome and Safari on an Apple Silicon Mac and on an iPhone, the production cost (Argon2id, 64 MiB, 3 passes) takes **100–151 ms**. The unlock the dialog calls "slow on purpose" is a tenth of a second; the cost does not burden users.

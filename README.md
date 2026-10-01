@@ -429,12 +429,14 @@ surprise in CI:
 # backend (from backend/, matches the "backend" job; fails below 78% branch coverage)
 uv venv --python /opt/homebrew/bin/python3.12 .venv   # or any Python 3.12 interpreter
 uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
+uv pip install --python .venv/bin/python pip-audit && .venv/bin/pip-audit -r requirements.txt
 .venv/bin/ruff format --check .
 .venv/bin/ruff check .
 .venv/bin/python -m pytest -m "not integration" --cov
 
 # frontend (from frontend/, matches the "frontend" job; thresholds in vite.config.ts)
 npm ci
+npm audit --audit-level=high
 npm run test:coverage
 npm run typecheck
 npm run build

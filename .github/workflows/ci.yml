@@ -44,6 +44,13 @@ jobs:
       - name: Install dependencies
         run: uv pip install --python .venv/bin/python -r requirements.txt -r requirements-dev.txt
 
+      # Looks every pinned and resolved dependency up in the PyPA advisory database. A new
+      # advisory fails the build until the package is upgraded or the finding is triaged.
+      - name: Audit Python dependencies for known vulnerabilities
+        run: |
+          uv pip install --python .venv/bin/python pip-audit
+          .venv/bin/pip-audit -r requirements.txt
+
       - name: Ruff format check
         run: .venv/bin/ruff format --check .
 
@@ -95,6 +102,11 @@ jobs:
 
       - name: Install dependencies
         run: npm ci
+
+      # Fails on any high or critical advisory in the full tree, dev tooling included, so a
+      # vulnerable axios cannot sit unnoticed in the lockfile again.
+      - name: Audit npm dependencies for known vulnerabilities
+        run: npm audit --audit-level=high
 
       # The live-backend suites skip themselves here; the e2e-live job runs them
       # un-skipped. Coverage thresholds live in vite.config.ts.
