@@ -53,6 +53,22 @@ test('the team page shows the supervisor, the four members and the feedback form
   await expect(page.getByRole('dialog')).toBeVisible()
   await page.keyboard.press('Escape')
   await expect(page.getByRole('dialog')).toHaveCount(0)
+
+  // The enlarged supervisor profile is a real enlargement: a portrait far bigger than the one on
+  // the tile, beside the whole introduction (role, title, affiliation, interests, profile link).
+  const tilePhoto = await supervisor.getByAltText('Portrait of Dr. Asad Malik').boundingBox()
+  await supervisor.click({ position: { x: 20, y: 20 } })
+  const dialog = page.getByRole('dialog')
+  await expect(dialog).toBeVisible()
+  await expect(dialog.getByRole('heading', { name: 'Dr. Asad Malik' })).toBeVisible()
+  await expect(dialog).toContainText('Lecturer and Cybersecurity Group Leader')
+  await expect(dialog).toContainText('School of Information Technology, Monash University Malaysia')
+  await expect(dialog).toContainText('Trustworthy AI')
+  await expect(dialog.getByRole('link', { name: 'View Monash profile' })).toHaveAttribute('href', PROFILE)
+  const bigPhoto = await dialog.getByAltText('Portrait of Dr. Asad Malik').boundingBox()
+  expect(bigPhoto!.width).toBeGreaterThan(tilePhoto!.width * 1.8)
+  expect(bigPhoto!.height).toBeGreaterThan(tilePhoto!.height * 1.8)
+  await page.keyboard.press('Escape')
   for (const [name, role, github, email] of [
     ['Shuoxun Wen', 'Project Lead', 'https://github.com/Waldo0926', 'swen0027@student.monash.edu'],
     ['Jason Huang', 'Backend and APIs', 'https://github.com/jsonrar', 'jhua0176@student.monash.edu'],

@@ -26,6 +26,8 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - 四位成员的瓦片现在大小一致。之前的拼贴给它们设了不同的列宽、行高，所以高矮宽窄不一；导师因为内容更多，单独占上方一整行，并去掉了静止时的倾斜，让每一行对齐。链接固定在每个瓦片底部，不论简介长短都对齐。
 - The details no longer hide behind a two-second hover. Each tile now shows the full description on its face, and the large profile opens on a click, tap or Enter, with a visible "Click or tap to enlarge" line on every tile. The two-second hover is gone: nothing told a visitor it existed, and it also opened a pop-up by accident whenever the pointer rested on a tile.
 - 详细介绍不再藏在“悬停两秒”之后。每个瓦片现在直接显示完整描述，大图资料通过点击、轻触或回车打开，并在每个瓦片上有一行常驻的 “Click or tap to enlarge” 提示。悬停两秒已去掉：没有任何提示告诉访客它的存在，而且鼠标只是停在瓦片上就会误弹窗。
+- The enlarged profile is now actually larger than the tile. It had the same portrait size and the same text as the tile, so opening it showed nothing new. It now has a large portrait that runs the full height of the card, with the role badge, name, title, affiliation, description, research interests and the Monash profile button beside it (the layout of the earlier supervisor card). Team members get the same layout with their initials in place of a photo, plus their GitHub and email as buttons.
+- 放大后的资料现在真的比瓦片大了。之前它的头像尺寸和文字都与瓦片相同，点开后看不到任何新内容。现在左侧是贯通整张卡片高度的大头像，右侧依次是角色标签、姓名、职位、单位、介绍、研究方向和 Monash 主页按钮（即之前导师卡片的版式）。团队成员使用同样的版式，以首字母代替照片，并以按钮形式给出 GitHub 和邮箱。
 - "Meet the people" is now "The people behind SecureView", and the line under it no longer says "decentralized", which this platform is not (it has a server that stores ciphertext).
 - “Meet the people” 改为 “The people behind SecureView”，其下说明也不再写 “decentralized（去中心化）”——本平台有保存密文的服务器，并非去中心化。
 

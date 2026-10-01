@@ -407,7 +407,7 @@ onBeforeUnmount(() => {
           :aria-label="`${activeMember.name} profile`"
           @click.self="dismissOverlay"
         >
-          <div class="team-popup" :class="activeMember.stickerTone">
+          <div class="team-popup">
             <button
               type="button"
               class="team-popup__close"
@@ -417,64 +417,65 @@ onBeforeUnmount(() => {
               <X class="h-4 w-4" />
             </button>
 
-            <div class="team-popup__layout">
-              <div class="team-popup__left">
-                <div class="team-sticker team-sticker--xl" :class="activeMember.stickerTone">
-                  <img
-                    v-if="activeMember.photo"
-                    :src="activeMember.photo"
-                    :alt="`Portrait of ${activeMember.name}`"
-                    class="team-sticker__photo"
-                  />
-                  <span v-else class="team-sticker__initials">{{ activeMember.initials }}</span>
-                  <span class="team-sticker__tape" aria-hidden="true" />
-                  <span class="team-sticker__badge">
-                    <component :is="activeMember.icon" class="h-5 w-5" />
-                  </span>
-                </div>
-                <h2 class="mt-6 text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-                  {{ activeMember.name }}
-                </h2>
-                <p class="mt-2 text-base font-medium text-primary md:text-lg">{{ activeMember.role }}</p>
+            <div class="team-profile">
+              <div class="team-profile__media" :class="activeMember.stickerTone">
+                <img
+                  v-if="activeMember.photo"
+                  :src="activeMember.photo"
+                  :alt="`Portrait of ${activeMember.name}`"
+                  class="team-profile__photo"
+                />
+                <span v-else class="team-profile__initials">{{ activeMember.initials }}</span>
               </div>
 
-              <div class="team-popup__right">
-                <p class="text-xs font-semibold uppercase tracking-[0.28em] text-muted-foreground">About</p>
-                <p class="mt-3 text-base leading-relaxed text-foreground md:text-lg">
-                  {{ activeMember.bio }}
-                </p>
-                <p class="mt-5 text-sm leading-relaxed text-muted-foreground md:text-base">
+              <div class="team-profile__body">
+                <span class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground">
+                  <component :is="activeMember.icon" class="h-3.5 w-3.5" />
+                  {{ activeMember.role }}
+                </span>
+                <h2 class="mt-4 text-3xl font-bold tracking-tight text-foreground md:text-5xl">
+                  {{ activeMember.name }}
+                </h2>
+                <template v-if="activeMember.profileUrl">
+                  <p class="mt-2 text-lg font-medium text-primary md:text-xl">{{ activeMember.title }}</p>
+                  <p class="text-sm text-muted-foreground md:text-base">{{ activeMember.affiliation }}</p>
+                </template>
+                <p v-else class="mt-2 text-lg font-medium text-primary md:text-xl">{{ activeMember.bio }}</p>
+
+                <p class="mt-5 text-base leading-relaxed text-foreground md:text-lg">
                   {{ activeMember.detail }}
                 </p>
+
                 <template v-if="activeMember.interests">
-                  <p class="mt-5 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Research interests</p>
+                  <p class="mt-6 text-xs font-semibold uppercase tracking-[0.2em] text-muted-foreground">Research interests</p>
                   <ul class="mt-2 flex flex-wrap gap-2">
                     <li
                       v-for="interest in activeMember.interests"
                       :key="interest"
-                      class="rounded-full border border-border bg-secondary/60 px-3 py-1 text-sm text-foreground"
+                      class="rounded-full border border-border bg-secondary/60 px-4 py-1.5 text-sm text-foreground md:text-base"
                     >
                       {{ interest }}
                     </li>
                   </ul>
                 </template>
-                <div class="team-links team-links--popup">
+
+                <div class="team-popup__links">
                   <a
                     v-if="activeMember.profileUrl"
                     :href="activeMember.profileUrl"
                     target="_blank"
                     rel="noopener noreferrer"
-                    class="team-link"
+                    class="team-link team-link--button"
                   >
                     <ArrowUpRight class="h-4 w-4 shrink-0 text-muted-foreground" />
                     <span>View Monash profile</span>
                   </a>
                   <template v-else-if="activeMember.github">
-                    <a :href="activeMember.github.url" target="_blank" rel="noopener noreferrer" class="team-link">
+                    <a :href="activeMember.github.url" target="_blank" rel="noopener noreferrer" class="team-link team-link--button">
                       <Github class="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span>@{{ activeMember.github.handle }}</span>
                     </a>
-                    <a :href="`mailto:${activeMember.email}`" class="team-link">
+                    <a :href="`mailto:${activeMember.email}`" class="team-link team-link--button">
                       <Mail class="h-4 w-4 shrink-0 text-muted-foreground" />
                       <span>{{ activeMember.email!.split('@')[0] }}@<wbr />{{ activeMember.email!.split('@')[1] }}</span>
                     </a>
@@ -626,16 +627,6 @@ onBeforeUnmount(() => {
   box-shadow: 0 6px 14px color-mix(in oklab, var(--foreground) 10%, transparent);
 }
 
-.team-sticker--xl {
-  width: 8.5rem;
-  height: 10rem;
-  transform: rotate(-3deg);
-}
-
-.team-sticker--xl .team-sticker__initials {
-  font-size: 2.4rem;
-}
-
 .sticker-blue {
   background:
     linear-gradient(145deg, color-mix(in oklab, white 20%, transparent), transparent 50%),
@@ -704,10 +695,6 @@ onBeforeUnmount(() => {
   color: color-mix(in oklab, var(--primary) 85%, var(--foreground));
 }
 
-.team-links--popup {
-  margin-top: 1.25rem;
-}
-
 .team-sticker--lg {
   width: 8rem;
   height: 9.85rem;
@@ -771,21 +758,13 @@ onBeforeUnmount(() => {
 
 .team-popup {
   position: relative;
-  width: min(92vw, 52rem);
+  width: min(94vw, 70rem);
+  max-height: 92vh;
+  overflow-y: auto;
   border: 1px solid color-mix(in oklab, var(--primary) 35%, var(--border));
   border-radius: 1.5rem;
-  background: color-mix(in oklab, var(--card) 96%, transparent);
+  background: var(--card);
   box-shadow: 0 30px 80px color-mix(in oklab, var(--foreground) 18%, transparent);
-  padding: 1.5rem;
-  overflow: hidden;
-}
-
-.team-popup::before {
-  content: '';
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  background: radial-gradient(circle at 12% 18%, color-mix(in oklab, var(--primary) 14%, transparent), transparent 42%);
 }
 
 .team-popup__close {
@@ -796,8 +775,8 @@ onBeforeUnmount(() => {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: 2.25rem;
-  height: 2.25rem;
+  width: 2.5rem;
+  height: 2.5rem;
   border-radius: 999px;
   border: 1px solid var(--border);
   background: var(--card);
@@ -810,44 +789,67 @@ onBeforeUnmount(() => {
   color: var(--foreground);
 }
 
-.team-popup__layout {
-  position: relative;
-  z-index: 1;
+/* The enlarged profile: a large portrait that runs the full height of the card, and the whole
+   introduction beside it, so enlarging shows clearly more than the tile does. */
+.team-profile {
   display: grid;
-  gap: 1.5rem;
+  grid-template-columns: 1fr;
 }
 
-.team-popup__left {
+.team-profile__media {
+  position: relative;
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
-  padding-right: 0.5rem;
+  align-items: center;
+  justify-content: center;
+  min-height: 18rem;
+  max-height: 24rem;
+  overflow: hidden;
+  background: color-mix(in oklab, var(--secondary) 70%, var(--card));
 }
 
-.team-popup__right {
+.team-profile__photo {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+}
+
+.team-profile__initials {
+  font-size: 5rem;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  color: var(--foreground);
+}
+
+.team-profile__body {
   display: flex;
   flex-direction: column;
   justify-content: center;
-  border-top: 1px dashed var(--border);
-  padding-top: 1.25rem;
+  padding: 1.5rem 1.5rem 1.75rem;
+}
+
+.team-popup__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.6rem;
+  margin-top: 1.75rem;
 }
 
 @media (min-width: 768px) {
-  .team-popup {
-    padding: 2.25rem 2.5rem;
+  .team-profile {
+    grid-template-columns: minmax(16rem, 22rem) minmax(0, 1fr);
+    min-height: 30rem;
   }
 
-  .team-popup__layout {
-    grid-template-columns: minmax(14rem, 0.85fr) minmax(0, 1.15fr);
-    gap: 2rem;
-    align-items: stretch;
+  .team-profile__media {
+    max-height: none;
+    min-height: 100%;
   }
 
-  .team-popup__right {
-    border-top: 0;
-    border-left: 1px dashed var(--border);
-    padding-top: 0;
-    padding-left: 2rem;
+  .team-profile__body {
+    padding: 2.5rem 3.5rem 2.5rem 2.75rem;
   }
 }
 
