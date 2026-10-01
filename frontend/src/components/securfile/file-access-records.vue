@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Activity, AlertTriangle, Clock, Download, FileIcon, RefreshCw, Share2, User } from 'lucide-vue-next'
+import { Activity, AlertTriangle, ChevronDown, ChevronUp, Clock, Download, FileIcon, RefreshCw, Share2, User } from 'lucide-vue-next'
 import { auditApi } from '@/api/audit_api'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
 import {
@@ -236,6 +236,10 @@ const toggle = (id: string) => {
       </div>
 
       <p v-if="errorMessage" class="text-center text-sm text-destructive mb-4">{{ errorMessage }}</p>
+      <p v-if="groups.length" class="mx-auto mb-4 flex max-w-4xl items-center justify-center gap-2 text-center text-sm text-muted-foreground" data-testid="records-hint">
+        <ChevronDown class="h-4 w-4 shrink-0 text-primary" />
+        Select a file below to open its full access history: who uploaded, shared or downloaded it, and when.
+      </p>
       <p v-if="trailIsPartial" class="text-center text-xs text-muted-foreground mb-4">
         Showing the most recent {{ logs.length }} events; totals cover these only.
       </p>
@@ -250,7 +254,11 @@ const toggle = (id: string) => {
 
       <div v-else class="max-w-4xl mx-auto space-y-4">
         <article v-for="file in groups" :key="file.id" class="bg-card border border-border rounded-xl overflow-hidden">
-          <button class="w-full p-4 text-left hover:bg-secondary/40 transition-colors" @click="toggle(file.id)">
+          <button
+            class="w-full p-4 text-left hover:bg-secondary/40 transition-colors"
+            :aria-expanded="expanded.includes(file.id)"
+            @click="toggle(file.id)"
+          >
             <div class="flex items-center justify-between gap-4">
               <div class="flex items-center gap-4">
                 <div class="p-3 rounded-lg bg-secondary">
@@ -262,9 +270,13 @@ const toggle = (id: string) => {
                   <p class="text-sm text-muted-foreground flex items-center gap-2 mt-1"><Clock class="h-3 w-3" /> Last activity {{ file.sharedAt }}</p>
                 </div>
               </div>
-              <div class="hidden md:flex items-center gap-4 text-sm text-muted-foreground">
-                <span class="inline-flex items-center gap-1" title="Downloads"><Download class="h-4 w-4" /> {{ file.totalDownloads }}</span>
-                <span class="inline-flex items-center gap-1" title="People involved"><User class="h-4 w-4" /> {{ new Set(file.accessHistory.map((e) => e.actor)).size }}</span>
+              <div class="flex shrink-0 items-center gap-4 text-sm text-muted-foreground">
+                <span class="hidden items-center gap-1 md:inline-flex" title="Downloads"><Download class="h-4 w-4" /> {{ file.totalDownloads }}</span>
+                <span class="hidden items-center gap-1 md:inline-flex" title="People involved"><User class="h-4 w-4" /> {{ new Set(file.accessHistory.map((e) => e.actor)).size }}</span>
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-primary" data-testid="records-toggle">
+                  <span class="hidden sm:inline">{{ expanded.includes(file.id) ? 'Hide history' : 'View history' }}</span>
+                  <component :is="expanded.includes(file.id) ? ChevronUp : ChevronDown" class="h-4 w-4" />
+                </span>
               </div>
             </div>
           </button>
