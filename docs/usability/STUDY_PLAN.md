@@ -46,7 +46,7 @@ These are decisions the team has to make; they are not in this plan's gift.
    answer is "exempt, with informed consent".
 2. **What the product tells a participant about losing everything.** The registration page says
    that losing both the passphrase and the private key file means encrypted files "cannot be
-   recovered", yet each file row has a *Request recovery* button and the platform has recovery
+   recovered", yet every file row has a *Request recovery* button and the platform has recovery
    officers (`docs/SECURITY_FLOWS.md`). Task T9's comprehension question needs one correct
    answer. The Crypto & Security Lead should decide whether the registration copy or the
    question is wrong, and the answer key in `materials/task-cards.md` must match the decision.
@@ -179,8 +179,11 @@ to look for, not findings. Each should be confirmed or dropped by the sessions.
   Watch whether anyone notices the contradiction.
 - **Icon-only actions.** Each file row has small icon buttons whose names exist only as hover
   tooltips: *Download and decrypt*, *Download encrypted file*, *Access history*, *Share*,
-  *Delete*, and for some rows *Request recovery*. Watch T4, T5 and T7 for the wrong download
-  button, for hover-hunting, and for anyone who never finds *Share*.
+  *Delete*, and *Request recovery* on every row (*Share* and *Delete* only on files the user
+  owns). Each row also carries a "Folder" dropdown and a status button that doubles as the
+  integrity check. Watch T4, T5 and T7 for the wrong download button, for hover-hunting, for
+  anyone who never finds *Share*, and for people who do not realise the status button is
+  clickable.
 - **Two secrets that look alike.** Registration asks for a password and a different
   "encryption passphrase". Watch T1/T2/T5 for entering the wrong one, and the comprehension
   probe for whether they can say which is which.
