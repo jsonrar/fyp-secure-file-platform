@@ -137,3 +137,57 @@ def test_deleting_an_absent_object_still_prunes_and_never_raises(tmp_path) -> No
     storage.delete_object(object_key)
 
     assert not (tmp_path / "objects" / str(FILE_ID)).exists()
+
+
+def _stored(tmp_path, content: bytes):
+    storage = FileStorageService(settings=_settings(tmp_path))
+    key = f"{FILE_ID}/{OBJECT_ID}.ciphertext"
+    path = storage.object_root / key
+    path.parent.mkdir(parents=True)
+    path.write_bytes(content)
+    return storage, key, path
+
+
+def test_replace_object_swaps_the_bytes_and_keeps_the_damaged_copy(tmp_path) -> None:
+    storage, key, path = _stored(tmp_path, b"tampered bytes")
+    good = tmp_path / "good.bin"
+    good.write_bytes(b"the original ciphertext")
+
+    kept = storage.replace_object(key, good, quarantine_dir=tmp_path / "quarantine")
+
+    assert path.read_bytes() == b"the original ciphertext"
+    assert kept is not None and kept.read_bytes() == b"tampered bytes"
+    assert kept.parent == tmp_path / "quarantine" and kept.stat().st_mode & 0o077 == 0
+    assert [p.name for p in path.parent.iterdir()] == [path.name]  # no temporary left behind
+    assert (
+        storage.hash_object(key)[0] == __import__("hashlib").sha256(good.read_bytes()).hexdigest()
+    )
+
+
+def test_replace_object_puts_back_an_object_that_is_gone(tmp_path) -> None:
+    storage, key, path = _stored(tmp_path, b"x")
+    path.unlink()
+    good = tmp_path / "good.bin"
+    good.write_bytes(b"restored")
+
+    assert storage.replace_object(key, good, quarantine_dir=tmp_path / "quarantine") is None
+    assert path.read_bytes() == b"restored"
+
+
+def test_replace_object_leaves_the_old_bytes_when_the_copy_fails(tmp_path) -> None:
+    storage, key, path = _stored(tmp_path, b"still here")
+
+    with pytest.raises(StorageObjectError):
+        storage.replace_object(key, tmp_path / "does-not-exist.bin")
+
+    assert path.read_bytes() == b"still here"
+    assert [p.name for p in path.parent.iterdir()] == [path.name]
+
+
+def test_replace_object_refuses_a_key_outside_the_root(tmp_path) -> None:
+    storage, _, _ = _stored(tmp_path, b"x")
+    good = tmp_path / "good.bin"
+    good.write_bytes(b"x")
+
+    with pytest.raises(StorageObjectError):
+        storage.replace_object("../escape.ciphertext", good)

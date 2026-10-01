@@ -18,6 +18,7 @@ from app.services.avatar_service import AvatarService
 from app.services.avatar_storage_service import AvatarStorageService
 from app.services.file_service import FileService
 from app.services.file_storage_service import FileStorageService
+from app.services.integrity_service import IntegrityService
 from app.services.key_service import KeyService
 from app.services.recovery_service import RecoveryService
 from app.services.share_notification_service import ShareNotificationService
@@ -133,9 +134,21 @@ def get_audit_query_service(
 
 
 def get_admin_service(
+    request: Request,
     db: Annotated[Session, Depends(get_request_db)],
 ) -> AdminService:
-    return AdminService(db=db)
+    settings = request.app.state.settings
+    audit = AuditLogService(db)
+    return AdminService(
+        db=db,
+        audit_service=audit,
+        integrity_service=IntegrityService(
+            db=db,
+            settings=settings,
+            storage=FileStorageService(settings=settings),
+            audit_service=audit,
+        ),
+    )
 
 
 def get_current_actor(

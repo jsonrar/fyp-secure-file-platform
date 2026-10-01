@@ -120,3 +120,40 @@ class AdminStatsOut(_StrictModel):
     integrity: AdminIntegrityStats
     recovery: AdminRecoveryStats
     audit: AdminAuditStats
+
+
+class AdminDamagedFileOut(_StrictModel):
+    """One file whose stored ciphertext is not known to be intact, and what was last seen."""
+
+    file_id: UUID
+    owner_username: str
+    original_filename: str
+    status: str
+    last_result: str | None = None
+    last_message: str | None = None
+    last_checked_at: datetime | None = None
+
+
+class AdminIntegrityCoverage(_StrictModel):
+    """How much of the store has actually been looked at, and when the last automatic pass was."""
+
+    candidates: int = Field(ge=0)
+    never_checked: int = Field(ge=0)
+    checked_last_24_hours: int = Field(ge=0)
+    last_sweep_at: datetime | None = None
+
+
+class AdminIntegrityReportOut(_StrictModel):
+    generated_at: datetime
+    coverage: AdminIntegrityCoverage
+    damaged: list[AdminDamagedFileOut]
+    has_more: bool
+
+
+class AdminIntegrityScanOut(_StrictModel):
+    scanned: int = Field(ge=0)
+    valid: int = Field(ge=0)
+    damaged: int = Field(ge=0)
+    candidates: int = Field(ge=0)
+    stopped_early: bool
+    damaged_file_ids: list[UUID]

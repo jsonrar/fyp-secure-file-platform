@@ -13,6 +13,8 @@ from app.domain.auth import ActorContext, RequestContext
 from app.schemas.admin_schema import (
     AdminFileListResponse,
     AdminFileOut,
+    AdminIntegrityReportOut,
+    AdminIntegrityScanOut,
     AdminStatsOut,
     AdminUserListResponse,
     AdminUserOut,
@@ -61,6 +63,38 @@ def platform_stats(
 ) -> JSONResponse:
     data = service.platform_stats(actor=actor)
     return ok(message="Platform statistics retrieved", data=data, headers=AUTH_NO_STORE_HEADERS)
+
+
+# One request must not hash the whole store: a few large objects can take minutes. The batch
+# size and the time budget both stop the pass; the report says how many files are left, and
+# the scheduled sweep (deployment/server/mcs21-integrity-sweep.*) covers the rest.
+SCAN_BATCH_FILES = 50
+SCAN_BUDGET_SECONDS = 20.0
+
+
+@router.get("/integrity", response_model=ApiSuccessResponse[AdminIntegrityReportOut])
+def integrity_report(
+    actor: AdminActorDependency,
+    service: AdminServiceDependency,
+    limit: Annotated[int, Query(ge=1, le=100)] = 50,
+) -> JSONResponse:
+    data = service.integrity_report(actor=actor, limit=limit)
+    return ok(message="Integrity report retrieved", data=data, headers=AUTH_NO_STORE_HEADERS)
+
+
+@router.post("/integrity/scan", response_model=ApiSuccessResponse[AdminIntegrityScanOut])
+def scan_integrity(
+    actor: AdminActorDependency,
+    context: RequestContextDependency,
+    service: AdminServiceDependency,
+) -> JSONResponse:
+    data = service.scan_integrity(
+        actor=actor,
+        context=context,
+        limit=SCAN_BATCH_FILES,
+        budget_seconds=SCAN_BUDGET_SECONDS,
+    )
+    return ok(message="Integrity scan finished", data=data, headers=AUTH_NO_STORE_HEADERS)
 
 
 @router.get("/files", response_model=ApiSuccessResponse[AdminFileListResponse])

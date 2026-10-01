@@ -4,6 +4,7 @@ import errno
 import hashlib
 import os
 import re
+import shutil
 from collections.abc import Iterator
 from contextlib import suppress
 from dataclasses import dataclass
@@ -163,6 +164,49 @@ class FileStorageService:
         path = self._object_path(object_key)
         self._unlink_if_present(path)
         self._prune_empty_parent(path)
+
+    def replace_object(
+        self,
+        object_key: str,
+        source: Path,
+        *,
+        quarantine_dir: Path | None = None,
+    ) -> Path | None:
+        """Atomically put the bytes of `source` at an existing object key (file restore only).
+
+        Objects are write-once, so this is not part of any request path: the one caller is
+        `scripts/restore_file.py`, putting back a copy from an encrypted backup that was
+        verified against the recorded SHA-256. The new bytes are written beside the object,
+        flushed, and renamed over it, so a reader sees the old object or the new one, never
+        a mixture. If the old object is still there and `quarantine_dir` is given, its bytes
+        are copied there first: a tampered object is evidence, and replacing it must not
+        destroy the only copy. Returns where the old bytes were kept, or None.
+        """
+        destination = self._object_path(object_key)
+        try:
+            destination.parent.mkdir(parents=True, exist_ok=True)
+            kept: Path | None = None
+            if quarantine_dir is not None and destination.is_file():
+                quarantine_dir.mkdir(parents=True, exist_ok=True, mode=0o700)
+                kept = quarantine_dir / f"{destination.parent.name}-{uuid4().hex}.damaged"
+                shutil.copyfile(destination, kept)
+                os.chmod(kept, 0o600)
+            temporary = destination.with_name(f".{destination.name}.restore-{uuid4().hex}")
+            descriptor = os.open(temporary, os.O_WRONLY | os.O_CREAT | os.O_EXCL, 0o600)
+            try:
+                with os.fdopen(descriptor, "wb") as out, source.open("rb") as incoming:
+                    shutil.copyfileobj(incoming, out, self.CHUNK_SIZE)
+                    out.flush()
+                    os.fsync(out.fileno())
+                os.replace(temporary, destination)
+            except BaseException:
+                with suppress(OSError):
+                    temporary.unlink()
+                raise
+            self._sync_directory(destination.parent)
+        except OSError as exc:
+            raise StorageObjectError("Unable to replace the encrypted storage object") from exc
+        return kept
 
     def hash_object(self, object_key: str) -> tuple[str, int]:
         verified = self.open_verified(object_key)

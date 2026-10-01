@@ -74,6 +74,37 @@ export interface AdminStats {
   }
 }
 
+export interface AdminDamagedFile {
+  file_id: string
+  owner_username: string
+  original_filename: string
+  status: string
+  last_result: string | null
+  last_message: string | null
+  last_checked_at: string | null
+}
+
+export interface AdminIntegrityReport {
+  generated_at: string
+  coverage: {
+    candidates: number
+    never_checked: number
+    checked_last_24_hours: number
+    last_sweep_at: string | null
+  }
+  damaged: AdminDamagedFile[]
+  has_more: boolean
+}
+
+export interface AdminIntegrityScan {
+  scanned: number
+  valid: number
+  damaged: number
+  candidates: number
+  stopped_early: boolean
+  damaged_file_ids: string[]
+}
+
 export interface AdminUserStatusResult {
   user_id: string
   status: string
@@ -88,6 +119,14 @@ export const adminApi = {
   /** Counts only: how big the platform is and how healthy. No names, keys or addresses. */
   stats() {
     return http.get<ApiEnvelope<AdminStats>>('/admin/stats')
+  },
+  /** Which files are damaged, and how much of the store has been verified at all. */
+  integrityReport() {
+    return http.get<ApiEnvelope<AdminIntegrityReport>>('/admin/integrity')
+  },
+  /** Verify a bounded batch of stored objects now, least recently checked first. */
+  scanIntegrity() {
+    return http.post<ApiEnvelope<AdminIntegrityScan>>('/admin/integrity/scan')
   },
   listFiles(params?: { limit?: number; offset?: number }) {
     return http.get<ApiEnvelope<AdminFileList>>('/admin/files', { params })

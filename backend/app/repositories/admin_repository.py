@@ -1,9 +1,10 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import SystemRole
@@ -13,6 +14,17 @@ from app.models.file_access_grant import FileAccessGrant
 from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_request import RecoveryRequest
 from app.models.user import User
+
+
+@dataclass(frozen=True, slots=True)
+class DamagedFileRow:
+    file_uuid: str
+    original_filename: str
+    status: str
+    owner_username: str
+    last_result: str | None
+    last_message: str | None
+    last_checked_at: datetime | None
 
 
 class AdminRepository:
@@ -141,6 +153,69 @@ class AdminRepository:
         return [
             (action, result, created_at, username) for action, result, created_at, username in rows
         ]
+
+    # --- integrity report -------------------------------------------------------------------
+
+    def damaged_files(self, *, limit: int) -> list[DamagedFileRow]:
+        """Files marked CORRUPTED, or whose newest check could not read the object.
+
+        A MISSING or ERROR finding does not change `files.status` (see IntegrityService),
+        so the newest check is part of the answer, not just the status column. Only the
+        columns the report shows are selected: no key, nonce or password hash is loaded.
+        """
+        newest = (
+            select(func.max(IntegrityCheck.id))
+            .where(IntegrityCheck.file_id == File.id)
+            .correlate(File)
+            .scalar_subquery()
+        )
+        rows = self.db.execute(
+            select(
+                File.file_uuid,
+                File.original_filename,
+                File.status,
+                User.username,
+                IntegrityCheck.result,
+                IntegrityCheck.message,
+                IntegrityCheck.created_at,
+            )
+            .join(User, User.id == File.owner_id)
+            .outerjoin(IntegrityCheck, IntegrityCheck.id == newest)
+            .where(
+                File.status != "DELETED",
+                or_(
+                    File.status == "CORRUPTED",
+                    IntegrityCheck.result.in_(("MODIFIED", "MISSING", "ERROR")),
+                ),
+            )
+            .order_by(File.updated_at.desc(), File.id.desc())
+            .limit(limit)
+        )
+        return [DamagedFileRow(*row) for row in rows]
+
+    def integrity_coverage(self, since: datetime) -> tuple[int, int, int, datetime | None]:
+        """(files that can be checked, never checked, checked since the cutoff, last sweep)."""
+        candidates = self._count(
+            select(func.count()).select_from(File).where(File.status.in_(("ACTIVE", "CORRUPTED")))
+        )
+        checked_ever = self._count(
+            select(func.count(func.distinct(IntegrityCheck.file_id)))
+            .select_from(IntegrityCheck)
+            .join(File, File.id == IntegrityCheck.file_id)
+            .where(File.status.in_(("ACTIVE", "CORRUPTED")))
+        )
+        checked_recently = self._count(
+            select(func.count(func.distinct(IntegrityCheck.file_id)))
+            .select_from(IntegrityCheck)
+            .join(File, File.id == IntegrityCheck.file_id)
+            .where(File.status.in_(("ACTIVE", "CORRUPTED")), IntegrityCheck.created_at >= since)
+        )
+        last_sweep = self.db.scalar(
+            select(func.max(AuditLog.created_at)).where(
+                AuditLog.action == "INTEGRITY_SWEEP_COMPLETED"
+            )
+        )
+        return candidates, max(candidates - checked_ever, 0), checked_recently, last_sweep
 
     def _count(self, statement) -> int:
         return int(self.db.scalar(statement) or 0)

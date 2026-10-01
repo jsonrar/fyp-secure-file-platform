@@ -247,6 +247,75 @@ U 盘上，离线保存在两个不同地点。指定保管人是 **Testing & De
 发布，受支持的恢复方式是**向后恢复**：保持应用停止，恢复发布前备份，再完整重跑发布。向前续跑只适用于
 运行 Alembic 和 `migrate.sh` 的环境（开发、CI、一次性数据库），且只适用于在 revision 边界上的中断。
 
+## 9. 发现并恢复单个受损文件
+
+第 1 至 8 节恢复的是整个服务。本节回答一个更窄的问题：*存储的某个文件被修改了，怎样发现，怎样把原件找回来？*
+
+**没有版本历史，也不需要。** 存储的密文对象只写一次，正常情况下永远不会变化。所以只要某个备份副本的 SHA-256
+等于系统记录的该文件摘要，它就与原件逐字节相同。“最后一个已知良好版本”就是一个持有正确字节的备份集。
+起决定作用的摘要是上传时写入审计哈希链的那个（`FILE_UPLOADED.metadata.ciphertext_sha256`），而不只是
+`files.encrypted_sha256` 这一列，因为能改写对象的人往往也能改写这一列。在记录该摘要之前上传的文件没有审计摘要，
+退回使用这一列。
+
+### 发现
+
+| 位置 | 作用 |
+|---|---|
+| 下载 | 服务器在流式输出前对对象做哈希，不一致就拒绝（原有） |
+| **每日扫描** `scripts/integrity_sweep.py`、`mcs21-integrity-sweep.timer`（吉隆坡时间 05:30） | 按最久未检查优先，对每个存储对象做哈希；每个发现写入 `integrity_checks` 并记审计；有受损对象时退出码为 3，使失败告警触发 |
+| **管理员 → Integrity** | 列出受损文件与已检查的覆盖情况；“Scan now” 在 20 秒内最多验证 50 个文件，并说明还剩多少 |
+
+结果 `MODIFIED` 是关于字节内容的证据，会把文件标为 `CORRUPTED`。`MISSING` 与 `ERROR` 描述的是存储环境
+（卷未挂载、I/O 错误），不会改变文件状态，因此短暂故障不会误判完好的文件。下一次检查通过后状态自动恢复。
+
+定时器应在读过一次手动运行结果之后再有意地安装：
+
+```bash
+sudo systemd-run --pipe --wait --quiet --uid=fypapp --gid=fypapp \
+  --working-directory=/opt/mcs21/current/backend \
+  --property=EnvironmentFile=/etc/fyp-secure-file-platform/backend.env \
+  /opt/mcs21/current/backend/.venv/bin/python scripts/integrity_sweep.py
+R=/opt/mcs21/current/deployment/server
+sudo install -m 0644 "$R/mcs21-integrity-sweep.service" "$R/mcs21-integrity-sweep.timer" /etc/systemd/system/
+sudo systemd-analyze verify /etc/systemd/system/mcs21-integrity-sweep.service
+sudo systemctl daemon-reload && sudo systemctl enable --now mcs21-integrity-sweep.timer
+```
+
+### 把原件放回去
+
+`backend/scripts/restore_file.py`，在服务器上以服务账户运行，**离线备份私钥**由保管人在恢复期间带来：
+
+```bash
+cd /opt/mcs21/current/backend
+.venv/bin/python scripts/restore_file.py --file-id <文件 uuid> \
+    --backup-set /path/to/<manifest-id> --private-key /path/to/backup_priv.pem          # 演练（不写入）
+.venv/bin/python scripts/restore_file.py ... --apply                                      # 写入
+```
+
+第一条命令不改变任何东西，只报告将使用哪个备份集。加上 `--apply` 后依次：
+
+1. 除非该集的各 artifact 与 `index.json` 一致、能在此密钥和此集的 manifest id 下解密并认证、归档与 manifest
+   一致，否则拒绝；
+2. 除非该集持有这个对象，**并且**其 SHA-256 与大小等于记录值，否则拒绝（上传之前的备份集，或本身已含被篡改字节的
+   备份集都不会被采用）；
+3. 把受损字节复制到隔离目录（`<存储目录的上级>/quarantine`，或 `--quarantine-dir`），因为被篡改的对象是证据；
+4. 把原件写在对象旁边，再原子地重命名到位；
+5. 若数据库中的摘要被改写得与被篡改对象一致，则把审计链中的摘要写回 `files.encrypted_sha256`；
+6. 用当初判定它受损的同一规则重新验证，这会记录一条 `VALID` 检查并把状态恢复为 `ACTIVE`，同时把
+   `FILE_RESTORED_FROM_BACKUP` 写入审计链。
+
+私钥不会长期放在服务器上，也没有网页按钮：管理员页面显示哪些文件受损以及要运行的命令，决定权留给持有密钥的人。
+
+### 明确的限制
+
+- 最近一次夜间备份之后上传的文件不在任何备份里，无法用这种方式恢复。窗口就是第 1 节的 24 h RPO。
+- 为取出一个对象需要解密 `objects.tar.enc`，代价与完整恢复中对象部分的解密相同，因为归档是一整个经认证的流。
+- 如果备份集本身已含被篡改的字节，摘要检查会拒绝它；请换更早的集（异地保留 35 个夜晚）。
+- 只有上传时记录了审计摘要的文件，扫描才能发现被改写的摘要。
+- `scripts/backup_restore_drill.sh`（CI 的 `mysql-gate`）会篡改一个对象，要求扫描退出码为 3 并标记 `CORRUPTED`，
+  拒绝错误的密钥，确认演练不改变任何东西，然后恢复，并要求对象逐字节一致、受损副本已隔离、状态为 `ACTIVE`、
+  审计行存在。
+
 ## 本地运行
 
 ```bash

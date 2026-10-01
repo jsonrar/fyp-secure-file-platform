@@ -15,7 +15,11 @@ from app.repositories.auth_repository import AuthRepository
 from app.schemas.admin_schema import (
     AdminAuditEventOut,
     AdminAuditStats,
+    AdminDamagedFileOut,
     AdminFileStats,
+    AdminIntegrityCoverage,
+    AdminIntegrityReportOut,
+    AdminIntegrityScanOut,
     AdminIntegrityStats,
     AdminRecoveryStats,
     AdminShareStats,
@@ -23,6 +27,7 @@ from app.schemas.admin_schema import (
     AdminUserStats,
 )
 from app.services.audit_log_service import AuditLogService
+from app.services.integrity_service import IntegrityService
 
 
 class AdminService:
@@ -33,12 +38,14 @@ class AdminService:
         repository: AdminRepository | None = None,
         auth_repository: AuthRepository | None = None,
         audit_service: AuditLogService | None = None,
+        integrity_service: IntegrityService | None = None,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self.db = db
         self.repository = repository or AdminRepository(db)
         self.auth_repository = auth_repository or AuthRepository(db)
         self.audit = audit_service or AuditLogService(db, clock=clock)
+        self.integrity = integrity_service
         self.clock = clock
 
     @staticmethod
@@ -102,6 +109,64 @@ class AdminService:
                     for action, result, created_at, username in repo.recent_audit_failures(limit=5)
                 ],
             ),
+        )
+
+    def integrity_report(self, *, actor: ActorContext, limit: int) -> AdminIntegrityReportOut:
+        """Which files are damaged and how much of the store has been checked at all."""
+        self._require_admin(actor)
+        now = self.clock()
+        candidates, never, recent, last_sweep = self.repository.integrity_coverage(
+            to_second_resolution_utc(now - timedelta(hours=24))
+        )
+        rows = self.repository.damaged_files(limit=limit + 1)
+        return AdminIntegrityReportOut(
+            generated_at=to_api_utc(now),
+            coverage=AdminIntegrityCoverage(
+                candidates=candidates,
+                never_checked=never,
+                checked_last_24_hours=recent,
+                last_sweep_at=to_api_utc(last_sweep),
+            ),
+            damaged=[
+                AdminDamagedFileOut(
+                    file_id=UUID(row.file_uuid),
+                    owner_username=row.owner_username,
+                    original_filename=row.original_filename,
+                    status=row.status,
+                    last_result=row.last_result,
+                    last_message=row.last_message,
+                    last_checked_at=to_api_utc(row.last_checked_at),
+                )
+                for row in rows[:limit]
+            ],
+            has_more=len(rows) > limit,
+        )
+
+    def scan_integrity(
+        self,
+        *,
+        actor: ActorContext,
+        context: RequestContext,
+        limit: int,
+        budget_seconds: float,
+    ) -> AdminIntegrityScanOut:
+        """Verify a bounded batch of stored objects now, least recently checked first."""
+        self._require_admin(actor)
+        if self.integrity is None:  # pragma: no cover - wiring invariant
+            raise RuntimeError("AdminService was built without an IntegrityService")
+        summary = self.integrity.sweep(
+            actor_user_id=actor.user_id,
+            context=context,
+            limit=limit,
+            budget_seconds=budget_seconds,
+        )
+        return AdminIntegrityScanOut(
+            scanned=summary.scanned,
+            valid=summary.valid,
+            damaged=summary.damaged,
+            candidates=summary.candidates,
+            stopped_early=summary.stopped_early,
+            damaged_file_ids=[UUID(value) for value in summary.damaged_file_ids],
         )
 
     def list_users(self, *, actor: ActorContext, limit: int, offset: int):

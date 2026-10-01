@@ -261,6 +261,9 @@ class FileService:
                 context_user_agent=context.user_agent,
                 metadata={
                     "ciphertext_size": staged.size_bytes,
+                    # Anchors the digest in the hash chain, so rewriting files.encrypted_sha256
+                    # together with the object is still caught (see IntegrityService).
+                    "ciphertext_sha256": staged.sha256,
                     "envelope_version": metadata.envelope_version,
                     "aad_version": metadata.aad_version,
                 },

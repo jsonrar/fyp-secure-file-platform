@@ -49,9 +49,12 @@ compose run --rm attacker python scripts/tamper_drill_attacker.py restore
 compose run --rm target python scripts/tamper_drill_target.py inspect \
   --expect-result VALID --expect-file-status ACTIVE --download allowed
 
+# The attacker rewrites the object and files.encrypted_sha256 together, so the object matches
+# its row. The upload's audit row recorded the original digest in the hash chain, and the
+# integrity check compares against it, so this is now caught by the server as well.
 compose run --rm attacker python scripts/tamper_drill_attacker.py forge
 compose run --rm target python scripts/tamper_drill_target.py inspect \
-  --expect-result VALID --expect-file-status ACTIVE --download allowed
+  --expect-result MODIFIED --expect-file-status CORRUPTED --download refused
 compose run --rm target python scripts/tamper_drill_target.py prove-client-auth
 
 compose run --rm target python scripts/tamper_drill_target.py restore-baseline

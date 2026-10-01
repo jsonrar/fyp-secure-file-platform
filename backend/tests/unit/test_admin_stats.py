@@ -245,3 +245,171 @@ def test_pending_recovery_and_integrity_filters() -> None:
     integrity = _sql_of(lambda repo: repo.integrity_check_counts_since(since))
     assert "integrity_checks.result != 'VALID'" in integrity
     assert "integrity_checks.created_at >= '2026-09-30 12:00:00'" in integrity
+
+
+# --- the integrity report and the on-demand scan ------------------------------------------
+
+
+class FakeIntegrityRepository:
+    def __init__(self, rows=()) -> None:
+        self.rows = list(rows)
+        self.cutoff = None
+
+    def integrity_coverage(self, since):
+        self.cutoff = since
+        return 10, 3, 6, datetime(2026, 10, 1, 4, 30)
+
+    def damaged_files(self, *, limit):
+        return self.rows[:limit]
+
+
+def _damaged(n: int, *, status="CORRUPTED", result="MODIFIED"):
+    return SimpleNamespace(
+        file_uuid=f"00000000-0000-4000-8000-{n:012d}",
+        original_filename=f"report-{n}.pdf",
+        status=status,
+        owner_username="alice",
+        last_result=result,
+        last_message="The encrypted object does not match",
+        last_checked_at=datetime(2026, 10, 1, 9, 0),
+    )
+
+
+def test_the_integrity_report_is_refused_to_a_non_administrator() -> None:
+    class Untouchable:
+        def __getattr__(self, name: str):
+            raise AssertionError(f"{name} must not be called for a non-administrator")
+
+    with pytest.raises(AuthorizationError):
+        _service(Untouchable()).integrity_report(actor=_actor(SystemRole.USER), limit=10)
+
+
+def test_the_integrity_report_lists_damage_and_how_much_was_checked() -> None:
+    repository = FakeIntegrityRepository(
+        [_damaged(1), _damaged(2, status="ACTIVE", result="MISSING")]
+    )
+
+    report = _service(repository).integrity_report(actor=_actor(SystemRole.ADMIN), limit=10)
+
+    assert report.coverage.candidates == 10
+    assert report.coverage.never_checked == 3
+    assert report.coverage.checked_last_24_hours == 6
+    assert report.coverage.last_sweep_at is not None
+    assert [(f.original_filename, f.status, f.last_result) for f in report.damaged] == [
+        ("report-1.pdf", "CORRUPTED", "MODIFIED"),
+        ("report-2.pdf", "ACTIVE", "MISSING"),
+    ]
+    assert report.has_more is False
+    assert repository.cutoff == (NOW - timedelta(hours=24)).replace(tzinfo=None)
+
+
+def test_the_integrity_report_says_when_there_is_more_than_one_page() -> None:
+    repository = FakeIntegrityRepository([_damaged(n) for n in range(1, 5)])
+
+    report = _service(repository).integrity_report(actor=_actor(SystemRole.ADMIN), limit=3)
+
+    assert len(report.damaged) == 3
+    assert report.has_more is True
+
+
+def test_the_integrity_report_names_no_key_material_or_address() -> None:
+    from app.schemas.admin_schema import AdminIntegrityReportOut
+
+    names = _walk_field_names(AdminIntegrityReportOut)
+
+    assert names.isdisjoint(
+        {
+            "email",
+            "ip_address",
+            "user_agent",
+            "wrapped_file_key",
+            "nonce",
+            "auth_tag",
+            "storage_object_key",
+        }
+    )
+
+
+def test_a_scan_is_refused_to_a_non_administrator_before_it_reads_anything() -> None:
+    class Untouchable:
+        def sweep(self, **_):
+            raise AssertionError("sweep must not run for a non-administrator")
+
+    service = AdminService(
+        db=SimpleNamespace(),
+        repository=SimpleNamespace(),
+        auth_repository=SimpleNamespace(),
+        audit_service=SimpleNamespace(),
+        integrity_service=Untouchable(),
+        clock=lambda: NOW,
+    )
+
+    with pytest.raises(AuthorizationError):
+        service.scan_integrity(
+            actor=_actor(SystemRole.USER), context=None, limit=5, budget_seconds=1.0
+        )
+
+
+def test_a_scan_runs_the_sweep_as_the_administrator_and_reports_counts() -> None:
+    from app.services.integrity_service import SweepSummary
+
+    calls = []
+
+    class FakeIntegrity:
+        def sweep(self, **kwargs):
+            calls.append(kwargs)
+            return SweepSummary(
+                scanned=4,
+                valid=3,
+                modified=1,
+                candidates=9,
+                stopped_early=True,
+                damaged_file_ids=["00000000-0000-4000-8000-000000000001"],
+            )
+
+    service = AdminService(
+        db=SimpleNamespace(),
+        repository=SimpleNamespace(),
+        auth_repository=SimpleNamespace(),
+        audit_service=SimpleNamespace(),
+        integrity_service=FakeIntegrity(),
+        clock=lambda: NOW,
+    )
+
+    result = service.scan_integrity(
+        actor=_actor(SystemRole.ADMIN), context="ctx", limit=50, budget_seconds=20.0
+    )
+
+    assert calls == [{"actor_user_id": 7, "context": "ctx", "limit": 50, "budget_seconds": 20.0}]
+    assert (result.scanned, result.valid, result.damaged, result.candidates) == (4, 3, 1, 9)
+    assert result.stopped_early is True
+    assert len(result.damaged_file_ids) == 1
+
+
+def test_the_damaged_list_covers_corrupted_files_and_unreadable_objects_but_never_deleted_ones() -> (
+    None
+):
+    sql = _sql_of(lambda repo: repo.damaged_files(limit=11))
+
+    assert "files.status != 'DELETED'" in sql
+    assert "files.status = 'CORRUPTED'" in sql
+    assert "integrity_checks.result IN ('MODIFIED', 'MISSING', 'ERROR')" in sql
+    assert "max(integrity_checks.id)" in sql.lower()  # the newest check per file
+    assert "LIMIT 11" in sql
+    select_list = sql.split("FROM", maxsplit=1)[0]
+    for private in ("iv", "auth_tag", "encrypted_manifest", "storage_object_key"):
+        assert f"files.{private}" not in select_list
+    assert "users.password_hash" not in select_list and "users.email" not in select_list
+
+
+def test_the_scan_order_puts_never_checked_files_first_and_skips_deleted_ones() -> None:
+    from app.repositories.file_repository import FileRepository
+
+    db = RecordingDb()
+    db.scalars = lambda statement: (db._sql(statement), iter(()))[1]  # type: ignore[method-assign]
+    FileRepository(db).list_scan_candidates(limit=7)  # type: ignore[arg-type]
+
+    sql = db.statements[0]
+    assert "files.status IN ('ACTIVE', 'CORRUPTED')" in sql
+    assert "max(integrity_checks.created_at)" in sql.lower()
+    assert "IS NOT NULL" in sql and "LIMIT 7" in sql

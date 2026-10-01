@@ -7,6 +7,7 @@ from uuid import UUID
 from sqlalchemy import Select, and_, delete, func, select, update
 from sqlalchemy.orm import Session, joinedload
 
+from app.models.audit_log import AuditLog
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
 from app.models.file_folder import FileFolder
@@ -48,6 +49,66 @@ class FileRepository:
 
     def add_integrity_check(self, check: IntegrityCheck) -> None:
         self.db.add(check)
+
+    def upload_anchor_sha256(self, file_uuid: str) -> str | None:
+        """The ciphertext digest the audit chain recorded when this file was uploaded.
+
+        `files.encrypted_sha256` is an ordinary column: whoever can rewrite a stored object
+        and also holds a database write can make them agree. The upload's audit row is part
+        of the hash chain and of the externally anchored checkpoints, so a digest recorded
+        there is the one reference a database edit cannot move quietly. Files uploaded
+        before the digest was recorded have no anchor and return None.
+        """
+        metadata = self.db.scalar(
+            select(AuditLog.metadata_json)
+            .where(
+                AuditLog.resource_type == "FILE",
+                AuditLog.resource_id == file_uuid,
+                AuditLog.action == "FILE_UPLOADED",
+                AuditLog.result == "SUCCESS",
+            )
+            .order_by(AuditLog.id)
+            .limit(1)
+        )
+        value = (metadata or {}).get("ciphertext_sha256") if isinstance(metadata, dict) else None
+        if (
+            isinstance(value, str)
+            and len(value) == 64
+            and all(c in "0123456789abcdef" for c in value)
+        ):
+            return value
+        return None
+
+    def list_scan_candidates(self, *, limit: int) -> list[File]:
+        """Files whose stored bytes can still be checked, least recently checked first.
+
+        DELETED files have no object to check. A file that was never checked sorts first,
+        then the one verified longest ago, so repeated bounded scans cover everything.
+        """
+        last_check = (
+            select(func.max(IntegrityCheck.created_at))
+            .where(IntegrityCheck.file_id == File.id)
+            .correlate(File)
+            .scalar_subquery()
+        )
+        return list(
+            self.db.scalars(
+                select(File)
+                .where(File.status.in_(("ACTIVE", "CORRUPTED")))
+                .order_by(last_check.is_not(None), last_check, File.id)
+                .limit(limit)
+            )
+        )
+
+    def count_scan_candidates(self) -> int:
+        return int(
+            self.db.scalar(
+                select(func.count())
+                .select_from(File)
+                .where(File.status.in_(("ACTIVE", "CORRUPTED")))
+            )
+            or 0
+        )
 
     def file_uuid_exists(self, file_id: UUID) -> bool:
         return (
