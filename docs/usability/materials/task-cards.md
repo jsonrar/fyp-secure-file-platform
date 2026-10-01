@@ -149,8 +149,13 @@ on the site that helps you answer, in plain words.
 - **Critical errors:** none defined.
 - **Budget:** 5 minutes.
 - **Probe 2 (record verbatim):** *"If you lost both your passphrase and your key file, what
-  would happen to your files?"* **Answer key: to be fixed by the team before the first session
-  (plan §2.2).** Until then, do not score this probe as right or wrong; record the words.
+  would happen to your files?"* **Answer key (settled 2026-10-01, plan §2.2):** nobody can
+  recover them, not the server and not the team; the only way forward is to delete the account and
+  register again. Score 1 if they say the files are lost, 0 if they believe someone can get them
+  back. Then, if they mention the *Request recovery* button or say "the team can fix it", note it
+  verbatim: that belief is the finding this probe exists to catch.
+  Also ask the half they should get right: *"And if you still had the key file but forgot the
+  passphrase?"* Answer: they can get back in and set a new passphrase from Settings.
 
 ## T10 — Delete the account / 删除账户
 

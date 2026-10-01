@@ -44,12 +44,17 @@ These are decisions the team has to make; they are not in this plan's gift.
    of the team's own software, and file the reply under `02 Project Documents/`. If review is
    required, no session runs until it is granted. The consent sheet and screener assume the
    answer is "exempt, with informed consent".
-2. **What the product tells a participant about losing everything.** The registration page says
-   that losing both the passphrase and the private key file means encrypted files "cannot be
-   recovered", yet every file row has a *Request recovery* button and the platform has recovery
-   officers (`docs/SECURITY_FLOWS.md`). Task T9's comprehension question needs one correct
-   answer. The Crypto & Security Lead should decide whether the registration copy or the
-   question is wrong, and the answer key in `materials/task-cards.md` must match the decision.
+2. ~~What the product tells a participant about losing everything.~~ **Settled 2026-10-01 by
+   the project owner, and consistent with `docs/SECURITY_FLOWS.md`.** The registration copy is
+   right: with the passphrase **or** the private key file the account can be reopened (the key
+   file resets a forgotten passphrase in Settings), but with **neither**, nothing can recover
+   the files, not the server and not a recovery officer; the only way forward is to delete the
+   account and register again. *Request recovery* does not change that: it only asks an officer
+   to rewrap one file's key to a registered key the requester can still use, so it does not
+   rescue someone who has lost both. This is the answer key for Probe 2 in
+   `materials/task-cards.md`. What stays open is a *usability* question the study should answer:
+   whether a button called *Request recovery* on every file row leads people to believe that
+   they are safe if they lose the key file.
 3. **A second pair of hands.** One facilitator and one note-taker per session. A solo facilitator
    cannot both prompt neutrally and time accurately.
 4. **A team-owned mailbox for verification codes.** Registration emails a code. Use plus-addressing
