@@ -53,15 +53,10 @@ const navLinks = computed(() => {
   return [...authedLinks, { to: '/admin', label, match: ['/admin'] }]
 })
 
-// Signed in, the header carries six or seven links plus Dashboard and the avatar, which do not fit
-// beside each other below 1024px (the last links slid under the Dashboard button), so that view
-// switches to the menu button at lg. Signed out it has four links and keeps the md breakpoint.
-// Full class names, so Tailwind sees them.
-const responsive = computed(() =>
-  auth.isAuthed
-    ? { desktop: 'hidden lg:flex', mobile: 'lg:hidden' }
-    : { desktop: 'hidden md:flex', mobile: 'md:hidden' },
-)
+// The full header does not fit below 1024px: signed in, the last links slid under the Dashboard
+// button; signed out, "Contact us" ran into the theme menu at 768px. Below lg both use the menu
+// button. Full class names, so Tailwind sees them.
+const responsive = computed(() => ({ desktop: 'hidden lg:flex', mobile: 'lg:hidden' }))
 
 const isActive = (match: string[]) => match.some((path) => route.path.startsWith(path))
 
