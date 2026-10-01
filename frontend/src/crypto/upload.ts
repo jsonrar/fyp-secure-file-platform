@@ -21,6 +21,38 @@ import {
 export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024
 
 /**
+ * From this size the browser is told, before encryption starts, that the file may not fit.
+ *
+ * Encryption happens entirely in memory (docs/THREAT_MODEL.md, T-D3 / F-19): the plaintext
+ * is read into one buffer and the ciphertext, the self-test decryption and the request body
+ * are held next to it, so the peak is roughly four times the file. At 100 MiB that is about
+ * 400 MiB, which a desktop browser shrugs off and a phone tab may not.
+ */
+export const LARGE_FILE_WARNING_BYTES = 100 * 1024 * 1024
+
+export type UploadSizeClass = 'ok' | 'large' | 'too-large'
+
+/** Tell the user about a size problem at selection time, not after minutes of encryption. */
+export function classifyUploadSize(sizeBytes: number): UploadSizeClass {
+  if (sizeBytes > MAX_UPLOAD_BYTES) return 'too-large'
+  if (sizeBytes >= LARGE_FILE_WARNING_BYTES) return 'large'
+  return 'ok'
+}
+
+/**
+ * The browser refuses to allocate a buffer this big as a bare `RangeError` ("Array buffer
+ * allocation failed"), or fails the read itself. Neither tells a non-expert what to do.
+ */
+export function isMemoryExhaustion(error: unknown): boolean {
+  if (error instanceof RangeError) return true
+  return (
+    typeof DOMException !== 'undefined' &&
+    error instanceof DOMException &&
+    (error.name === 'NotReadableError' || error.name === 'QuotaExceededError')
+  )
+}
+
+/**
  * `File.type` is advisory: browsers leave it empty for unknown extensions, and the API
  * requires a well-formed media type. Fall back rather than sending something it will reject.
  */
@@ -106,13 +138,23 @@ export async function prepareUpload(params: {
     )
   }
 
-  const plaintext = new Uint8Array(await file.arrayBuffer())
-  const envelope = await encryptFile({
-    plaintext,
-    originalFilename: resolveUploadFilename(file.name),
-    mimeType: resolveMimeType(file.type),
-    algorithm: params.algorithm ?? DEFAULT_ENCRYPTION_ALGORITHM,
-  })
+  let envelope: Awaited<ReturnType<typeof encryptFile>>
+  try {
+    const plaintext = new Uint8Array(await file.arrayBuffer())
+    envelope = await encryptFile({
+      plaintext,
+      originalFilename: resolveUploadFilename(file.name),
+      mimeType: resolveMimeType(file.type),
+      algorithm: params.algorithm ?? DEFAULT_ENCRYPTION_ALGORITHM,
+    })
+  } catch (error) {
+    if (isMemoryExhaustion(error)) {
+      throw new Error(
+        `${file.name} is too large for this browser to encrypt: encryption needs about four times the file's size in memory. Close other tabs, or try a desktop browser.`,
+      )
+    }
+    throw error
+  }
 
   return buildUploadPayload({
     envelope,
