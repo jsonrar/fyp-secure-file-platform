@@ -190,6 +190,7 @@ and successor-key inputs.
 | POST | `/files/{file_id}/download` | Bearer | Verify and stream stored ciphertext; never decrypt server-side |
 | POST | `/files/{file_id}/delete` | Bearer owner | Soft-delete file, revoke access/wrappings, and remove object |
 | POST | `/files/{file_id}/integrity-check` | Bearer | Recompute and record ciphertext-storage integrity |
+| POST | `/files/{file_id}/ciphertext-preview` | Bearer, download capability | A fixed 128-byte sample of the stored ciphertext as hex, with the exact sizes and recorded SHA-256. Not verified (no full hash) and never decrypted; audited as `FILE_CIPHERTEXT_PREVIEWED`, which is not a download |
 
 Upload is `multipart/form-data` with:
 

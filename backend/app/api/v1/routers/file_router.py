@@ -19,6 +19,7 @@ from app.api.responses import AUTH_NO_STORE_HEADERS, ApiResponse, ApiSuccessResp
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.errors import InputError
 from app.schemas.file_schema import (
+    CiphertextPreviewOut,
     FileDeleteOut,
     FileFolderDeleteOut,
     FileFolderListOut,
@@ -230,6 +231,24 @@ def download_file(
             "X-Content-Type-Options": "nosniff",
             "Cross-Origin-Resource-Policy": "same-origin",
         },
+    )
+
+
+@router.post(
+    "/{file_id}/ciphertext-preview",
+    response_model=ApiSuccessResponse[CiphertextPreviewOut],
+)
+def ciphertext_preview(
+    file_id: UUID,
+    actor: Annotated[ActorContext, Depends(get_current_actor)],
+    context: Annotated[RequestContext, Depends(get_request_context)],
+    service: Annotated[FileService, Depends(get_file_service)],
+) -> JSONResponse:
+    result = service.ciphertext_preview(actor=actor, file_id=file_id, context=context)
+    return ApiResponse.success(
+        data=result,
+        message="Ciphertext preview",
+        headers=AUTH_NO_STORE_HEADERS,
     )
 
 

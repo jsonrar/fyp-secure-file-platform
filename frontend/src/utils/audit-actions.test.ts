@@ -17,6 +17,12 @@ describe('audit action labels', () => {
     expect(isDownloadAction('download')).toBe(false)
   })
 
+  it('names an encrypted preview and never counts it as a download', () => {
+    expect(auditActionLabel('FILE_CIPHERTEXT_PREVIEWED')).toBe('Encrypted preview viewed')
+    expect(isDownloadAction('FILE_CIPHERTEXT_PREVIEWED')).toBe(false)
+    expect(auditActionCategory('FILE_CIPHERTEXT_PREVIEWED')).toBe('other')
+  })
+
   it('does not count a blocked download as an access that happened', () => {
     expect(isDownloadAction('FILE_DOWNLOAD_INTEGRITY_FAILED')).toBe(false)
   })

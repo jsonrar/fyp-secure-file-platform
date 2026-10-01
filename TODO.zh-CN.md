@@ -163,9 +163,10 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——删除文件与撤销分享使用独立后果确认弹窗；注销账户仍为「登录密码 + 输入 DELETE」，并在
   Profile 与 Settings 均可进入。
 - [x] [#71 认证后的密文预览与加密文件下载](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
-  ——**只完成了下载这一半。**所有者和授权接收者无需 passphrase 即可保存存储的密文（#78，#79 中改进），并已部署。
-  有限长度的密文**预览**从未实现（2026-10-01 检索 `main`）。该 Issue 在这一条未满足时被关闭；项目负责人选择
-  如实记录而不是重新打开，所以预览**不**作为未完成工作被跟踪（如需要，要新开 Issue）。见 Issue 上的范围记录。
+  ——所有者和授权接收者无需 passphrase 即可保存存储的密文（#78，#79 中改进）；自 2026-10-01 起每个文件还有 **Encrypted
+  preview**：精确大小、已记录的 SHA-256、密文前 128 字节的十六进制转储，并检查存储的字节是否不是以该类型未加密文件的典型
+  开头开始。该 Issue 此前在没有它的情况下被关闭，这次补上了预览这一条。原始描述里仍未完成的是：这些操作的手机布局测试。
+  两个大小为什么一样、如何演示，见 [docs/ENCRYPTION_EVIDENCE.zh-CN.md](docs/ENCRYPTION_EVIDENCE.zh-CN.md)。
 - [x] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)——已在 #103 合并并部署（2026-10-01 staging 的 OpenAPI 列出了文件夹路由）。该 Issue 于 2026-09-29 关闭，但没有对受影响流程的书面演示记录。
   ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
   或审计语义。

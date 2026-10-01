@@ -159,6 +159,7 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 | POST | `/files/{file_id}/download` | Bearer | 校验并流式返回存储密文，不在服务端解密 |
 | POST | `/files/{file_id}/delete` | Bearer 所有者 | 软删除文件、撤销访问/包装并删除对象 |
 | POST | `/files/{file_id}/integrity-check` | Bearer | 重新计算并记录密文存储完整性 |
+| POST | `/files/{file_id}/ciphertext-preview` | Bearer，需下载权限 | 以十六进制返回存储密文的固定 128 字节样本，以及精确大小与已记录的 SHA-256。不做校验（不计算完整哈希），也从不解密；以 `FILE_CIPHERTEXT_PREVIEWED` 记入审计，它不算下载 |
 
 上传使用 `multipart/form-data`：
 

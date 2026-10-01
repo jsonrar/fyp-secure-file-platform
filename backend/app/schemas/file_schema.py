@@ -254,6 +254,25 @@ class FileDeleteOut(StrictFileModel):
     already_deleted: bool
 
 
+class CiphertextPreviewOut(StrictFileModel):
+    """A bounded look at the bytes the server actually stores for a file.
+
+    The sample is the *start of the stored ciphertext*, not of the original file, and it is
+    not integrity-checked here (that would mean hashing the whole object): `status` and the
+    separate integrity check say whether the stored bytes still match `ciphertext_sha256`.
+    """
+
+    file_id: UUID
+    encryption_algorithm: str
+    plaintext_size: int
+    ciphertext_size: int
+    ciphertext_sha256: str
+    status: str
+    sample_offset: int
+    sample_length: int
+    sample_hex: str
+
+
 class IntegrityCheckOut(StrictFileModel):
     file_id: UUID
     status: Literal["VALID", "MODIFIED", "MISSING", "ERROR"]
