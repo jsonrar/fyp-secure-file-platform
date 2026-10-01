@@ -495,3 +495,51 @@ jobs:
           name: tamper-drill-report
           path: ${{ runner.temp }}/reports/tamper-drill
           retention-days: 90
+
+  # Marks a commit of `main` as safe to deploy, but only once every job above has passed on
+  # it. The staging server deploys the `deploy` branch, never `main` itself
+  # (deployment/server/mcs21-auto-deploy), so a direct push or a merge that breaks CI is not
+  # shipped. The branch only ever moves forward: a slower run for an older commit cannot pull
+  # it back. The server holds no GitHub credential beyond its read-only Deploy Key, and this
+  # job holds no server credential; it only writes a ref.
+  #
+  # The ref is moved through the REST API rather than `git push`: GITHUB_TOKEN may not push
+  # commits that change files under .github/workflows, and this very file is one.
+  promote:
+    name: promote
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    needs: [backend, frontend, mysql-gate, e2e-live, tamper-drill]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    concurrency:
+      group: promote-deploy
+      cancel-in-progress: false
+    steps:
+      - name: Fast-forward the deploy branch to this commit
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPO: ${{ github.repository }}
+        run: |
+          set -euo pipefail
+          if current="$(gh api "repos/${REPO}/git/ref/heads/deploy" --jq .object.sha 2>/dev/null)"; then
+            relation="$(gh api "repos/${REPO}/compare/${current}...${GITHUB_SHA}" --jq .status)"
+            case "$relation" in
+              identical|behind)
+                echo "deploy (${current}) already contains ${GITHUB_SHA}; nothing to promote."
+                ;;
+              ahead)
+                gh api --method PATCH "repos/${REPO}/git/refs/heads/deploy" \
+                  -f sha="${GITHUB_SHA}" -F force=false --jq .object.sha
+                echo "Promoted ${GITHUB_SHA}."
+                ;;
+              *)
+                echo "::error::deploy (${current}) and ${GITHUB_SHA} have diverged (${relation}); refusing to move it."
+                exit 1
+                ;;
+            esac
+          else
+            gh api --method POST "repos/${REPO}/git/refs" \
+              -f ref=refs/heads/deploy -f sha="${GITHUB_SHA}" --jq .ref
+            echo "Created deploy at ${GITHUB_SHA}."
+          fi
