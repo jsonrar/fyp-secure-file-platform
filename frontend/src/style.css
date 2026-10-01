@@ -124,3 +124,17 @@
     @apply bg-background text-foreground;
   }
 }
+
+/*
+ * iOS Safari zooms the whole page when a field smaller than 16 px takes focus, and does not
+ * zoom back out, which throws the layout sideways mid-form. On touch screens a field is
+ * therefore never smaller than that. This sits outside the Tailwind layers on purpose: a
+ * layered rule would lose to utility classes such as `text-sm` on the very inputs it is for.
+ */
+@media (pointer: coarse) {
+  input:not([type='checkbox']):not([type='radio']):not([type='file']):not([type='range']),
+  select,
+  textarea {
+    font-size: 16px;
+  }
+}

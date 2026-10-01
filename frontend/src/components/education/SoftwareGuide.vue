@@ -45,7 +45,7 @@ const hasVideo = computed(() => Boolean(active.value.videoSrc))
       >
         <Clapperboard class="h-3.5 w-3.5 text-primary" />
         <span>{{ guide.title }}</span>
-        <span class="text-[0.65rem] font-semibold uppercase tracking-[0.14em] text-primary/80">{{ guide.tag }}</span>
+        <span class="text-xs font-semibold uppercase tracking-[0.14em] text-primary/80">{{ guide.tag }}</span>
       </button>
     </div>
 

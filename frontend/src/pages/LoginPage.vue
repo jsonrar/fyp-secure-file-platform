@@ -78,7 +78,7 @@ async function login() {
           autocomplete="current-password"
         >
           <template #label-aside>
-            <RouterLink to="/forgot-password" class="text-xs text-primary hover:underline">
+            <RouterLink to="/forgot-password" class="inline-flex min-h-10 items-center text-xs text-primary hover:underline">
               Forgot password?
             </RouterLink>
           </template>
@@ -98,7 +98,7 @@ async function login() {
 
       <p class="text-sm text-muted-foreground mt-6 text-center">
         No account?
-        <RouterLink to="/register" class="text-primary hover:underline">Register</RouterLink>
+        <RouterLink to="/register" class="inline-flex min-h-10 items-center text-primary hover:underline">Register</RouterLink>
       </p>
     </div>
   </section>

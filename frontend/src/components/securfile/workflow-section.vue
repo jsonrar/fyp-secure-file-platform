@@ -178,7 +178,7 @@ onBeforeUnmount(() => {
         <div class="guide-prerequisite">
           <span class="font-semibold text-foreground">Before you start</span>
           <span>Sign in to SecureView. Keep your encryption passphrase handy.</span>
-          <RouterLink to="/register" class="shrink-0 font-medium text-primary underline-offset-4 hover:underline">
+          <RouterLink to="/register" class="inline-flex min-h-10 shrink-0 items-center font-medium text-primary underline-offset-4 hover:underline">
             Need an account?
           </RouterLink>
         </div>
@@ -234,7 +234,7 @@ onBeforeUnmount(() => {
               <div class="guide-location">
                 <span class="guide-location-dot" aria-hidden="true" />
                 <span>{{ active.page }}</span>
-                <span class="ml-auto shrink-0 text-[0.65rem] uppercase tracking-wider">Actual interface</span>
+                <span class="ml-auto shrink-0 text-xs uppercase tracking-wider">Actual interface</span>
               </div>
               <button
                 type="button"
@@ -431,7 +431,7 @@ onBeforeUnmount(() => {
   height: 1.6rem;
   border-radius: 50%;
   border: 1px solid var(--border);
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   transition:
     background 0.2s ease,
     border-color 0.2s ease,
@@ -542,12 +542,12 @@ onBeforeUnmount(() => {
   border: 1px solid #e2e8f0;
   background: #fff;
   color: #334155;
-  font-size: 0.65rem;
+  font-size: 0.75rem;
 }
 
 .guide-image-note {
   padding: 0.9rem 0.15rem 0;
-  font-size: 0.6875rem;
+  font-size: 0.75rem;
   color: var(--muted-foreground);
   line-height: 1.6;
 }
@@ -693,7 +693,7 @@ onBeforeUnmount(() => {
     text-align: left;
     gap: 0.4rem;
     padding: 0.5rem;
-    font-size: 0.65rem;
+    font-size: 0.75rem;
   }
 
   .guide-step-number {
@@ -721,7 +721,7 @@ onBeforeUnmount(() => {
   }
 
   .guide-location {
-    font-size: 0.65rem;
+    font-size: 0.75rem;
     flex-wrap: wrap;
   }
 

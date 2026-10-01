@@ -727,11 +727,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
             Fixed layout with explicit widths: the name column used to take whatever the longest
             filename asked for and squeeze every other header into a few letters. Now the name is
             a bounded column that wraps, and the rest keep room for their own headings. The
-            minimum width makes a phone scroll sideways instead of squeezing the name column
-            down to a character per line.
+            minimum width keeps the name column usable on a tablet. Below md the table is not a
+            table at all: each file becomes a card (name, folder and status, then the actions in
+            a row), because seven columns on a phone either squeeze the name to a few characters
+            or push the actions off the right edge, out of reach.
           -->
-          <table class="w-full min-w-[44rem] table-fixed text-sm">
-            <thead>
+          <table class="block w-full text-sm md:table md:min-w-[44rem] md:table-fixed">
+            <thead class="hidden md:table-header-group">
               <tr class="border-b border-border text-muted-foreground">
                 <th class="w-[28%] text-left py-3 pr-3 font-medium">File Name</th>
                 <th class="hidden w-[11%] text-left py-3 pr-3 font-medium whitespace-nowrap md:table-cell">Original</th>
@@ -742,10 +744,10 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <th class="w-[8.5rem] text-right py-3 font-medium whitespace-nowrap">Actions</th>
               </tr>
             </thead>
-            <tbody>
+            <tbody class="block space-y-3 md:table-row-group md:space-y-0">
               <template v-for="file in filteredFiles" :key="file.id">
-              <tr class="border-b border-border/60 align-top">
-                <td class="py-3 pr-3">
+              <tr class="grid grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-border bg-card p-4 md:table-row md:rounded-none md:border-0 md:border-b md:border-border/60 md:bg-transparent md:p-0 md:align-top">
+                <td class="col-span-2 md:table-cell md:py-3 md:pr-3">
                   <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 rounded-lg bg-secondary p-2"><FileIcon class="h-4 w-4 text-primary" /></div>
                     <div class="min-w-0">
@@ -755,7 +757,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
                       <button
                         type="button"
-                        class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs text-primary hover:underline md:min-h-0"
                         :aria-expanded="previewFileId === file.id"
                         :disabled="Boolean(file.accessError)"
                         @click="togglePreview(file)"
@@ -769,28 +771,28 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.originalBytes)">{{ file.originalSize }}</td>
                 <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.encryptedBytes)">{{ file.encryptedSize }}</td>
                 <td class="py-3 pr-3 text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
-                <td v-if="scope === 'mine'" class="py-3 pr-3">
+                <td v-if="scope === 'mine'" class="md:table-cell md:py-3 md:pr-3">
                   <select
                     :value="file.folderId ?? ''"
                     :aria-label="`Folder for ${file.name}`"
-                    class="h-8 max-w-36 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
+                    class="h-10 w-full rounded-md border border-border bg-secondary px-2 text-sm text-foreground md:h-8 md:max-w-36 md:text-xs"
                     @change="moveFile(file, ($event.target as HTMLSelectElement).value)"
                   >
                     <option value="">No folder</option>
                     <option v-for="folder in folders" :key="folder.folder_id" :value="folder.folder_id">{{ folder.name }}</option>
                   </select>
                 </td>
-                <td class="py-3 pr-3">
-                  <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
+                <td class="md:table-cell md:py-3 md:pr-3">
+                  <button class="inline-flex min-h-10 items-center gap-1 rounded-md px-3 py-1 md:min-h-0 md:px-2" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
                     <component :is="statusConfig[file.status].icon" class="h-3 w-3" />
                     {{ statusConfig[file.status].label }}
                   </button>
                 </td>
-                <td class="py-3 text-right">
-                  <!-- Three to a row, so six actions make a tidy 3x2 block instead of a ragged wrap. -->
-                  <div class="ml-auto grid w-fit grid-cols-3 justify-items-end gap-1">
+                <td class="col-span-2 border-t border-border pt-3 md:table-cell md:border-0 md:py-3 md:pt-3 md:text-right">
+                  <!-- A row of 40 px targets on a phone; three to a row from md up, so six actions make a tidy 3x2 block instead of a ragged wrap. -->
+                  <div class="flex flex-wrap gap-1 md:ml-auto md:grid md:w-fit md:grid-cols-3 md:justify-items-end">
                     <button
-                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
+                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
                       aria-label="Download and decrypt"
                       :disabled="downloadBusy || Boolean(file.accessError)"
@@ -801,7 +803,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     </button>
                     <button
                       type="button"
-                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
+                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       title="Download encrypted file"
                       aria-label="Download encrypted file"
                       :disabled="downloadBusy || Boolean(file.accessError)"
@@ -815,7 +817,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                          a 404 -- showing them promises something the server will refuse. -->
                     <button
                       type="button"
-                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
+                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       title="Request recovery"
                       aria-label="Request recovery"
                       :disabled="Boolean(file.accessError)"
@@ -824,23 +826,23 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                       <LifeBuoy class="h-4 w-4" />
                     </button>
                     <button
-                      class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
                       title="Access history"
                       @click="historyFileId = file.id"
                     >
                       <Activity class="h-4 w-4" />
                     </button>
-                    <button v-if="file.owned" class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
+                    <button v-if="file.owned" class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
                       <Share2 class="h-4 w-4" />
                     </button>
-                    <button v-if="file.owned" class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive" title="Delete" @click="handleDelete(file.id)">
+                    <button v-if="file.owned" class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive" title="Delete" @click="handleDelete(file.id)">
                       <Trash2 class="h-4 w-4" />
                     </button>
                   </div>
                 </td>
               </tr>
-              <tr v-if="previewFileId === file.id" class="border-b border-border/60">
-                <td :colspan="columnCount" class="pb-4 pt-1">
+              <tr v-if="previewFileId === file.id" class="block md:table-row md:border-b md:border-border/60">
+                <td :colspan="columnCount" class="block md:table-cell md:pb-4 md:pt-1">
                   <CiphertextPreviewPanel
                     :file-id="file.id"
                     :file-name="file.name"

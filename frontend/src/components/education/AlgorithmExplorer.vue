@@ -54,8 +54,8 @@ const roundsHint = computed(() => {
 </script>
 
 <template>
-  <div class="grid lg:grid-cols-[240px_1fr] gap-6">
-    <aside class="space-y-2">
+  <div class="grid grid-cols-1 gap-6 lg:grid-cols-[240px_minmax(0,1fr)]">
+    <aside class="min-w-0 space-y-2">
       <p class="text-xs font-medium text-muted-foreground uppercase tracking-wide px-1 mb-3">Select Algorithm</p>
 
       <template v-for="entry in sidebar" :key="entry.kind === 'family' ? entry.family : entry.algo.id">
@@ -97,7 +97,7 @@ const roundsHint = computed(() => {
       </template>
     </aside>
 
-    <article class="rounded-xl border border-border bg-card p-6 md:p-8 flex flex-col">
+    <article class="flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 sm:p-6 md:p-8">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <span class="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full mb-3">
@@ -112,7 +112,7 @@ const roundsHint = computed(() => {
 
       <p class="text-sm text-foreground leading-relaxed mb-6">{{ selected.summary }}</p>
 
-      <div class="my-4 flex min-h-[14rem] w-full flex-1 items-center justify-center">
+      <div class="my-4 flex min-h-[14rem] w-full min-w-0 flex-1 items-center justify-center overflow-x-auto">
         <AlgorithmDemoPanel
           :demo="selected.demo"
           :algorithm-id="selected.id"

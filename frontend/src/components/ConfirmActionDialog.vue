@@ -45,7 +45,7 @@ onMounted(async () => {
       role="dialog"
       aria-modal="true"
       :aria-labelledby="'confirm-action-title'"
-      class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-destructive/40 bg-card p-6 shadow-xl"
+      class="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-xl border border-destructive/40 bg-card p-6 shadow-xl"
     >
       <div class="mb-2 flex items-center gap-2">
         <div class="rounded-lg bg-destructive/10 p-2">

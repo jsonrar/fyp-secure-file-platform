@@ -197,9 +197,43 @@ signatures are forged, made by the wrong key, or cover a different payload.
 
 Both run in the `mysql-gate` job with the rest of the integration suite.
 
+## Phone widths
+
+Three Chromium specs check that the product fits a phone (360 px, and 320 px for the narrowest
+screens still in use), using the helpers in `frontend/browser-tests/viewport.ts`:
+
+| Spec | Needs | What it asserts |
+| --- | --- | --- |
+| `mobile-public-pages.browser.ts` | nothing | `/`, `/login`, `/register`, `/forgot-password`, `/education`, `/help`, `/team` and the not-found page do not scroll sideways, have no control past the screen edge (outside boxes that scroll or clip on purpose), and the sign-in and registration controls are fully on screen and at least 40 px to tap |
+| `mobile-file-flow.browser.ts` | the live stack | The primary file flow at 360 px against the real backend: register, upload a file with a long unbroken name, find it in My Files (a card on a phone, a table from 768 px), tap every action, open the encrypted preview, open the recovery, history, delete, unlock and share dialogs and check each is wholly inside the screen, and download the original bytes back |
+| `team-page.browser.ts` | nothing | The Contact us page, including no sideways scroll at 360 px |
+
+The public-pages spec needs no backend, so it runs anywhere the app is built:
+
+```bash
+cd frontend && npm run build
+E2E_MAILBOX_DIR=/tmp E2E_WEB_DIR="$PWD/dist" npx playwright test browser-tests/mobile-public-pages.browser.ts
+```
+
+It was checked the other way too: run against the code as it was before the Issue #76 fixes it
+fails six tests (the education page scrolling sideways, the registration and forgot-password
+code row leaving a 320 px screen, and undersized sign-in and registration targets).
+
+### Not verified on real devices
+
+Everything above is Chromium with a phone-sized viewport and touch emulation. **No test has been
+run on a real Android phone or in iOS Safari**, because this project has no devices wired in and
+Playwright's WebKit is not installed in CI. Two behaviours known to differ in mobile Safari were
+fixed in advance rather than observed: fields are never smaller than 16 px on touch screens (mobile
+Safari zooms the whole page when a smaller one takes focus), and dialog heights use dynamic viewport
+units (`dvh`) so the address bar does not push a dialog off the bottom. Safe-area insets need no
+code because the viewport meta tag does not use `viewport-fit=cover`, which leaves the browser to
+keep content inside the notch. Anything else a real iPhone or Android phone shows is a defect to
+file against Issue #76, not something this section rules out.
+
 ## What it does not cover
 
 The browser smoke test walks one path in one browser (Chromium) at one viewport. It does not
-cover every page, error state, the mobile layout, Firefox or WebKit, or visual regressions; the
-Node suites cover the edge cases of each flow, and the smoke test only proves the pages are wired
-to them.
+cover every page, error state, Firefox or WebKit, or visual regressions; the phone-width specs
+above add the mobile layout, in Chromium only. The Node suites cover the edge cases of each flow,
+and the smoke test only proves the pages are wired to them.

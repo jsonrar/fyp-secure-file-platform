@@ -146,7 +146,7 @@ async function submit() {
       />
 
       <label class="flex items-start gap-2 text-sm text-foreground">
-        <input v-model="acknowledged" type="checkbox" class="mt-1" :disabled="busy" />
+        <input v-model="acknowledged" type="checkbox" class="mt-1 h-5 w-5 shrink-0" :disabled="busy" />
         <span>
           I understand my old encryption passphrase will stop working as soon as this
           completes. My files and shares are not affected.
