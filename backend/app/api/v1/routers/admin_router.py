@@ -13,6 +13,7 @@ from app.domain.auth import ActorContext, RequestContext
 from app.schemas.admin_schema import (
     AdminFileListResponse,
     AdminFileOut,
+    AdminStatsOut,
     AdminUserListResponse,
     AdminUserOut,
     AdminUserStatusResponse,
@@ -51,6 +52,15 @@ def list_users(
         has_more=len(rows) > limit,
     )
     return ok(message="Users retrieved", data=data, headers=AUTH_NO_STORE_HEADERS)
+
+
+@router.get("/stats", response_model=ApiSuccessResponse[AdminStatsOut])
+def platform_stats(
+    actor: AdminActorDependency,
+    service: AdminServiceDependency,
+) -> JSONResponse:
+    data = service.platform_stats(actor=actor)
+    return ok(message="Platform statistics retrieved", data=data, headers=AUTH_NO_STORE_HEADERS)
 
 
 @router.get("/files", response_model=ApiSuccessResponse[AdminFileListResponse])

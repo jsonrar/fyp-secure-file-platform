@@ -25,6 +25,11 @@ describe('adminApi', () => {
     expect(get).toHaveBeenCalledWith('/admin/users', { params: { limit: 25, offset: 50 } })
   })
 
+  it('reads the dashboard summary from /admin/stats with no parameters', async () => {
+    await adminApi.stats()
+    expect(get).toHaveBeenCalledWith('/admin/stats')
+  })
+
   it('lists files with pagination params', async () => {
     await adminApi.listFiles({ limit: 10, offset: 0 })
     expect(get).toHaveBeenCalledWith('/admin/files', { params: { limit: 10, offset: 0 } })

@@ -53,3 +53,70 @@ class AdminUserStatusResponse(_StrictModel):
     status: UserStatus
     changed: bool
     revoked_sessions: int = Field(ge=0)
+
+
+class AdminUserStats(_StrictModel):
+    total: int = Field(ge=0)
+    active: int = Field(ge=0)
+    disabled: int = Field(ge=0)
+    deleted: int = Field(ge=0)
+    administrators: int = Field(ge=0)
+    created_last_7_days: int = Field(ge=0)
+    signed_in_last_24_hours: int = Field(ge=0)
+
+
+class AdminFileStats(_StrictModel):
+    """Counts of files that exist (not deleted), plus how many were deleted along the way."""
+
+    total: int = Field(ge=0)
+    active: int = Field(ge=0)
+    corrupted: int = Field(ge=0)
+    deleted: int = Field(ge=0)
+    uploaded_last_24_hours: int = Field(ge=0)
+    original_bytes: int = Field(ge=0)
+    stored_bytes: int = Field(ge=0)
+    by_algorithm: dict[str, int]
+
+
+class AdminShareStats(_StrictModel):
+    active_shares: int = Field(ge=0)
+    files_shared: int = Field(ge=0)
+
+
+class AdminIntegrityStats(_StrictModel):
+    checks_last_24_hours: int = Field(ge=0)
+    failed_checks_last_24_hours: int = Field(ge=0)
+
+
+class AdminRecoveryStats(_StrictModel):
+    pending_requests: int = Field(ge=0)
+
+
+class AdminAuditEventOut(_StrictModel):
+    action: str
+    result: str
+    created_at: datetime
+    actor_username: str | None = None
+
+
+class AdminAuditStats(_StrictModel):
+    events_total: int = Field(ge=0)
+    events_last_24_hours: int = Field(ge=0)
+    failures_last_24_hours: int = Field(ge=0)
+    recent_failures: list[AdminAuditEventOut]
+
+
+class AdminStatsOut(_StrictModel):
+    """A point-in-time summary for the administrator dashboard.
+
+    Counts only. No file name, no key material, no IP address and no event metadata appears
+    here: the dashboard answers "how big and how healthy", and the audit log answers "who".
+    """
+
+    generated_at: datetime
+    users: AdminUserStats
+    files: AdminFileStats
+    shares: AdminShareStats
+    integrity: AdminIntegrityStats
+    recovery: AdminRecoveryStats
+    audit: AdminAuditStats

@@ -1,16 +1,17 @@
 <script setup lang="ts">
 import { computed, onMounted, ref, type Component } from 'vue'
-import { FileIcon, KeyRound, LifeBuoy, ShieldCheck, Users } from 'lucide-vue-next'
+import { FileIcon, KeyRound, LayoutDashboard, LifeBuoy, ShieldCheck, Users } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 
 import AdminAuditPanel from '@/components/admin/AdminAuditPanel.vue'
 import AdminFilesPanel from '@/components/admin/AdminFilesPanel.vue'
 import AdminRecoveryKeyPanel from '@/components/admin/AdminRecoveryKeyPanel.vue'
+import AdminStatsPanel from '@/components/admin/AdminStatsPanel.vue'
 import AdminRecoveryRequestsPanel from '@/components/admin/AdminRecoveryRequestsPanel.vue'
 import AdminUsersPanel from '@/components/admin/AdminUsersPanel.vue'
 import { useAuthStore } from '@/stores/auth_store'
 
-type TabId = 'recovery' | 'users' | 'files' | 'audit' | 'recovery-key'
+type TabId = 'overview' | 'recovery' | 'users' | 'files' | 'audit' | 'recovery-key'
 
 interface Tab {
   id: TabId
@@ -25,6 +26,7 @@ const activeTab = ref<TabId>('recovery')
 
 const tabs = computed<Tab[]>(() => {
   const all: Tab[] = [
+    { id: 'overview', label: 'Overview', icon: LayoutDashboard, adminOnly: true },
     { id: 'recovery', label: 'Recovery requests', icon: LifeBuoy, adminOnly: false },
     { id: 'users', label: 'Users', icon: Users, adminOnly: true },
     { id: 'files', label: 'Files', icon: FileIcon, adminOnly: true },
@@ -36,6 +38,7 @@ const tabs = computed<Tab[]>(() => {
 })
 
 const panelMap: Record<TabId, Component> = {
+  overview: AdminStatsPanel,
   recovery: AdminRecoveryRequestsPanel,
   users: AdminUsersPanel,
   files: AdminFilesPanel,
@@ -54,9 +57,8 @@ const roleLabel = computed(() => {
 onMounted(async () => {
   await auth.loadUser(true)
   ready.value = true
-  if (!auth.isAdmin && activeTab.value !== 'recovery') {
-    activeTab.value = 'recovery'
-  }
+  // An administrator lands on the overview; a recovery officer, who cannot read it, on the queue.
+  activeTab.value = auth.isAdmin ? 'overview' : 'recovery'
 })
 </script>
 
