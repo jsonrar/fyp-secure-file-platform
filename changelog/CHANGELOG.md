@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Usability study: the answer key for losing both secrets / 可用性研究：同时丢失两个秘密的标准答案
+
+- Settled the open question in the study plan: with the passphrase or the private key file an account can be reopened, but with neither the files cannot be recovered by anyone, and the only way forward is to delete the account and register again. This matches `docs/SECURITY_FLOWS.md` (*Request recovery* only rewraps a file key to a registered key the requester can still use) and the registration copy, so no wording changes; Probe 2 now has an answer key, and a second probe checks the half people should get right (key file plus forgotten passphrase). What remains for the study to answer is whether a *Request recovery* button on every file row makes people think they are safe.
+- 敲定了研究计划里悬而未决的问题：有 passphrase 或私钥文件，账户都能重新打开；两者都没有，则任何人都无法恢复文件，唯一的出路是注销账户后重新注册。这与 `docs/SECURITY_FLOWS.md`（“Request recovery”只是把文件密钥重新包给请求者仍能使用的已登记密钥）以及注册页文案一致，因此无需改文案；探针 2 现在有了标准答案，并新增一个探针检查人们应当答对的另一半（有密钥文件但忘了 passphrase）。留给研究回答的是：每个文件行上都有“Request recovery”按钮，会不会让人觉得自己是安全的。
+
 ### Records reconciled with the live system on 2026-10-01 / 2026-10-01 记录与线上现状对账
 
 - Brought `TODO.md`, `TODO.zh-CN.md`, `docs/PROPOSAL_TRACEABILITY.md`, the threat-model findings register (now v1.1, both languages) and the staging evidence table in the observability runbook into line with what was observed on `main` at `70fcb6d` and on staging: a verified-gates table, #57 and #59 marked done on their recorded evidence (seven consecutive daily reconcile runs; the 2026-09-25 checkpoint, redaction and alert checks), WBS 5.1 Done, 5.3 In review and 5.4 In progress, and the eight `<pending>` runbook rows filled from the Issue #59 record rather than left to look unfinished.
