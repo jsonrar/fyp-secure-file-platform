@@ -414,3 +414,15 @@ def test_the_scan_order_puts_never_checked_files_first_and_skips_deleted_ones() 
     assert "files.status IN ('ACTIVE', 'CORRUPTED')" in sql
     assert "max(integrity_checks.created_at)" in sql.lower()
     assert "IS NOT NULL" in sql and "LIMIT 7" in sql
+
+
+def test_conditional_counts_sum_a_case_not_a_boolean() -> None:
+    """A Boolean-typed SUM is coerced through bool() on the way back, so 7 failures read as 1."""
+    since = datetime(2026, 9, 30, 12, 0, 0)
+
+    integrity = _sql_of(lambda repo: repo.integrity_check_counts_since(since))
+    audit = _sql_of(lambda repo: repo.audit_counts(since))
+
+    assert "CASE WHEN (integrity_checks.result != 'VALID') THEN 1 ELSE 0 END" in integrity
+    assert audit.count("CASE WHEN") == 2
+    assert "sum(audit_logs.created_at >=" not in audit.lower()

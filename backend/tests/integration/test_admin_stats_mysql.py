@@ -24,6 +24,7 @@ from tests.integration._concurrency_support import (
 )
 
 from app.domain.enums import SystemRole
+from app.repositories.admin_repository import AdminRepository
 from app.schemas.admin_schema import AdminStatsOut
 from app.services.admin_service import AdminService
 
@@ -102,6 +103,35 @@ def test_stats_follow_real_registration_upload_integrity_failure_and_disable(
     assert (newest.action, newest.result) == ("FILE_INTEGRITY_CHECKED", "FAIL")
     assert newest.actor_username == owner.username
     assert len(after.audit.recent_failures) <= 5
+
+
+def test_conditional_counts_equal_a_plain_sql_count_however_many_rows_match(
+    auth_mysql_engine: Engine,
+) -> None:
+    """`SUM(<boolean>)` read back through bool() reported 1 whenever the total was above zero."""
+    from datetime import timedelta
+
+    from sqlalchemy import text
+
+    from app.core.time import to_second_resolution_utc, utc_now
+
+    since = to_second_resolution_utc(utc_now() - timedelta(hours=24))
+    with session_scope(auth_mysql_engine) as session:
+        repository = AdminRepository(session)
+        checks, failed = repository.integrity_check_counts_since(since)
+        total, in_window, failures = repository.audit_counts(since)
+        raw = session.execute(
+            text(
+                "SELECT (SELECT COUNT(*) FROM integrity_checks WHERE created_at >= :s), "
+                "(SELECT COUNT(*) FROM integrity_checks WHERE created_at >= :s AND result <> 'VALID'), "
+                "(SELECT COUNT(*) FROM audit_logs), "
+                "(SELECT COUNT(*) FROM audit_logs WHERE created_at >= :s), "
+                "(SELECT COUNT(*) FROM audit_logs WHERE created_at >= :s AND result = 'FAIL')"
+            ),
+            {"s": since},
+        ).one()
+
+    assert (checks, failed, total, in_window, failures) == tuple(int(v) for v in raw)
 
 
 def test_every_dashboard_query_runs_on_mysql_with_no_activity(auth_mysql_engine: Engine) -> None:

@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import and_, func, or_, select
+from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
 from app.domain.enums import SystemRole
@@ -25,6 +25,17 @@ class DamagedFileRow:
     last_result: str | None
     last_message: str | None
     last_checked_at: datetime | None
+
+
+def _count_where(condition):
+    """How many rows satisfy `condition`, as a number.
+
+    `func.sum(<comparison>)` is typed Boolean by SQLAlchemy, so the driver's answer was coerced
+    through bool(): any total above zero came back as 1. The dashboard therefore showed "1" for
+    failed checks, events and failures however many there were, and a test that started from an
+    empty database could not tell. Summing a CASE gives an integer column.
+    """
+    return func.coalesce(func.sum(case((condition, 1), else_=0)), 0)
 
 
 class AdminRepository:
@@ -116,7 +127,7 @@ class AdminRepository:
         row = self.db.execute(
             select(
                 func.count(),
-                func.coalesce(func.sum(IntegrityCheck.result != "VALID"), 0),
+                _count_where(IntegrityCheck.result != "VALID"),
             ).where(IntegrityCheck.created_at >= since)
         ).one()
         return int(row[0]), int(row[1])
@@ -133,10 +144,8 @@ class AdminRepository:
         row = self.db.execute(
             select(
                 func.count(),
-                func.coalesce(func.sum(AuditLog.created_at >= since), 0),
-                func.coalesce(
-                    func.sum((AuditLog.created_at >= since) & (AuditLog.result == "FAIL")), 0
-                ),
+                _count_where(AuditLog.created_at >= since),
+                _count_where((AuditLog.created_at >= since) & (AuditLog.result == "FAIL")),
             )
         ).one()
         return int(row[0]), int(row[1]), int(row[2])
