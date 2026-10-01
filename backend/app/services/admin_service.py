@@ -169,13 +169,17 @@ class AdminService:
             damaged_file_ids=[UUID(value) for value in summary.damaged_file_ids],
         )
 
-    def list_users(self, *, actor: ActorContext, limit: int, offset: int):
+    def list_users(
+        self, *, actor: ActorContext, limit: int, offset: int, status: str | None = None
+    ):
         self._require_admin(actor)
-        return self.repository.list_users(limit=limit + 1, offset=offset)
+        return self.repository.list_users(limit=limit + 1, offset=offset, status=status)
 
-    def list_files(self, *, actor: ActorContext, limit: int, offset: int):
+    def list_files(
+        self, *, actor: ActorContext, limit: int, offset: int, status: str | None = None
+    ):
         self._require_admin(actor)
-        return self.repository.list_files(limit=limit + 1, offset=offset)
+        return self.repository.list_files(limit=limit + 1, offset=offset, status=status)
 
     def set_user_enabled(
         self,

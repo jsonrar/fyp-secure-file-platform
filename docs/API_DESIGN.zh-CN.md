@@ -228,8 +228,8 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 
 | 方法 | 端点 | 认证 | 说明 |
 |---|---|---|---|
-| GET | `/admin/users` | ADMIN | 分页列出用户记录 |
-| GET | `/admin/files` | ADMIN | 分页列出文件元数据记录 |
+| GET | `/admin/users` | ADMIN | 分页列出用户记录；可选 `status` = `ACTIVE`、`DISABLED`、`DELETED`，或 `CURRENT`（所有未删除的） |
+| GET | `/admin/files` | ADMIN | 分页列出文件元数据记录；可选 `status` = `ACTIVE`、`CORRUPTED`、`DELETED`，或 `CURRENT` |
 | GET | `/admin/stats` | ADMIN | 仅含数字的平台汇总：按状态统计的用户、按状态与算法统计的文件、已存储字节数、有效分享数、24 小时内的完整性检查与失败数、待处理恢复请求、审计总数，以及最近五条失败事件（仅含动作、时间、行为者） |
 | POST | `/admin/users/{user_id}/disable` | ADMIN | 软禁用账户并撤销活跃会话 |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | 重新启用已禁用账户 |

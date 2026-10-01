@@ -132,7 +132,9 @@ not a release pass.
   — `/admin` is role-aware: ADMIN gets an Overview of counts (users, files, storage, shares, integrity and
   audit health, with anything needing attention flagged first), users, files, audit-chain verify, recovery-key
   registration, and recovery review; RECOVERY_OFFICER reviews and executes (offline rewrap
-  paste-back); ordinary users open requests from My Files and track/cancel them here.
+  paste-back); ordinary users open requests from My Files and track/cancel them here. Since 2026-10-02 it
+  is reached from an "Admin" header link, its sections are grouped in one URL-addressable row, and the
+  Users/Files lists hide deleted records by default (status filter, search, confirm-before-disable).
 - [x] [#89 Revoke the server session when a user logs out](https://github.com/jsonrar/fyp-secure-file-platform/issues/89)
   — intentional Log out calls `POST /auth/logout` before clearing the browser; expiry and
   account deletion still clear locally only.

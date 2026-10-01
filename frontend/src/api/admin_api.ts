@@ -10,6 +10,9 @@ export interface AdminUserOut {
   last_login_at: string | null
 }
 
+export type AdminUserStatusFilter = 'CURRENT' | 'ACTIVE' | 'DISABLED' | 'DELETED'
+export type AdminFileStatusFilter = 'CURRENT' | 'ACTIVE' | 'CORRUPTED' | 'DELETED'
+
 export interface AdminUserList {
   users: AdminUserOut[]
   limit: number
@@ -143,7 +146,8 @@ export interface AdminUserStatusResult {
 }
 
 export const adminApi = {
-  listUsers(params?: { limit?: number; offset?: number }) {
+  /** `status` CURRENT means every account that has not been deleted; omit it for all. */
+  listUsers(params?: { limit?: number; offset?: number; status?: AdminUserStatusFilter }) {
     return http.get<ApiEnvelope<AdminUserList>>('/admin/users', { params })
   },
   /** Counts only: how big the platform is and how healthy. No names, keys or addresses. */
@@ -164,7 +168,8 @@ export const adminApi = {
       params: { window_hours: windowHours },
     })
   },
-  listFiles(params?: { limit?: number; offset?: number }) {
+  /** `status` CURRENT means every file that has not been deleted; omit it for all. */
+  listFiles(params?: { limit?: number; offset?: number; status?: AdminFileStatusFilter }) {
     return http.get<ApiEnvelope<AdminFileList>>('/admin/files', { params })
   },
   disableUser(userId: string) {

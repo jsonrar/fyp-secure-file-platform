@@ -43,7 +43,20 @@ const authedLinks = [
   { to: '/team', label: 'Contact us', match: ['/team'] },
 ]
 
-const navLinks = computed(() => (auth.isAuthed ? authedLinks : guestLinks))
+// Administrators and recovery officers get their console in the header. It used to be reachable
+// only through the avatar menu's "Operations" item, which every user sees, so an administrator
+// could sign in and find nothing that looked different.
+const navLinks = computed(() => {
+  if (!auth.isAuthed) return guestLinks
+  if (!auth.isRecoveryReviewer) return authedLinks
+  const label = auth.isAdmin ? 'Admin' : 'Recovery'
+  return [...authedLinks, { to: '/admin', label, match: ['/admin'] }]
+})
+
+// The full header does not fit below 1024px: signed in, the last links slid under the Dashboard
+// button; signed out, "Contact us" ran into the theme menu at 768px. Below lg both use the menu
+// button. Full class names, so Tailwind sees them.
+const responsive = computed(() => ({ desktop: 'hidden lg:flex', mobile: 'lg:hidden' }))
 
 const isActive = (match: string[]) => match.some((path) => route.path.startsWith(path))
 
@@ -146,7 +159,7 @@ async function handleLogout() {
             <SecureViewMark variant="logo" class="h-9" />
           </RouterLink>
 
-          <nav class="hidden md:flex items-center gap-7 lg:gap-9">
+          <nav :class="`${responsive.desktop} items-center gap-7 lg:gap-6 xl:gap-9`">
             <RouterLink
               v-for="link in navLinks"
               :key="link.to"
@@ -159,7 +172,7 @@ async function handleLogout() {
           </nav>
         </div>
 
-        <div class="hidden md:flex items-center gap-3 shrink-0">
+        <div :class="`${responsive.desktop} items-center gap-3 shrink-0`">
           <!-- Signed in, the theme control lives in the avatar menu instead: one account
                dropdown rather than two adjacent dropdowns in the same corner. -->
           <div v-if="!auth.isAuthed" ref="desktopThemeRoot" class="relative shrink-0">
@@ -229,7 +242,7 @@ async function handleLogout() {
         </div>
 
         <button
-          :class="`md:hidden h-9 w-9 inline-flex items-center justify-center rounded-md ${headerText} hover:bg-secondary transition-colors`"
+          :class="`${responsive.mobile} h-9 w-9 inline-flex items-center justify-center rounded-md ${headerText} hover:bg-secondary transition-colors`"
           @click="emit('toggle-mobile-menu')"
         >
           <X v-if="isMobileMenuOpen" class="h-5 w-5" />
@@ -237,7 +250,7 @@ async function handleLogout() {
         </button>
       </div>
 
-      <nav v-if="isMobileMenuOpen" class="md:hidden mt-4 pb-4 flex flex-col gap-4">
+      <nav v-if="isMobileMenuOpen" :class="`${responsive.mobile} mt-4 pb-4 flex flex-col gap-4`">
         <RouterLink
           to="/"
           class="transition-colors py-2"

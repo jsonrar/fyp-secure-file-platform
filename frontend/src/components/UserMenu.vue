@@ -16,6 +16,13 @@ const emit = defineEmits<{
 const router = useRouter()
 const auth = useAuthStore()
 
+/** What /admin is for this role: the console for staff, the request tracker for everyone else. */
+const consoleLabel = computed(() => {
+  if (auth.isAdmin) return 'Admin console'
+  if (auth.isRecoveryReviewer) return 'Recovery review'
+  return 'Recovery requests'
+})
+
 const isOpen = ref(false)
 const root = ref<HTMLElement | null>(null)
 
@@ -207,7 +214,7 @@ onBeforeUnmount(() => {
           @click="goToOperations"
         >
           <LifeBuoy class="h-4 w-4 shrink-0 text-muted-foreground" />
-          Operations
+          {{ consoleLabel }}
         </button>
         <button
           type="button"

@@ -1,10 +1,11 @@
 <script setup lang="ts">
-import { onMounted, ref } from 'vue'
-import { RefreshCw } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
+import { RefreshCw, Search } from 'lucide-vue-next'
 
-import { adminApi, type AdminFileOut } from '@/api/admin_api'
+import { adminApi, type AdminFileOut, type AdminFileStatusFilter } from '@/api/admin_api'
 import { apiErrorMessage } from '@/api/http'
 import { formatFileSize, unwrapData } from '@/api/types'
+import { matchesSearch, statusBadgeClass } from '@/utils/admin-lists'
 
 const files = ref<AdminFileOut[]>([])
 const isLoading = ref(false)
@@ -12,6 +13,26 @@ const errorMessage = ref('')
 const hasMore = ref(false)
 const offset = ref(0)
 const LIMIT = 50
+
+// Deleted files stay as tombstones and soon outnumber live ones, so the default view leaves
+// them out. "Corrupted" is the one an administrator most needs to find.
+const statusFilter = ref<AdminFileStatusFilter | 'ALL'>('CURRENT')
+const filters: { value: AdminFileStatusFilter | 'ALL'; label: string }[] = [
+  { value: 'CURRENT', label: 'Current' },
+  { value: 'ACTIVE', label: 'Healthy' },
+  { value: 'CORRUPTED', label: 'Corrupted' },
+  { value: 'DELETED', label: 'Deleted' },
+  { value: 'ALL', label: 'All' },
+]
+const search = ref('')
+const visibleFiles = computed(() =>
+  files.value.filter((file) => matchesSearch(search.value, file.original_filename, file.owner_username)),
+)
+
+function setFilter(value: AdminFileStatusFilter | 'ALL') {
+  statusFilter.value = value
+  void load()
+}
 
 function formatTimestamp(value: string): string {
   const parsed = new Date(value)
@@ -23,7 +44,8 @@ async function load(reset = true) {
   errorMessage.value = ''
   if (reset) offset.value = 0
   try {
-    const data = unwrapData(await adminApi.listFiles({ limit: LIMIT, offset: offset.value }))
+    const status = statusFilter.value === 'ALL' ? undefined : statusFilter.value
+    const data = unwrapData(await adminApi.listFiles({ limit: LIMIT, offset: offset.value, status }))
     files.value = reset ? data.files : [...files.value, ...data.files]
     hasMore.value = data.has_more
   } catch (error) {
@@ -47,9 +69,10 @@ onMounted(() => {
   <div>
     <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
       <div>
-        <h2 class="text-lg font-semibold text-foreground">All files</h2>
+        <h2 class="text-lg font-semibold text-foreground">Files</h2>
         <p class="text-sm text-muted-foreground">
-          Metadata only — ciphertext stays opaque. Admins cannot decrypt user files from this panel.
+          Names, owners and sizes only. Files are encrypted in the owner’s browser, so no
+          administrator can open them.
         </p>
       </div>
       <button
@@ -63,13 +86,44 @@ onMounted(() => {
       </button>
     </div>
 
+    <div class="mb-4 flex flex-wrap items-center justify-between gap-3">
+      <div class="flex flex-wrap gap-1" role="group" aria-label="Filter by status">
+        <button
+          v-for="filter in filters"
+          :key="filter.value"
+          type="button"
+          class="rounded-full border px-3 py-1 text-xs transition-colors"
+          :class="
+            statusFilter === filter.value
+              ? 'border-primary bg-primary/10 font-medium text-primary'
+              : 'border-border text-muted-foreground hover:bg-secondary hover:text-foreground'
+          "
+          :aria-pressed="statusFilter === filter.value"
+          :data-testid="`files-filter-${filter.value}`"
+          @click="setFilter(filter.value)"
+        >
+          {{ filter.label }}
+        </button>
+      </div>
+      <label class="relative block w-full sm:w-64">
+        <span class="sr-only">Search files</span>
+        <Search class="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+        <input
+          v-model="search"
+          type="search"
+          placeholder="Search by name or owner"
+          class="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-sm outline-none focus:border-primary"
+        />
+      </label>
+    </div>
+
     <p v-if="errorMessage" class="mb-3 text-sm text-destructive" role="alert">{{ errorMessage }}</p>
 
     <div v-if="isLoading && !files.length" class="py-10 text-center text-sm text-muted-foreground">
       Loading files…
     </div>
-    <div v-else-if="!files.length" class="py-10 text-center text-sm text-muted-foreground">
-      No files found.
+    <div v-else-if="!visibleFiles.length" class="py-10 text-center text-sm text-muted-foreground">
+      {{ search ? 'No loaded file matches that search.' : 'No files with this status.' }}
     </div>
     <div v-else class="overflow-x-auto rounded-xl border border-border">
       <table class="w-full min-w-[44rem] text-left text-sm">
@@ -84,9 +138,10 @@ onMounted(() => {
         </thead>
         <tbody>
           <tr
-            v-for="file in files"
+            v-for="file in visibleFiles"
             :key="file.file_id"
             class="border-b border-border last:border-0"
+            :class="{ 'opacity-60': file.status === 'DELETED' }"
           >
             <td class="max-w-[16rem] truncate px-4 py-3 font-medium text-foreground" :title="file.original_filename">
               {{ file.original_filename }}
@@ -94,7 +149,7 @@ onMounted(() => {
             <td class="px-4 py-3 text-muted-foreground">{{ file.owner_username }}</td>
             <td class="px-4 py-3 text-muted-foreground">{{ formatFileSize(file.file_size) }}</td>
             <td class="px-4 py-3">
-              <span class="rounded-full bg-secondary px-2 py-0.5 text-xs font-medium text-foreground">
+              <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="statusBadgeClass(file.status)">
                 {{ file.status }}
               </span>
             </td>
@@ -104,10 +159,15 @@ onMounted(() => {
       </table>
     </div>
 
-    <div v-if="hasMore" class="mt-4 text-center">
+    <div class="mt-4 flex items-center justify-between text-xs text-muted-foreground">
+      <span>
+        Showing {{ visibleFiles.length }} of {{ files.length }} loaded{{ hasMore ? '; more below' : '' }}.
+        <template v-if="search">Search covers the loaded files.</template>
+      </span>
       <button
+        v-if="hasMore"
         type="button"
-        class="h-9 rounded-md border border-border px-4 text-sm hover:bg-secondary disabled:opacity-50"
+        class="h-9 rounded-md border border-border px-4 text-sm text-foreground hover:bg-secondary disabled:opacity-50"
         :disabled="isLoading"
         @click="loadMore"
       >
