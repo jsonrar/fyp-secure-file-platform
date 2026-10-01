@@ -133,6 +133,8 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
    proposed custody, switch off `/docs` after the demo, reject known-weak passphrases. (F-01, CI-gated
    deployment, was done and installed on 2026-10-01.)
 4. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
+5. Run the staging capacity and performance test (meeting items 4–6, Issue #140) with the ready
+   `loadtest/` tool, and fix the two concurrency deadlocks it found locally (Issue #139).
 
 These records should be updated in the same PR that changes their evidence. A runtime change is
 not Done until the merged SHA is deployed and the affected live path is verified.
