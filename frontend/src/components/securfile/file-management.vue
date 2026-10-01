@@ -1,12 +1,14 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { Activity, AlertCircle, Check, CheckCircle, ChevronLeft, ChevronRight, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
+import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
 import type { FileFolderOut, FileSummaryOut } from '@/api/types'
 import ShareDialog from '@/components/ShareDialog.vue'
 import RequestRecoveryDialog from '@/components/RequestRecoveryDialog.vue'
+import CiphertextPreviewPanel from '@/components/CiphertextPreviewPanel.vue'
+import { exactBytes } from '@/utils/ciphertext-preview'
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
 import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
 import { markSharesSeen, unseenSharedIds } from '@/utils/seen-shares'
@@ -28,6 +30,9 @@ interface EncryptedFile {
   name: string
   originalSize: string
   encryptedSize: string
+  /** Exact counts, for the tooltips: "7.54 MB" twice hides the only thing being compared. */
+  originalBytes: number
+  encryptedBytes: number
   encryptedAt: string
   status: 'verified' | 'modified' | 'pending'
   /** False when someone else owns this file and shared it with the viewer. */
@@ -65,6 +70,25 @@ const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
 const recoveryFileId = ref<string | null>(null)
 const historyFileId = ref<string | null>(null)
+/** The one file whose encrypted preview is open beneath its row. */
+const previewFileId = ref<string | null>(null)
+const togglePreview = (file: EncryptedFile) => {
+  previewFileId.value = previewFileId.value === file.id ? null : file.id
+}
+
+/**
+ * How many table columns are on screen, so the preview row can span exactly that many. The
+ * size and date columns are hidden on narrow screens, and a cell that spans more columns than
+ * exist makes the browser invent extra ones.
+ */
+const viewportColumns = ref(7)
+const updateViewportColumns = () => {
+  if (typeof window === 'undefined' || !window.matchMedia) return
+  const medium = window.matchMedia('(min-width: 768px)').matches
+  const large = window.matchMedia('(min-width: 1024px)').matches
+  viewportColumns.value = 3 + (medium ? 2 : 0) + (large ? 1 : 0)
+}
+const columnCount = computed(() => viewportColumns.value + (scope.value === 'mine' ? 1 : 0))
 /** Owned file waiting for delete confirmation; null when no dialog is open. */
 const pendingDelete = ref<EncryptedFile | null>(null)
 const isDeleting = ref(false)
@@ -98,6 +122,8 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   originalSize: formatFileSize(file.plaintext_size),
   // AES-GCM is a stream mode, so these match; the tag is stored apart from the object.
   encryptedSize: formatFileSize(file.ciphertext_size),
+  originalBytes: file.plaintext_size,
+  encryptedBytes: file.ciphertext_size,
   encryptedAt: new Date(file.created_at).toLocaleString(),
   // `files.status` is ACTIVE/CORRUPTED/DELETED, not the integrity vocabulary. Sending it
   // through mapFileStatus put every row on the fallback branch, so a damaged file looked
@@ -178,6 +204,8 @@ const loadFiles = async () => {
 
 onMounted(() => {
   void Promise.all([loadFiles(), loadFolders()])
+  updateViewportColumns()
+  window.addEventListener('resize', updateViewportColumns)
 })
 
 // The account key relocks itself after a spell of disuse. Nothing on screen depends on it
@@ -222,6 +250,7 @@ watch(searchQuery, () => {
 onBeforeUnmount(() => {
   if (searchTimer !== undefined) clearTimeout(searchTimer)
   stopRelockListener()
+  window.removeEventListener('resize', updateViewportColumns)
 })
 
 // The server has already applied the text search; the split by ownership is local, because
@@ -694,35 +723,51 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         </div>
 
         <div v-else class="overflow-x-auto">
-          <table class="w-full text-sm">
+          <!--
+            Fixed layout with explicit widths: the name column used to take whatever the longest
+            filename asked for and squeeze every other header into a few letters. Now the name is
+            a bounded column that wraps, and the rest keep room for their own headings.
+          -->
+          <table class="w-full table-fixed text-sm">
             <thead>
               <tr class="border-b border-border text-muted-foreground">
-                <th class="text-left py-3">File Name</th>
-                <th class="text-left py-3 hidden md:table-cell">Original Size</th>
-                <th class="text-left py-3 hidden md:table-cell">Encrypted Size</th>
-                <th class="text-left py-3 hidden lg:table-cell">Encrypted At</th>
-                <th v-if="scope === 'mine'" class="text-left py-3">Folder</th>
-                <th class="text-left py-3">Status</th>
-                <th class="text-right py-3">Actions</th>
+                <th class="w-[28%] text-left py-3 pr-3 font-medium">File Name</th>
+                <th class="hidden w-[11%] text-left py-3 pr-3 font-medium whitespace-nowrap md:table-cell">Original</th>
+                <th class="hidden w-[11%] text-left py-3 pr-3 font-medium whitespace-nowrap md:table-cell">Encrypted</th>
+                <th class="hidden w-[14%] text-left py-3 pr-3 font-medium whitespace-nowrap lg:table-cell">Encrypted At</th>
+                <th v-if="scope === 'mine'" class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Folder</th>
+                <th class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Status</th>
+                <th class="w-[8.5rem] text-right py-3 font-medium whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody>
-              <tr v-for="file in filteredFiles" :key="file.id" class="border-b border-border/60">
-                <td class="py-3">
-                  <div class="flex items-center gap-3">
-                    <div class="p-2 rounded-lg bg-secondary"><FileIcon class="h-4 w-4 text-primary" /></div>
-                    <div>
-                      <p class="text-foreground font-medium">{{ file.name }}</p>
+              <template v-for="file in filteredFiles" :key="file.id">
+              <tr class="border-b border-border/60 align-top">
+                <td class="py-3 pr-3">
+                  <div class="flex items-start gap-3">
+                    <div class="mt-0.5 shrink-0 rounded-lg bg-secondary p-2"><FileIcon class="h-4 w-4 text-primary" /></div>
+                    <div class="min-w-0">
+                      <p class="text-foreground font-medium [overflow-wrap:anywhere]">{{ file.name }}</p>
                       <p v-if="!file.owned" class="text-xs text-muted-foreground">Shared by {{ file.ownerName }}</p>
                       <p v-if="file.accessError" class="mt-1 text-xs text-destructive">{{ file.accessError }}</p>
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
+                      <button
+                        type="button"
+                        class="mt-1 inline-flex items-center gap-1 text-xs text-primary hover:underline"
+                        :aria-expanded="previewFileId === file.id"
+                        :disabled="Boolean(file.accessError)"
+                        @click="togglePreview(file)"
+                      >
+                        <component :is="previewFileId === file.id ? ChevronUp : ChevronDown" class="h-3 w-3" />
+                        Encrypted preview
+                      </button>
                     </div>
                   </div>
                 </td>
-                <td class="text-muted-foreground hidden md:table-cell">{{ file.originalSize }}</td>
-                <td class="text-muted-foreground hidden md:table-cell">{{ file.encryptedSize }}</td>
-                <td class="text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
-                <td v-if="scope === 'mine'">
+                <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.originalBytes)">{{ file.originalSize }}</td>
+                <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.encryptedBytes)">{{ file.encryptedSize }}</td>
+                <td class="py-3 pr-3 text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
+                <td v-if="scope === 'mine'" class="py-3 pr-3">
                   <select
                     :value="file.folderId ?? ''"
                     :aria-label="`Folder for ${file.name}`"
@@ -733,14 +778,15 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <option v-for="folder in folders" :key="folder.folder_id" :value="folder.folder_id">{{ folder.name }}</option>
                   </select>
                 </td>
-                <td>
+                <td class="py-3 pr-3">
                   <button class="inline-flex items-center gap-1 px-2 py-1 rounded-md" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
                     <component :is="statusConfig[file.status].icon" class="h-3 w-3" />
                     {{ statusConfig[file.status].label }}
                   </button>
                 </td>
-                <td class="text-right">
-                  <div class="inline-flex flex-wrap justify-end gap-1">
+                <td class="py-3 text-right">
+                  <!-- Three to a row, so six actions make a tidy 3x2 block instead of a ragged wrap. -->
+                  <div class="ml-auto grid w-fit grid-cols-3 justify-items-end gap-1">
                     <button
                       class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
@@ -791,6 +837,16 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   </div>
                 </td>
               </tr>
+              <tr v-if="previewFileId === file.id" class="border-b border-border/60">
+                <td :colspan="columnCount" class="pb-4 pt-1">
+                  <CiphertextPreviewPanel
+                    :file-id="file.id"
+                    :file-name="file.name"
+                    @download-encrypted="handleEncryptedDownload(file)"
+                  />
+                </td>
+              </tr>
+              </template>
             </tbody>
           </table>
         </div>

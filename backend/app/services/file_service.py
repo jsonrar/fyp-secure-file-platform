@@ -28,6 +28,7 @@ from app.models.file_folder import FileFolder
 from app.models.file_key_wrapping import FileKeyWrapping
 from app.repositories.file_repository import FileAccessRecord, FileRepository
 from app.schemas.file_schema import (
+    CiphertextPreviewOut,
     FileCryptoEnvelopeOut,
     FileDeleteOut,
     FileFolderDeleteOut,
@@ -46,9 +47,14 @@ from app.services.file_storage_service import (
     FileStorageService,
     StagedCiphertext,
     StorageObjectError,
+    StorageObjectMissingError,
     VerifiedCiphertext,
 )
 from app.services.integrity_service import IntegrityService
+
+# The preview is a fixed size chosen here, never by the caller, so it cannot be turned into a
+# way of reading arbitrary ranges of someone else's ciphertext or of loading the server.
+CIPHERTEXT_PREVIEW_BYTES = 128
 
 
 @dataclass(slots=True)
@@ -434,6 +440,58 @@ class FileService:
             original_filename=record.file.original_filename,
             ciphertext_size=verified.size_bytes,
             verified_ciphertext=verified,
+        )
+
+    def ciphertext_preview(
+        self,
+        *,
+        actor: ActorContext,
+        file_id: UUID,
+        context: RequestContext,
+    ) -> CiphertextPreviewOut:
+        """Show the first bytes of the stored ciphertext to someone allowed to download it.
+
+        Needs the same capability as downloading the ciphertext and exposes strictly less: a
+        fixed 128-byte sample plus metadata the caller already receives with the file. It is
+        audited under its own action so previews never count as downloads.
+        """
+        record = self.access.require(
+            user_id=actor.user_id,
+            file_id=file_id,
+            capability=FileCapability.DOWNLOAD,
+        )
+        try:
+            sample = self.storage.read_head(
+                record.file.storage_object_key, CIPHERTEXT_PREVIEW_BYTES
+            )
+        except (StorageObjectError, StorageObjectMissingError) as exc:
+            raise StorageUnavailableError() from exc
+
+        try:
+            self.audit.append(
+                action="FILE_CIPHERTEXT_PREVIEWED",
+                result="SUCCESS",
+                actor_user_id=actor.user_id,
+                resource_type="FILE",
+                resource_id=record.file.file_uuid,
+                context_ip_address=context.ip_address,
+                context_user_agent=context.user_agent,
+                metadata={"sample_length": len(sample)},
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return CiphertextPreviewOut(
+            file_id=file_id,
+            encryption_algorithm=record.file.encryption_algorithm,
+            plaintext_size=record.file.file_size_bytes,
+            ciphertext_size=record.file.encrypted_size_bytes,
+            ciphertext_sha256=record.file.encrypted_sha256,
+            status=record.file.status,
+            sample_offset=0,
+            sample_length=len(sample),
+            sample_hex=sample.hex(),
         )
 
     def delete(

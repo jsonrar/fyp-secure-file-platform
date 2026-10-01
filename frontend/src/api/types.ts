@@ -90,6 +90,25 @@ export interface AuditLogOut {
   created_at: string
 }
 
+/**
+ * `POST /files/{id}/ciphertext-preview`: a fixed-size look at what the server stores.
+ *
+ * `sample_hex` is the start of the stored *ciphertext*, never of the original file, and it is
+ * not integrity-checked by this call (that is what the status badge and the integrity check
+ * are for).
+ */
+export interface CiphertextPreviewOut {
+  file_id: string
+  encryption_algorithm: string
+  plaintext_size: number
+  ciphertext_size: number
+  ciphertext_sha256: string
+  status: string
+  sample_offset: number
+  sample_length: number
+  sample_hex: string
+}
+
 export function unwrapData<T>(response: { data: ApiEnvelope<T> }): T {
   return response.data.data
 }

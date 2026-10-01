@@ -19,6 +19,9 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   FILE_DOWNLOAD_AUTHORIZED: { label: 'Downloaded', category: 'download' },
   FILE_DOWNLOAD_INTEGRITY_FAILED: { label: 'Download blocked: integrity check failed', category: 'download' },
   FILE_INTEGRITY_CHECKED: { label: 'Integrity checked', category: 'other' },
+  // Looking at the first bytes of the stored ciphertext is not a download and must never be
+  // counted as one.
+  FILE_CIPHERTEXT_PREVIEWED: { label: 'Encrypted preview viewed', category: 'other' },
   FILE_SHARED: { label: 'Shared', category: 'share' },
   FILE_ACCESS_REVOKED: { label: 'Access revoked', category: 'share' },
   FILE_DELETED: { label: 'Deleted', category: 'other' },

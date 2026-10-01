@@ -85,9 +85,10 @@ and the team's [SecureView Development Board](https://github.com/users/Waldo0926
 
 The file manager also offers **Download encrypted** for owners and authorized recipients,
 including while the vault is locked. It saves the verified stored bytes as
-`<filename>.ciphertext` without a passphrase or private key. This is the download half of
-[#71](https://github.com/jsonrar/fyp-secure-file-platform/issues/71); the bounded ciphertext
-preview that Issue also described was never built.
+`<filename>.ciphertext` without a passphrase or private key. **Encrypted preview**, under each
+file, shows what the server really stores: the exact sizes, the recorded SHA-256 and a hex dump
+of the first 128 bytes of ciphertext, for owned and received files alike. Why the two sizes match,
+and how to show it live, is in [docs/ENCRYPTION_EVIDENCE.md](docs/ENCRYPTION_EVIDENCE.md).
 
 ## Using the Website
 

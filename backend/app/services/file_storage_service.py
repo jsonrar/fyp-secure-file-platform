@@ -171,6 +171,23 @@ class FileStorageService:
         finally:
             verified.stream.close()
 
+    def read_head(self, object_key: str, limit: int) -> bytes:
+        """Return at most `limit` leading bytes of a stored object, without hashing it.
+
+        Only for the bounded ciphertext preview: reading a few bytes must not cost a full
+        pass over a 500 MiB object, so nothing here is verified. The caller must say so.
+        """
+        if limit <= 0:
+            raise ValueError("limit must be positive")
+        path = self._object_path(object_key)
+        try:
+            with path.open("rb") as stream:
+                return stream.read(limit)
+        except FileNotFoundError as exc:
+            raise StorageObjectMissingError("Encrypted storage object is missing") from exc
+        except OSError as exc:
+            raise StorageObjectError("Unable to read the encrypted storage object") from exc
+
     def open_verified(self, object_key: str) -> VerifiedCiphertext:
         path = self._object_path(object_key)
         try:
