@@ -113,6 +113,33 @@ installed as:
   by deploy operators;
 - `mcs21-auto-deploy.service` and `mcs21-auto-deploy.timer` -> `/etc/systemd/system/`.
 
+### Ops units a release installs by itself
+
+After a release is live and healthy, `mcs21-deploy` installs and enables **one** ops unit from the
+release: `mcs21-integrity-sweep.{service,timer}` (the daily integrity scan,
+[BACKUP_AND_RECOVERY.md §9](BACKUP_AND_RECOVERY.md#9-finding-and-restoring-one-damaged-file)).
+The list is closed in the script (`ops_units`), because a file in `/etc/systemd/system` runs as the
+account it names, and letting any file in a release become one would turn "a commit that passed
+CI" into "arbitrary code as root". Before installing, the script checks that the service runs as
+`fypapp`, starts only `/opt/mcs21/current/backend/.venv/bin/python scripts/<name>.py`, has no
+`+`/`!` privileged hooks and that the timer starts that same service; then it compares with the
+installed copy, replaces it atomically only if it changed, runs `systemd-analyze verify`, reloads
+systemd and enables the timer if it is not already. A failure is printed and audited as a warning
+and never fails a deployment that is already healthy. `test_ops_units.py` runs the script's own
+check against the shipped unit and against variants that must be refused.
+
+The other ops units (`mcs21-reconcile`, `mcs21-audit-checkpoint`, the backup and observe units)
+stay deliberate manual installs: some run as root or delete data.
+
+This takes effect once the updated `/usr/local/sbin/mcs21-deploy` is installed on the VPS, which
+only a person with root can do:
+
+```bash
+sudo install -m 0755 -o root -g root /opt/mcs21/current/deployment/server/mcs21-deploy /usr/local/sbin/mcs21-deploy
+```
+
+From the next release after that, the timer appears without further steps.
+
 The server additionally provides its environment-specific mirror, Deploy Key, release command,
 secrets, backup storage, and sudo policy. Environment-specific values must not be copied into
 Git.
