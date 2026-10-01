@@ -5,8 +5,8 @@ from collections.abc import Sequence
 from dataclasses import dataclass
 from datetime import datetime
 
-from sqlalchemy import func, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func, select
+from sqlalchemy.orm import Session, aliased
 
 from app.models.audit_log import AuditLog
 from app.models.file import File
@@ -14,9 +14,11 @@ from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_request import RecoveryRequest
 from app.models.user import User
 
-# A runaway log must not turn one report into an unbounded read. The newest events win, because
-# a burst that is still going on is the one worth seeing.
-EVENT_READ_LIMIT = 20_000
+# A runaway log must not turn one report into an unbounded read. The cap is per event type: with
+# one shared cap, a flood of one kind (a bulk download, say) pushed every other kind out of the
+# read, so a burst of failed sign-ins in the same window could simply not be seen. Within a type
+# the newest events win, because a burst that is still going on is the one worth seeing.
+EVENT_READ_LIMIT_PER_ACTION = 5_000
 
 
 @dataclass(frozen=True, slots=True)
@@ -48,20 +50,32 @@ class AgentRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def audit_events(self, actions: Sequence[str], *, since: datetime) -> list[AuditEventRow]:
-        rows = self.db.execute(
-            select(
-                AuditLog.action,
-                AuditLog.created_at,
-                User.username,
-                AuditLog.ip_address,
-            )
-            .outerjoin(User, User.id == AuditLog.actor_user_id)
-            .where(AuditLog.action.in_(tuple(actions)), AuditLog.created_at >= since)
-            .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
-            .limit(EVENT_READ_LIMIT)
-        )
-        return [AuditEventRow(*row) for row in rows]
+    def audit_events(
+        self, actions: Sequence[str], *, since: datetime
+    ) -> tuple[list[AuditEventRow], list[str]]:
+        """The watched events in the window, and which actions hit the read cap."""
+        rows: list[AuditEventRow] = []
+        capped: list[str] = []
+        for action in actions:
+            batch = [
+                AuditEventRow(*row)
+                for row in self.db.execute(
+                    select(
+                        AuditLog.action,
+                        AuditLog.created_at,
+                        User.username,
+                        AuditLog.ip_address,
+                    )
+                    .outerjoin(User, User.id == AuditLog.actor_user_id)
+                    .where(AuditLog.action == action, AuditLog.created_at >= since)
+                    .order_by(AuditLog.created_at.desc(), AuditLog.id.desc())
+                    .limit(EVENT_READ_LIMIT_PER_ACTION)
+                )
+            ]
+            if len(batch) >= EVENT_READ_LIMIT_PER_ACTION:
+                capped.append(action)
+            rows.extend(batch)
+        return rows, capped
 
     def count_recovery_requests_pending_before(self, cutoff: datetime) -> int:
         return int(
@@ -75,9 +89,14 @@ class AgentRepository:
 
     def damaged_file_histories(self, *, limit: int) -> list[DamagedFileHistory]:
         """Files that are CORRUPTED or whose newest check failed, with their check history."""
+        # The inner table is an alias so the newest-check subquery is never correlated with the
+        # outer join's integrity_checks, and the join also states file_id = files.id: the result
+        # is the same, but without it SQLAlchemy cannot see the join and warns of a cartesian
+        # product.
+        inner = aliased(IntegrityCheck)
         newest = (
-            select(func.max(IntegrityCheck.id))
-            .where(IntegrityCheck.file_id == File.id)
+            select(func.max(inner.id))
+            .where(inner.file_id == File.id)
             .correlate(File)
             .scalar_subquery()
         )
@@ -91,7 +110,10 @@ class AgentRepository:
                 User.username,
             )
             .join(User, User.id == File.owner_id)
-            .outerjoin(IntegrityCheck, IntegrityCheck.id == newest)
+            .outerjoin(
+                IntegrityCheck,
+                and_(IntegrityCheck.file_id == File.id, IntegrityCheck.id == newest),
+            )
             .where(
                 File.status != "DELETED",
                 (File.status == "CORRUPTED")

@@ -97,7 +97,7 @@ class SecurityAgentService:
         window = timedelta(hours=window_hours)
         since = to_second_resolution_utc(now - window)
 
-        rows = self.repository.audit_events(list(_WATCHED.values()), since=since)
+        rows, capped = self.repository.audit_events(list(_WATCHED.values()), since=since)
         by_action: dict[str, list[Event]] = {action: [] for action in _WATCHED.values()}
         for row in rows:
             by_action[row.action].append(
@@ -181,6 +181,7 @@ class SecurityAgentService:
             ],
             inputs=AgentInputSummaryOut(
                 audit_events_read=len(rows),
+                event_types_capped=capped,
                 files_checkable=candidates,
                 files_never_checked=never_checked,
                 audit_chain_entries_verified=int(chain["checked_entries"] or 0),

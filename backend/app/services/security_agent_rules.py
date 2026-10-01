@@ -136,7 +136,9 @@ def _stamp(value: datetime) -> str:
 
 
 def _plural(count: int, noun: str) -> str:
-    return f"{count} {noun}{'' if count == 1 else 's'}"
+    if count == 1:
+        return f"{count} {noun}"
+    return f"{count} {noun}{'es' if noun.endswith(('s', 'sh', 'ch', 'x')) else 's'}"
 
 
 def _group(
@@ -297,6 +299,7 @@ def _burst_findings(
     summary: str,
     action: Callable[[str], str],
     describe_subject: str,
+    extra_evidence: Callable[[str], list[str]] | None = None,
 ) -> list[Finding]:
     findings: list[Finding] = []
     minutes = int(span.total_seconds() // 60)
@@ -323,11 +326,25 @@ def _burst_findings(
                     f"{describe_subject}: {subject}",
                     window_text,
                     f"{_plural(len(times), 'event')} in the whole analysis window",
+                    *(extra_evidence(subject) if extra_evidence else ()),
                 ),
                 recommended_action=action(subject),
             )
         )
     return findings
+
+
+def _accounts_tried(events: Sequence[Event], source: str) -> list[str]:
+    """Which accounts one address tried, so the source finding also names its targets."""
+    named = sorted({e.actor for e in events if e.source == source and e.actor})
+    unknown = sum(1 for e in events if e.source == source and not e.actor)
+    lines: list[str] = []
+    if named:
+        shown = ", ".join(named[:5]) + (f" and {len(named) - 5} more" if len(named) > 5 else "")
+        lines.append(f"Accounts tried: {shown}")
+    if unknown:
+        lines.append(f"{_plural(unknown, 'attempt')} at names with no account")
+    return lines
 
 
 def rule_login_guessing_by_source(inputs: AgentInputs) -> list[Finding]:
@@ -348,24 +365,41 @@ def rule_login_guessing_by_source(inputs: AgentInputs) -> list[Finding]:
             "firewall or with fail2ban; the sign-in throttle already slows it but does not stop it."
         ),
         describe_subject="Source address",
+        extra_evidence=lambda s: _accounts_tried(inputs.login_failures, s),
     )
 
 
 def rule_login_guessing_by_account(inputs: AgentInputs) -> list[Finding]:
+    """Guessing at one account from **several** addresses.
+
+    Guessing from a single address is already reported, with the accounts it tried, by the
+    source rule. Reporting the same ten failures a second time under the account only doubled
+    the count for one incident. What only this rule can see is an account tried from many
+    places, which the per-address view splits into pieces too small to notice.
+    """
+    sources: dict[str, set[str]] = defaultdict(set)
+    for event in inputs.login_failures:
+        if event.actor and event.source:
+            sources[event.actor].add(event.source)
+    distributed = [e for e in inputs.login_failures if e.actor and len(sources[e.actor]) >= 2]
     return _burst_findings(
         rule_id="LOGIN_GUESSING_ACCOUNT",
-        events=inputs.login_failures,
+        events=distributed,
         key=lambda e: e.actor,
         span=LOGIN_FAILURE_SPAN,
         medium=LOGIN_FAILURES_MEDIUM,
         high=None,
-        title=lambda s, n: f"{n} failed sign-ins against account {s}",
-        summary="One account is being tried repeatedly, whoever it is coming from.",
+        title=lambda s, n: f"{n} failed sign-ins against account {s} from several addresses",
+        summary=(
+            "One account is being tried from more than one address, which spreads the attempts "
+            "so that no single address looks busy."
+        ),
         action=lambda s: (
             f"Ask the owner of {s} whether it was them. If not, disable the account on the Users "
             "tab (this also ends its sessions) and have them reset the password before enabling it."
         ),
         describe_subject="Account",
+        extra_evidence=lambda s: [f"From {_plural(len(sources[s]), 'address')}"],
     )
 
 
@@ -537,7 +571,7 @@ RULES: tuple[tuple[RuleInfo, Callable[[AgentInputs], list[Finding]]], ...] = (
         RuleInfo(
             "LOGIN_GUESSING_ACCOUNT",
             "Password guessing against one account",
-            "Failed sign-ins, grouped by the account they targeted",
+            "Failed sign-ins against one account from two or more addresses",
             f"{LOGIN_FAILURES_MEDIUM}+ in 15 minutes is medium",
         ),
         rule_login_guessing_by_account,

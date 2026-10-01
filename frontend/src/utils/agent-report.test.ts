@@ -11,6 +11,7 @@ const report = (over: Partial<AgentReport> = {}): AgentReport => ({
   rules: [],
   inputs: {
     audit_events_read: 1234,
+    event_types_capped: [],
     files_checkable: 10,
     files_never_checked: 2,
     audit_chain_entries_verified: 5678,
@@ -52,6 +53,17 @@ describe('coverageLine', () => {
   it('states how much a quiet report actually looked at', () => {
     expect(coverageLine(report())).toBe(
       'Read 1,234 audit events, verified 5,678 audit-chain entries, and 8 of 10 stored files have been integrity-checked.',
+    )
+  })
+})
+
+describe('coverageLine when the read was capped', () => {
+  it('says which event types were cut short instead of looking complete', () => {
+    const r = report()
+    r.inputs.event_types_capped = ['FILE_DOWNLOAD_AUTHORIZED']
+
+    expect(coverageLine(r)).toMatch(
+      /So many FILE_DOWNLOAD_AUTHORIZED events were recorded that only the newest were read/,
     )
   })
 })

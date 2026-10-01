@@ -49,7 +49,7 @@ class FakeAgentRepository:
     def audit_events(self, actions, *, since):
         self.asked["actions"] = set(actions)
         self.asked["since"] = since
-        return [e for e in self.events if e.action in actions and e.created_at >= since]
+        return [e for e in self.events if e.action in actions and e.created_at >= since], []
 
     def count_recovery_requests_pending_before(self, cutoff):
         self.asked["recovery_cutoff"] = cutoff
@@ -154,8 +154,10 @@ def test_a_burst_of_failed_sign_ins_becomes_a_ranked_finding_with_an_action() ->
         actor=_actor(), window_hours=24
     )
 
-    assert report.counts.medium == 2
+    # One address guessing one account is one incident, reported once, naming the account.
+    assert report.counts.medium == 1
     source = next(f for f in report.findings if f.rule_id == "LOGIN_GUESSING_SOURCE")
+    assert "Accounts tried: alice" in source.evidence
     assert source.priority == "MEDIUM" and "203.0.113.9" in source.title
     assert "fail2ban" in source.recommended_action
     assert report.inputs.audit_events_read == 14
@@ -292,8 +294,19 @@ def test_the_event_query_selects_four_columns_and_never_metadata_or_user_agents(
         "email",
     ):
         assert private not in select_list
-    assert "audit_logs.action IN ('AUTH_LOGIN_FAILED')" in sql
-    assert "audit_logs.created_at >= " in sql and "LIMIT 20000" in sql
+    assert "audit_logs.action = 'AUTH_LOGIN_FAILED'" in sql
+    assert "audit_logs.created_at >= " in sql and "LIMIT 5000" in sql
+
+
+def test_each_event_type_has_its_own_read_cap_so_one_flood_cannot_hide_another() -> None:
+    db = _Db()
+    rows, capped = AgentRepository(db).audit_events(  # type: ignore[arg-type]
+        ["FILE_DOWNLOAD_AUTHORIZED", "AUTH_LOGIN_FAILED"], since=NAIVE_NOW
+    )
+
+    assert len(db.statements) == 2
+    assert all("LIMIT 5000" in sql for sql in db.statements)
+    assert rows == [] and capped == []
 
 
 def test_the_damaged_file_query_never_selects_keys_nonces_or_ciphertext_columns() -> None:
@@ -314,9 +327,10 @@ def test_the_agent_modules_have_no_database_write_path() -> None:
     from app.repositories import agent_repository
     from app.services import security_agent_rules, security_agent_service
 
-    write = re.compile(
-        r"\.(add|add_all|delete|merge|flush|commit|rollback)\(|\b(insert|update|delete)\("
-    )
+    # Only reads may be called on the session. A set's .add() is not a database write.
+    write = re.compile(r"self\.db\.(?!execute\b|scalar\b|scalars\b)\w+|\b(insert|update|delete)\(")
+    assert write.search("self.db.add(row)") and write.search("self.db.commit()")
+    assert not write.search("seen.add(x)") and not write.search("self.db.execute(q)")
     for module in (agent_repository, security_agent_rules, security_agent_service):
         source = inspect.getsource(module)
         assert not write.search(source), f"{module.__name__} can write to the database"

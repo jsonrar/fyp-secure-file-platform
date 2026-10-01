@@ -28,7 +28,7 @@ attention now, how urgent is it, and what should I do?**
 
 | Source | What is read |
 |---|---|
-| `audit_logs` (window: last 24 h or 7 days) | `AUTH_LOGIN_FAILED`, `AUTH_REFRESH_REPLAY_DETECTED`, `FILE_DOWNLOAD_AUTHORIZED`, `FILE_SHARED`, `AUTH_PASSWORD_CHANGE_FAILED`, `RECOVERY_REQUEST_EXECUTED`: action, time, account name, source address |
+| `audit_logs` (window: last 24 h or 7 days; at most 5,000 newest events per type, and the report says when a type hit that cap) | `AUTH_LOGIN_FAILED`, `AUTH_REFRESH_REPLAY_DETECTED`, `FILE_DOWNLOAD_AUTHORIZED`, `FILE_SHARED`, `AUTH_PASSWORD_CHANGE_FAILED`, `RECOVERY_REQUEST_EXECUTED`: action, time, account name, source address |
 | the audit hash chain | Recomputed in full (`AuditQueryService.verify_chain`): valid or not, and the first entry that fails |
 | `integrity_checks` and `files` | Files that are `CORRUPTED` or whose newest check was `MODIFIED`, `MISSING` or `ERROR`, with each file's check history |
 | `recovery_requests` | How many are still pending after 24 hours |
@@ -41,13 +41,17 @@ attention now, how urgent is it, and what should I do?**
 | `INTEGRITY_DAMAGE` | Damaged stored files | **MODIFIED = Critical**, MISSING = High, ERROR = Medium |
 | `AUDIT_CHAIN_BROKEN` | The audit hash chain | Any entry that does not verify = **Critical** |
 | `SCAN_NOT_RUNNING` | When the last integrity scan ran | None in 36 h (or ever) while files exist = Medium |
-| `LOGIN_GUESSING_SOURCE` | Failed sign-ins per source address | 10+ in 15 min = Medium, 30+ = High |
-| `LOGIN_GUESSING_ACCOUNT` | Failed sign-ins per targeted account | 10+ in 15 min = Medium |
+| `LOGIN_GUESSING_SOURCE` | Failed sign-ins per source address, naming the accounts it tried | 10+ in 15 min = Medium, 30+ = High |
+| `LOGIN_GUESSING_ACCOUNT` | Failed sign-ins against one account from **two or more** addresses | 10+ in 15 min = Medium |
 | `SESSION_TOKEN_REUSE` | A used refresh token presented again | Any = High |
 | `DOWNLOAD_BURST` | Downloads per account | 20+ in 10 min = Medium, 60+ = High |
 | `SHARE_BURST` | Shares per account | 10+ in an hour = Low |
 | `PASSWORD_CHANGE_GUESSING` | Failed password changes per account | 5+ in 15 min = Medium |
 | `RECOVERY_EXECUTED` | Executed recoveries, requests waiting over a day | Executed = Medium, waiting = Low |
+
+One address guessing at one account is one incident and is reported once, by the source rule,
+with the account named in its evidence; the account rule is for guessing spread across addresses,
+which the per-address view splits into pieces too small to notice.
 
 Bursts are measured with a sliding window: 40 failures spread over a day are not a burst; 10 in
 five minutes are. The thresholds are constants at the top of
@@ -106,6 +110,7 @@ wanted. To show each class:
 - `tests/unit/test_security_agent_service.py`: the window, which events are requested, how a check
   history becomes "last intact" and "damage first seen", admin-only access, the SQL selects named
   columns only, and the modules have no write path.
+- `frontend/src/e2e/live-stack.integration.test.ts` (CI `e2e-live`): ten real failed sign-ins against the running API become one ranked `LOGIN_GUESSING_SOURCE` finding with evidence and an action; an ordinary user is refused.
 - `tests/integration/test_security_agent_mysql.py`: on real MySQL, a really tampered file is reported
   as Critical with its backup window, and every query runs.
 - `frontend/src/utils/agent-report.test.ts`: how findings are presented.

@@ -4,8 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, or_, select
-from sqlalchemy.orm import Session
+from sqlalchemy import and_, func, or_, select
+from sqlalchemy.orm import Session, aliased
 
 from app.domain.enums import SystemRole
 from app.models.audit_log import AuditLog
@@ -163,9 +163,14 @@ class AdminRepository:
         so the newest check is part of the answer, not just the status column. Only the
         columns the report shows are selected: no key, nonce or password hash is loaded.
         """
+        # The inner table is an alias so the newest-check subquery is never correlated with the
+        # outer join's integrity_checks, and the join also states file_id = files.id: the result
+        # is the same, but without it SQLAlchemy cannot see the join and warns of a cartesian
+        # product.
+        inner = aliased(IntegrityCheck)
         newest = (
-            select(func.max(IntegrityCheck.id))
-            .where(IntegrityCheck.file_id == File.id)
+            select(func.max(inner.id))
+            .where(inner.file_id == File.id)
             .correlate(File)
             .scalar_subquery()
         )
@@ -180,7 +185,10 @@ class AdminRepository:
                 IntegrityCheck.created_at,
             )
             .join(User, User.id == File.owner_id)
-            .outerjoin(IntegrityCheck, IntegrityCheck.id == newest)
+            .outerjoin(
+                IntegrityCheck,
+                and_(IntegrityCheck.file_id == File.id, IntegrityCheck.id == newest),
+            )
             .where(
                 File.status != "DELETED",
                 or_(

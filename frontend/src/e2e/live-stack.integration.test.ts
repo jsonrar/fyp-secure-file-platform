@@ -473,6 +473,43 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
     })
   })
 
+  describe('security agent', () => {
+    it('refuses an ordinary user', async () => {
+      const tokens = await signIn(bob)
+      expect((await raw.get('/admin/agent/report', bearer(tokens.access_token))).status).toBe(403)
+    })
+
+    it('turns real failed sign-ins into one ranked finding with evidence and an action', async () => {
+      // A name that has no account: the attempts are recorded against the address only, and
+      // the throttle that answers 429 after ten blocks nothing the rest of this suite uses.
+      const nobody = `e2e-nobody-${crypto.randomUUID().slice(0, 8)}`
+      for (let attempt = 0; attempt < 10; attempt += 1) {
+        const res = await raw.post('/auth/login', { username: nobody, password: `wrong-${attempt}` })
+        expect(res.status).toBe(401)
+      }
+
+      const tokens = await signIn({ username: ADMIN!, password: ADMIN_PASSWORD! })
+      const res = await raw.get('/admin/agent/report?window_hours=24', bearer(tokens.access_token))
+      expect(res.status).toBe(200)
+      const report = res.data.data
+
+      expect(report.rules).toHaveLength(10)
+      expect(report.boundaries.length).toBeGreaterThan(0)
+      expect(report.inputs.audit_events_read).toBeGreaterThanOrEqual(10)
+      const guessing = report.findings.find(
+        (f: { rule_id: string }) => f.rule_id === 'LOGIN_GUESSING_SOURCE',
+      )
+      expect(guessing).toBeDefined()
+      expect(['MEDIUM', 'HIGH']).toContain(guessing.priority)
+      expect(guessing.evidence.join(' ')).toMatch(/attempts? at names with no account/)
+      expect(guessing.recommended_action).toMatch(/fail2ban/)
+      // Ranked: nothing after a finding is more urgent than it.
+      const order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
+      const ranks = report.findings.map((f: { priority: string }) => order.indexOf(f.priority))
+      expect(ranks).toEqual([...ranks].sort((a: number, b: number) => a - b))
+    })
+  })
+
   describe('account deletion', () => {
     it('refuses a deletion without the right password, and the account survives', async () => {
       const tokens = await signIn(bob)

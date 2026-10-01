@@ -25,7 +25,7 @@
 
 | 来源 | 读取内容 |
 |---|---|
-| `audit_logs`（窗口：最近 24 小时或 7 天） | `AUTH_LOGIN_FAILED`、`AUTH_REFRESH_REPLAY_DETECTED`、`FILE_DOWNLOAD_AUTHORIZED`、`FILE_SHARED`、`AUTH_PASSWORD_CHANGE_FAILED`、`RECOVERY_REQUEST_EXECUTED`：动作、时间、账户名、来源地址 |
+| `audit_logs`（窗口：最近 24 小时或 7 天；每种事件最多读取最新的 5,000 条，达到上限时报告会写明） | `AUTH_LOGIN_FAILED`、`AUTH_REFRESH_REPLAY_DETECTED`、`FILE_DOWNLOAD_AUTHORIZED`、`FILE_SHARED`、`AUTH_PASSWORD_CHANGE_FAILED`、`RECOVERY_REQUEST_EXECUTED`：动作、时间、账户名、来源地址 |
 | 审计哈希链 | 完整重算（`AuditQueryService.verify_chain`）：是否有效，以及第一个失败的条目 |
 | `integrity_checks` 与 `files` | 状态为 `CORRUPTED`，或最新检查为 `MODIFIED`、`MISSING`、`ERROR` 的文件，以及每个文件的检查历史 |
 | `recovery_requests` | 超过 24 小时仍待处理的数量 |
@@ -38,13 +38,15 @@
 | `INTEGRITY_DAMAGE` | 受损的存储文件 | **MODIFIED = Critical**，MISSING = High，ERROR = Medium |
 | `AUDIT_CHAIN_BROKEN` | 审计哈希链 | 任一条目验证失败 = **Critical** |
 | `SCAN_NOT_RUNNING` | 最近一次完整性扫描 | 有文件时 36 小时内（或从未）没有扫描 = Medium |
-| `LOGIN_GUESSING_SOURCE` | 每个来源地址的登录失败 | 15 分钟内 10 次以上 = Medium，30 次以上 = High |
-| `LOGIN_GUESSING_ACCOUNT` | 每个被攻击账户的登录失败 | 15 分钟内 10 次以上 = Medium |
+| `LOGIN_GUESSING_SOURCE` | 每个来源地址的登录失败，并列出它尝试过的账户 | 15 分钟内 10 次以上 = Medium，30 次以上 = High |
+| `LOGIN_GUESSING_ACCOUNT` | 来自**两个或以上**地址、针对同一账户的登录失败 | 15 分钟内 10 次以上 = Medium |
 | `SESSION_TOKEN_REUSE` | 已使用过的刷新令牌再次出现 | 任意一次 = High |
 | `DOWNLOAD_BURST` | 每个账户的下载 | 10 分钟内 20 次以上 = Medium，60 次以上 = High |
 | `SHARE_BURST` | 每个账户的分享 | 一小时内 10 次以上 = Low |
 | `PASSWORD_CHANGE_GUESSING` | 每个账户的改密失败 | 15 分钟内 5 次以上 = Medium |
 | `RECOVERY_EXECUTED` | 已执行的恢复、等待超过一天的请求 | 已执行 = Medium，等待 = Low |
+
+同一地址猜同一账户是一起事件，只由来源规则报告一次，并在证据里写明账户；账户规则针对的是分散在多个地址上的猜测，这种情况按地址看会被拆成太小而不显眼的碎片。
 
 突发用滑动窗口衡量：一天里分散的 40 次失败不算突发；五分钟内的 10 次才算。阈值是
 `backend/app/services/security_agent_rules.py` 顶部的常量，修改需要经过代码评审，报告里也会写明。
@@ -91,6 +93,7 @@ boundaries[] Agent 不会做的事
   备份窗口文字，以及只会建议演练模式。
 - `tests/unit/test_security_agent_service.py`：窗口、请求了哪些事件、检查历史如何变成“最后一次完好”与“首次发现损坏”、
   仅管理员可用、SQL 只选取指定列，以及模块没有写入路径。
+- `frontend/src/e2e/live-stack.integration.test.ts`（CI 的 `e2e-live`）：对运行中的 API 做十次真实的登录失败，得到一条排好序的 `LOGIN_GUESSING_SOURCE` 发现，带证据和建议动作；普通用户被拒绝。
 - `tests/integration/test_security_agent_mysql.py`：在真实 MySQL 上，真正被篡改的文件被报告为 Critical 并给出备份窗口，
   所有查询都能运行。
 - `frontend/src/utils/agent-report.test.ts`：发现如何展示。

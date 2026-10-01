@@ -41,6 +41,9 @@ class AgentInputSummaryOut(_StrictModel):
     """What the agent read, as counts, so a quiet report can be told from a blind one."""
 
     audit_events_read: int = Field(ge=0)
+    # Event types that hit the per-type read cap: for these the oldest part of the window was not
+    # read, and the report says so rather than looking complete.
+    event_types_capped: list[str] = Field(default_factory=list)
     files_checkable: int = Field(ge=0)
     files_never_checked: int = Field(ge=0)
     audit_chain_entries_verified: int = Field(ge=0)
