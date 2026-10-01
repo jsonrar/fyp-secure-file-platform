@@ -191,12 +191,13 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   — file deletion and share revocation use a dedicated consequence dialog; account deletion
   keeps the password + typed-`DELETE` dialog and is available from Profile as well as Settings.
 - [x] [#71 Add authenticated ciphertext preview and encrypted-blob download](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
-  — **the download half only.** Owners and authorized recipients can save the stored ciphertext
-  without a passphrase (#78, refined in #79), and it is deployed. The bounded ciphertext
-  **preview** was never implemented (searched `main` on 2026-10-01). The Issue was closed with
-  that criterion unmet; the project owner chose to record this rather than reopen it, so the
-  preview is **not** tracked as open work (a new Issue would be needed). See the scope record on
-  the Issue.
+  — owners and authorized recipients can save the stored ciphertext without a passphrase (#78,
+  refined in #79), and since 2026-10-01 each file has an **Encrypted preview**: exact sizes, the
+  recorded SHA-256 and a hex dump of the first 128 bytes of ciphertext, with a check that the
+  stored bytes do not begin like an unencrypted file of that type. The Issue had been closed
+  without it; this completes the preview criterion. Still not done from the original wording: a
+  mobile-layout test for these actions. Why the two sizes match, and how to show it, is in
+  [docs/ENCRYPTION_EVIDENCE.md](docs/ENCRYPTION_EVIDENCE.md).
 - [x] [#73 Add file shelves and move-to-shelf organization in My Files](https://github.com/jsonrar/fyp-secure-file-platform/issues/73) — merged in #103 and deployed (staging's OpenAPI lists the folder routes, 2026-10-01). The Issue was closed 2026-09-29 without a written walkthrough of the affected flow.
   — create owner-scoped shelves and move owned files between them or root without changing
   encryption, sharing, file identity, or audit semantics.

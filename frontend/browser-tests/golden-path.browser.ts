@@ -168,6 +168,29 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await expect(owner.getByRole('row').filter({ hasText: fileName })).toBeVisible()
   })
 
+  await test.step('the encrypted preview shows what the server really stores', async () => {
+    const row = owner.getByRole('row').filter({ hasText: fileName })
+    await row.getByRole('button', { name: 'Encrypted preview' }).click()
+    const preview = owner.getByTestId('ciphertext-preview')
+    await expect(preview).toBeVisible()
+
+    // Same length by design (AES-GCM adds no padding), printed in whole bytes so rounding
+    // cannot hide a difference.
+    const size = `${fileBytes.length.toLocaleString('en-US')} bytes`
+    await expect(preview.getByTestId('preview-original-size')).toHaveText(size)
+    await expect(preview.getByTestId('preview-encrypted-size')).toHaveText(size)
+    await expect(preview).toContainText('Same length is expected')
+
+    // The file begins 00 01 02 03 ... 0f. Stored bytes that began the same way would mean the
+    // server holds plaintext.
+    const firstRow = (await preview.locator('tbody tr').first().innerText()).replace(/\s+/g, ' ')
+    expect(firstRow).not.toContain('00 01 02 03 04 05 06 07')
+    await expect(preview.locator('tbody tr')).toHaveCount(8) // 128 bytes, sixteen to a row
+
+    await row.getByRole('button', { name: 'Encrypted preview' }).click()
+    await expect(preview).toBeHidden()
+  })
+
   await test.step('unlock the account key and download the original bytes', async () => {
     const bytes = await downloadDecrypted(owner, alice)
     expect(bytes.equals(fileBytes), 'the decrypted download equals the uploaded file').toBe(true)

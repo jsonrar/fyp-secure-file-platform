@@ -1,6 +1,12 @@
 import { http } from './http'
 import type { ApiEnvelope } from './auth_api'
-import type { FileFolderListOut, FileFolderOut, FileListOut, FileOut } from './types'
+import type {
+  CiphertextPreviewOut,
+  FileFolderListOut,
+  FileFolderOut,
+  FileListOut,
+  FileOut,
+} from './types'
 import type { UploadPayload } from '@/crypto/file_envelope'
 
 export const fileApi = {
@@ -65,6 +71,10 @@ export const fileApi = {
   /** Verified ciphertext only. The caller can save it as-is or decrypt it locally. */
   download(fileId: string) {
     return http.post(`/files/${fileId}/download`, null, { responseType: 'arraybuffer' })
+  },
+  /** A bounded sample of the stored ciphertext, for showing that the server holds no plaintext. */
+  ciphertextPreview(fileId: string) {
+    return http.post<ApiEnvelope<CiphertextPreviewOut>>(`/files/${fileId}/ciphertext-preview`)
   },
   delete(fileId: string) {
     return http.post(`/files/${fileId}/delete`)
