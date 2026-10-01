@@ -3,20 +3,22 @@
 [English](AUTOMATIC_DEPLOYMENT.md) | [Simplified Chinese](AUTOMATIC_DEPLOYMENT.zh-CN.md)
 
 The MCS21 staging VPS automatically deploys a new commit after it is merged into GitHub
-`main`. A root-owned systemd timer checks the private repository approximately every two
-minutes and invokes the existing guarded `mcs21-deploy` release command with the exact commit
+`main` **and has passed CI**. A root-owned systemd timer checks the private repository
+approximately every two minutes and invokes the existing guarded `mcs21-deploy` release command with the exact commit
 SHA. Team members continue to develop on branches and merge reviewed pull requests; they do
 not need to share a server account or Deploy Key.
 
-This is a server-pull deployment, not a GitHub Actions workflow. The repository Deploy Key is
-read-only and remains under the dedicated `mcs21-deploy` service account on the VPS. No VPS
-SSH private key or production secret is stored in GitHub.
+This is a server-pull deployment. GitHub Actions does not deploy anything; its only role is to
+mark a commit as safe by moving the `deploy` branch (see [The CI gate](#the-ci-gate)). The
+repository Deploy Key is read-only and remains under the dedicated `mcs21-deploy` service
+account on the VPS. No VPS SSH private key or production secret is stored in GitHub.
 
 ## Release flow and safeguards
 
 ```text
-branch -> pull request -> merge into main
-       -> systemd timer fetches main -> deploy exact commit
+branch -> pull request -> merge into main -> CI passes on that commit
+       -> CI moves the `deploy` branch to it
+       -> systemd timer fetches `deploy` -> deploy exact commit
        -> database backup and read-only verification
        -> build and preflight -> atomic release switch
        -> service restart and health check -> audit record
@@ -38,11 +40,43 @@ that row. `REVIEW`, `MISSING`, and `UNEXPECTED` remain blocking results. This al
 code-only releases without treating legitimate audit evidence as schema drift or weakening the
 database, account, grant, and structural checks.
 
-When deployment of a `main` commit fails, that SHA is quarantined. The timer will not repeatedly
+When deployment of a commit fails, that SHA is quarantined. The timer will not repeatedly
 retry the same broken commit; it tries again when `main` changes, or after an administrator
 investigates and explicitly clears the quarantine. Scheduled checks that encounter the same
 quarantined SHA exit successfully after reporting the skip, so the original failure remains
 visible without generating a new systemd failure every two minutes.
+
+## The CI gate
+
+Until the `promote` job existed, the timer deployed whatever was on `main`: a direct push, or a
+merge whose CI was red, reached production within about two minutes (threat-model finding F-01).
+GitHub branch protection would be the usual answer, but it is unavailable while the repository is
+private on the free plan, so the gate is built from a branch instead.
+
+- The `promote` job in `.github/workflows/ci.yml` runs on pushes to `main` only, and only after
+  `backend`, `frontend`, `mysql-gate`, `e2e-live` and `tamper-drill` have all passed on that
+  commit. It moves the `deploy` branch to the commit through the GitHub REST API. The branch only
+  moves **forward**: an older run that finishes late cannot pull it back, and a history that has
+  diverged makes the job fail rather than force anything.
+- The timer fetches `main` and `deploy`, and deploys the `deploy` commit. The release command
+  still requires that commit to be reachable from `main`, which it always is.
+- A commit with red CI is simply never promoted, and the next green commit contains it. The
+  price is latency: a merge now reaches staging after CI finishes (about five minutes) plus up to
+  two more for the timer, not after two minutes.
+- Until CI has promoted anything, the timer reports that `deploy` is missing and deploys nothing,
+  without raising a failed unit (fail closed).
+- The timer never walks a release backwards: if a manual `mcs21-deploy all main` put the server
+  ahead of `deploy`, the scheduled check leaves it alone.
+- `sudo mcs21-auto-deploy status` prints `cached_deploy` (what is allowed to ship) next to
+  `cached_main` (what is merged); a difference means CI is still running or is red.
+
+What the gate does **not** do. It does not require a review: anyone with push access can still
+put a commit on `main`, and if it passes CI it will deploy. It does not stop an administrator
+running `sudo mcs21-deploy all main`, which is deliberately kept as the manual escape hatch and
+deploys without CI. And if `main` is ever force-pushed so that `deploy` is no longer an ancestor,
+`promote` fails with "diverged"; repair it by pointing `deploy` at a known-good commit on `main`
+(`gh api --method PATCH repos/jsonrar/fyp-secure-file-platform/git/refs/heads/deploy -f sha=<sha> -F force=true`),
+which needs write access and is an administrator decision.
 
 ## Operations
 
@@ -55,7 +89,7 @@ journalctl -u mcs21-auto-deploy.service --no-pager -n 100
 sudo mcs21-deploy history
 ```
 
-After correcting a transient failure, clear quarantine and retry the current `main` commit:
+After correcting a transient failure, clear quarantine and retry the current CI-passed commit:
 
 ```bash
 sudo mcs21-auto-deploy retry
@@ -90,6 +124,7 @@ sudo systemctl daemon-reload
 sudo systemctl enable --now mcs21-auto-deploy.timer
 ```
 
-Moving to GitHub Actions later requires repository administration, protected deployment
-environment secrets, a mandatory test gate, and an explicitly reviewed credential design.
-Never commit a VPS private key or paste it into a workflow file.
+Having GitHub Actions perform the deployment itself, instead of only marking commits, would
+still require repository administration, protected deployment environment secrets, and an
+explicitly reviewed credential design. Never commit a VPS private key or paste it into a
+workflow file.
