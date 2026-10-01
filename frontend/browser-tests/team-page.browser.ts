@@ -30,14 +30,17 @@ test('the team page shows the supervisor, the four members and the feedback form
 
   const members = page.getByTestId('team-member')
   await expect(members).toHaveCount(4)
-  for (const [name, role] of [
-    ['Shuoxun Wen', 'Project Lead'],
-    ['Jason Huang', 'Backend and APIs'],
-    ['Junyan Li', 'Frontend and Interface'],
-    ['Tai Chen', 'Cryptography'],
+  for (const [name, role, github, email] of [
+    ['Shuoxun Wen', 'Project Lead', 'https://github.com/Waldo0926', 'swen0027@student.monash.edu'],
+    ['Jason Huang', 'Backend and APIs', 'https://github.com/jsonrar', 'jhua0176@student.monash.edu'],
+    ['Junyan Li', 'Frontend and Interface', 'https://github.com/jlii0421', 'jlii0421@student.monash.edu'],
+    ['Tai Chen', 'Cryptography', 'https://github.com/Charter888', 'tche0186@student.monash.edu'],
   ]) {
     const card = members.filter({ hasText: name })
     await expect(card).toContainText(role)
+    await expect(card.getByTestId('member-github')).toHaveAttribute('href', github)
+    await expect(card.getByTestId('member-github')).toHaveAttribute('rel', /noopener/)
+    await expect(card.getByTestId('member-email')).toHaveAttribute('href', `mailto:${email}`)
   }
 })
 

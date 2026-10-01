@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpRight, Bug, Lightbulb, MessageSquare, Send } from 'lucide-vue-next'
+import { ArrowUpRight, Bug, Github, Lightbulb, Mail, MessageSquare, Send } from 'lucide-vue-next'
 import { ref } from 'vue'
 import asadPhoto from '@/assets/people/asad-malik.jpg'
 
@@ -28,6 +28,9 @@ interface TeamMember {
   initials: string
   role: string
   focus: string
+  /** Profile URL and the handle shown for it. */
+  github: { url: string; handle: string }
+  email: string
   /** Tailwind classes, spelled out in full so the compiler can see them. */
   pill: string
   avatar: string
@@ -39,6 +42,8 @@ const members: TeamMember[] = [
     initials: 'SW',
     role: 'Project Lead',
     focus: 'Backlog, server and deployment, MySQL, testing and documentation',
+    github: { url: 'https://github.com/Waldo0926', handle: 'Waldo0926' },
+    email: 'swen0027@student.monash.edu',
     pill: 'bg-amber-600 text-white',
     avatar: 'bg-amber-500/15 text-amber-700 ring-amber-500/30 dark:text-amber-300',
   },
@@ -47,6 +52,8 @@ const members: TeamMember[] = [
     initials: 'JH',
     role: 'Backend and APIs',
     focus: 'FastAPI services, authentication, sharing and audit endpoints',
+    github: { url: 'https://github.com/jsonrar', handle: 'jsonrar' },
+    email: 'jhua0176@student.monash.edu',
     pill: 'bg-blue-600 text-white',
     avatar: 'bg-blue-500/15 text-blue-700 ring-blue-500/30 dark:text-blue-300',
   },
@@ -55,6 +62,8 @@ const members: TeamMember[] = [
     initials: 'JL',
     role: 'Frontend and Interface',
     focus: 'Vue pages, product journeys, Education and Help content',
+    github: { url: 'https://github.com/jlii0421', handle: 'jlii0421' },
+    email: 'jlii0421@student.monash.edu',
     pill: 'bg-emerald-600 text-white',
     avatar: 'bg-emerald-500/15 text-emerald-700 ring-emerald-500/30 dark:text-emerald-300',
   },
@@ -63,6 +72,8 @@ const members: TeamMember[] = [
     initials: 'TC',
     role: 'Cryptography',
     focus: 'Browser encryption, file envelope, key wrapping and test vectors',
+    github: { url: 'https://github.com/Charter888', handle: 'Charter888' },
+    email: 'tche0186@student.monash.edu',
     pill: 'bg-violet-600 text-white',
     avatar: 'bg-violet-500/15 text-violet-700 ring-violet-500/30 dark:text-violet-300',
   },
@@ -267,7 +278,7 @@ const fieldClass =
           Four builders, one encrypted collaboration platform: each member owns an area, and every area is reviewed by the others.
         </p>
 
-        <ul class="mt-8 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+        <ul class="mt-8 grid gap-4 sm:grid-cols-2">
           <li
             v-for="member in members"
             :key="member.name"
@@ -285,7 +296,30 @@ const fieldClass =
             <span class="mt-2 inline-flex w-fit rounded-full px-3 py-1 text-xs font-semibold uppercase tracking-wide" :class="member.pill">
               {{ member.role }}
             </span>
-            <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{{ member.focus }}</p>
+            <p class="mt-3 flex-1 text-sm leading-relaxed text-muted-foreground">{{ member.focus }}</p>
+
+            <div class="mt-5 space-y-1 border-t border-border pt-4 text-sm">
+              <a
+                :href="member.github.url"
+                target="_blank"
+                rel="noopener noreferrer"
+                class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-foreground transition-colors hover:bg-secondary hover:text-primary"
+                :aria-label="`${member.name} on GitHub`"
+                data-testid="member-github"
+              >
+                <Github class="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span class="min-w-0 [overflow-wrap:anywhere]">@{{ member.github.handle }}</span>
+              </a>
+              <a
+                :href="`mailto:${member.email}`"
+                class="flex min-h-10 items-center gap-2 rounded-lg px-2 text-foreground transition-colors hover:bg-secondary hover:text-primary"
+                :aria-label="`Email ${member.name}`"
+                data-testid="member-email"
+              >
+                <Mail class="h-4 w-4 shrink-0 text-muted-foreground" />
+                <span class="min-w-0 [overflow-wrap:anywhere]">{{ member.email }}</span>
+              </a>
+            </div>
           </li>
         </ul>
       </div>
