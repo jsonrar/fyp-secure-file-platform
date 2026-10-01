@@ -42,7 +42,7 @@ const members: TeamMember[] = [
     role: 'Project supervisor',
     icon: GraduationCap,
     initials: 'AM',
-    bio: 'Lecturer and Cybersecurity Group Leader, Malaysia School of Information Technology, Monash University Malaysia.',
+    bio: 'Lecturer and Cybersecurity Group Leader, School of Information Technology, Monash University Malaysia.',
     detail:
       'Guides SecureView on scope, technical direction and evaluation, so the team keeps a coherent security architecture, realistic milestones and a platform that stands up to review.',
     accent: 'from-amber-500/20 via-transparent to-amber-500/5',
@@ -51,7 +51,7 @@ const members: TeamMember[] = [
     tileRot: '-0.6deg',
     photo: asadPhoto,
     title: 'Lecturer and Cybersecurity Group Leader',
-    affiliation: 'Malaysia School of Information Technology, Monash University Malaysia',
+    affiliation: 'School of Information Technology, Monash University Malaysia',
     interests: ['Cybersecurity', 'Multimedia forensics', 'DeepFake detection', 'Trustworthy AI'],
     profileUrl: SUPERVISOR_PROFILE_URL,
   },

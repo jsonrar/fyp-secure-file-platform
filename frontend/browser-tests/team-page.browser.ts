@@ -17,7 +17,7 @@ test('the team page shows the supervisor, the four members and the feedback form
   const supervisor = page.getByTestId('team-supervisor')
   await expect(supervisor.getByRole('heading', { name: 'Dr. Asad Malik' })).toBeVisible()
   await expect(supervisor).toContainText('Cybersecurity Group Leader')
-  await expect(supervisor).toContainText('Malaysia School of Information Technology')
+  await expect(supervisor).toContainText('School of Information Technology')
   const link = supervisor.getByTestId('supervisor-profile-link')
   await expect(link).toHaveAttribute('href', PROFILE)
   await expect(link).toHaveAttribute('rel', /noopener/)
