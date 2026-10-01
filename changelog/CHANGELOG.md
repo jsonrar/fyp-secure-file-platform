@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Admin overview: failed checks, events and failures were capped at 1 / 管理员概览：失败检查、事件与失败数被限制为 1
+
+- The Overview tab's "Failed, 24 hours" (integrity), "Events, 24 hours" and "Failed, 24 hours" (audit) showed at most 1 however many there were. They summed a comparison (`SUM(result <> 'VALID')`), which SQLAlchemy types as Boolean, so the driver's answer went through `bool()` and any total above zero came back as 1. On the local test database with 7 failed checks, 45 events and 8 failures in the window, it reported 1, 1 and 1. They now sum a `CASE`, which is an integer. The tests that should have caught it started from an empty database, where 0 and 1 are both right; a new MySQL test compares every figure with a plain `COUNT(*)` and a unit test pins the `CASE`.
+- 概览页的 “Failed, 24 hours”（完整性）、“Events, 24 hours” 与 “Failed, 24 hours”（审计）无论实际多少都最多显示 1。它们对一个比较表达式求和（`SUM(result <> 'VALID')`），SQLAlchemy 把它当作 Boolean，驱动返回的结果会经过 `bool()`，任何大于 0 的总数都变成 1。在本地测试库里窗口内实际有 7 次失败检查、45 个事件、8 次失败时，它报告的是 1、1、1。现在改为对 `CASE` 求和，得到整数。本应抓住它的测试都从空数据库开始，此时 0 和 1 都正确；新的 MySQL 测试把每个数字与普通 `COUNT(*)` 比较，单元测试固定使用 `CASE`。
+
 ### Integrity and recovery: find a modified file, then put the original back / 完整性与恢复：发现被修改的文件，并把原件找回来
 
 - Until now a modified stored file was only noticed when someone downloaded it or clicked the integrity check, and there was no way to recover it short of restoring the whole service. Now a daily sweep (`scripts/integrity_sweep.py`, `mcs21-integrity-sweep.timer`) hashes every stored object, records the findings and exits non-zero so the failure alert fires; Admin gets an **Integrity** tab listing damaged files, how much of the store has been checked and a "Scan now" button.
