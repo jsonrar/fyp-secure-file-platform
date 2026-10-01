@@ -222,8 +222,8 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
 - [ ] [#76 Fix mobile and narrow-viewport usability across product flows](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
   — repair narrow-screen layout and interaction regressions across public, account, and file
   flows, with repeatable mobile browser evidence. **Mostly done, not closeable yet.** An
-  automated audit of 23 screens at 360 and 320 px found horizontal scrolling on three pages
-  (education, registration, forgot-password at 320 px, upload at 320 px), a My Files table that
+  automated audit of 23 screens at 360 and 320 px found horizontal scrolling on four pages
+  (education; registration, forgot-password and upload at 320 px), a My Files table that
   pushed its actions off a phone screen, 9–20 px footer links and dozens of other undersized
   targets; those are fixed (My Files is a card list below 768 px, every flagged target is at
   least 40 px, dialogs wrap long file names and fit the screen) and covered by three Chromium specs
