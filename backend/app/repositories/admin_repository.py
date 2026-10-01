@@ -3,7 +3,7 @@ from __future__ import annotations
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.orm import Session
 
 from app.domain.enums import SystemRole
@@ -141,6 +141,60 @@ class AdminRepository:
         return [
             (action, result, created_at, username) for action, result, created_at, username in rows
         ]
+
+    # --- integrity report -------------------------------------------------------------------
+
+    def damaged_files(self, *, limit: int) -> list[tuple[File, User, IntegrityCheck | None]]:
+        """Files marked CORRUPTED, or whose newest check could not read the object.
+
+        A MISSING or ERROR finding does not change `files.status` (see IntegrityService),
+        so the newest check is part of the answer, not just the status column.
+        """
+        newest = (
+            select(func.max(IntegrityCheck.id))
+            .where(IntegrityCheck.file_id == File.id)
+            .correlate(File)
+            .scalar_subquery()
+        )
+        rows = self.db.execute(
+            select(File, User, IntegrityCheck)
+            .join(User, User.id == File.owner_id)
+            .outerjoin(IntegrityCheck, IntegrityCheck.id == newest)
+            .where(
+                File.status != "DELETED",
+                or_(
+                    File.status == "CORRUPTED",
+                    IntegrityCheck.result.in_(("MODIFIED", "MISSING", "ERROR")),
+                ),
+            )
+            .order_by(File.updated_at.desc(), File.id.desc())
+            .limit(limit)
+        )
+        return [row._tuple() for row in rows]
+
+    def integrity_coverage(self, since: datetime) -> tuple[int, int, int, datetime | None]:
+        """(files that can be checked, never checked, checked since the cutoff, last sweep)."""
+        candidates = self._count(
+            select(func.count()).select_from(File).where(File.status.in_(("ACTIVE", "CORRUPTED")))
+        )
+        checked_ever = self._count(
+            select(func.count(func.distinct(IntegrityCheck.file_id)))
+            .select_from(IntegrityCheck)
+            .join(File, File.id == IntegrityCheck.file_id)
+            .where(File.status.in_(("ACTIVE", "CORRUPTED")))
+        )
+        checked_recently = self._count(
+            select(func.count(func.distinct(IntegrityCheck.file_id)))
+            .select_from(IntegrityCheck)
+            .join(File, File.id == IntegrityCheck.file_id)
+            .where(File.status.in_(("ACTIVE", "CORRUPTED")), IntegrityCheck.created_at >= since)
+        )
+        last_sweep = self.db.scalar(
+            select(func.max(AuditLog.created_at)).where(
+                AuditLog.action == "INTEGRITY_SWEEP_COMPLETED"
+            )
+        )
+        return candidates, max(candidates - checked_ever, 0), checked_recently, last_sweep
 
     def _count(self, statement) -> int:
         return int(self.db.scalar(statement) or 0)
