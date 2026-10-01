@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Access Records: say that a file can be opened for its history / 访问记录：提示文件可以点开查看历史
+
+- The Access Records page showed each file as a card but gave no sign that the card opens a full history, so the detail most people came for (who uploaded, shared or downloaded a file, and when) stayed hidden behind a click nobody knew to make. A line above the list now says "Select a file below to open its full access history: who uploaded, shared or downloaded it, and when", and each card ends in a **View history** / **Hide history** control with a chevron (the chevron alone on a narrow screen), exposed to assistive technology through `aria-expanded`. The card was already a button; it now looks like one.
+- 访问记录页把每个文件显示为一张卡片，却没有任何迹象表明卡片可以点开查看完整历史，所以大多数人最想看的内容（谁上传、分享或下载了文件，以及时间）一直藏在一个没人知道要点的地方。列表上方现在有一行提示：“Select a file below to open its full access history: who uploaded, shared or downloaded it, and when”，每张卡片末尾有 **View history** / **Hide history** 控件和箭头（窄屏上只显示箭头），并通过 `aria-expanded` 暴露给辅助技术。这张卡片本来就是一个按钮，现在它看起来也像按钮了。
+
 ### Dialogs that fit long file names, and "No folder" instead of "Unfiled" / 弹框适配长文件名，以及用 “No folder” 取代 “Unfiled”
 
 - A file with a long name and no spaces ran straight out of the Request file recovery dialog, because a browser has nowhere to break an unbroken string. Every dialog that prints a file name (recovery request, share, access history, confirm-delete and confirm-revoke) now wraps it anywhere, and each dialog panel is capped at 90 % of the viewport height and scrolls inside itself, so tall content cannot run off a small screen either. Checked in Chromium with a 112-character name at desktop and phone width: the name stays inside the dialog at both.
