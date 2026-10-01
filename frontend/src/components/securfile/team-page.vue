@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUpRight, Bug, Code, Github, GraduationCap, Lightbulb, LockKeyhole, Mail, MessageSquare, Palette, Send, Server, X } from 'lucide-vue-next'
+import { ArrowUpRight, Bug, Code, Github, GraduationCap, Lightbulb, LockKeyhole, Mail, Maximize2, MessageSquare, Palette, Send, Server, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import asadPhoto from '@/assets/people/asad-malik.jpg'
@@ -148,56 +148,16 @@ function resetFeedback() {
 const fieldClass =
   'h-11 w-full rounded-xl border border-border bg-background px-4 text-sm text-foreground outline-none transition-colors placeholder:text-muted-foreground focus:border-primary'
 
-const HOVER_OPEN_MS = 2000
-const hoveredId = ref<string | null>(null)
-const pinnedId = ref<string | null>(null)
-let openTimer = 0
-let closeTimer = 0
-
-const activeId = computed(() => pinnedId.value ?? hoveredId.value)
+/** Which profile is enlarged. Opened by a click, tap or Enter, closed by Esc, the X or a click outside. */
+const activeId = ref<string | null>(null)
 const activeMember = computed(() => members.find((m) => m.name === activeId.value) ?? null)
 
-function cancelOpen() {
-  window.clearTimeout(openTimer)
-  openTimer = 0
-}
-
-function cancelClose() {
-  window.clearTimeout(closeTimer)
-  closeTimer = 0
-}
-
-function scheduleOpen(name: string) {
-  cancelClose()
-  cancelOpen()
-  if (activeId.value === name) return
-  openTimer = window.setTimeout(() => {
-    hoveredId.value = name
-    openTimer = 0
-  }, HOVER_OPEN_MS)
-}
-
-function scheduleClose() {
-  cancelOpen()
-  if (pinnedId.value) return
-  cancelClose()
-  closeTimer = window.setTimeout(() => {
-    hoveredId.value = null
-  }, 140)
-}
-
-function togglePin(name: string) {
-  cancelOpen()
-  cancelClose()
-  pinnedId.value = pinnedId.value === name ? null : name
-  hoveredId.value = pinnedId.value
+function openProfile(name: string) {
+  activeId.value = name
 }
 
 function dismissOverlay() {
-  cancelOpen()
-  cancelClose()
-  pinnedId.value = null
-  hoveredId.value = null
+  activeId.value = null
 }
 
 function onKeydown(event: KeyboardEvent) {
@@ -210,8 +170,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   window.removeEventListener('keydown', onKeydown)
-  cancelOpen()
-  cancelClose()
 })
 </script>
 
@@ -333,22 +291,18 @@ onBeforeUnmount(() => {
           v-for="group in groups"
           :key="group.key"
           :class="group.class"
-          @mouseleave="scheduleClose"
         >
           <article
             v-for="member in group.items"
             :key="member.name"
             class="team-tile group"
             :data-testid="member.profileUrl ? 'team-supervisor' : 'team-member'"
-            :class="{ 'team-tile-active': activeId === member.name }"
             tabindex="0"
-            :aria-expanded="activeId === member.name"
-            @mouseenter="scheduleOpen(member.name)"
-            @focusin="scheduleOpen(member.name)"
-            @focusout="scheduleClose"
-            @click="togglePin(member.name)"
-            @keydown.enter.prevent="togglePin(member.name)"
-            @keydown.space.prevent="togglePin(member.name)"
+            :aria-label="`${member.name}: open the full profile`"
+            aria-haspopup="dialog"
+            @click="openProfile(member.name)"
+            @keydown.enter.prevent="openProfile(member.name)"
+            @keydown.space.prevent="openProfile(member.name)"
           >
             <div class="team-tile__frame" :class="`bg-gradient-to-br ${member.accent}`">
               <div class="team-tile__split" :class="{ 'team-tile__split--supervisor': member.profileUrl }">
@@ -392,10 +346,8 @@ onBeforeUnmount(() => {
                     </ul>
                   </template>
                   <template v-else>
-                    <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Intro</p>
-                    <p class="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
-                      {{ member.bio }}
-                    </p>
+                    <p class="text-base font-semibold leading-snug text-foreground">{{ member.bio }}</p>
+                    <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{{ member.detail }}</p>
                   </template>
 
                   <div class="team-links" @click.stop @keydown.enter.stop @keydown.space.stop>
@@ -433,8 +385,9 @@ onBeforeUnmount(() => {
                       </a>
                     </template>
                   </div>
-                  <p class="mt-3 text-xs text-primary/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                    Hold 2s to enlarge
+                  <p class="team-hint">
+                    <Maximize2 class="h-3.5 w-3.5" aria-hidden="true" />
+                    Click or tap to enlarge
                   </p>
                 </div>
               </div>
@@ -452,8 +405,6 @@ onBeforeUnmount(() => {
           role="dialog"
           aria-modal="true"
           :aria-label="`${activeMember.name} profile`"
-          @mouseenter="cancelClose"
-          @mouseleave="scheduleClose"
           @click.self="dismissOverlay"
         >
           <div class="team-popup" :class="activeMember.stickerTone">
@@ -559,8 +510,7 @@ onBeforeUnmount(() => {
 }
 
 .team-tile:hover,
-.team-tile:focus-within,
-.team-tile-active {
+.team-tile:focus-visible {
   z-index: 3;
   transform: translateY(-4px) scale(1.015);
 }
@@ -578,7 +528,7 @@ onBeforeUnmount(() => {
 }
 
 .team-tile:hover .team-tile__frame,
-.team-tile-active .team-tile__frame {
+.team-tile:focus-visible .team-tile__frame {
   border-color: color-mix(in oklab, var(--primary) 42%, var(--border));
   box-shadow: 0 26px 56px color-mix(in oklab, var(--foreground) 12%, transparent);
 }
@@ -626,7 +576,7 @@ onBeforeUnmount(() => {
 }
 
 .team-tile:hover .team-sticker,
-.team-tile-active .team-sticker {
+.team-tile:focus-visible .team-sticker {
   transform: rotate(0deg) scale(1.04);
 }
 
@@ -743,6 +693,15 @@ onBeforeUnmount(() => {
 .team-link:hover {
   background: var(--secondary);
   color: var(--primary);
+}
+
+.team-hint {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+  margin-top: 0.5rem;
+  font-size: 0.75rem;
+  color: color-mix(in oklab, var(--primary) 85%, var(--foreground));
 }
 
 .team-links--popup {

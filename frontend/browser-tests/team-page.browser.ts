@@ -45,6 +45,14 @@ test('the team page shows the supervisor, the four members and the feedback form
     }),
   )
   for (const size of sizes) expect(size).toEqual(sizes[0])
+
+  // The detail is on the tile itself, and the way to the large profile is stated, not discovered.
+  await expect(members.first()).toContainText('Click or tap to enlarge')
+  await expect(members.first()).toContainText('Runs the backlog and the release process')
+  await members.first().click({ position: { x: 20, y: 20 } })
+  await expect(page.getByRole('dialog')).toBeVisible()
+  await page.keyboard.press('Escape')
+  await expect(page.getByRole('dialog')).toHaveCount(0)
   for (const [name, role, github, email] of [
     ['Shuoxun Wen', 'Project Lead', 'https://github.com/Waldo0926', 'swen0027@student.monash.edu'],
     ['Jason Huang', 'Backend and APIs', 'https://github.com/jsonrar', 'jhua0176@student.monash.edu'],
