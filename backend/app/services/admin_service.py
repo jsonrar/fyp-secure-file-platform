@@ -129,15 +129,15 @@ class AdminService:
             ),
             damaged=[
                 AdminDamagedFileOut(
-                    file_id=UUID(file.file_uuid),
-                    owner_username=owner.username,
-                    original_filename=file.original_filename,
-                    status=file.status,
-                    last_result=check.result if check is not None else None,
-                    last_message=check.message if check is not None else None,
-                    last_checked_at=to_api_utc(check.created_at) if check is not None else None,
+                    file_id=UUID(row.file_uuid),
+                    owner_username=row.owner_username,
+                    original_filename=row.original_filename,
+                    status=row.status,
+                    last_result=row.last_result,
+                    last_message=row.last_message,
+                    last_checked_at=to_api_utc(row.last_checked_at),
                 )
-                for file, owner, check in rows[:limit]
+                for row in rows[:limit]
             ],
             has_more=len(rows) > limit,
         )

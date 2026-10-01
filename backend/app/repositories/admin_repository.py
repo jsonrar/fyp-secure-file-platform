@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
@@ -13,6 +14,17 @@ from app.models.file_access_grant import FileAccessGrant
 from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_request import RecoveryRequest
 from app.models.user import User
+
+
+@dataclass(frozen=True, slots=True)
+class DamagedFileRow:
+    file_uuid: str
+    original_filename: str
+    status: str
+    owner_username: str
+    last_result: str | None
+    last_message: str | None
+    last_checked_at: datetime | None
 
 
 class AdminRepository:
@@ -144,11 +156,12 @@ class AdminRepository:
 
     # --- integrity report -------------------------------------------------------------------
 
-    def damaged_files(self, *, limit: int) -> list[tuple[File, User, IntegrityCheck | None]]:
+    def damaged_files(self, *, limit: int) -> list[DamagedFileRow]:
         """Files marked CORRUPTED, or whose newest check could not read the object.
 
         A MISSING or ERROR finding does not change `files.status` (see IntegrityService),
-        so the newest check is part of the answer, not just the status column.
+        so the newest check is part of the answer, not just the status column. Only the
+        columns the report shows are selected: no key, nonce or password hash is loaded.
         """
         newest = (
             select(func.max(IntegrityCheck.id))
@@ -157,7 +170,15 @@ class AdminRepository:
             .scalar_subquery()
         )
         rows = self.db.execute(
-            select(File, User, IntegrityCheck)
+            select(
+                File.file_uuid,
+                File.original_filename,
+                File.status,
+                User.username,
+                IntegrityCheck.result,
+                IntegrityCheck.message,
+                IntegrityCheck.created_at,
+            )
             .join(User, User.id == File.owner_id)
             .outerjoin(IntegrityCheck, IntegrityCheck.id == newest)
             .where(
@@ -170,7 +191,7 @@ class AdminRepository:
             .order_by(File.updated_at.desc(), File.id.desc())
             .limit(limit)
         )
-        return [row._tuple() for row in rows]
+        return [DamagedFileRow(*row) for row in rows]
 
     def integrity_coverage(self, since: datetime) -> tuple[int, int, int, datetime | None]:
         """(files that can be checked, never checked, checked since the cutoff, last sweep)."""

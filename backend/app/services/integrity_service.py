@@ -259,36 +259,9 @@ class IntegrityService:
             if budget_seconds is not None and monotonic() - started >= budget_seconds:
                 summary.stopped_early = True
                 break
-            result, actual, message = self._verify_stored(file_record)
-            checked_at = self._now()
-            try:
-                self.repository.add_integrity_check(
-                    IntegrityCheck(
-                        file_id=file_record.id,
-                        checked_by=actor_user_id,
-                        expected_hash=file_record.encrypted_sha256,
-                        actual_hash=actual,
-                        result=result,
-                        message=message,
-                        created_at=checked_at,
-                    )
-                )
-                self._apply_status(file_record, result, checked_at)
-                if result != "VALID":
-                    self.audit.append(
-                        action="FILE_INTEGRITY_CHECKED",
-                        result="FAIL",
-                        actor_user_id=actor_user_id,
-                        resource_type="INTEGRITY",
-                        resource_id=file_record.file_uuid,
-                        context_ip_address=context.ip_address,
-                        context_user_agent=context.user_agent,
-                        metadata={"integrity_result": result, "source": "sweep"},
-                    )
-                self.db.commit()
-            except Exception:
-                self.db.rollback()
-                raise
+            result = self.verify_and_record(
+                file_record, actor_user_id=actor_user_id, context=context, source="sweep"
+            )
             summary.scanned += 1
             if result == "VALID":
                 summary.valid += 1
@@ -318,6 +291,51 @@ class IntegrityService:
             self.db.rollback()
             raise
         return summary
+
+    def verify_and_record(
+        self,
+        file_record: File,
+        *,
+        actor_user_id: int | None,
+        context: RequestContext,
+        source: str,
+    ) -> str:
+        """Verify one stored object, record the finding and commit; returns the result.
+
+        Used by the sweep and by the file-restore script, so a restored object is judged by
+        exactly the rule that condemned it and a healed file leaves a VALID check behind.
+        """
+        result, actual, message = self._verify_stored(file_record)
+        checked_at = self._now()
+        try:
+            self.repository.add_integrity_check(
+                IntegrityCheck(
+                    file_id=file_record.id,
+                    checked_by=actor_user_id,
+                    expected_hash=file_record.encrypted_sha256,
+                    actual_hash=actual,
+                    result=result,
+                    message=message,
+                    created_at=checked_at,
+                )
+            )
+            self._apply_status(file_record, result, checked_at)
+            if result != "VALID":
+                self.audit.append(
+                    action="FILE_INTEGRITY_CHECKED",
+                    result="FAIL",
+                    actor_user_id=actor_user_id,
+                    resource_type="INTEGRITY",
+                    resource_id=file_record.file_uuid,
+                    context_ip_address=context.ip_address,
+                    context_user_agent=context.user_agent,
+                    metadata={"integrity_result": result, "source": source},
+                )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        return result
 
     def _verify_stored(self, file_record: File) -> tuple[str, str | None, str | None]:
         """(result, actual digest, message) for one stored object, never raising on storage."""

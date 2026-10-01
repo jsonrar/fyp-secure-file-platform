@@ -73,6 +73,16 @@ def test_admin_stats_reject_authenticated_non_admin_before_service(
     assert response.headers["cache-control"] == "no-store, no-cache, must-revalidate"
 
 
+def test_admin_integrity_routes_reject_authenticated_non_admin_before_service(
+    protected_api: TestClient,
+) -> None:
+    for method, path in (("get", "/api/v1/admin/integrity"), ("post", "/api/v1/admin/integrity/scan")):
+        response = getattr(protected_api, method)(path)
+
+        assert response.status_code == 403, path
+        assert response.json()["data"]["error_code"] == "access_denied"
+
+
 def test_share_contract_rejects_plaintext_private_key_without_echoing_it(
     protected_api: TestClient,
 ) -> None:
