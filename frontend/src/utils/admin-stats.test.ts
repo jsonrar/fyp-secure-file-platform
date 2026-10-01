@@ -39,9 +39,29 @@ describe('attentionItems', () => {
     const items = attentionItems(stats)
 
     expect(items).toEqual([
-      { id: 'pending-recovery', severity: 'notice', message: '1 recovery request awaiting review.' },
-      { id: 'audit-failures', severity: 'notice', message: '6 failed or blocked events in the last 24 hours.' },
+      {
+        id: 'pending-recovery',
+        severity: 'notice',
+        message: '1 recovery request awaiting review.',
+        tab: 'recovery',
+        action: 'Review requests',
+      },
+      {
+        id: 'audit-failures',
+        severity: 'notice',
+        message: '6 failed or blocked events in the last 24 hours.',
+        tab: 'agent',
+        action: 'Ask the security agent',
+      },
     ])
+  })
+
+  it('links every item to the section that resolves it', () => {
+    const stats = healthy()
+    stats.files.corrupted = 1
+    stats.integrity.failed_checks_last_24_hours = 1
+
+    expect(attentionItems(stats).map((item) => item.tab)).toEqual(['integrity', 'integrity'])
   })
 })
 

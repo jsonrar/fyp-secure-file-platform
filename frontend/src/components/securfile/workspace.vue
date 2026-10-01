@@ -72,11 +72,11 @@ const destinations = computed(() => {
     {
       to: '/admin',
       icon: LifeBuoy,
-      title: 'Operations',
+      title: auth.isAdmin ? 'Admin console' : auth.isRecoveryReviewer ? 'Recovery review' : 'Recovery requests',
       body: auth.isRecoveryReviewer
         ? 'Review recovery requests, manage users and files, verify the audit hash chain, and register the recovery public key.'
         : 'Track your recovery requests, or cancel one that is no longer needed.',
-      cta: 'Open operations',
+      cta: auth.isRecoveryReviewer ? 'Open console' : 'View requests',
     },
   ]
   return items

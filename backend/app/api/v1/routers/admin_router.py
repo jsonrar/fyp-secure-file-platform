@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from typing import Annotated
+from typing import Annotated, Literal
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, Query
@@ -43,8 +43,12 @@ def list_users(
     service: AdminServiceDependency,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,
+    status: Annotated[
+        Literal["ACTIVE", "DISABLED", "DELETED", "CURRENT"] | None,
+        Query(description="One status, or CURRENT for everything not deleted. Omit for all."),
+    ] = None,
 ) -> JSONResponse:
-    rows = service.list_users(actor=actor, limit=limit, offset=offset)
+    rows = service.list_users(actor=actor, limit=limit, offset=offset, status=status)
     data = AdminUserListResponse(
         users=[
             AdminUserOut(
@@ -122,8 +126,12 @@ def list_all_files(
     service: AdminServiceDependency,
     limit: Annotated[int, Query(ge=1, le=100)] = 50,
     offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,
+    status: Annotated[
+        Literal["ACTIVE", "CORRUPTED", "DELETED", "CURRENT"] | None,
+        Query(description="One status, or CURRENT for everything not deleted. Omit for all."),
+    ] = None,
 ) -> JSONResponse:
-    rows = service.list_files(actor=actor, limit=limit, offset=offset)
+    rows = service.list_files(actor=actor, limit=limit, offset=offset, status=status)
     data = AdminFileListResponse(
         files=[
             AdminFileOut(

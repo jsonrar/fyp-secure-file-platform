@@ -549,7 +549,8 @@ const closeShare = () => {
 }
 
 const onRecoveryRequested = () => {
-  actionMessage.value = 'Recovery request submitted. Track it under Operations (/admin).'
+  actionMessage.value =
+    'Recovery request submitted. Track it under Recovery requests in your account menu (/admin).'
 }
 
 const onShared = (username: string) => {

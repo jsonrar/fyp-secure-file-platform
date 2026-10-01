@@ -743,3 +743,40 @@ def test_file_audit_returns_complete_trail_only_after_live_access_check() -> Non
             file_id=FILE_ID,
         )
     assert denied_repository.list_calls == []
+
+
+def test_admin_list_status_filters_compile_to_the_right_where_clauses() -> None:
+    from sqlalchemy.dialects import mysql
+
+    from app.repositories.admin_repository import AdminRepository
+
+    statements: list[str] = []
+
+    class _Db:
+        def _sql(self, statement) -> str:
+            sql = str(
+                statement.compile(dialect=mysql.dialect(), compile_kwargs={"literal_binds": True})
+            )
+            statements.append(sql)
+            return sql
+
+        def scalars(self, statement):
+            self._sql(statement)
+            return []
+
+        def execute(self, statement):
+            self._sql(statement)
+            return []
+
+    repository = AdminRepository(_Db())  # type: ignore[arg-type]
+    repository.list_users(limit=5, offset=0, status="CURRENT")
+    repository.list_users(limit=5, offset=0, status="DISABLED")
+    repository.list_users(limit=5, offset=0)
+    repository.list_files(limit=5, offset=0, status="CURRENT")
+    repository.list_files(limit=5, offset=0, status="CORRUPTED")
+
+    assert "users.status != 'DELETED'" in statements[0]
+    assert "users.status = 'DISABLED'" in statements[1]
+    assert "WHERE" not in statements[2]
+    assert "files.status != 'DELETED'" in statements[3]
+    assert "files.status = 'CORRUPTED'" in statements[4]

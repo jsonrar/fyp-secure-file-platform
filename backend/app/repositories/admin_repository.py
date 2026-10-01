@@ -7,7 +7,7 @@ from uuid import UUID
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from app.domain.enums import SystemRole
+from app.domain.enums import SystemRole, UserStatus
 from app.models.audit_log import AuditLog
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
@@ -38,27 +38,39 @@ def _count_where(condition):
     return func.coalesce(func.sum(case((condition, 1), else_=0)), 0)
 
 
+# A list filter meaning "everything that has not been deleted": deleted accounts and files are
+# kept as tombstones, and on a busy platform they outnumber the live ones.
+CURRENT = "CURRENT"
+
+
 class AdminRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
 
-    def list_users(self, *, limit: int, offset: int) -> list[User]:
+    def list_users(self, *, limit: int, offset: int, status: str | None = None) -> list[User]:
+        statement = select(User)
+        if status == CURRENT:
+            statement = statement.where(User.status != UserStatus.DELETED)
+        elif status is not None:
+            statement = statement.where(User.status == status)
         return list(
             self.db.scalars(
-                select(User)
-                .order_by(User.created_at.desc(), User.id.desc())
+                statement.order_by(User.created_at.desc(), User.id.desc())
                 .offset(offset)
                 .limit(limit)
             )
         )
 
-    def list_files(self, *, limit: int, offset: int) -> list[tuple[File, User]]:
+    def list_files(
+        self, *, limit: int, offset: int, status: str | None = None
+    ) -> list[tuple[File, User]]:
+        statement = select(File, User).join(User, User.id == File.owner_id)
+        if status == CURRENT:
+            statement = statement.where(File.status != "DELETED")
+        elif status is not None:
+            statement = statement.where(File.status == status)
         rows = self.db.execute(
-            select(File, User)
-            .join(User, User.id == File.owner_id)
-            .order_by(File.created_at.desc(), File.id.desc())
-            .offset(offset)
-            .limit(limit)
+            statement.order_by(File.created_at.desc(), File.id.desc()).offset(offset).limit(limit)
         )
         return [row._tuple() for row in rows]
 
