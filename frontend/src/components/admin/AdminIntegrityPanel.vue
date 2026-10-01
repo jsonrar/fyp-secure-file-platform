@@ -114,8 +114,8 @@ const coverage = computed(() => report.value?.coverage ?? null)
       <p class="mb-5 text-sm text-muted-foreground" data-testid="integrity-last-sweep">
         <template v-if="coverage.last_sweep_at">Last scan: {{ asOf(coverage.last_sweep_at) }}.</template>
         <template v-else>
-          No scan has run yet. Use “Scan now”, and install the daily timer so tampering with a file
-          nobody opens is still found.
+          No scan has been recorded yet. Use “Scan now”. The server also scans every day and records
+          each run here, so tampering with a file nobody opens is still found.
         </template>
       </p>
 
