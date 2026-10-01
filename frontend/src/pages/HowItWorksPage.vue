@@ -135,7 +135,8 @@ const steps = [
           <p>
             <span class="font-semibold">Two secrets, two jobs.</span> Your <em>password</em> signs you in and
             can be reset by email. Your <em>encryption passphrase</em> opens your files; we never see it and
-            cannot reset it. Keep the private key file you download at sign-up somewhere safe.
+            cannot reset it for you. The private key file you download at sign-up lets you set a new one
+            yourself, so keep it somewhere safe. Lose both, and the files cannot be recovered by anyone.
           </p>
         </div>
 

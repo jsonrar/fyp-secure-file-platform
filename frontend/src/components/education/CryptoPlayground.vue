@@ -223,6 +223,7 @@ watch(mode, (m) => {
         </template>
         <template v-else-if="mode === 'aes'">
           <strong class="text-foreground">AES-256-GCM</strong> derives a 256-bit key from your password with PBKDF2, then encrypts the text. This is real browser cryptography.
+          (SecureView itself never turns a password into a file key: every file gets a random key, and your passphrase, stretched with Argon2id, only opens your private key.)
         </template>
         <template v-else>
           <strong class="text-foreground">RSA</strong> encrypts with the public key <code class="text-foreground">(n={{ RSA_DEMO.n }}, e={{ RSA_DEMO.e }})</code> and decrypts with the private key <code class="text-foreground">d={{ RSA_DEMO.d }}</code>. Tiny demo primes — for learning only.

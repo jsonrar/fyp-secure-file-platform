@@ -23,15 +23,16 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-// Signed out, the first link is the explainer: "Product" used to point at /upload, which only
-// redirects a visitor to sign in, so a newcomer had no way to learn what the product does first.
-// Signed in, the three authenticated pages get their own links: /files and /audit-logs existed
-// but were reachable only by typing the URL, so managing or sharing an already-uploaded file had
-// no entry point at all.
+// Signed out: what it is (Product, the feature overview on the home page), how it works, how to
+// use it (Help), the background (Education), then Contact us. "Product" used to point at /upload,
+// which only redirects a visitor to sign in. Signed in, the three authenticated pages get their own
+// links: /files and /audit-logs existed but were reachable only by typing the URL, so managing or
+// sharing an already-uploaded file had no entry point at all.
 const guestLinks = [
+  { to: '/#features', label: 'Product', match: [] as string[] },
   { to: '/how-it-works', label: 'How it works', match: ['/how-it-works'] },
-  { to: '/education', label: 'Education', match: ['/education'] },
   { to: '/help', label: 'Help', match: ['/help'] },
+  { to: '/education', label: 'Education', match: ['/education'] },
   { to: '/team', label: 'Contact us', match: ['/team'] },
 ]
 
@@ -39,8 +40,8 @@ const authedLinks = [
   { to: '/upload', label: 'Upload', match: ['/upload'] },
   { to: '/files', label: 'My Files', match: ['/files'] },
   { to: '/audit-logs', label: 'Access Records', match: ['/audit-logs'] },
-  { to: '/education', label: 'Education', match: ['/education'] },
   { to: '/help', label: 'Help', match: ['/help'] },
+  { to: '/education', label: 'Education', match: ['/education'] },
   { to: '/team', label: 'Contact us', match: ['/team'] },
 ]
 
@@ -226,7 +227,7 @@ async function handleLogout() {
             to="/register"
             class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center"
           >
-            Get Started
+            Get started
           </RouterLink>
           <template v-else>
             <RouterLink
@@ -323,7 +324,7 @@ async function handleLogout() {
             class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             @click="emit('close-mobile-menu')"
           >
-            Get Started
+            Get started
           </RouterLink>
           <template v-else>
             <RouterLink

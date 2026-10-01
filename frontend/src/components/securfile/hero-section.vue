@@ -1,16 +1,19 @@
 <script setup lang="ts">
-import { ArrowRight, Sparkles } from 'lucide-vue-next'
+import { ArrowRight } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 import { MAX_UPLOAD_BYTES } from '@/crypto/upload'
 import { formatFileSize } from '@/api/types'
+import { useAuthStore } from '@/stores/auth_store'
+
+const auth = useAuthStore()
 
 const maxUploadLabel = formatFileSize(MAX_UPLOAD_BYTES).replace(' ', '')
 
 const highlights = [
-  { value: 'AES & RSA', label: 'Encryption' },
-  { value: '100%', label: 'Local Encryption' },
-  { value: 'Easy Use', label: 'Architecture' },
-  { value: maxUploadLabel, label: 'Max File Size' },
+  { value: 'In-browser', label: 'Encryption, before upload' },
+  { value: '0', label: 'File keys the server can read' },
+  { value: 'AES · RSA', label: 'Authenticated, standard ciphers' },
+  { value: maxUploadLabel, label: 'Per file' },
 ]
 </script>
 
@@ -22,39 +25,40 @@ const highlights = [
     <div class="container relative mx-auto px-4">
       <div class="mx-auto flex max-w-4xl flex-col items-center text-center">
         <div class="mb-6 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2">
-          <!-- <Sparkles class="h-4 w-4 text-primary" /> -->
-          <span class="text-sm font-medium text-primary">Encrypted File Sharing Platform</span>
+          <span class="text-sm font-medium text-primary">End-to-end encrypted file sharing</span>
         </div>
 
         <h1 class="mb-6 max-w-4xl text-4xl font-bold tracking-tight text-foreground sm:text-5xl md:text-6xl">
-          Encryption
-          <span class="text-primary"> and Sharing</span>
+          Share files
+          <span class="text-primary">no server can read</span>
         </h1>
 
         <p class="mb-10 max-w-2xl text-base text-muted-foreground md:text-xl">
-          Protect your files with powerful encryption technology. Generate unique keys, share securely,
-          and manage your encrypted files with ease.
+          Files are encrypted in your browser before they are uploaded, shared by re-sealing the key for a
+          named person, and checked for tampering on the way back. The server only ever stores what it
+          cannot read.
         </p>
 
         <div class="flex flex-col items-center justify-center gap-4 sm:flex-row">
+          <!-- Signed out, /upload only redirects to sign in, so the first step is an account. -->
           <RouterLink
-            to="/upload"
+            :to="auth.isAuthed ? '/upload' : '/register'"
             class="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-8 text-primary-foreground transition-colors hover:bg-primary/90"
           >
-            Encrypt Your Files
+            {{ auth.isAuthed ? 'Encrypt a file' : 'Get started' }}
             <ArrowRight class="h-4 w-4" />
           </RouterLink>
           <RouterLink
-            to="/education"
+            to="/how-it-works"
             class="inline-flex h-11 items-center rounded-full border border-border px-8 text-foreground transition-colors hover:bg-secondary"
           >
-            Learn More
+            See how it works
           </RouterLink>
         </div>
 
         <div class="mt-16 grid w-full max-w-3xl grid-cols-2 gap-8 md:grid-cols-4">
           <div v-for="item in highlights" :key="item.value" class="text-center">
-            <div class="text-3xl font-bold text-primary">{{ item.value }}</div>
+            <div class="text-2xl font-bold text-primary md:text-3xl">{{ item.value }}</div>
             <div class="mt-1 text-sm text-muted-foreground">{{ item.label }}</div>
           </div>
         </div>

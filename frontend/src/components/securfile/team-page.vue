@@ -123,6 +123,8 @@ const feedbackName = ref('')
 const feedbackEmail = ref('')
 const feedbackTopic = ref('feedback')
 const feedbackMessage = ref('')
+/** Where feedback goes: the project lead, whose address is also on his card below. */
+const FEEDBACK_ADDRESS = 'swen0027@student.monash.edu'
 const feedbackSubmitted = ref(false)
 const feedbackError = ref('')
 
@@ -132,7 +134,18 @@ function submitFeedback() {
     feedbackError.value = 'Please fill in your name, email, and message.'
     return
   }
-  // Placeholder only: pretend the note was accepted so the UI can be reviewed.
+  // There is no feedback inbox on the server, so the form hands the note to the visitor's own
+  // email app, addressed to the team. It used to pretend the note had been received.
+  const topics: Record<string, string> = {
+    feedback: 'General feedback',
+    suggestion: 'Feature suggestion',
+    bug: 'Bug report',
+    other: 'Other',
+  }
+  const subject = `[SecureView] ${topics[feedbackTopic.value] ?? 'Feedback'} from ${feedbackName.value.trim()}`
+  const body = `${feedbackMessage.value.trim()}\n\n— ${feedbackName.value.trim()} <${feedbackEmail.value.trim()}>`
+  window.location.href =
+    `mailto:${FEEDBACK_ADDRESS}?subject=${encodeURIComponent(subject)}&body=${encodeURIComponent(body)}`
   feedbackSubmitted.value = true
 }
 
@@ -196,7 +209,8 @@ onBeforeUnmount(() => {
             Share a note with the team
           </h2>
           <p class="mt-3 text-sm text-muted-foreground md:text-base">
-            Tell us what worked, what did not, or what you would like next. We read every message.
+            Tell us what worked, what did not, or what you would like next. Sending opens your own email
+            app with the note ready to go to the team.
           </p>
           <ul class="mt-6 space-y-3">
             <li v-for="topic in topics" :key="topic.label" class="flex items-start gap-3">
@@ -217,16 +231,17 @@ onBeforeUnmount(() => {
             class="rounded-2xl border border-primary/25 bg-primary/10 px-5 py-6"
             role="status"
           >
-            <p class="text-base font-medium text-foreground">Feedback submitted successfully.</p>
+            <p class="text-base font-medium text-foreground">Your email app should now be open.</p>
             <p class="mt-2 text-sm text-muted-foreground">
-              Thank you for your note. Our team has received it and will review it shortly.
+              The note is ready to send to the team. Press Send there to deliver it. If no email app
+              opened, write to <a :href="`mailto:${FEEDBACK_ADDRESS}`" class="text-primary hover:underline">{{ FEEDBACK_ADDRESS }}</a>.
             </p>
             <button
               type="button"
               class="mt-5 inline-flex h-11 items-center rounded-full border border-border bg-card px-5 text-sm text-foreground transition-colors hover:bg-secondary"
               @click="resetFeedback"
             >
-              Submit another message
+              Write another note
             </button>
           </div>
 
@@ -269,7 +284,7 @@ onBeforeUnmount(() => {
               class="inline-flex h-11 items-center gap-2 rounded-full bg-primary px-6 text-sm font-medium text-primary-foreground transition-colors hover:bg-primary/90"
             >
               <Send class="h-4 w-4" />
-              Send feedback
+              Write the email
             </button>
           </form>
         </div>

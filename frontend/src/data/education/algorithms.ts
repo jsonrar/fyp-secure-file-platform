@@ -51,7 +51,7 @@ export const algorithms: AlgorithmInfo[] = [
     type: 'symmetric',
     tagline: '128-bit key AES — fast, NIST-approved, and still considered secure for most uses.',
     summary:
-      'AES-128 uses a 128-bit secret key and always processes data in 128-bit blocks. It runs 10 transformation rounds (SubBytes, ShiftRows, MixColumns, AddRoundKey). SecureView does not currently expose AES-128 for uploads, but it remains an important standard to understand alongside AES-256.',
+      'AES-128 uses a 128-bit secret key and always processes data in 128-bit blocks. It runs 10 transformation rounds (SubBytes, ShiftRows, MixColumns, AddRoundKey). SecureView offers AES-128-GCM as one of the upload choices; AES-256-GCM is the default.',
     howItWorks: [
       {
         title: '128-bit key setup',
@@ -67,7 +67,7 @@ export const algorithms: AlgorithmInfo[] = [
       },
       {
         title: 'Decryption',
-        description: 'Inverse operations run in reverse order with the same 128-bit key. Security rests on keeping that key secret — the algorithm itself is public.',
+        description: 'The raw block cipher decrypts by running the inverse operations in reverse order with the same key. (In GCM mode, as SecureView uses it, AES only ever runs forwards: see AES-256.) Security rests on keeping the key secret — the algorithm itself is public.',
       },
     ],
     useCases: ['TLS cipher suites', 'Lightweight device encryption', 'Teaching AES round structure', 'Systems that need AES with shorter keys'],
@@ -75,7 +75,7 @@ export const algorithms: AlgorithmInfo[] = [
     limitations: ['Smaller security margin than AES-256', 'Same key-sharing problem as any symmetric cipher', 'Not the default for SecureView file encryption'],
     keyFacts: [
       'Key length: 128 bits · Rounds: 10 · Block size: 128 bits',
-      'AES-192 is omitted here for now — SecureView focuses on 128 and 256',
+      'AES-192 sits in between (12 rounds); SecureView offers it where the browser supports it',
       'NIST approved AES in 2001; AES-128 remains approved for many uses',
     ],
     demo: {
@@ -98,7 +98,7 @@ export const algorithms: AlgorithmInfo[] = [
     howItWorks: [
       {
         title: '256-bit key setup',
-        description: 'A 256-bit (32-byte) secret is expanded into 15 round keys. SecureView keeps this key client-side; the server only stores ciphertext.',
+        description: 'A 256-bit (32-byte) secret is expanded into 15 round keys. In SecureView your browser makes a new random key for every file, and the server only ever holds it sealed with RSA-OAEP.',
       },
       {
         title: '14 encryption rounds',
@@ -110,16 +110,16 @@ export const algorithms: AlgorithmInfo[] = [
       },
       {
         title: 'Decryption',
-        description: 'Inverse rounds with the same 256-bit key recover plaintext only if the GCM tag verifies. Wrong keys or altered ciphertext fail closed.',
+        description: 'GCM runs AES forwards over a counter to make a keystream, so decryption repeats the same rounds and XORs the keystream off again — no inverse rounds. The tag is checked first; a wrong key or one altered byte makes decryption fail instead of returning damaged data.',
       },
     ],
     useCases: ['SecureView file encryption', 'Disk encryption', 'Government and enterprise at-rest data', 'Long-term archival of sensitive files'],
     strengths: ['Largest AES key size in common use', 'Extra rounds increase security margin', 'Hardware accelerated on modern CPUs'],
-    limitations: ['Slightly more computation than AES-128', 'Both parties must protect the same secret key', 'Key compromise exposes all data under that key'],
+    limitations: ['Slightly more computation than AES-128', 'A GCM nonce must never repeat under the same key', 'Key compromise exposes all data under that key (SecureView limits this to one file per key)'],
     keyFacts: [
       'Key length: 256 bits · Rounds: 14 · Block size: 128 bits',
       'AES-256-GCM is SecureView’s default file encryption suite',
-      'AES-192 is out of scope on this education page for now',
+      'AES-192 sits in between (12 rounds); SecureView offers it where the browser supports it',
     ],
     demo: {
       kind: 'animation',
@@ -136,7 +136,7 @@ export const algorithms: AlgorithmInfo[] = [
     type: 'asymmetric',
     tagline: 'Public-key cryptography for secure key exchange and digital signatures.',
     summary:
-      'RSA uses a mathematically linked key pair: a public key anyone can use to encrypt, and a private key only the owner holds to decrypt. Security relies on the difficulty of factoring large prime numbers.',
+      'RSA uses a mathematically linked key pair: a public key anyone can use to encrypt, and a private key only the owner holds to decrypt. Security relies on how hard it is to factor the product of two large primes back into those primes.',
     howItWorks: [
       {
         title: 'Key pair generation',
@@ -158,7 +158,7 @@ export const algorithms: AlgorithmInfo[] = [
     useCases: ['Encrypting AES keys for file sharing', 'TLS/HTTPS handshake', 'Code signing', 'Email encryption (PGP)'],
     strengths: ['No pre-shared secret needed for key delivery', 'Enables digital signatures', 'Foundation of PKI infrastructure'],
     limitations: ['Slow for large files', 'Vulnerable if key size is too small', 'Requires secure key storage'],
-    keyFacts: ['Minimum 2048-bit keys recommended today', 'Often paired with AES in hybrid encryption', 'Used in SecureView for wrapping file keys'],
+    keyFacts: ['Minimum 2048-bit keys recommended today', 'Real systems always add padding (OAEP for encryption, PSS for signatures)', 'SecureView seals each file key with 3072-bit RSA-OAEP (SHA-256)'],
     demo: {
       kind: 'animation',
       title: 'RSA key exchange sketch',
@@ -178,7 +178,7 @@ export const algorithms: AlgorithmInfo[] = [
     howItWorks: [
       {
         title: 'Padding the message',
-        description: 'Input is padded to a multiple of 512 bits, appending a length field at the end.',
+        description: 'Input is padded to a multiple of the block size (512 bits for SHA-256, 1024 for SHA-512), with its length appended at the end.',
       },
       {
         title: 'Process in chunks',
@@ -193,10 +193,10 @@ export const algorithms: AlgorithmInfo[] = [
         description: 'Hash the received file and compare digests. A match confirms the file was not altered.',
       },
     ],
-    useCases: ['File integrity checks on SecureView', 'Password storage (with salt)', 'Blockchain', 'Digital signature inputs'],
+    useCases: ['File integrity checks on SecureView', 'Building block for HMAC, HKDF and signatures', 'Blockchain', 'Digital signature inputs'],
     strengths: ['Deterministic and fast', 'Collision-resistant in practice', 'Fixed output size regardless of input'],
-    limitations: ['Not encryption — cannot decrypt a hash', 'Rainbow tables without salt (passwords)', 'Not a substitute for AES/RSA'],
-    keyFacts: ['SHA-256 output is always 64 hex characters', 'Used for file hash verification in SecureView', 'Part of the SHA-2 family (SHA-224/256/384/512)'],
+    limitations: ['Not encryption — cannot decrypt a hash', 'Too fast for passwords: use a slow, salted KDF such as Argon2id', 'Not a substitute for AES/RSA'],
+    keyFacts: ['SHA-256 output is always 64 hex characters', 'SecureView records a SHA-256 of every stored file and re-checks it on download and in a daily scan', 'Part of the SHA-2 family (SHA-224/256/384/512)'],
     demo: {
       kind: 'animation',
       title: 'SHA digest flow',
@@ -210,7 +210,7 @@ export const algorithms: AlgorithmInfo[] = [
     name: 'ChaCha20',
     shortLabel: 'ChaCha20',
     type: 'symmetric',
-    tagline: 'Modern stream cipher — fast, secure, and widely used in TLS and mobile apps.',
+    tagline: 'Modern stream cipher — fast in software and widely used in TLS, VPNs and SSH.',
     summary:
       'ChaCha20 generates a pseudorandom keystream from a 256-bit key and 96-bit nonce, then XORs it with plaintext. Combined with Poly1305 (ChaCha20-Poly1305), it provides authenticated encryption used by Google, WireGuard, and TLS 1.3.',
     howItWorks: [
@@ -231,10 +231,10 @@ export const algorithms: AlgorithmInfo[] = [
         description: 'Poly1305 produces a MAC tag so tampering is detected. ChaCha20-Poly1305 is an AEAD mode.',
       },
     ],
-    useCases: ['TLS 1.3 cipher suites', 'WireGuard VPN', 'Signal Protocol messaging', 'Alternative to AES-GCM on devices without AES hardware'],
+    useCases: ['TLS 1.3 cipher suites', 'WireGuard VPN', 'OpenSSH', 'Alternative to AES-GCM on devices without AES hardware'],
     strengths: ['Fast in software without AES-NI hardware', 'Resistant to timing side-channel attacks', 'Simple, auditable design'],
     limitations: ['Nonce must never be reused with the same key', 'Less hardware acceleration than AES on some platforms', 'Requires Poly1305 for integrity in practice'],
-    keyFacts: ['Designed by Daniel Bernstein (2008)', 'Used in Chrome HTTPS and Android', 'RFC 8439 standardizes ChaCha20-Poly1305'],
+    keyFacts: ['Designed by Daniel Bernstein (2008)', 'RFC 8439 standardizes ChaCha20-Poly1305', 'Offered in SecureView as ChaCha20-Poly1305 for file encryption'],
     demo: {
       kind: 'animation',
       title: 'ChaCha20 keystream XOR',
@@ -272,7 +272,7 @@ export const algorithms: AlgorithmInfo[] = [
     useCases: ['User password storage', 'Key derivation from passphrases', 'Secure credential databases', 'Replacing bcrypt/scrypt/PBKDF2'],
     strengths: ['Memory-hard — defeats GPU/ASIC brute force', 'Argon2id resists both side-channel and GPU attacks', 'Configurable cost parameters scale with hardware'],
     limitations: ['Higher memory use than bcrypt', 'Wrong parameters can be too fast or too slow', 'Not for encrypting files directly — use for passwords/KDF'],
-    keyFacts: ['Winner of Password Hashing Competition (2015)', 'Argon2id = hybrid of Argon2i and Argon2d', 'Recommended by OWASP for password hashing'],
+    keyFacts: ['Winner of Password Hashing Competition (2015)', 'Argon2id = hybrid of Argon2i and Argon2d', 'SecureView uses it twice: on the server for login passwords, and in your browser to turn your passphrase into the key that opens your private key (64 MiB)'],
     demo: {
       kind: 'animation',
       title: 'Argon2id memory-hard pass',

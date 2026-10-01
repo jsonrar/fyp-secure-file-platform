@@ -99,7 +99,9 @@ Each round applies:
 3. **MixColumns** — Mix column data (skipped in the final round)
 4. **AddRoundKey** — XOR the state with a round key derived from the main key
 
-AES-128 remains NIST-approved and is widely used (for example in many TLS suites). SecureView’s education materials cover it as a distinct topic from AES-256. **AES-192 is intentionally omitted for now.**
+AES-128 remains NIST-approved and is widely used (for example in many TLS suites).
+
+**In SecureView:** AES-128-GCM is one of the upload choices. AES-192-GCM (12 rounds) is offered where the browser supports it, and AES-256-GCM is the default.
 
 **Note on DES / 3DES:** Those older block ciphers are not taught here. NIST removed 3DES from its recommendations in 2023; use AES instead.`,
   },
@@ -117,7 +119,7 @@ AES-128 remains NIST-approved and is widely used (for example in many TLS suites
 
 Round operations are the same family as AES-128 (SubBytes, ShiftRows, MixColumns, AddRoundKey), but the longer key schedule and extra rounds make exhaustive search far harder.
 
-**In SecureView:** Files are encrypted in the browser with **AES-256-GCM** so the server only stores authenticated ciphertext. AES-192 is out of scope on this education page for now.
+**In SecureView:** Files are encrypted in the browser with **AES-256-GCM** by default, so the server only stores authenticated ciphertext. In GCM mode AES runs forwards over a counter to make a keystream; decryption repeats it, and the authentication tag must verify first.
 
 **Why not DES / 3DES?** NIST deprecated and removed 3DES from approved algorithms in 2023. Modern systems should use AES (or ChaCha20-Poly1305), not triple-DES.`,
   },
@@ -141,7 +143,9 @@ Round operations are the same family as AES-128 (SubBytes, ShiftRows, MixColumns
 
 Because factoring n back into p and q is computationally infeasible for large n (2048+ bits), an attacker cannot derive d from the public key alone.
 
-**In SecureView:** RSA wraps AES keys so recipients can decrypt shared files using their private key without both parties sharing a symmetric secret in advance.`,
+**Real systems never use this raw formula.** Textbook RSA is deterministic and malleable, so encryption adds randomised padding (OAEP) and signatures use PSS.
+
+**In SecureView:** each file's key is sealed with 3072-bit **RSA-OAEP (SHA-256)** — to your public key, to the recipient's when you share, and to the offline recovery key — so nobody has to agree a shared secret in advance.`,
   },
   {
     id: 'hashing-vs-encryption',
@@ -160,7 +164,7 @@ Because factoring n back into p and q is computationally infeasible for large n 
 
 **When to use hashing:**
 • Verify a downloaded file has not been tampered with
-• Store password digests (always with a unique salt)
+• Passwords: only with a deliberately slow, salted function such as Argon2id — never a plain fast hash
 • Create blockchain block links
 • Generate fixed-size fingerprints for large files
 
@@ -169,7 +173,7 @@ Because factoring n back into p and q is computationally infeasible for large n 
 • Secure data in transit
 • Protect stored credentials (though passwords should be hashed, not encrypted)
 
-SecureView uses SHA-256 hashes to let you verify file integrity after decryption.`,
+**In SecureView:** a SHA-256 of every stored (encrypted) file is recorded at upload and checked on every download and by a daily scan. After decryption, the authentication tag proves the file is exactly what was uploaded.`,
   },
   {
     id: 'key-management',
@@ -247,26 +251,28 @@ This means encryption and decryption are the same operation — XOR plaintext wi
     title: 'Secure File Sharing Workflow',
     category: 'best-practices',
     tags: ['file sharing', 'SecureView', 'workflow', 'access control'],
-    summary: 'Encrypt files before sharing, distribute keys separately, and set access limits on shared links.',
-    content: `Follow this workflow when sharing sensitive files through SecureView:
+    summary: 'Encrypt before upload, share with named accounts instead of links, revoke what is no longer needed, and check the access history.',
+    content: `How sharing a sensitive file works in SecureView, and what to do at each step:
 
 **1. Encrypt before upload**
-Upload your file and let SecureView generate or accept an encryption key. The platform encrypts with AES-256 before storage.
+Your browser makes a new random key for the file and encrypts it (AES-256-GCM by default) before anything is sent. The server stores only ciphertext.
 
-**2. Share keys through a separate channel**
-Never send the encryption key in the same email as the download link. Use a phone call, encrypted messenger, or in-person exchange.
+**2. Share with a named account, not a link**
+Press Share and enter the person's username or email. Your browser re-seals the file key with their public key. There is no link to forward and no password to send them: they open it with their own passphrase.
 
-**3. Use access controls**
-Set link expiration dates and download limits. Revoke access when the recipient no longer needs the file.
+**3. Give only what is needed, and revoke it later**
+A recipient can download the file but cannot share it on to anyone else. Revoke access from the same dialog when they no longer need it. (Revoking cannot take back a copy they already downloaded — that is true of any system.)
 
-**4. Verify integrity**
-Compare SHA-256 hashes before and after transfer to confirm the file was not modified in transit.
+**4. Integrity is checked for you**
+Every download is checked against its SHA-256 and authentication tag; a changed file is refused rather than handed over.
 
-**5. Audit access**
-Review access logs to confirm only authorized parties downloaded the file.
+**5. Review access**
+Access Records shows who uploaded, shared and downloaded each file, and when.
 
 **6. Delete when done**
-Remove shared links and encrypted copies from storage when they are no longer needed.`,
+Deleting a file removes it and every share of it.
+
+**Sharing outside SecureView?** Send the file and its password through different channels, and prefer tools that let you revoke access.`,
   },
   {
     id: 'encryption-at-rest-transit',
@@ -277,7 +283,7 @@ Remove shared links and encrypted copies from storage when they are no longer ne
     content: `**Encryption at rest** protects stored data:
 • Full-disk encryption (BitLocker, FileVault)
 • Database column encryption
-• SecureView file encryption before cloud storage
+• SecureView's end-to-end encryption: files are encrypted in the browser before upload
 • Protects against physical theft or unauthorized storage access
 
 **Encryption in transit** protects data during transmission:
@@ -286,7 +292,7 @@ Remove shared links and encrypted copies from storage when they are no longer ne
 • SFTP/SCP for file transfers
 • Protects against network eavesdropping (man-in-the-middle)
 
-**Both are needed:** Encrypting files at rest does not protect them during upload/download unless transit encryption is also used. SecureView uses HTTPS for transit and AES-256 for storage — defense in depth.`,
+**Both are needed — or end-to-end encryption:** Server-side encryption at rest does not protect a file on its way in or out unless the connection is encrypted too. SecureView encrypts files in your browser before they travel, so they are already protected in transit and at rest, and HTTPS adds a second layer around everything else — defence in depth.`,
   },
   {
     id: 'digital-signatures',
@@ -301,11 +307,11 @@ Remove shared links and encrypted copies from storage when they are no longer ne
 
 **How it works:**
 1. Hash the message (e.g., with SHA-256)
-2. Encrypt the hash with the signer's **private key** → this is the signature
-3. Recipient decrypts the signature with the signer's **public key** to recover the hash
-4. Recipient hashes the received message and compares — match means authentic and unmodified
+2. The signer runs the **signing** operation on that hash with their **private key** → the signature
+3. A verifier runs the **verification** operation with the signer's **public key**, the message and the signature
+4. It succeeds only if the message is unchanged and the signature was made with the matching private key
 
-Note: Signing uses the **private** key (opposite of encryption). This confuses many beginners.
+Note: signing uses the **private** key and verifying the **public** one — the opposite of encryption. You will often read that a signature is "the hash encrypted with the private key". That is only a loose picture of textbook RSA; real RSA signatures use their own padding (PSS), and schemes like ECDSA and Ed25519 involve no encryption at all.
 
 Digital signatures are used in code signing, PDF signing, blockchain transactions, and secure software update verification.`,
   },
