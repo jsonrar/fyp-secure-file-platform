@@ -254,4 +254,83 @@ fi
 mv "$WORK/victim.ciphertext" "$VICTIM"
 echo "  refused as expected: backup_encrypted.py stopped on a files row whose object is missing"
 
+# --- one tampered object: detect it, then put the original back from the backup ----------------
+# The source database is the "live" deployment here: restore_file.py and integrity_sweep.py read
+# the same files rows and object directory the application would.
+echo "== drill: a tampered object is detected, then restored from the encrypted backup =="
+app_env() {
+  env DB_HOST="$DB_HOST" DB_PORT="$DB_PORT" DB_USER="$ADMIN_DB_USER" DB_PASSWORD="$ADMIN_DB_PASSWORD" \
+    DB_NAME="$SOURCE_DB" APP_ENV=test ENCRYPTED_FILE_DIR="$WORK/source-objects" \
+    TEMP_FILE_DIR="$WORK/source-staging" "$@"
+}
+sha_of() {
+  "$PYTHON" -c 'import hashlib,sys;print(hashlib.sha256(open(sys.argv[1],"rb").read()).hexdigest())' "$1"
+}
+file_status() {
+  "${MYSQL_CLIENT[@]}" --batch --skip-column-names --execute "SELECT status FROM \`${SOURCE_DB}\`.files WHERE file_uuid='$1'"
+}
+VICTIM="$(find "$WORK/source-objects" -name '*.ciphertext' -print -quit)"
+VICTIM_UUID="$(basename "$(dirname "$VICTIM")")"
+ORIGINAL_SHA="$(sha_of "$VICTIM")"
+mkdir -p "$WORK/source-staging"
+
+app_env "$PYTHON" scripts/integrity_sweep.py >"$WORK/sweep-clean.json"
+echo "OK: a sweep of the untouched store found nothing wrong"
+
+printf 'tampered' >>"$VICTIM"
+set +e
+app_env "$PYTHON" scripts/integrity_sweep.py >"$WORK/sweep-damaged.json" 2>"$WORK/sweep-damaged.err"
+SWEEP_STATUS=$?
+set -e
+if [ "$SWEEP_STATUS" != "3" ] || ! grep -q "$VICTIM_UUID" "$WORK/sweep-damaged.json"; then
+  echo "FAIL: the sweep did not report the tampered object (exit $SWEEP_STATUS)" >&2
+  cat "$WORK/sweep-damaged.json" "$WORK/sweep-damaged.err" >&2
+  exit 1
+fi
+if [ "$(file_status "$VICTIM_UUID")" != "CORRUPTED" ]; then
+  echo "FAIL: the tampered file was not marked CORRUPTED" >&2
+  exit 1
+fi
+echo "OK: the sweep exited 3, named the tampered file and marked it CORRUPTED"
+
+run_restore_file() {
+  app_env "$PYTHON" scripts/restore_file.py --file-id "$VICTIM_UUID" --backup-set "$SET_ONE_DIR" "$@"
+}
+if run_restore_file --private-key "$WORK/keys/other_priv.pem" --apply 2>"$WORK/refusal.log" >/dev/null \
+    || ! grep -q "different backup key" "$WORK/refusal.log"; then
+  echo "FAIL: restore_file.py did not refuse the wrong private key" >&2
+  cat "$WORK/refusal.log" >&2
+  exit 1
+fi
+echo "  refused as expected: wrong backup private key"
+
+run_restore_file --private-key "$WORK/keys/backup_priv.pem" >"$WORK/restore-file-dry.json"
+if [ "$(sha_of "$VICTIM")" = "$ORIGINAL_SHA" ] || ! grep -q dry_run_would_restore "$WORK/restore-file-dry.json"; then
+  echo "FAIL: the dry run changed the object or did not say what it would do" >&2
+  exit 1
+fi
+echo "OK: the dry run named the backup set and changed nothing"
+
+run_restore_file --private-key "$WORK/keys/backup_priv.pem" --quarantine-dir "$WORK/quarantine" --apply \
+  >"$WORK/restore-file.json"
+if [ "$(sha_of "$VICTIM")" != "$ORIGINAL_SHA" ]; then
+  echo "FAIL: the restored object is not byte-identical to the original" >&2
+  exit 1
+fi
+if [ "$(ls "$WORK/quarantine" | wc -l | tr -d ' ')" != "1" ]; then
+  echo "FAIL: the damaged copy was not kept in quarantine" >&2
+  exit 1
+fi
+if [ "$(file_status "$VICTIM_UUID")" != "ACTIVE" ]; then
+  echo "FAIL: the restored file is not ACTIVE again" >&2
+  exit 1
+fi
+AUDITED="$("${MYSQL_CLIENT[@]}" --batch --skip-column-names --execute "SELECT COUNT(*) FROM \`${SOURCE_DB}\`.audit_logs WHERE action='FILE_RESTORED_FROM_BACKUP' AND resource_id='$VICTIM_UUID'")"
+if [ "$AUDITED" != "1" ]; then
+  echo "FAIL: the restore left no FILE_RESTORED_FROM_BACKUP audit row" >&2
+  exit 1
+fi
+app_env "$PYTHON" scripts/integrity_sweep.py >"$WORK/sweep-after.json"
+echo "OK: restored byte-for-byte, damaged copy quarantined, file ACTIVE, audited, and a sweep is clean again"
+
 echo "backup_restore_drill.sh: encrypted backup, clean restore, and every refusal check passed"

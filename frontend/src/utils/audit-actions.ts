@@ -21,6 +21,8 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   FILE_INTEGRITY_CHECKED: { label: 'Integrity checked', category: 'other' },
   // Looking at the first bytes of the stored ciphertext is not a download and must never be
   // counted as one.
+  FILE_RESTORED_FROM_BACKUP: { label: 'Restored from backup', category: 'other' },
+  INTEGRITY_SWEEP_COMPLETED: { label: 'Integrity scan completed', category: 'other' },
   FILE_CIPHERTEXT_PREVIEWED: { label: 'Encrypted preview viewed', category: 'other' },
   FILE_SHARED: { label: 'Shared', category: 'share' },
   FILE_ACCESS_REVOKED: { label: 'Access revoked', category: 'share' },

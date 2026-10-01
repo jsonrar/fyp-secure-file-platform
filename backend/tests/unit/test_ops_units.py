@@ -56,9 +56,25 @@ def test_reconcile_timer_fires_after_the_daily_backup_window() -> None:
     assert "RandomizedDelaySec" not in timer
 
 
+def test_the_integrity_sweep_only_reads_storage_and_runs_after_the_backup_and_reconcile() -> None:
+    unit = _directives("mcs21-integrity-sweep.service")
+
+    assert unit["User"] == ["fypapp"] and unit["Group"] == ["fypapp"]
+    assert unit["EnvironmentFile"] == ["/etc/fyp-secure-file-platform/backend.env"]
+    assert unit["ReadOnlyPaths"] == ["/var/lib/fyp-secure-file-platform"]
+    assert "ReadWritePaths" not in unit and unit["ProtectSystem"] == ["strict"]
+    (exec_start,) = unit["ExecStart"]
+    assert "scripts/integrity_sweep.py" in exec_start
+    # The sweep must not be able to change what it checks.
+    assert "restore_file" not in exec_start and "--apply" not in exec_start
+    timer = _directives("mcs21-integrity-sweep.timer")
+    assert timer["OnCalendar"] == ["*-*-* 05:30:00 Asia/Kuala_Lumpur"]
+
+
 def test_every_ops_job_alerts_on_failure() -> None:
     for name in (
         "mcs21-reconcile.service",
+        "mcs21-integrity-sweep.service",
         "mcs21-offsite-backup.service",
         "mcs21-observe.service",
         "mcs21-audit-checkpoint.service",
