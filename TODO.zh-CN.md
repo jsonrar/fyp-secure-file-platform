@@ -4,7 +4,8 @@
 
 本文件最初于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境
 完成同步。2026-09-07 再次对照 GitHub `main` 的 `cab44b1` 检查；该版本已合并 500 MiB
-上传上限改动，但本次仅同步 backlog，未重新核验线上部署。GitHub Issues 是可执行 backlog，
+上传上限改动，但那次仅同步 backlog，未重新核验线上部署。2026-10-01 再次对照 `main` 的 `70fcb6d` 检查：
+该提交上的 CI 全部通过，预发布环境运行的是同一个 SHA，各定时任务健康（见下表）。GitHub Issues 是可执行 backlog，
 团队通过 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
 共用 Kanban 视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
@@ -12,8 +13,8 @@
 安全评审或部署证据。部分完成不会被误标为完成。
 
 提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：
-24 个 WBS 工作包中 20 个 Done、3 个 In progress、1 个 Backlog；7 条产品验收标准中 6 条
-Done，剩余的分阶段进度提示为 In progress。
+24 个 WBS 工作包中 22 个 Done、1 个 In review、1 个 In progress（非专业用户可用性研究：套件已就绪，尚未进行任何
+场次）；7 条产品验收标准中 6 条 Done，剩余的分阶段进度提示为 In progress。
 M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师所说的全项目约 70–80%
 是该历史检查点的判断，不是对当前完成度的精确测量。
 
@@ -52,7 +53,20 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
 
-## 2026-09-03 同步前已核验基线
+## 2026-10-01 已核验（`main` 位于 `70fcb6d`）
+
+| 门禁 | 结果 | 含义 |
+| --- | --- | --- |
+| 后端 Pytest | 400 passed, 49 skipped, 1 warning | 被跳过的是 MySQL 集成测试；CI 的 `mysql-gate` Job 会运行它们，并在任何跳过时失败 |
+| 前端 Vitest | 284 passed, 51 skipped | 被跳过的是真实后端测试套件；CI 的 `e2e-live` Job 会不跳过地运行它们 |
+| 类型检查、生产构建、Ruff | 通过 | `vue-tsc --noEmit`、Vite 构建、`ruff format --check` 与 `ruff check` |
+| GitHub Actions | `main` 上五个 Job 全部通过 | `backend`、`frontend`、`mysql-gate`、`e2e-live`、`tamper-drill` |
+| 依赖审计 | `pip-audit` 无问题；`npm audit` 曾有一个高危 axios 公告 | 已由 [#112](https://github.com/jsonrar/fyp-secure-file-platform/pull/112) 修复并纳入 CI 门禁 |
+| Schema head | `0008_avatars` | 包含文件夹（`0007`）与头像（`0008`） |
+| 线上预发布 | 运行 `70fcb6d`，与 `main` 相同 | `/`、`/docs`、`/openapi.json` 返回 200；OpenAPI 列出文件夹与头像路由 |
+| 预发布运维 | 备份、异地备份、对账、审计 checkpoint、observer 定时任务均成功运行 | 恢复验证最近一次运行于 2026-09-27（每周一次），对 2026-09-26 的备份通过；对账 2026-09-25 至 2026-10-01 每天运行，0 条可删、0 个孤立对象 |
+
+## 2026-09-03 的历史基线（保留用于对比）
 
 | 门禁 | 结果 | 含义 |
 | --- | --- | --- |
@@ -71,8 +85,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 - [x] [#52 建立 required CI 门禁并修复当前 Ruff 基线](https://github.com/jsonrar/fyp-secure-file-platform/issues/52)
   ——`.github/workflows/ci.yml` 在每个 PR 及推送到 `main` 时运行 backend（Ruff + 带覆盖率下限、不依赖
-  MySQL 的 pytest）与 frontend（带覆盖率的测试/类型检查/构建）；Ruff 基线已真正修复而非压制。分支保护仍需仓库管理员
-  将 `backend`、`frontend` 设为必需检查——详见引入本改动的 PR。
+  MySQL 的 pytest）与 frontend（带覆盖率的测试/类型检查/构建）；Ruff 基线已真正修复而非压制。当前套餐下**无法**启用
+  分支保护：仓库是 GitHub 免费版的私有仓库，分支保护与 rulesets 的 API 都拒绝它（2026-10-01 核实；威胁模型 F-01）。
+  需要付费套餐或将仓库公开，所以这些检查目前只靠约定与评审来“必需”。
 - [x] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0007_file_folders` 的每一次迁移，
   运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，
@@ -97,19 +112,28 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   跟踪或取消。
 - [x] [#89 用户登出时撤销服务端会话](https://github.com/jsonrar/fyp-secure-file-platform/issues/89)
   ——主动 Log out 先调用 `POST /auth/logout` 再清本地；会话过期与注销账户仍只清本地。
-- [ ] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
+- [x] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
   ——仓库部分已完成：目录宽限期、数量保护（退出码 3）、边界两侧计数报告、MySQL 幂等性测试与不触碰审计/
   密钥/恢复表的语句测试、在同机备份之后 05:00 运行的 timer、邮件告警，以及
   [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md)。待完成：在 staging 安装、
   记录 report-only 审查，然后启用 timer。2026-09-24 已在 staging 安装，report-only 审查已记录（43 条可删、
-  0 个孤立对象），timer 已启用。待完成：记录第一次计划运行（2026-09-25 05:00）与幂等的重复运行。
+  0 个孤立对象），timer 已启用。2026-09-25 05:00 的第一次计划运行，以及此后到 2026-10-01 的连续七次每日运行全部成功
+  （journal 每次均为 0 条可删、0 个孤立对象）。这些重复运行只说明它在空集合上无害；由于此后一直没有可删项，
+  真实删除之后的幂等重复运行尚未被观察到。
 - [x] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
   ——`e2e-live` CI Job 针对一次性 API 与 MySQL 不跳过地运行前端全部真实后端测试套件（从注册到
   注销账户、全部四种文件算法、角色拒绝），随后运行 Chromium 冒烟测试，在构建后的页面上点击完成
   注册、验证、登录、解锁、上传、下载、分享、撤销与登出；`mysql-gate` 运行多连接并发与真实故障注入
   测试；覆盖率下限与经脱敏检查的 JUnit/覆盖率产物已就位（[docs/E2E_TESTING.md](docs/E2E_TESTING.md)）。
-- [ ] [#59 增加脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
-  ——仓库侧实现已就绪：脱敏结构化事件、仅 loopback 的 metrics 与阈值告警、受信 proxy 约束、HMAC 外部审计 checkpoint、最小化告警邮件和双语事故 runbook。保持未完成，直到部署精确 merge SHA、独立验证外部 checkpoint，并记录 staging 脱敏/告警证据。
+- [x] [#59 增加脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
+  ——仓库侧实现已就绪：脱敏结构化事件、仅 loopback 的 metrics 与阈值告警、受信 proxy 约束、HMAC 外部审计 checkpoint、最小化告警邮件和双语事故 runbook。2026-09-25 已记录 staging 证据（Issue 的关闭评论，以及[运行手册](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md)第 8 节）：
+  loopback 绑定、nginx 未暴露 metrics、外部 checkpoint 已在另一台机器下载并完成 HMAC 校验、测试告警不含 journal 内容。
+  checkpoint timer 在 2026-10-01 仍在每小时发布。
+
+- [ ] [#115 运行非专业用户可用性研究（WBS 5.4、NFR2）](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)
+  ——研究套件已在 [`docs/usability/`](docs/usability/STUDY_PLAN.zh-CN.md) 就绪：计划、同意书、筛选表、十张任务卡、
+  SUS 问卷、模板，以及带预先登记阈值的计分脚本。**尚未进行任何场次，没有任何结果。**开始前需要导师就伦理审查
+  给出书面答复、裁定“同时丢失两个秘密”的措辞问题，并先做一次预演。
 
 ## P2 — 正式安全保障
 
@@ -121,9 +145,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] [#60 完成正式威胁模型与独立安全评审](https://github.com/jsonrar/fyp-secure-file-platform/issues/60)
   ——已在 [THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md) v1.0 中完成：目标与非目标、STRIDE、Argon2id
   实测成本、密钥保管、公钥身份与元数据的决定，对供应链、CSP、上传、令牌与恢复操作的评审，以及含严重度与处置
-  的 20 项发现登记表。它是一份经过一次同行评审的自评，而非独立的外部评审，不构成任何认证。有四项*建议修复*
-  的发现尚未实施：F-01 分支保护与以 CI 为门槛的部署、F-02 恢复私钥保管、F-03 在预发布环境关闭 `/docs`、
-  F-04 拒绝弱 passphrase。
+  的 20 项发现登记表。它是一份经过一次同行评审的自评，而非独立的外部评审，不构成任何认证。登记表已于 2026-10-01
+  刷新（v1.1）：F-10、F-11、F-20 已解决，F-12 部分解决，F-19 已缓解。有四项*建议修复*的发现尚未实施：F-01 以 CI
+  为门槛的部署（分支保护本身需要付费套餐）、F-02 恢复私钥保管、F-03 在预发布环境关闭 `/docs`、F-04 拒绝弱 passphrase。
 
 ## P3 — 计划中的产品 UX
 
@@ -137,19 +161,22 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [ ] [#71 认证后的密文预览与加密文件下载](https://github.com/jsonrar/fyp-secure-file-platform/issues/71)
   ——授权用户可查看有限长度的密文预览或保存服务器实际存储的加密对象；不得静默解密，也不改变
   现有明文解密下载流程。
-  分支 `feat/download-encrypted-file` 已实现所有者和授权接收者无需 passphrase 的密文下载。
-  密文预览和部署核验仍待完成；本次部分实现不会关闭 #71。
-- [ ] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)——已在 `Junyan#8` 实现；关闭前仍需 staging 部署与受影响流程证据。
+  所有者和授权接收者无需 passphrase 的密文下载已合并（#78）并部署。有限长度的密文**预览**在 `main` 中没有任何
+  实现（2026-10-01 检索）。该 GitHub Issue 在 2026-09-10 被标为已完成关闭，当时这一条尚未满足，所以请重新打开它，
+  或把预览拆成独立的 Issue。
+- [x] [#73 My Files 文件架与移动功能](https://github.com/jsonrar/fyp-secure-file-platform/issues/73)——已在 #103 合并并部署（2026-10-01 staging 的 OpenAPI 列出了文件夹路由）。该 Issue 于 2026-09-29 关闭，但没有对受影响流程的书面演示记录。
   ——创建所有者专属文件架，并在文件架与根目录之间移动自己的文件；不改变加密、分享、文件身份
   或审计语义。
 - [ ] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
   ——密钥文件重置已完成：Settings 会用账户公钥验证保存的私钥文件，在新 AMK 与新 passphrase 下重新
   封装它，并以 RSA-PSS 签名证明持有；明文私钥不离开浏览器。仍待完成：在记得旧 passphrase 时修改
-  passphrase、后继密钥轮换，以及账户信封规范文档。本次部分实现不关闭 #54。
+  passphrase、后继密钥轮换，以及账户信封规范文档。这三项在 `frontend/src` 中都没有（2026-10-01 检索），但该 GitHub
+  Issue 已在 2026-09-23 被标为已完成关闭。请重新打开它或拆分剩余部分，让 backlog 与代码一致。
 - [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
 - [x] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
-  ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。关闭 Issue 前仍需：评审 PR、部署到准确 merge SHA，以及上传/展示/删除的短流程证据。
+  ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。已合并（#101、#106）并部署（2026-10-01 staging 的 OpenAPI 中有头像路由）；该 Issue 在 2026-09-29 关闭前，没有在
+  Issue 上记录上传/展示/删除的短流程演示。
 - [ ] [#76 修复手机与窄屏下的产品流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
   ——修复公开页面、账户与文件流程在窄屏下的布局和交互问题，并保留可重复的手机浏览器证据。
 

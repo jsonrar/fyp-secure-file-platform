@@ -4,7 +4,7 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 
 | | |
 |---|---|
-| Version | 1.0 — complete for Issue #60: review of supply chain, CSP, uploads, tokens and recovery operations (§11), findings register (§12), review record (§13) |
+| Version | 1.1 — Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
 | Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech` |
@@ -523,30 +523,32 @@ The owner column names one of the project's two defined roles, or *Unassigned* w
 
 | ID | Finding | Threats | Severity | Disposition | Owner | Evidence |
 |---|---|---|---|---|---|---|
-| F-01 | `main` has no branch protection, and server-pull deployment does not wait for CI. A direct push reaches production unreviewed | T-E5 | **High** | Recommended — enable branch protection with required review and CI; gate the deploy on a green CI run | Testing & Deployment Lead | `gh api …/branches/main/protection` → 404; `mcs21-auto-deploy` never queries CI |
+| F-01 | `main` has no branch protection, and server-pull deployment does not wait for CI. A direct push reaches production unreviewed | T-E5 | **High** | Recommended — gate the deploy on a green CI run. Branch protection itself is **not available**: the repository is private on a free plan (re-checked 2026-10-01: the rulesets API answers 403 "Upgrade to GitHub Pro or make this repository public", branch protection 404), so it needs a paid plan or a public repository | Testing & Deployment Lead | `gh api …/branches/main/protection` → 404; `mcs21-auto-deploy` never queries CI |
 | F-02 | Staging recovery private key held as an unencrypted PEM on a workstation, with a plaintext copy, not in the proposed offline custody | T-I8 | **High** | Recommended — move it into the proposed custody: passphrase-protected, offline, two holders | Crypto & Security Lead | §11.5; BACKUP_AND_RECOVERY § 7 marked *proposed* |
-| F-03 | `/docs` runs a floating third-party script (`swagger-ui-dist@5`, no SRI) on the origin that stores tokens | T-I6, T-I4 | **Medium** | Recommended — set `APP_DOCS_ENABLED=false` on staging; configuration only | Testing & Deployment Lead | §11.2; `/docs` → 200, zero `integrity=` |
+| F-03 | `/docs` runs a floating third-party script (`swagger-ui-dist@5`, no SRI) on the origin that stores tokens | T-I6, T-I4 | **Medium** | Recommended — set `APP_DOCS_ENABLED=false` on staging; configuration only. Still open on 2026-10-01 (`APP_DOCS_ENABLED=true`, `/docs` loads `swagger-ui-dist@5` from jsDelivr). Note the supervisor evaluation path uses `/docs`, so switch it off after the demo or pin the script with SRI | Testing & Deployment Lead | §11.2; `/docs` → 200, zero `integrity=` |
 | F-04 | Passphrase check is length-only, so leaked-list passphrases pass and fall in under two days on one laptop | T-I2 | **Medium** | Recommended — reject known-weak passphrases in the browser (R-1) | Crypto & Security Lead | §9.4–9.5 |
 | F-05 | Recovery public key can be substituted by a data writer; every later upload is then wrapped to it, silently | T-S4 | **Medium** | Accepted; first control if continued: compile allowed fingerprints into the frontend | Crypto & Security Lead | §10.2 |
 | F-06 | Recipient and owner public keys can be substituted by a data writer | T-S5, T-S7 | Low | Accepted | Crypto & Security Lead | §10.2 |
 | F-07 | Access and refresh tokens are readable by any script on the origin | T-I4, T-S3 | **Medium** | Accepted, conditional on F-03 being fixed | Unassigned | §11.4 |
 | F-08 | Registration reveals whether a username or email exists, before checking the verification code | T-S2 | Low | Deferred — check the code first, and answer uniformly | Unassigned | §7.1 |
 | F-09 | No per-user storage quota; one account can fill the disk | T-D2 | Low | Accepted — 85 % filesystem alert | Testing & Deployment Lead | §11.3 |
-| F-10 | External audit checkpoints are implemented but not operating on staging | T-T6, T-R2 | Low | Deferred — complete OBSERVABILITY § 8 | Testing & Deployment Lead | OBSERVABILITY § 8 `<pending>` rows |
-| F-11 | Other staging verifications pending: loopback bind, 30-day bucket lock, log-redaction check | TB2, TB7, T-I5 | Low | Deferred — same evidence table | Testing & Deployment Lead | OBSERVABILITY § 8; BACKUP staging record |
-| F-12 | Backend transitive dependencies unpinned and unhashed; no automated vulnerability scanning; Actions pinned by tag | T-T5 | Low | Accepted — no known vulnerabilities on 2026-09-30; deferred: lock with hashes and add `pip-audit` / `npm audit` to CI | Testing & Deployment Lead | §11.1 |
+| F-10 | External audit checkpoints are implemented but not operating on staging | T-T6, T-R2 | Low | **Resolved 2026-10-01** — checkpoints publish hourly and one was downloaded and HMAC-verified on a separate machine on 2026-09-25 (Issue #59) | Testing & Deployment Lead | Issue #59 closing comment; `mcs21-audit-checkpoint` journal, last run 2026-10-01 09:16 +08 |
+| F-11 | Other staging verifications pending: loopback bind, 30-day bucket lock, log-redaction check | TB2, TB7, T-I5 | Low | **Resolved 2026-10-01** — loopback bind and log redaction were verified on staging on 2026-09-25 (Issue #59); the 30-day bucket lock is recorded under #56 (TODO.md) | Testing & Deployment Lead | Issue #59 closing comment; TODO.md #56 |
+| F-12 | Backend transitive dependencies unpinned and unhashed; no automated vulnerability scanning; Actions pinned by tag | T-T5 | Low | **Partly resolved 2026-10-01** — `pip-audit` and `npm audit` now run in CI and the one high-severity axios advisory was fixed (#112). Still deferred: hash-locked backend dependencies and Actions pinned by commit SHA | Testing & Deployment Lead | §11.1; PR #112 |
 | F-13 | One recovery officer may both approve and execute | T-R3 | Low | Accepted | Unassigned | SECURITY_FLOWS § Offline Recovery |
 | F-14 | Key bundles, profiles and public keys can be rolled back to older valid versions | T-T4 | Low | Accepted | Crypto & Security Lead | §10.2 |
 | F-15 | KDF cost could be quadrupled at under 0.6 s per unlock on the tested clients | T-I2 | Info | Deferred until a low-end Android device is measured (R-2) | Crypto & Security Lead | §9.5 |
 | F-16 | Argon2id not measured on Android, Firefox or low-end hardware; Safari unexplainedly 6× slower at 128 MiB | — | Info | Deferred | Crypto & Security Lead | §9.2 |
 | F-17 | Filenames, MIME types, exact sizes, timestamps and the sharing graph are visible to the server | T-I3 | Info | Accepted — decided in §10.3 | Crypto & Security Lead | §10.3 |
 | F-18 | The exported private key is a plaintext `.pem` | T-I7 | Info | Accepted — decided in §10.1 | Crypto & Security Lead | §10.1 |
-| F-19 | In-browser encryption peaks at ~4× file size, so large uploads can fail on phones | T-D3 | Low | Accepted — belongs to the upload work | Unassigned | §11.3 |
-| F-20 | Unknown routes render a blank page instead of a "not found" page | — | Info | Deferred — usability | Unassigned | Observed on staging |
+| F-19 | In-browser encryption peaks at ~4× file size, so large uploads can fail on phones | T-D3 | Low | **Mitigated 2026-10-01** — the upload page warns from 100 MiB, blocks files over the limit at selection, and turns an allocation failure into advice (#113). The ~4× peak itself stays accepted | Unassigned | §11.3; PR #113 |
+| F-20 | Unknown routes render a blank page instead of a "not found" page | — | Info | **Resolved 2026-10-01** — a catch-all not-found page replaces the blank screen (#113); the server still answers such URLs with HTTP 200 | Unassigned | Observed on staging; PR #113 |
 
 **Resolved during the review:**
 - The ten corrections from the peer review of v0.1 (#109), covered in §13.
 - The registration page no longer claims the passphrase cannot be reset (#110).
+
+**Status changes since v1.0 (2026-10-01):** F-10 and F-11 are resolved by the staging evidence in Issue #59, F-20 is resolved and F-19 mitigated by #113, and F-12 is partly resolved by #112. F-01 gained the fact that branch protection is unavailable on this plan. F-02, F-03 and F-04 are unchanged and still open.
 
 ## 13. Review record
 
@@ -572,3 +574,4 @@ F-02 in particular.
 | 0.3 | Peer-review corrections: O1 scoped to trusted client code; TB0 lists everything that actually crosses; N2 and AAD scope; AMK and KEK separated; recipient fingerprint is **not** shown (T-S5); CI does run on pushes to `main` but deployment does not wait for it (T-E5); download audit proves authorization, not receipt (T-R1); recovery-key custody split into intended vs staging; external checkpoints, bucket lock, loopback bind and log redaction marked implemented-but-unverified; owner-key substitution added as T-S7. |
 | 0.4 | §10: decisions on the exported private key and lost-passphrase limits, on public-key identity, rollback and the trust anchor (new adversary X8), and on cleartext metadata with a leakage inventory. T-S4, T-S5, T-S7, T-T4, T-I3 and T-I7 now point to their decisions. |
 | 1.0 | §11: supply chain (point-in-time scans clean), CSP exceptions, upload abuse, token storage and recovery operations. T-I6 raised to Medium: `/docs` runs an unpinned third-party script on the token-bearing origin. §12: register of 20 findings with severity, disposition, owner and evidence. §13: review record, stating that no independent external review took place. |
+| 1.1 | Register statuses refreshed against the live staging state on 2026-10-01: F-10, F-11, F-20 resolved; F-12 partly resolved and F-19 mitigated; F-01 records that branch protection needs a paid plan. No analysis changed. |

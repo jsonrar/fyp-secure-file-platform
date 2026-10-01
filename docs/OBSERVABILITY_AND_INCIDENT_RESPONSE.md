@@ -312,15 +312,15 @@ as the marker.
 
 ## 8. Staging evidence record
 
-Do not close #59 until these rows are filled with the real host result.
+These rows were filled from the host result recorded in Issue #59 (2026-09-25), which closed the Issue; where staging was observed again on 2026-10-01 that is noted.
 
 | Item | Evidence |
 |---|---|
-| Exact merged/deployed SHA | `<pending>` |
-| Live Uvicorn bind + trusted proxy args verified | `<pending>` |
-| `/internal/metrics` reachable on loopback and not exposed by nginx | `<pending>` |
-| First external checkpoint uploaded and stamp fresh | `<pending>` |
-| Checkpoint independently verified off-host | `<pending>` |
-| `mcs21-observe` baseline healthy and timers enabled | `<pending>` |
-| Synthetic redaction markers absent from local/alert/checkpoint outputs | `<pending>` |
-| Test alert received without journal contents | `<pending>` |
+| Exact merged/deployed SHA | `0beb967949442a72b9553e7842d82041e39ff27b`, healthy on staging, 2026-09-25 (staging has since moved on; it ran `70fcb6d` on 2026-10-01) |
+| Live Uvicorn bind + trusted proxy args verified | Backend listens on loopback only and trusts forwarded headers only from `127.0.0.1`, 2026-09-25; 127.0.0.1:8000 and 127.0.0.1:3306 re-observed on 2026-10-01 |
+| `/internal/metrics` reachable on loopback and not exposed by nginx | Works locally; nginx answers 404 for the same path over HTTPS, 2026-09-25 |
+| First external checkpoint uploaded and stamp fresh | Published to R2 on 2026-09-25; the timer was still publishing hourly on 2026-10-01 (`audit-checkpoint-20261001T011600Z-602.json`) |
+| Checkpoint independently verified off-host | Downloaded with a matching SHA-256 and HMAC-verified on a separate Mac, 2026-09-25 |
+| `mcs21-observe` baseline healthy and timers enabled | Baseline `health_status=ready`, no active breaches, fresh checkpoint, normal disk; both timers enabled and active, 2026-09-25; no active breaches on 2026-10-01 |
+| Synthetic redaction markers absent from local/alert/checkpoint outputs | A synthetic marker in a local failed-unit journal did not appear in the alert email or raw journal output, 2026-09-25 |
+| Test alert received without journal contents | Delivered; the received email contained neither the marker nor raw journal output, 2026-09-25 |

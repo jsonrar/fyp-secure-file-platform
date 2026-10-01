@@ -3,7 +3,9 @@
 Originally audited on **2026-09-05** against the FIT3161 MCS21 Project Proposal Report, GitHub
 `main`, all pull requests and commits, current repository tests, and the public staging
 deployment. Repository and board records were rechecked on **2026-09-07**; that record-only
-update did not re-verify the public deployment.
+update did not re-verify the public deployment. Rechecked again on **2026-10-01** against `main`
+at `70fcb6d`: the statuses below were refreshed from the Issues, the CI runs, the staging host and
+the live site, and the public deployment was verified to be running that same SHA.
 
 This is an evidence map, not a claim that every completed implementation has received final
 academic or independent-security approval.
@@ -11,7 +13,8 @@ academic or independent-security approval.
 The live source of truth is the
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1). Its five team views
 separate active backlog, proposal WBS, milestones, acceptance criteria, and PR evidence. The PR
-evidence view contains all 56 merged pull requests plus open PR #49; closed, unmerged PRs #2,
+evidence view contains all 56 merged pull requests plus open PR #49 (the board was last synchronized
+on 2026-09-07 and has not been re-synced since); closed, unmerged PRs #2,
 #3, and #17 are intentionally excluded because they did not deliver code. Historical
 direct-to-`main` CT work remains attributed by the exact commit table below and the archived
 crypto-track record rather than a personal board view or fabricated PR history.
@@ -27,9 +30,9 @@ crypto-track record rather than a personal board view or fabricated PR history.
 | Done | Repository/deployment evidence satisfies the stated work package | 100% |
 
 Commits are evidence for work packages; they are not treated as independent tasks. GitHub
-Issues and PRs share one number sequence, so the repository currently has **60 PRs**, not 70:
-56 merged, one open, and three closed without merge. The rechecked `adbf3cf` `main` baseline
-contains 167 commits.
+Issues and PRs share one number sequence. On 2026-10-01 the repository had **95 PRs**: 87 merged,
+two open and six closed without merge (#2, #3, #17, #95, #97, #100). The rechecked `70fcb6d`
+`main` baseline contains 241 commits.
 
 ## Proposal WBS audit
 
@@ -43,7 +46,7 @@ contains 167 commits.
 | 2.3 | Target users and stakeholders | Done | Proposal stakeholders and implemented user/RBAC roles |
 | 3.1 | UI/UX and Figma prototypes | Done | Implemented/deployed user journeys and PR #46 |
 | 3.2 | REST API and FastAPI module design | Done | `docs/API_DESIGN.md` and public OpenAPI/Swagger contract |
-| 3.3 | MySQL schema and migration design | Done | Alembic revision 0006, production SQL, PRs #1 and #24 |
+| 3.3 | MySQL schema and migration design | Done | Alembic head `0008_avatars`, production SQL, PRs #1, #24, #103 and #106 |
 | 3.4 | AES/RSA hybrid workflow design | Done | `docs/SECURITY_FLOWS.md` and authenticated envelope implementation |
 | 3.5 | Educational-page design | Done | `/education`, algorithm explorer, playground and knowledge search |
 | 4.1 | Vue frontend | Done | Vue 3/TypeScript application, tests, typecheck and build |
@@ -55,13 +58,15 @@ contains 167 commits.
 | 4.7 | Argon2id and protected private keys | Done | Password hashing and browser-protected account-key bundles |
 | 4.8 | RBAC and session management | Done | Server enforcement, refresh rotation, logout revocation (#89), and role-aware admin/recovery UI (#55) |
 | 4.9 | Audit logging | Done | Hash-chained events, per-file history and corrected visibility rules |
-| 5.1 | Functional and end-to-end testing | In progress | Live MVP test passed; required browser/MySQL CI and failure paths remain in Issues #53/#58 |
+| 5.1 | Functional and end-to-end testing | Done | `e2e-live` runs every live-backend suite un-skipped and a Chromium golden-path test; `mysql-gate` runs the whole suite against MySQL 8.4 with concurrency and fault-injection and fails on any skip; a tamper drill runs in CI (Issues #53, #58, #90, #93). Still not a long-running chaos test |
 | 5.2 | Cryptographic correctness testing | Done | Primitive, envelope, tamper, upload/download and live integration tests |
-| 5.3 | OWASP and security testing | In progress | Hardening/regression tests exist; systematic review remains in Issue #60 |
-| 5.4 | Non-expert usability testing | Backlog | No moderated study artefact was found; define tasks, participants, metrics and findings |
+| 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, and four *Recommended* findings (F-01 to F-04) are open |
+| 5.4 | Non-expert usability testing | In progress | The study kit exists — plan, consent sheet, screener, ten task cards, SUS questionnaire, templates and a tested scoring script with pre-registered thresholds ([`docs/usability/`](usability/STUDY_PLAN.md), Issue #115). **No session has been run and there is no result**; it becomes Done only when `RESULTS.md` records real sessions |
 
-**WBS summary:** 20 Done, 3 In progress, 1 Backlog. The simple board completion average is
-89.6%; this is a tracking indicator, not an assessment mark or effort-weighted earned value.
+**WBS summary:** 22 Done, 1 In review, 1 In progress, 0 Backlog. The simple board completion
+average is 97.5% (22 × 100 + 90 + 50, over 24); this is a tracking indicator, not an assessment
+mark or effort-weighted earned value. The 2026-09-07 summary of 20 Done, 3 In progress and
+1 Backlog (89.6%) disagreed with its own table, which already showed 21 Done.
 
 ## Milestone audit
 
@@ -73,7 +78,7 @@ contains 167 commits.
 | M4 Core cryptographic modules | Done | AES, RSA, SHA/integrity, Argon2id and ChaCha20 implementations/tests |
 | M5 Feature freeze | Done | Browser MVP complete; remaining work explicitly classified as hardening/assurance |
 | M6 Full system integration | Done | Public HTTPS stack and live two-account MVP test |
-| M7 Final demo readiness | In progress | Close/accept P0 CI, MySQL and backup blockers; complete usability and progress-pipeline evidence |
+| M7 Final demo readiness | In progress | The P0 CI, MySQL and backup blockers are closed with evidence. Remaining: run the usability study (#115) and implement the AC7 progress pipeline |
 
 **Milestone summary:** 6 Done and 1 In progress. The supervisor's 70–80% assessment is evidence
 for the completed historical checkpoint, not a claim that the current repository has an exact
@@ -119,10 +124,14 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 
 ## Immediate evidence priorities
 
-1. Make CI and MySQL 8.4 integration suites required and non-skippable (Issues #52 and #53).
-2. Prove encrypted off-server backup plus clean-host restore (Issue #56).
-3. Conduct and document non-expert usability testing (WBS 5.4).
-4. Implement the exact four-stage, dismissible processing feedback required by AC7.
+1. Conduct and document non-expert usability testing (WBS 5.4, Issue #115), after the supervisor's
+   written answer on ethics review and the pilot session.
+2. Implement the exact four-stage, dismissible processing feedback required by AC7.
+3. Decide the four open *Recommended* security findings (F-01 to F-04): gate deployment on CI, move
+   the recovery key into proposed custody, switch off `/docs` after the demo, reject known-weak passphrases.
+4. Reconcile Issues closed ahead of their acceptance criteria (#54 browser passphrase change and
+   successor-key rotation; #71 ciphertext preview) with the code, by reopening or splitting them.
+5. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
 
 These records should be updated in the same PR that changes their evidence. A runtime change is
 not Done until the merged SHA is deployed and the affected live path is verified.
