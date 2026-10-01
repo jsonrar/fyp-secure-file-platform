@@ -493,7 +493,7 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
       expect(res.status).toBe(200)
       const report = res.data.data
 
-      expect(report.rules).toHaveLength(10)
+      expect(report.rules).toHaveLength(12)
       expect(report.boundaries.length).toBeGreaterThan(0)
       expect(report.inputs.audit_events_read).toBeGreaterThanOrEqual(10)
       const guessing = report.findings.find(
@@ -507,6 +507,36 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
       const order = ['CRITICAL', 'HIGH', 'MEDIUM', 'LOW']
       const ranks = report.findings.map((f: { priority: string }) => order.indexOf(f.priority))
       expect(ranks).toEqual([...ranks].sort((a: number, b: number) => a - b))
+    })
+
+    it('reports a real sign-in that succeeded right after five wrong passwords', async () => {
+      // A fresh throwaway account. Five failures stay well under the account throttle's ten,
+      // and add only five to this address's fifty for the whole suite.
+      const target = newAccount('takeover')
+      const keys = (await enrolAccountKey(target.passphrase)).keyMaterial
+      unwrapData(await register(target, keys))
+      for (let attempt = 0; attempt < 5; attempt += 1) {
+        const res = await raw.post('/auth/login', {
+          username: target.username,
+          password: `Wrong!${attempt}-${crypto.randomUUID()}`,
+        })
+        expect(res.status).toBe(401)
+      }
+      expect((await raw.post('/auth/login', credentials(target))).status).toBe(200)
+
+      const tokens = await signIn({ username: ADMIN!, password: ADMIN_PASSWORD! })
+      const res = await raw.get('/admin/agent/report?window_hours=24', bearer(tokens.access_token))
+      expect(res.status).toBe(200)
+      const takeovers = res.data.data.findings.filter(
+        (f: { rule_id: string; title: string }) =>
+          f.rule_id === 'SIGN_IN_AFTER_GUESSING' && f.title.startsWith(`${target.username} `),
+      )
+
+      expect(takeovers).toHaveLength(1)
+      const [finding] = takeovers
+      expect(finding.priority).toBe('HIGH')
+      expect(finding.evidence.join(' ')).toMatch(/5 against this account/)
+      expect(finding.recommended_action).toMatch(/disable the account on the Users tab/)
     })
   })
 

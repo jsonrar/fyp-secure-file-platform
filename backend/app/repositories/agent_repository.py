@@ -8,7 +8,9 @@ from datetime import datetime
 from sqlalchemy import and_, func, select
 from sqlalchemy.orm import Session, aliased
 
+from app.domain.enums import LoginThrottleScope
 from app.models.audit_log import AuditLog
+from app.models.auth_login_throttle import AuthLoginThrottle
 from app.models.file import File
 from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_request import RecoveryRequest
@@ -27,6 +29,7 @@ class AuditEventRow:
     created_at: datetime
     actor_username: str | None
     ip_address: str | None
+    actor_role: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -44,7 +47,8 @@ class AgentRepository:
     """Read-only queries for the security agent. It writes nothing and returns metadata only.
 
     Nothing here selects file contents, keys, ciphertext, request bodies, user agents or
-    audit metadata: event type, time, account name and source address are all the rules use.
+    audit metadata: event type, time, account name and role, and source address are all the
+    rules use. From the sign-in throttle it reads counts only, never the hashed keys.
     """
 
     def __init__(self, db: Session) -> None:
@@ -65,6 +69,7 @@ class AgentRepository:
                         AuditLog.created_at,
                         User.username,
                         AuditLog.ip_address,
+                        User.role,
                     )
                     .outerjoin(User, User.id == AuditLog.actor_user_id)
                     .where(AuditLog.action == action, AuditLog.created_at >= since)
@@ -76,6 +81,18 @@ class AgentRepository:
                 capped.append(action)
             rows.extend(batch)
         return rows, capped
+
+    def active_login_blocks(self, now: datetime) -> dict[LoginThrottleScope, int]:
+        """How many sign-in throttle buckets are blocked at `now`, per scope (address, account)."""
+        scopes = (LoginThrottleScope.IP, LoginThrottleScope.ACCOUNT)
+        counts = {scope: 0 for scope in scopes}
+        for scope, count in self.db.execute(
+            select(AuthLoginThrottle.scope, func.count())
+            .where(AuthLoginThrottle.scope.in_(scopes), AuthLoginThrottle.blocked_until > now)
+            .group_by(AuthLoginThrottle.scope)
+        ):
+            counts[LoginThrottleScope(scope)] = int(count)
+        return counts
 
     def count_recovery_requests_pending_before(self, cutoff: datetime) -> int:
         return int(
