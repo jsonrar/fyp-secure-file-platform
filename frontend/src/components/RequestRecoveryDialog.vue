@@ -58,7 +58,7 @@ async function submit() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="recovery-request-title"
-      class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-lg"
+      class="max-h-[90dvh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-lg"
     >
       <div class="flex items-start gap-3">
         <div class="rounded-lg bg-primary/10 p-2">

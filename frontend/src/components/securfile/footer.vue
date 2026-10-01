@@ -32,18 +32,18 @@ const socialLinks = ['GitHub', 'X', 'Discord']
 
         <div>
           <h4 class="text-foreground font-semibold mb-4">Product</h4>
-          <ul class="space-y-2 text-sm">
+          <ul class="space-y-0 text-sm">
             <li v-for="link in productLinks" :key="link.label">
-              <RouterLink :to="link.to" class="text-muted-foreground hover:text-foreground transition-colors">{{ link.label }}</RouterLink>
+              <RouterLink :to="link.to" class="inline-flex min-h-10 items-center text-muted-foreground hover:text-foreground transition-colors">{{ link.label }}</RouterLink>
             </li>
           </ul>
         </div>
 
         <div>
           <h4 class="text-foreground font-semibold mb-4">Support</h4>
-          <ul class="space-y-2 text-sm">
+          <ul class="space-y-0 text-sm">
             <li v-for="link in supportLinks" :key="link">
-              <a href="#" class="text-muted-foreground hover:text-foreground transition-colors">{{ link }}</a>
+              <a href="#" class="inline-flex min-h-10 items-center text-muted-foreground hover:text-foreground transition-colors">{{ link }}</a>
             </li>
           </ul>
         </div>
@@ -51,12 +51,12 @@ const socialLinks = ['GitHub', 'X', 'Discord']
 
       <div class="border-t border-border mt-12 pt-8 flex flex-col md:flex-row items-center justify-between gap-4">
         <p class="text-muted-foreground text-sm">© 2026 SecureView. All rights reserved.</p>
-        <div class="flex items-center gap-6 text-sm">
+        <div class="flex items-center gap-2 text-sm">
           <a
             v-for="link in socialLinks"
             :key="link"
             href="#"
-            class="text-muted-foreground hover:text-foreground transition-colors"
+            class="inline-flex min-h-10 min-w-10 items-center justify-center rounded-md px-2 text-muted-foreground hover:text-foreground transition-colors"
           >
             {{ link }}
           </a>

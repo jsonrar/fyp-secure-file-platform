@@ -36,11 +36,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="rounded-lg border border-border bg-secondary/40 p-4 text-sm" data-testid="ciphertext-preview">
-    <div class="mb-3 flex items-start justify-between gap-3">
-      <div class="flex items-start gap-2">
+  <div class="rounded-lg border border-border bg-secondary/40 p-3 text-sm sm:p-4" data-testid="ciphertext-preview">
+    <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+      <div class="flex min-w-0 items-start gap-2">
         <Lock class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-        <div>
+        <div class="min-w-0">
           <p class="font-medium text-foreground">What the server stores for this file</p>
           <p class="text-xs text-muted-foreground">
             The start of the encrypted data, exactly as saved. It is not your file's content, and nothing here is decrypted.
@@ -49,7 +49,7 @@ onMounted(async () => {
       </div>
       <button
         type="button"
-        class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-foreground hover:bg-secondary"
+        class="inline-flex h-10 w-fit shrink-0 items-center gap-1.5 rounded-md border border-border px-3 text-xs text-foreground hover:bg-secondary sm:h-8 sm:px-2.5"
         @click="emit('download-encrypted')"
       >
         <FileLock2 class="h-3.5 w-3.5" />

@@ -73,7 +73,7 @@ onMounted(async () => {
     class="fixed inset-0 z-50 flex items-center justify-center bg-black/40 p-4"
     @click.self="emit('close')"
   >
-    <div class="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-xl">
+    <div class="max-h-[90dvh] w-full max-w-lg overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-xl">
       <div class="flex items-center gap-2 mb-1">
         <div class="p-2 rounded-lg bg-secondary"><Activity class="h-4 w-4 text-primary" /></div>
         <h2 class="text-lg font-semibold text-foreground">Access history</h2>

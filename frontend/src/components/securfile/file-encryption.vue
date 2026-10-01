@@ -183,23 +183,23 @@ const goToFiles = () => {
               </label>
             </div>
             <div v-if="files.length" class="mt-4 space-y-2">
-              <div v-for="(file, index) in files" :key="`${file.name}-${index}`" class="flex items-center justify-between p-3 rounded-lg bg-secondary/50">
-                <div class="flex items-center gap-3">
-                  <FileIcon class="h-5 w-5 text-primary" />
-                  <div>
-                    <p class="text-sm text-foreground truncate max-w-[200px]">{{ file.name }}</p>
+              <div v-for="(file, index) in files" :key="`${file.name}-${index}`" class="flex items-center justify-between gap-2 p-3 rounded-lg bg-secondary/50">
+                <div class="flex min-w-0 items-center gap-3">
+                  <FileIcon class="h-5 w-5 shrink-0 text-primary" />
+                  <div class="min-w-0">
+                    <p class="text-sm text-foreground [overflow-wrap:anywhere]">{{ file.name }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatFileSize(file.size) }}</p>
-                    <p v-if="file.status === 'failed'" class="text-xs text-destructive mt-1 max-w-[220px]">{{ file.error }}</p>
+                    <p v-if="file.status === 'failed'" class="text-xs text-destructive mt-1">{{ file.error }}</p>
                     <p
                       v-else-if="file.status === 'pending' && classifyUploadSize(file.size) === 'too-large'"
-                      class="text-xs text-destructive mt-1 max-w-[220px]"
+                      class="text-xs text-destructive mt-1"
                       data-testid="upload-too-large"
                     >
                       Over the {{ formatFileSize(MAX_UPLOAD_BYTES) }} limit. Remove it to continue.
                     </p>
                     <p
                       v-else-if="file.status === 'pending' && classifyUploadSize(file.size) === 'large'"
-                      class="mt-1 flex max-w-[220px] items-start gap-1 text-xs text-amber-600 dark:text-amber-400"
+                      class="mt-1 flex items-start gap-1 text-xs text-amber-600 dark:text-amber-400"
                       data-testid="upload-large-warning"
                     >
                       <AlertTriangle class="mt-0.5 h-3 w-3 shrink-0" />
@@ -228,7 +228,7 @@ const goToFiles = () => {
                     id="content-algorithm"
                     v-model="algorithm"
                     :disabled="isEncrypting"
-                    class="font-semibold text-primary bg-transparent border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                    class="h-10 font-semibold text-primary bg-transparent border border-border rounded-md px-2 py-1 disabled:opacity-50"
                   >
                     <option v-for="choice in algorithmChoices" :key="choice" :value="choice">
                       {{ choice }}

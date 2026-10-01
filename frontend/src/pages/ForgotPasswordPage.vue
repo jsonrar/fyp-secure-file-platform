@@ -244,13 +244,13 @@ async function resetPassword() {
               maxlength="6"
               autocomplete="one-time-code"
               :aria-invalid="errorFor('code') ? 'true' : undefined"
-              class="h-10 flex-1 rounded-md border bg-secondary px-3 text-foreground tracking-widest"
+              class="h-11 min-w-0 flex-1 rounded-md border bg-secondary px-3 text-foreground tracking-widest"
               :class="errorFor('code') ? 'border-destructive' : 'border-border'"
               @blur="markTouched('code')"
             />
             <button
               type="button"
-              class="h-10 shrink-0 rounded-md border border-border px-3 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              class="h-11 shrink-0 rounded-md border border-border px-3 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="isSendingCode || cooldownSeconds > 0"
               @click="sendCode"
             >

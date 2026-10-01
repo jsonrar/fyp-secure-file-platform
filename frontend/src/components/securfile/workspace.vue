@@ -123,7 +123,7 @@ const destinations = computed(() => {
             <RouterLink
               v-if="total > 0"
               to="/files"
-              class="inline-flex items-center gap-1 text-sm font-medium text-primary hover:underline"
+              class="inline-flex min-h-10 items-center gap-1 text-sm font-medium text-primary hover:underline"
             >
               See all
               <ChevronRight class="h-4 w-4" />

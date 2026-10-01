@@ -360,13 +360,13 @@ function downloadPrivateKey() {
               maxlength="6"
               autocomplete="one-time-code"
               :aria-invalid="errorFor('code') ? 'true' : undefined"
-              class="h-10 flex-1 rounded-md border bg-secondary px-3 text-foreground tracking-widest"
+              class="h-11 min-w-0 flex-1 rounded-md border bg-secondary px-3 text-foreground tracking-widest"
               :class="errorFor('code') ? 'border-destructive' : 'border-border'"
               @blur="markTouched('code')"
             />
             <button
               type="button"
-              class="h-10 shrink-0 rounded-md border border-border px-3 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
+              class="h-11 shrink-0 rounded-md border border-border px-3 text-sm text-foreground hover:bg-secondary disabled:opacity-50 disabled:cursor-not-allowed"
               :disabled="isSendingCode || cooldownSeconds > 0"
               @click="sendCode"
             >
@@ -396,7 +396,7 @@ function downloadPrivateKey() {
 
         <p class="text-sm text-muted-foreground mt-6 text-center">
           Already have an account?
-          <RouterLink to="/login" class="text-primary hover:underline">Sign in</RouterLink>
+          <RouterLink to="/login" class="inline-flex min-h-10 items-center text-primary hover:underline">Sign in</RouterLink>
         </p>
       </template>
 
@@ -450,7 +450,7 @@ function downloadPrivateKey() {
         </button>
 
         <label class="flex items-start gap-2 mt-4 text-sm text-foreground">
-          <input v-model="keyAcknowledged" type="checkbox" class="mt-1" />
+          <input v-model="keyAcknowledged" type="checkbox" class="mt-1 h-5 w-5 shrink-0" />
           <span>I have saved this private key somewhere safe. I understand it will not be shown again, and that without it a forgotten passphrase means losing access to my files.</span>
         </label>
 
