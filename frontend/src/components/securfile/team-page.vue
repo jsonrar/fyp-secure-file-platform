@@ -23,9 +23,7 @@ interface TeamMember {
   bio: string
   detail: string
   accent: string
-  mosaic: string
   stickerTone: string
-  tileRot: string
   /** The supervisor's tile shows his portrait in the sticker and a profile link. */
   photo?: string
   title?: string
@@ -46,9 +44,7 @@ const members: TeamMember[] = [
     detail:
       'Guides SecureView on scope, technical direction and evaluation, so the team keeps a coherent security architecture, realistic milestones and a platform that stands up to review.',
     accent: 'from-amber-500/20 via-transparent to-amber-500/5',
-    mosaic: 'mosaic-tile-supervisor',
     stickerTone: 'sticker-amber',
-    tileRot: '-0.6deg',
     photo: asadPhoto,
     title: 'Lecturer and Cybersecurity Group Leader',
     affiliation: 'School of Information Technology, Monash University Malaysia',
@@ -64,9 +60,7 @@ const members: TeamMember[] = [
     detail:
       'Runs the backlog and the release process, owns the staging server and its deployment, the MySQL database, and the testing and documentation that show the platform does what it claims.',
     accent: 'from-[rgb(0,109,199)]/25 via-transparent to-[rgb(0,109,199)]/5',
-    mosaic: 'mosaic-tile-hero',
     stickerTone: 'sticker-blue',
-    tileRot: '-1.2deg',
     github: { url: 'https://github.com/Waldo0926', handle: 'Waldo0926' },
     email: 'swen0027@student.monash.edu',
   },
@@ -79,9 +73,7 @@ const members: TeamMember[] = [
     detail:
       'Implements the browser-side cryptography, the encrypted file envelope and key wrapping, and the test vectors that check them, so plaintext never needs to leave the client trust boundary.',
     accent: 'from-emerald-500/20 via-transparent to-emerald-500/5',
-    mosaic: 'mosaic-tile-tall',
     stickerTone: 'sticker-emerald',
-    tileRot: '1.4deg',
     github: { url: 'https://github.com/Charter888', handle: 'Charter888' },
     email: 'tche0186@student.monash.edu',
   },
@@ -94,9 +86,7 @@ const members: TeamMember[] = [
     detail:
       'Builds the SecureView interface: the Vue pages, the product journeys, and the Education and Help content, so security features stay readable and approachable on every screen size.',
     accent: 'from-sky-500/20 via-transparent to-sky-500/5',
-    mosaic: 'mosaic-tile-wide',
     stickerTone: 'sticker-sky',
-    tileRot: '-0.8deg',
     github: { url: 'https://github.com/jlii0421', handle: 'jlii0421' },
     email: 'jlii0421@student.monash.edu',
   },
@@ -109,12 +99,17 @@ const members: TeamMember[] = [
     detail:
       'Maintains the FastAPI services behind the platform: authentication, file storage, sharing and the audit endpoints, so encrypted collaboration has a dependable server backbone.',
     accent: 'from-slate-500/20 via-transparent to-slate-500/5',
-    mosaic: 'mosaic-tile-square',
     stickerTone: 'sticker-slate',
-    tileRot: '1deg',
     github: { url: 'https://github.com/jsonrar', handle: 'jsonrar' },
     email: 'jhua0176@student.monash.edu',
   },
+]
+
+const supervisor = members.find((member) => member.profileUrl)!
+/** The supervisor is one wide tile because it carries more to say; the four members are equal tiles. */
+const groups = [
+  { key: 'supervisor', class: 'team-supervisor-row', items: [supervisor] },
+  { key: 'team', class: 'team-mosaic', items: members.filter((member) => member !== supervisor) },
 ]
 
 const topics = [
@@ -325,106 +320,127 @@ onBeforeUnmount(() => {
       <div class="mb-8 max-w-3xl md:mb-10">
         <p class="mb-2 text-xs font-semibold uppercase tracking-[0.32em] text-primary">Supervisor and development team · Group MCS21</p>
         <h2 class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
-          Meet the
-          <span class="text-primary"> people</span>
+          The people behind
+          <span class="text-primary">SecureView</span>
         </h2>
         <p class="mt-3 max-w-2xl text-base text-muted-foreground md:text-lg">
-          We are a team of builders united by encrypted collaboration. Each member is a unique piece of the puzzle, crafting secure, decentralized solutions together.
+          SecureView is supervised by Dr. Asad Malik and built by four Monash students. Each of them owns an area of the platform, from the browser-side encryption to the server and its tests.
         </p>
       </div>
 
-      <div class="team-mosaic" data-testid="team-members" @mouseleave="scheduleClose">
-        <article
-          v-for="member in members"
-          :key="member.name"
-          class="team-tile group"
-          :data-testid="member.profileUrl ? 'team-supervisor' : 'team-member'"
-          :class="[member.mosaic, { 'team-tile-active': activeId === member.name }]"
-          :style="{ '--tile-rot': member.tileRot }"
-          tabindex="0"
-          :aria-expanded="activeId === member.name"
-          @mouseenter="scheduleOpen(member.name)"
-          @focusin="scheduleOpen(member.name)"
-          @focusout="scheduleClose"
-          @click="togglePin(member.name)"
-          @keydown.enter.prevent="togglePin(member.name)"
-          @keydown.space.prevent="togglePin(member.name)"
+      <div data-testid="team-members" class="team-groups">
+        <div
+          v-for="group in groups"
+          :key="group.key"
+          :class="group.class"
+          @mouseleave="scheduleClose"
         >
-          <div class="team-tile__frame" :class="`bg-gradient-to-br ${member.accent}`">
-            <div class="team-tile__split">
-              <div class="team-tile__identity">
-                <div class="team-sticker" :class="member.stickerTone">
-                  <img
-                    v-if="member.photo"
-                    :src="member.photo"
-                    :alt="`Portrait of ${member.name}`"
-                    width="640"
-                    height="789"
-                    class="team-sticker__photo"
-                    loading="lazy"
-                  />
-                  <span v-else class="team-sticker__initials">{{ member.initials }}</span>
-                  <span class="team-sticker__tape" aria-hidden="true" />
-                  <span class="team-sticker__badge">
-                    <component :is="member.icon" class="h-4 w-4" />
-                  </span>
+          <article
+            v-for="member in group.items"
+            :key="member.name"
+            class="team-tile group"
+            :data-testid="member.profileUrl ? 'team-supervisor' : 'team-member'"
+            :class="{ 'team-tile-active': activeId === member.name }"
+            tabindex="0"
+            :aria-expanded="activeId === member.name"
+            @mouseenter="scheduleOpen(member.name)"
+            @focusin="scheduleOpen(member.name)"
+            @focusout="scheduleClose"
+            @click="togglePin(member.name)"
+            @keydown.enter.prevent="togglePin(member.name)"
+            @keydown.space.prevent="togglePin(member.name)"
+          >
+            <div class="team-tile__frame" :class="`bg-gradient-to-br ${member.accent}`">
+              <div class="team-tile__split" :class="{ 'team-tile__split--supervisor': member.profileUrl }">
+                <div class="team-tile__identity">
+                  <div class="team-sticker" :class="[member.stickerTone, { 'team-sticker--lg': member.photo }]">
+                    <img
+                      v-if="member.photo"
+                      :src="member.photo"
+                      :alt="`Portrait of ${member.name}`"
+                      width="640"
+                      height="789"
+                      class="team-sticker__photo"
+                      loading="lazy"
+                    />
+                    <span v-else class="team-sticker__initials">{{ member.initials }}</span>
+                    <span class="team-sticker__tape" aria-hidden="true" />
+                    <span class="team-sticker__badge">
+                      <component :is="member.icon" class="h-4 w-4" />
+                    </span>
+                  </div>
+                  <h3 class="mt-4 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+                    {{ member.name }}
+                  </h3>
+                  <p class="mt-1 text-sm font-medium text-primary">{{ member.role }}</p>
                 </div>
-                <h2 class="mt-4 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
-                  {{ member.name }}
-                </h2>
-                <p class="mt-1 text-sm font-medium text-primary">{{ member.role }}</p>
-              </div>
 
-              <div class="team-tile__bio">
-                <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Intro</p>
-                <p class="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
-                  {{ member.bio }}
-                </p>
-                <p v-if="member.interests" class="mt-3 text-xs text-muted-foreground">
-                  {{ member.interests.join(' · ') }}
-                </p>
-                <div class="team-links" @click.stop @keydown.enter.stop @keydown.space.stop>
-                  <a
-                    v-if="member.profileUrl"
-                    :href="member.profileUrl"
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    class="team-link"
-                    data-testid="supervisor-profile-link"
-                  >
-                    <ArrowUpRight class="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span>View Monash profile</span>
-                  </a>
+                <div class="team-tile__bio">
+                  <template v-if="member.profileUrl">
+                    <p class="text-base font-semibold leading-snug text-foreground">{{ member.title }}</p>
+                    <p class="mt-1 text-sm text-muted-foreground">{{ member.affiliation }}</p>
+                    <p class="mt-4 text-sm leading-relaxed text-foreground">{{ member.detail }}</p>
+                    <p class="mt-4 text-[0.7rem] font-semibold uppercase tracking-[0.2em] text-muted-foreground">Research interests</p>
+                    <ul class="mt-2 flex flex-wrap gap-2">
+                      <li
+                        v-for="interest in member.interests"
+                        :key="interest"
+                        class="rounded-full border border-border bg-secondary/60 px-3 py-1 text-xs text-foreground"
+                      >
+                        {{ interest }}
+                      </li>
+                    </ul>
+                  </template>
                   <template v-else>
+                    <p class="text-[0.7rem] font-semibold uppercase tracking-[0.22em] text-muted-foreground">Intro</p>
+                    <p class="mt-3 text-sm leading-relaxed text-muted-foreground md:text-base">
+                      {{ member.bio }}
+                    </p>
+                  </template>
+
+                  <div class="team-links" @click.stop @keydown.enter.stop @keydown.space.stop>
                     <a
-                      :href="member.github!.url"
+                      v-if="member.profileUrl"
+                      :href="member.profileUrl"
                       target="_blank"
                       rel="noopener noreferrer"
-                      class="team-link"
-                      :aria-label="`${member.name} on GitHub`"
-                      data-testid="member-github"
+                      class="team-link team-link--button"
+                      data-testid="supervisor-profile-link"
                     >
-                      <Github class="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>@{{ member.github!.handle }}</span>
+                      <ArrowUpRight class="h-4 w-4 shrink-0 text-muted-foreground" />
+                      <span>View Monash profile</span>
                     </a>
-                    <a
-                      :href="`mailto:${member.email}`"
-                      class="team-link"
-                      :aria-label="`Email ${member.name}`"
-                      data-testid="member-email"
-                    >
-                      <Mail class="h-4 w-4 shrink-0 text-muted-foreground" />
-                      <span>{{ member.email!.split('@')[0] }}@<wbr />{{ member.email!.split('@')[1] }}</span>
-                    </a>
-                  </template>
+                    <template v-else>
+                      <a
+                        :href="member.github!.url"
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        class="team-link"
+                        :aria-label="`${member.name} on GitHub`"
+                        data-testid="member-github"
+                      >
+                        <Github class="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span>@{{ member.github!.handle }}</span>
+                      </a>
+                      <a
+                        :href="`mailto:${member.email}`"
+                        class="team-link"
+                        :aria-label="`Email ${member.name}`"
+                        data-testid="member-email"
+                      >
+                        <Mail class="h-4 w-4 shrink-0 text-muted-foreground" />
+                        <span>{{ member.email!.split('@')[0] }}@<wbr />{{ member.email!.split('@')[1] }}</span>
+                      </a>
+                    </template>
+                  </div>
+                  <p class="mt-3 text-xs text-primary/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
+                    Hold 2s to enlarge
+                  </p>
                 </div>
-                <p class="mt-3 text-xs text-primary/80 opacity-0 transition-opacity duration-300 group-hover:opacity-100">
-                  Hold 2s to enlarge
-                </p>
               </div>
             </div>
-          </div>
-        </article>
+          </article>
+        </div>
       </div>
     </div>
 
@@ -523,15 +539,20 @@ onBeforeUnmount(() => {
 </template>
 
 <style scoped>
+.team-groups {
+  display: grid;
+  gap: 1.15rem;
+}
+
+.team-supervisor-row,
 .team-mosaic {
   display: grid;
   grid-template-columns: 1fr;
-  gap: 1rem;
+  gap: 1.15rem;
 }
 
 .team-tile {
   position: relative;
-  transform: rotate(var(--tile-rot, 0deg));
   transition: transform 0.35s cubic-bezier(0.22, 1, 0.36, 1), z-index 0s;
   cursor: pointer;
   outline: none;
@@ -541,7 +562,7 @@ onBeforeUnmount(() => {
 .team-tile:focus-within,
 .team-tile-active {
   z-index: 3;
-  transform: rotate(0deg) translateY(-4px) scale(1.015);
+  transform: translateY(-4px) scale(1.015);
 }
 
 .team-tile__frame {
@@ -581,7 +602,7 @@ onBeforeUnmount(() => {
 .team-tile__bio {
   display: flex;
   flex-direction: column;
-  justify-content: center;
+  justify-content: flex-start;
   padding: 1.25rem 1.35rem;
 }
 
@@ -699,7 +720,9 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   gap: 0.15rem;
-  margin-top: 0.75rem;
+  /* Pinned to the bottom so the links line up from tile to tile whatever the intro length. */
+  margin-top: auto;
+  padding-top: 0.75rem;
 }
 
 .team-link {
@@ -726,49 +749,32 @@ onBeforeUnmount(() => {
   margin-top: 1.25rem;
 }
 
-.mosaic-tile-supervisor,
-.mosaic-tile-hero,
-.mosaic-tile-tall,
-.mosaic-tile-wide,
-.mosaic-tile-square {
-  min-height: 15rem;
+.team-sticker--lg {
+  width: 8rem;
+  height: 9.85rem;
+}
+
+.team-tile__split--supervisor {
+  grid-template-columns: minmax(11rem, 0.55fr) minmax(0, 1.45fr);
+}
+
+.team-link--button {
+  min-height: 2.75rem;
+  padding: 0 1rem;
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-weight: 500;
 }
 
 @media (min-width: 768px) {
+  /* Four equal tiles: every row is as tall as the tallest tile in it. */
   .team-mosaic {
-    grid-template-columns: repeat(12, minmax(0, 1fr));
-    grid-auto-rows: minmax(11rem, auto);
-    gap: 1.15rem;
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    grid-auto-rows: 1fr;
   }
 
-  .mosaic-tile-supervisor {
-    grid-column: span 12;
-    grid-row: span 1;
-    min-height: 14.5rem;
-  }
-
-  .mosaic-tile-hero {
-    grid-column: span 7;
-    grid-row: span 2;
-    min-height: 22rem;
-  }
-
-  .mosaic-tile-tall {
-    grid-column: span 5;
-    grid-row: span 2;
-    min-height: 22rem;
-  }
-
-  .mosaic-tile-wide {
-    grid-column: span 7;
-    grid-row: span 1;
-    min-height: 13.5rem;
-  }
-
-  .mosaic-tile-square {
-    grid-column: span 5;
-    grid-row: span 1;
-    min-height: 13.5rem;
+  .team-tile__frame {
+    min-height: 15rem;
   }
 
   .team-tile__identity {
@@ -781,11 +787,8 @@ onBeforeUnmount(() => {
 }
 
 @media (max-width: 639px) {
-  .team-tile {
-    transform: none;
-  }
-
-  .team-tile__split {
+  .team-tile__split,
+  .team-tile__split--supervisor {
     grid-template-columns: 1fr;
   }
 

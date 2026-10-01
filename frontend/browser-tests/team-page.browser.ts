@@ -17,7 +17,12 @@ test('the team page shows the supervisor, the four members and the feedback form
   const supervisor = page.getByTestId('team-supervisor')
   await expect(supervisor.getByRole('heading', { name: 'Dr. Asad Malik' })).toBeVisible()
   await expect(supervisor).toContainText('Cybersecurity Group Leader')
-  await expect(supervisor).toContainText('School of Information Technology')
+  await expect(supervisor).toContainText('School of Information Technology, Monash University Malaysia')
+  await expect(supervisor).toContainText('Guides SecureView on scope')
+  await expect(supervisor).toContainText('Research interests')
+  for (const interest of ['Cybersecurity', 'Multimedia forensics', 'DeepFake detection', 'Trustworthy AI']) {
+    await expect(supervisor).toContainText(interest)
+  }
   const link = supervisor.getByTestId('supervisor-profile-link')
   await expect(link).toHaveAttribute('href', PROFILE)
   await expect(link).toHaveAttribute('rel', /noopener/)
@@ -30,6 +35,16 @@ test('the team page shows the supervisor, the four members and the feedback form
 
   const members = page.getByTestId('team-member')
   await expect(members).toHaveCount(4)
+  await expect(page.getByRole('heading', { name: /The people behind\s+SecureView/ })).toBeVisible()
+
+  // The four member tiles are the same size, not a ragged mosaic.
+  const sizes = await members.evaluateAll((tiles) =>
+    tiles.map((tile) => {
+      const box = tile.getBoundingClientRect()
+      return [Math.round(box.width), Math.round(box.height)]
+    }),
+  )
+  for (const size of sizes) expect(size).toEqual(sizes[0])
   for (const [name, role, github, email] of [
     ['Shuoxun Wen', 'Project Lead', 'https://github.com/Waldo0926', 'swen0027@student.monash.edu'],
     ['Jason Huang', 'Backend and APIs', 'https://github.com/jsonrar', 'jhua0176@student.monash.edu'],

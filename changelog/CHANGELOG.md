@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Contact us: uniform team tiles, the supervisor's full introduction, a plainer heading / 联系我们：统一大小的团队瓦片、导师完整介绍、更自然的标题
+
+- The supervisor tile is back to carrying everything the earlier version had, in the same sticker-tile style: portrait, role, name, title (Lecturer and Cybersecurity Group Leader), affiliation (School of Information Technology, Monash University Malaysia), what he guides the project on, research interests and the Monash profile link. The previous tile showed only a one-line intro, so his position and affiliation had dropped out of sight.
+- 导师瓦片恢复为之前版本的完整内容，沿用同样的贴纸瓦片风格：照片、角色、姓名、职位（Lecturer and Cybersecurity Group Leader）、单位（School of Information Technology, Monash University Malaysia）、指导内容、研究方向与 Monash 个人主页链接。上一版瓦片只剩一句简介，职位和单位反而看不到了。
+- The four member tiles are now the same size. The mosaic gave them different column and row spans, so they came out in different heights and widths; the supervisor is one wide tile above them because he has more to say, and the resting tilt is gone so the rows line up. Hovering still lifts a tile, and holding it for two seconds still opens the large profile. Links sit at the bottom of every tile so they line up whatever the length of the intro.
+- 四位成员的瓦片现在大小一致。之前的拼贴给它们设了不同的列宽、行高，所以高矮宽窄不一；导师因为内容更多，单独占上方一整行，并去掉了静止时的倾斜，让每一行对齐。悬停仍会抬起瓦片，按住两秒仍会打开大图资料。链接固定在每个瓦片底部，不论简介长短都对齐。
+- "Meet the people" is now "The people behind SecureView", and the line under it no longer says "decentralized", which this platform is not (it has a server that stores ciphertext).
+- “Meet the people” 改为 “The people behind SecureView”，其下说明也不再写 “decentralized（去中心化）”——本平台有保存密文的服务器，并非去中心化。
+
 ### Upload page wording: two things that read wrong, and one left alone on purpose / 上传页措辞：两处读起来不对，另有一处有意不改
 
 - The page said "Files are encrypted in your browser with AES-256-GCM" while offering four algorithms in the dropdown beside it. It now says "with the algorithm you choose below (AES-256-GCM by default)".
