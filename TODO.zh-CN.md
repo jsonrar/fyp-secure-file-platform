@@ -113,7 +113,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] [#55 完成管理员、恢复专员及审计验证流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
   ——`/admin` 按角色展示：ADMIN 先看到数字概览（用户、文件、存储、分享、完整性与审计健康度，需要关注的事项置顶），并可管理用户/文件、验证审计链、登记恢复公钥并复核恢复；
   RECOVERY_OFFICER 可复核并执行（离线重封装后回填）；普通用户从 My Files 发起请求，并在此
-  跟踪或取消。
+  跟踪或取消。2026-10-02 起页眉有 “Admin” 入口，各分区分组排成一行并可通过 URL 直达，用户/文件列表默认隐藏已删除记录
+  （状态筛选、搜索、禁用前确认）。
 - [x] [#89 用户登出时撤销服务端会话](https://github.com/jsonrar/fyp-secure-file-platform/issues/89)
   ——主动 Log out 先调用 `POST /auth/logout` 再清本地；会话过期与注销账户仍只清本地。
 - [x] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)

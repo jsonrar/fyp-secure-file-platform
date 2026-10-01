@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertTriangle, CheckCircle, Info, Loader2, RefreshCw } from 'lucide-vue-next'
+import { AlertTriangle, ArrowRight, CheckCircle, Info, Loader2, RefreshCw } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { adminApi } from '@/api/admin_api'
 import type { AdminStats } from '@/api/admin_api'
@@ -7,6 +7,9 @@ import { apiErrorMessage } from '@/api/http'
 import { formatFileSize, unwrapData } from '@/api/types'
 import { auditActionLabel } from '@/utils/audit-actions'
 import { algorithmMix, attentionItems } from '@/utils/admin-stats'
+import type { AdminTabId } from '@/utils/admin-tabs'
+
+const emit = defineEmits<{ (e: 'navigate', tab: AdminTabId): void }>()
 
 /**
  * The platform at a glance: how many people and files, how much is stored, how much is
@@ -68,12 +71,22 @@ const number = (value: number) => value.toLocaleString('en-US')
         <li
           v-for="item in attention"
           :key="item.id"
-          class="flex items-start gap-2 rounded-lg border px-3 py-2 text-sm"
+          class="flex flex-wrap items-start gap-x-2 gap-y-1 rounded-lg border px-3 py-2 text-sm"
           :class="item.severity === 'critical' ? 'border-destructive/40 bg-destructive/10 text-destructive' : 'border-border bg-secondary/50 text-foreground'"
         >
           <AlertTriangle v-if="item.severity === 'critical'" class="mt-0.5 h-4 w-4 shrink-0" />
           <Info v-else class="mt-0.5 h-4 w-4 shrink-0 text-muted-foreground" />
-          {{ item.message }}
+          <span class="min-w-[12rem] flex-1">{{ item.message }}</span>
+          <button
+            type="button"
+            class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap font-medium underline-offset-2 hover:underline"
+            :class="item.severity === 'critical' ? 'text-destructive' : 'text-primary'"
+            :data-testid="`attention-open-${item.id}`"
+            @click="emit('navigate', item.tab)"
+          >
+            {{ item.action }}
+            <ArrowRight class="h-3.5 w-3.5" />
+          </button>
         </li>
       </ul>
       <p v-else class="mb-4 flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground" data-testid="admin-all-clear">
