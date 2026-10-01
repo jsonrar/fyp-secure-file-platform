@@ -18,14 +18,14 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
-### Upload page wording: three things that read wrong / 上传页措辞：三处读起来不对的地方
+### Upload page wording: two things that read wrong, and one left alone on purpose / 上传页措辞：两处读起来不对，另有一处有意不改
 
 - The page said "Files are encrypted in your browser with AES-256-GCM" while offering four algorithms in the dropdown beside it. It now says "with the algorithm you choose below (AES-256-GCM by default)".
 - 页面写着 “Files are encrypted in your browser with AES-256-GCM”，旁边的下拉框却提供四种算法。现在改为 “with the algorithm you choose below (AES-256-GCM by default)”。
 - "File key wrapping: RSA-OAEP-SHA256" made a reader ask why a key-wrapping step involves SHA-256. It is one name, not two steps: RSA public-key encryption with OAEP padding, which uses SHA-256 inside the padding; it is not a checksum of the file (the SHA-256 that detects tampering is a different one, computed over the stored ciphertext). The row now reads "RSA-OAEP (SHA-256)" with a hover explanation, and the note beneath says the same in a sentence. Display text only: the algorithm identifier the API and the envelope carry is still `RSA-OAEP-SHA256`.
 - “File key wrapping: RSA-OAEP-SHA256” 会让人疑惑：密钥包装为什么会牵涉 SHA-256。它是一个整体的名字，而不是两个步骤：带 OAEP 填充的 RSA 公钥加密，SHA-256 是填充内部使用的哈希，并不是文件的校验和（用来检测篡改的 SHA-256 是另一个，计算对象是存储的密文）。这一行现在写作 “RSA-OAEP (SHA-256)”并带悬停说明，下面的注释也用一句话说明了同样的事。只改显示文字：API 和信封里携带的算法标识仍是 `RSA-OAEP-SHA256`。
-- "Maximum size 500 MB" is 500 MiB, 524,288,000 bytes, because the limit and the file list both count in 1024s while a reader takes "MB" as 1,000,000. The upload page now says **500 MiB** (and the "over the limit" message with it).
-- “Maximum size 500 MB” 实际是 500 MiB，即 524,288,000 字节，因为上限和文件列表都按 1024 计数，而读者会把 “MB” 当作 1,000,000。上传页现在写 **500 MiB**（超限提示也是）。
+- "Maximum size 500 MB" stays "500 MB" on purpose, and the backend limit is unchanged. The limit is 524,288,000 bytes, so a file of 500 MB under either convention fits: 500,000,000 bytes (macOS and most websites) and 524,288,000 bytes (Windows Explorer). Calling it "500 MiB" would be exact but is a term most people do not know, and lowering the limit to a round 500,000,000 bytes would reject a file Windows calls 500 MB. A comment beside the constant records this so nobody tidies it later.
+- “Maximum size 500 MB” 有意保持写作 “500 MB”，后端上限不变。上限是 524,288,000 字节，所以按任何一种习惯算的 500 MB 文件都能放得下：500,000,000 字节（macOS 和大多数网站）与 524,288,000 字节（Windows 资源管理器）。写成 “500 MiB” 虽然精确，但大多数人不认识这个词；把上限降到整齐的 500,000,000 字节，则会拒绝 Windows 所说的 500 MB 文件。常量旁边的注释记录了这一点，免得以后有人把它“整理”掉。
 ### Contact us: Junyan's sticker-tile design restored, with the new content / Contact us：恢复 Junyan 的贴纸瓦片设计，并保留新内容
 
 - Put back the tilted sticker tiles, the hold-to-enlarge pop-up and the tile layout that Junyan Li designed for the team section. The previous change (#125) replaced them with a plain card grid because I read "fill in the details from the presentation" as "make it look like the presentation". The request was to keep his design and correct the information on it; the layout and styling are now his original code again.

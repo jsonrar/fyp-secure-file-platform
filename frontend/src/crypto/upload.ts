@@ -17,7 +17,14 @@ import {
   publicKeyFingerprint,
 } from './primitives'
 
-/** Mirrors the backend `MAX_UPLOAD_SIZE_BYTES` default so oversize files fail before work. */
+/**
+ * Mirrors the backend `MAX_UPLOAD_SIZE_BYTES` default so oversize files fail before work.
+ *
+ * Shown to people as "500 MB". The exact figure is 524,288,000 bytes, so a file that is 500 MB by
+ * either convention fits: 500,000,000 bytes (what macOS and most websites call 500 MB) and
+ * 524,288,000 bytes (what Windows Explorer calls 500 MB) are both at or under the limit. Do not
+ * lower it to a round decimal figure without noticing that a Windows "500 MB" file would then fail.
+ */
 export const MAX_UPLOAD_BYTES = 500 * 1024 * 1024
 
 /**

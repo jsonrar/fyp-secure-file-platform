@@ -28,12 +28,6 @@ interface UploadedFile {
   error: string
 }
 
-/**
- * The limit is a binary megabyte count (524,288,000 bytes), and the file list's "MB" is too, so
- * name the unit rather than let it read as the 500,000,000 bytes a decimal MB would be.
- */
-const MAX_UPLOAD_LABEL = `${MAX_UPLOAD_BYTES / (1024 * 1024)} MiB`
-
 const router = useRouter()
 const files = ref<UploadedFile[]>([])
 const isEncrypting = ref(false)
@@ -201,7 +195,7 @@ const goToFiles = () => {
                       class="text-xs text-destructive mt-1"
                       data-testid="upload-too-large"
                     >
-                      Over the {{ MAX_UPLOAD_LABEL }} limit. Remove it to continue.
+                      Over the {{ formatFileSize(MAX_UPLOAD_BYTES) }} limit. Remove it to continue.
                     </p>
                     <p
                       v-else-if="file.status === 'pending' && classifyUploadSize(file.size) === 'large'"
@@ -250,7 +244,7 @@ const goToFiles = () => {
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">Maximum size</span>
-                  <span class="text-foreground">{{ MAX_UPLOAD_LABEL }}</span>
+                  <span class="text-foreground">{{ formatFileSize(MAX_UPLOAD_BYTES) }}</span>
                 </div>
               </div>
               <p class="text-xs text-muted-foreground">
