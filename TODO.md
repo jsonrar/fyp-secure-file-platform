@@ -61,6 +61,10 @@ live deployment and repeatable browser coverage remain separate acceptance work.
   `/profile` and `/settings`. Evidence and rationale live in
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) under `[Unreleased]`.
 
+- [x] Explainers for newcomers (2026-10-02): an animated, step-through explainer at `/how-it-works` and on the
+  home page, three captioned videos on Help recorded from the real product, a comparison with ordinary cloud
+  storage, and a four-step quick start. See the changelog entry for what each shows.
+
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.
 

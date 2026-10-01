@@ -23,12 +23,13 @@ const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
 
-// Signed out, "Product" is the marketing entry into the encryption page. Signed in, the
-// three authenticated pages get their own links: /files and /audit-logs existed but were
-// reachable only by typing the URL, so managing or sharing an already-uploaded file had
+// Signed out, the first link is the explainer: "Product" used to point at /upload, which only
+// redirects a visitor to sign in, so a newcomer had no way to learn what the product does first.
+// Signed in, the three authenticated pages get their own links: /files and /audit-logs existed
+// but were reachable only by typing the URL, so managing or sharing an already-uploaded file had
 // no entry point at all.
 const guestLinks = [
-  { to: '/upload', label: 'Product', match: ['/upload', '/files', '/audit-logs'] },
+  { to: '/how-it-works', label: 'How it works', match: ['/how-it-works'] },
   { to: '/education', label: 'Education', match: ['/education'] },
   { to: '/help', label: 'Help', match: ['/help'] },
   { to: '/team', label: 'Contact us', match: ['/team'] },

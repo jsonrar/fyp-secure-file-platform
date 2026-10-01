@@ -38,6 +38,8 @@ const router = createRouter({
     { path: '/settings', component: SettingsPage, meta: { requiresAuth: true } },
     { path: '/education', component: CommunityPage },
     { path: '/help', component: HelpPage },
+    // The animated explainer and quick start. Lazy: newcomers land here from Help and the home page.
+    { path: '/how-it-works', component: () => import('@/pages/HowItWorksPage.vue') },
     { path: '/team', component: TeamPage },
     // Threat-model evidence (Issue #60). Public and account-free; lazy so it adds nothing to
     // the main bundle.
