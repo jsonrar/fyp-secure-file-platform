@@ -58,7 +58,7 @@ async function submit() {
       role="dialog"
       aria-modal="true"
       aria-labelledby="recovery-request-title"
-      class="w-full max-w-md rounded-xl border border-border bg-card p-6 shadow-lg"
+      class="max-h-[90vh] w-full max-w-md overflow-y-auto rounded-xl border border-border bg-card p-6 shadow-lg"
     >
       <div class="flex items-start gap-3">
         <div class="rounded-lg bg-primary/10 p-2">
@@ -70,7 +70,7 @@ async function submit() {
           </h2>
           <p class="mt-1 text-sm text-muted-foreground">
             Ask a recovery officer to rewrap
-            <span class="font-medium text-foreground">{{ filename ?? 'this file' }}</span>
+            <span class="font-medium text-foreground [overflow-wrap:anywhere]">{{ filename ?? 'this file' }}</span>
             to your current account key. The recovery private key stays offline.
           </p>
         </div>

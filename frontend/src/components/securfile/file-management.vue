@@ -347,7 +347,7 @@ const moveFile = async (file: EncryptedFile, folderId: string) => {
     await Promise.all([loadFiles(), loadFolders()])
     actionMessage.value = next
       ? `Moved ${file.name} to ${folders.value.find((folder) => folder.folder_id === next)?.name ?? 'folder'}`
-      : `Moved ${file.name} to Unfiled`
+      : `${file.name} is no longer in a folder`
   } catch (error) {
     file.folderId = previous
     errorMessage.value = apiErrorMessage(error, 'Could not move file')
@@ -667,7 +667,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
               class="h-9 rounded-md border px-3 text-sm"
               :class="selectedFolder === 'unfiled' ? 'border-primary bg-primary/10 text-primary' : 'border-border bg-card'"
               @click="selectFolder('unfiled')"
-            >Unfiled</button>
+            >No folder</button>
             <div
               v-for="folder in folders"
               :key="folder.folder_id"
@@ -726,9 +726,11 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
           <!--
             Fixed layout with explicit widths: the name column used to take whatever the longest
             filename asked for and squeeze every other header into a few letters. Now the name is
-            a bounded column that wraps, and the rest keep room for their own headings.
+            a bounded column that wraps, and the rest keep room for their own headings. The
+            minimum width makes a phone scroll sideways instead of squeezing the name column
+            down to a character per line.
           -->
-          <table class="w-full table-fixed text-sm">
+          <table class="w-full min-w-[44rem] table-fixed text-sm">
             <thead>
               <tr class="border-b border-border text-muted-foreground">
                 <th class="w-[28%] text-left py-3 pr-3 font-medium">File Name</th>
@@ -774,7 +776,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     class="h-8 max-w-36 rounded-md border border-border bg-secondary px-2 text-xs text-foreground"
                     @change="moveFile(file, ($event.target as HTMLSelectElement).value)"
                   >
-                    <option value="">Unfiled</option>
+                    <option value="">No folder</option>
                     <option v-for="folder in folders" :key="folder.folder_id" :value="folder.folder_id">{{ folder.name }}</option>
                   </select>
                 </td>
@@ -903,7 +905,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       v-if="pendingFolderDelete"
       title="Delete this folder?"
       :detail="pendingFolderDelete.name"
-      consequence="The encrypted files stay safe and move to Unfiled. Only this organizational folder is removed."
+      consequence="The encrypted files stay safe and are no longer in any folder. Only this organizational folder is removed."
       confirm-label="Delete folder"
       busy-label="Deleting…"
       :busy="folderBusy"

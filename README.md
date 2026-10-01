@@ -106,7 +106,7 @@ and how to show it live, is in [docs/ENCRYPTION_EVIDENCE.md](docs/ENCRYPTION_EVI
    per-file DEK, performs authenticated encryption locally, and wraps the DEK to the account
    RSA public key. The server receives ciphertext, public metadata, and wrapped keys—not the
    plaintext file or plaintext DEK.
-4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me". Owners can create, rename, and delete folders, move files between them, and return files to Unfiled; deleting a folder never deletes its encrypted files.
+4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me". Owners can create, rename, and delete folders, move files between them, and take files out of a folder; deleting a folder never deletes its encrypted files.
    Download first verifies the server-side ciphertext SHA-256, then the browser unwraps the
    DEK, authenticates the AEAD tag, and saves the plaintext. A failed authentication never
    saves a partial file. **Download encrypted** instead saves the ciphertext without
