@@ -14,6 +14,7 @@ import HelpPage from '@/pages/HelpPage.vue'
 import TeamPage from '@/pages/TeamPage.vue'
 import ProfilePage from '@/pages/ProfilePage.vue'
 import SettingsPage from '@/pages/SettingsPage.vue'
+import NotFoundPage from '@/pages/NotFoundPage.vue'
 
 const router = createRouter({
   history: createWebHistory(),
@@ -41,6 +42,9 @@ const router = createRouter({
     // Threat-model evidence (Issue #60). Public and account-free; lazy so it adds nothing to
     // the main bundle.
     { path: '/benchmark/argon2', component: () => import('@/pages/Argon2BenchmarkPage.vue') },
+    // Last, so it only catches what nothing above claimed. Without it an unknown URL rendered
+    // a blank page, which reads as a broken site rather than a mistyped link.
+    { path: '/:pathMatch(.*)*', name: 'not-found', component: NotFoundPage },
   ],
 })
 

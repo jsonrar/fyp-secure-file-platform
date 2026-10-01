@@ -1,6 +1,6 @@
 <script setup lang="ts">
-import { Check, FileIcon, Lock, RefreshCw, Upload, X } from 'lucide-vue-next'
-import { onMounted, ref } from 'vue'
+import { AlertTriangle, Check, FileIcon, Lock, RefreshCw, Upload, X } from 'lucide-vue-next'
+import { computed, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 import { apiErrorMessage } from '@/api/http'
 import { formatFileSize } from '@/api/types'
@@ -10,6 +10,7 @@ import {
   supportedEncryptionAlgorithms,
 } from '@/crypto/primitives'
 import {
+  classifyUploadSize,
   encryptAndUpload,
   fetchUploadRecipients,
   MAX_UPLOAD_BYTES,
@@ -61,6 +62,11 @@ const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
   'AES-128-GCM': 'AES at the shortest of its three key lengths. Still considered secure.',
 }
 
+/** A file over the limit can never upload, so the batch cannot start until it is removed. */
+const hasOversizeFile = computed(() =>
+  files.value.some((file) => file.status === 'pending' && classifyUploadSize(file.size) === 'too-large'),
+)
+
 const toUploadedFile = (file: File): UploadedFile => ({
   raw: file,
   name: file.name,
@@ -109,7 +115,7 @@ const removeFile = (index: number) => {
  * files that did upload.
  */
 const handleEncrypt = async () => {
-  if (!files.value.length) return
+  if (!files.value.length || hasOversizeFile.value) return
   isEncrypting.value = true
   errorMessage.value = ''
   isEncrypted.value = false
@@ -184,6 +190,21 @@ const goToFiles = () => {
                     <p class="text-sm text-foreground truncate max-w-[200px]">{{ file.name }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatFileSize(file.size) }}</p>
                     <p v-if="file.status === 'failed'" class="text-xs text-destructive mt-1 max-w-[220px]">{{ file.error }}</p>
+                    <p
+                      v-else-if="file.status === 'pending' && classifyUploadSize(file.size) === 'too-large'"
+                      class="text-xs text-destructive mt-1 max-w-[220px]"
+                      data-testid="upload-too-large"
+                    >
+                      Over the {{ formatFileSize(MAX_UPLOAD_BYTES) }} limit. Remove it to continue.
+                    </p>
+                    <p
+                      v-else-if="file.status === 'pending' && classifyUploadSize(file.size) === 'large'"
+                      class="mt-1 flex max-w-[220px] items-start gap-1 text-xs text-amber-600 dark:text-amber-400"
+                      data-testid="upload-large-warning"
+                    >
+                      <AlertTriangle class="mt-0.5 h-3 w-3 shrink-0" />
+                      <span>Large file. Encrypting needs about four times its size in memory, so it may fail on a phone or with many tabs open.</span>
+                    </p>
                   </div>
                 </div>
                 <div class="flex items-center gap-2">
@@ -242,7 +263,7 @@ const goToFiles = () => {
             </div>
 
             <div class="mt-8">
-              <button :disabled="!files.length || isEncrypting" class="w-full h-11 inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="handleEncrypt">
+              <button :disabled="!files.length || isEncrypting || hasOversizeFile" class="w-full h-11 inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="handleEncrypt">
                 <template v-if="isEncrypting"><RefreshCw class="h-4 w-4 animate-spin" /> Encrypting...</template>
                 <template v-else-if="isEncrypted"><Check class="h-4 w-4" /> Encryption Complete</template>
                 <template v-else><Lock class="h-4 w-4" /> Start Encryption</template>

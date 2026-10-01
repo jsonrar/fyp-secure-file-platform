@@ -4,7 +4,10 @@ import { fromBase64, toBase64 } from './encoding'
 import { decryptFile, unwrapDek } from './file_envelope'
 import { publicKeyFingerprint } from './primitives'
 import {
+  classifyUploadSize,
   DEFAULT_MIME_TYPE,
+  isMemoryExhaustion,
+  LARGE_FILE_WARNING_BYTES,
   MAX_UPLOAD_BYTES,
   prepareUpload,
   resolveMimeType,
@@ -217,5 +220,39 @@ describe('prepareUpload', () => {
         recipients: await recipientsFor(pem, pem),
       }),
     ).rejects.toThrow(/path separator/)
+  })
+})
+
+describe('classifyUploadSize', () => {
+  it('warns from 100 MiB and refuses only above the 500 MiB limit', () => {
+    expect(classifyUploadSize(0)).toBe('ok')
+    expect(classifyUploadSize(LARGE_FILE_WARNING_BYTES - 1)).toBe('ok')
+    expect(classifyUploadSize(LARGE_FILE_WARNING_BYTES)).toBe('large')
+    expect(classifyUploadSize(MAX_UPLOAD_BYTES)).toBe('large')
+    expect(classifyUploadSize(MAX_UPLOAD_BYTES + 1)).toBe('too-large')
+  })
+})
+
+describe('memory exhaustion', () => {
+  it('recognises the errors a browser raises when a buffer will not fit', () => {
+    expect(isMemoryExhaustion(new RangeError('Array buffer allocation failed'))).toBe(true)
+    expect(isMemoryExhaustion(new DOMException('read failed', 'NotReadableError'))).toBe(true)
+    expect(isMemoryExhaustion(new Error('something else'))).toBe(false)
+    expect(isMemoryExhaustion(new DOMException('bad key', 'OperationError'))).toBe(false)
+  })
+
+  it('turns an allocation failure into advice a non-expert can act on', async () => {
+    const big: UploadableFile = {
+      name: 'holiday.mov',
+      size: 300 * 1024 * 1024,
+      type: 'video/quicktime',
+      arrayBuffer: async () => {
+        throw new RangeError('Array buffer allocation failed')
+      },
+    }
+    // The recipients are never reached: the file cannot even be read into memory.
+    await expect(
+      prepareUpload({ file: big, recipients: {} as UploadRecipients }),
+    ).rejects.toThrow(/too large for this browser.*four times/)
   })
 })
