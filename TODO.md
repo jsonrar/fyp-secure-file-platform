@@ -129,7 +129,8 @@ not a release pass.
 - [x] [#54 Complete browser passphrase change and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
   — closed with only part of its criteria met; see the P3 entry below and the scope record on the Issue.
 - [x] [#55 Complete admin, recovery-officer, and audit-verification workflows](https://github.com/jsonrar/fyp-secure-file-platform/issues/55)
-  — `/admin` is role-aware: ADMIN gets users, files, audit-chain verify, recovery-key
+  — `/admin` is role-aware: ADMIN gets an Overview of counts (users, files, storage, shares, integrity and
+  audit health, with anything needing attention flagged first), users, files, audit-chain verify, recovery-key
   registration, and recovery review; RECOVERY_OFFICER reviews and executes (offline rewrap
   paste-back); ordinary users open requests from My Files and track/cancel them here.
 - [x] [#89 Revoke the server session when a user logs out](https://github.com/jsonrar/fyp-secure-file-platform/issues/89)

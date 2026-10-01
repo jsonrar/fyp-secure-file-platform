@@ -270,6 +270,7 @@ account's private-key bundle.
 |---|---|---|---|
 | GET | `/admin/users` | ADMIN | Page user records |
 | GET | `/admin/files` | ADMIN | Page file metadata records |
+| GET | `/admin/stats` | ADMIN | Counts-only platform summary: users by status, files by status and algorithm, bytes stored, active shares, 24-hour integrity checks and failures, pending recovery requests, audit totals and the five newest failed events (action, time, actor only) |
 | POST | `/admin/users/{user_id}/disable` | ADMIN | Soft-disable an account and revoke active sessions |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | Re-enable a disabled account |
 
