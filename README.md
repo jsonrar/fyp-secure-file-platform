@@ -490,6 +490,13 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_t
 See [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md) for what each suite proves, `backend/scripts/`
 for the individual check scripts, and `TODO.md` for what remains deferred.
 
+### Security agent
+
+Admin → **Security agent** ranks what needs an administrator's attention from the audit log, integrity
+checks and recovery requests, as Critical / High / Medium / Low findings with the evidence and a
+recommended action. It is rule-based, read-only and sees metadata only; see
+[docs/SECURITY_AGENT.md](docs/SECURITY_AGENT.md) for its inputs, rules, output and boundaries.
+
 ### Backups and the restore drill
 
 Encrypted, coordinated backups of MySQL metadata and ciphertext objects, and the clean-host
