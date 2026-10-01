@@ -21,6 +21,7 @@ from app.services.file_storage_service import FileStorageService
 from app.services.integrity_service import IntegrityService
 from app.services.key_service import KeyService
 from app.services.recovery_service import RecoveryService
+from app.services.security_agent_service import SecurityAgentService
 from app.services.share_notification_service import ShareNotificationService
 from app.services.sharing_service import SharingService
 
@@ -149,6 +150,12 @@ def get_admin_service(
             audit_service=audit,
         ),
     )
+
+
+def get_security_agent_service(
+    db: Annotated[Session, Depends(get_request_db)],
+) -> SecurityAgentService:
+    return SecurityAgentService(db=db)
 
 
 def get_current_actor(

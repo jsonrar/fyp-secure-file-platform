@@ -1,0 +1,602 @@
+"""The rules of the SecureView security agent: what it looks at, what it decides, how it ranks.
+
+The agent turns the evidence the platform already keeps -- the hash-chained audit log, the
+integrity-check history, file status and recovery requests -- into a short, ranked list of
+things an administrator should do something about. It exists to answer one question: *of
+everything that happened, which is worth my attention now, how urgent is it, and what do I do?*
+
+What it is, deliberately:
+
+* **Deterministic.** Every finding is produced by a named rule with a stated threshold, from
+  counts and timestamps. The same evidence gives the same report, a rule can be unit-tested
+  against fabricated events, and an administrator can read exactly why something was flagged. No
+  model is asked to judge anything, so nothing is guessed and nothing leaves the server.
+* **Read-only.** It never writes, never changes a file or an account, and cannot execute a
+  recovery. It recommends; a person acts.
+* **Metadata only.** Its inputs are event types, times, counts, account names, source addresses
+  and file identifiers. It never sees file contents, keys, passphrases or ciphertext.
+
+This module is pure: it takes an `AgentInputs` snapshot and returns findings, so the rules are
+tested without a database. `SecurityAgentService` gathers the snapshot.
+"""
+
+from __future__ import annotations
+
+from collections import defaultdict
+from collections.abc import Callable, Sequence
+from dataclasses import dataclass
+from datetime import datetime, timedelta
+from enum import StrEnum
+
+
+class Priority(StrEnum):
+    CRITICAL = "CRITICAL"
+    HIGH = "HIGH"
+    MEDIUM = "MEDIUM"
+    LOW = "LOW"
+
+
+_PRIORITY_ORDER = {Priority.CRITICAL: 0, Priority.HIGH: 1, Priority.MEDIUM: 2, Priority.LOW: 3}
+
+# --- thresholds, in one place so the report can state them and a change is reviewed ----------
+LOGIN_FAILURE_SPAN = timedelta(minutes=15)
+LOGIN_FAILURES_MEDIUM = 10
+LOGIN_FAILURES_HIGH = 30
+DOWNLOAD_SPAN = timedelta(minutes=10)
+DOWNLOADS_MEDIUM = 20
+DOWNLOADS_HIGH = 60
+SHARE_SPAN = timedelta(hours=1)
+SHARES_LOW = 10
+PASSWORD_FAILURE_SPAN = timedelta(minutes=15)
+PASSWORD_FAILURES_MEDIUM = 5
+SWEEP_STALE_AFTER = timedelta(hours=36)
+RECOVERY_PENDING_AFTER = timedelta(hours=24)
+
+
+@dataclass(frozen=True, slots=True)
+class Event:
+    """One audit event reduced to what the rules need."""
+
+    at: datetime
+    actor: str | None = None  # account name, when the event had one
+    source: str | None = None  # source address, when the event had one
+
+
+@dataclass(frozen=True, slots=True)
+class DamagedFile:
+    file_id: str
+    filename: str
+    owner: str
+    status: str
+    last_result: str | None
+    uploaded_at: datetime
+    last_valid_at: datetime | None  # newest VALID check before the damage was first seen
+    first_failure_at: datetime | None  # when the current run of failing checks began
+
+
+@dataclass(frozen=True, slots=True)
+class AgentInputs:
+    now: datetime
+    window: timedelta
+    login_failures: Sequence[Event] = ()
+    refresh_replays: Sequence[Event] = ()
+    downloads: Sequence[Event] = ()
+    shares: Sequence[Event] = ()
+    password_failures: Sequence[Event] = ()
+    recoveries_executed: Sequence[Event] = ()
+    recoveries_pending_old: int = 0
+    damaged: Sequence[DamagedFile] = ()
+    chain_valid: bool | None = None  # None: not checked
+    chain_first_invalid_position: int | None = None
+    chain_checked_entries: int = 0
+    last_sweep_at: datetime | None = None
+    checkable_files: int = 0
+    never_checked_files: int = 0
+
+
+@dataclass(frozen=True, slots=True)
+class Finding:
+    rule_id: str
+    priority: Priority
+    title: str
+    summary: str
+    evidence: tuple[str, ...]
+    recommended_action: str
+    file_id: str | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class RuleInfo:
+    rule_id: str
+    name: str
+    watches: str
+    threshold: str
+
+
+@dataclass(frozen=True, slots=True)
+class RuleOutcome:
+    info: RuleInfo
+    findings: int
+
+
+def max_in_span(times: Sequence[datetime], span: timedelta) -> tuple[int, datetime | None]:
+    """The most events that fall inside any window of length `span`, and when that peak began."""
+    ordered = sorted(times)
+    best, best_start, left = 0, None, 0
+    for right, moment in enumerate(ordered):
+        while moment - ordered[left] > span:
+            left += 1
+        if right - left + 1 > best:
+            best, best_start = right - left + 1, ordered[left]
+    return best, best_start
+
+
+def _stamp(value: datetime) -> str:
+    return value.strftime("%Y-%m-%d %H:%M UTC")
+
+
+def _plural(count: int, noun: str) -> str:
+    return f"{count} {noun}{'' if count == 1 else 's'}"
+
+
+def _group(
+    events: Sequence[Event], key: Callable[[Event], str | None]
+) -> dict[str, list[datetime]]:
+    grouped: dict[str, list[datetime]] = defaultdict(list)
+    for event in events:
+        label = key(event)
+        if label:
+            grouped[label].append(event.at)
+    return grouped
+
+
+# --- the rules --------------------------------------------------------------------------------
+
+
+def backup_window_advice(file: DamagedFile) -> str:
+    """Which backup sets can hold the original, from when the file was last known good.
+
+    A backup set is named by the UTC time it was taken. The object was intact when it was last
+    checked VALID, so sets taken up to then certainly hold the original; sets taken up to when
+    the damage was first seen probably do; later sets may already hold the damaged bytes, and
+    `restore_file.py` refuses any set whose copy does not match the recorded SHA-256.
+    """
+    uploaded = _stamp(file.uploaded_at)
+    if file.last_valid_at is None:
+        start = (
+            "This file has no passing check on record, so it cannot be said when it was last "
+            f"intact. Try the earliest backup set taken after the upload ({uploaded}) first."
+        )
+    else:
+        start = (
+            f"Backup sets taken between the upload ({uploaded}) and {_stamp(file.last_valid_at)} "
+            "certainly hold the original."
+        )
+    if file.first_failure_at is not None:
+        end = (
+            f" Sets taken up to {_stamp(file.first_failure_at)}, when the damage was first seen, "
+            "probably do. A later set may already hold the damaged bytes."
+        )
+    else:
+        end = " A set taken after the damage began may already hold the damaged bytes."
+    return (
+        start + end + " restore_file.py checks the SHA-256 and refuses a set that does not match. "
+        "If the file was uploaded after the newest nightly backup, no set holds it yet."
+    )
+
+
+def rule_integrity(inputs: AgentInputs) -> list[Finding]:
+    findings: list[Finding] = []
+    for file in inputs.damaged:
+        if file.last_result == "MISSING":
+            priority, what = Priority.HIGH, "its encrypted object is missing from storage"
+            cause = (
+                "A missing object is usually a storage problem (an unmounted volume) or a "
+                "deletion; it proves nothing about the contents."
+            )
+        elif file.last_result == "ERROR":
+            priority, what = Priority.MEDIUM, "its encrypted object could not be read"
+            cause = "An unreadable object is a storage problem, not evidence of tampering."
+        else:
+            priority = Priority.CRITICAL
+            what = "its stored bytes no longer match the recorded SHA-256"
+            cause = (
+                "Modified ciphertext is evidence about the bytes themselves; treat it as tampering."
+            )
+        evidence = [
+            f"File {file.filename} (owner {file.owner}), status {file.status}",
+            f"Latest check: {file.last_result or 'marked corrupted earlier'}",
+        ]
+        if file.first_failure_at is not None:
+            evidence.append(f"Damage first seen {_stamp(file.first_failure_at)}")
+        if file.last_valid_at is not None:
+            evidence.append(f"Last intact check {_stamp(file.last_valid_at)}")
+        findings.append(
+            Finding(
+                rule_id="INTEGRITY_DAMAGE",
+                priority=priority,
+                title=f"{file.filename}: {what}",
+                summary=cause,
+                evidence=tuple(evidence),
+                recommended_action=(
+                    "Restore the original from the encrypted backup with scripts/restore_file.py "
+                    f"--file-id {file.file_id} (run without --apply first). "
+                    + backup_window_advice(file)
+                ),
+                file_id=file.file_id,
+            )
+        )
+    return findings
+
+
+def rule_audit_chain(inputs: AgentInputs) -> list[Finding]:
+    if inputs.chain_valid is not False:
+        return []
+    return [
+        Finding(
+            rule_id="AUDIT_CHAIN_BROKEN",
+            priority=Priority.CRITICAL,
+            title="The audit log's hash chain does not verify",
+            summary=(
+                "Every audit entry is chained to the one before it, so a row that was changed, "
+                "removed or inserted breaks the chain from that point on."
+            ),
+            evidence=(
+                f"First entry that fails: position {inputs.chain_first_invalid_position}",
+                f"Entries verified before it: {inputs.chain_checked_entries}",
+            ),
+            recommended_action=(
+                "Treat this as a possible database compromise. Stop deploying, keep the database "
+                "as it is, compare the chain head with the latest external checkpoint "
+                "(scripts/audit_checkpoint.py verify) and follow the incident runbook "
+                "(docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md)."
+            ),
+        )
+    ]
+
+
+def rule_detection_running(inputs: AgentInputs) -> list[Finding]:
+    if inputs.checkable_files == 0:
+        return []
+    stale = inputs.last_sweep_at is None or inputs.now - inputs.last_sweep_at > SWEEP_STALE_AFTER
+    if not stale:
+        return []
+    last = "never" if inputs.last_sweep_at is None else _stamp(inputs.last_sweep_at)
+    return [
+        Finding(
+            rule_id="SCAN_NOT_RUNNING",
+            priority=Priority.MEDIUM,
+            title="The daily integrity scan has not run recently",
+            summary=(
+                "Tampering with a file nobody opens is only found by the scan, so without it "
+                "this report cannot say the stored files are intact."
+            ),
+            evidence=(
+                f"Last scan recorded: {last}",
+                f"{_plural(inputs.never_checked_files, 'file')} never checked, "
+                f"{inputs.checkable_files} checkable",
+            ),
+            recommended_action=(
+                "Run “Scan now” on the Integrity tab, then check that the timer is active on the "
+                "server: systemctl status mcs21-integrity-sweep.timer."
+            ),
+        )
+    ]
+
+
+def _burst_findings(
+    *,
+    rule_id: str,
+    events: Sequence[Event],
+    key: Callable[[Event], str | None],
+    span: timedelta,
+    medium: int | None,
+    high: int | None,
+    low: int | None = None,
+    title: Callable[[str, int], str],
+    summary: str,
+    action: Callable[[str], str],
+    describe_subject: str,
+) -> list[Finding]:
+    findings: list[Finding] = []
+    minutes = int(span.total_seconds() // 60)
+    for subject, times in sorted(_group(events, key).items()):
+        peak, began = max_in_span(times, span)
+        if high is not None and peak >= high:
+            priority = Priority.HIGH
+        elif medium is not None and peak >= medium:
+            priority = Priority.MEDIUM
+        elif low is not None and peak >= low:
+            priority = Priority.LOW
+        else:
+            continue
+        window_text = f"{_plural(peak, 'event')} within {minutes} minutes"
+        if began is not None:
+            window_text += f", starting {_stamp(began)}"
+        findings.append(
+            Finding(
+                rule_id=rule_id,
+                priority=priority,
+                title=title(subject, peak),
+                summary=summary,
+                evidence=(
+                    f"{describe_subject}: {subject}",
+                    window_text,
+                    f"{_plural(len(times), 'event')} in the whole analysis window",
+                ),
+                recommended_action=action(subject),
+            )
+        )
+    return findings
+
+
+def rule_login_guessing_by_source(inputs: AgentInputs) -> list[Finding]:
+    return _burst_findings(
+        rule_id="LOGIN_GUESSING_SOURCE",
+        events=inputs.login_failures,
+        key=lambda e: e.source,
+        span=LOGIN_FAILURE_SPAN,
+        medium=LOGIN_FAILURES_MEDIUM,
+        high=LOGIN_FAILURES_HIGH,
+        title=lambda s, n: f"{n} failed sign-ins from {s}",
+        summary=(
+            "Many failed sign-ins from one address in a short time is what password guessing "
+            "looks like."
+        ),
+        action=lambda s: (
+            f"Check whether {s} is expected (a colleague, a test run). If not, block it at the "
+            "firewall or with fail2ban; the sign-in throttle already slows it but does not stop it."
+        ),
+        describe_subject="Source address",
+    )
+
+
+def rule_login_guessing_by_account(inputs: AgentInputs) -> list[Finding]:
+    return _burst_findings(
+        rule_id="LOGIN_GUESSING_ACCOUNT",
+        events=inputs.login_failures,
+        key=lambda e: e.actor,
+        span=LOGIN_FAILURE_SPAN,
+        medium=LOGIN_FAILURES_MEDIUM,
+        high=None,
+        title=lambda s, n: f"{n} failed sign-ins against account {s}",
+        summary="One account is being tried repeatedly, whoever it is coming from.",
+        action=lambda s: (
+            f"Ask the owner of {s} whether it was them. If not, disable the account on the Users "
+            "tab (this also ends its sessions) and have them reset the password before enabling it."
+        ),
+        describe_subject="Account",
+    )
+
+
+def rule_refresh_replay(inputs: AgentInputs) -> list[Finding]:
+    findings: list[Finding] = []
+    by_actor = _group(inputs.refresh_replays, lambda e: e.actor or "unknown account")
+    for actor, times in sorted(by_actor.items()):
+        known = actor != "unknown account"
+        findings.append(
+            Finding(
+                rule_id="SESSION_TOKEN_REUSE",
+                priority=Priority.HIGH,
+                title=f"A used session token was presented again for {actor}",
+                summary=(
+                    "Session tokens are single-use. Seeing one a second time means a copy of it "
+                    "exists somewhere it should not, which is how a stolen session looks."
+                ),
+                evidence=(
+                    f"Account: {actor}",
+                    f"{_plural(len(times), 'replay')}, latest {_stamp(max(times))}",
+                ),
+                recommended_action=(
+                    f"The server already revoked that session family. Ask {actor} to sign in again "
+                    "and change their password; if it recurs, disable the account on the Users tab."
+                    if known
+                    else "Check the Audit chain tab for the matching events and the source address."
+                ),
+            )
+        )
+    return findings
+
+
+def rule_download_burst(inputs: AgentInputs) -> list[Finding]:
+    return _burst_findings(
+        rule_id="DOWNLOAD_BURST",
+        events=inputs.downloads,
+        key=lambda e: e.actor,
+        span=DOWNLOAD_SPAN,
+        medium=DOWNLOADS_MEDIUM,
+        high=DOWNLOADS_HIGH,
+        title=lambda s, n: f"{s} downloaded {n} files in minutes",
+        summary=(
+            "An unusually fast run of downloads can be someone copying everything an account can "
+            "reach. It can also be a legitimate bulk download."
+        ),
+        action=lambda s: (
+            f"Ask {s} whether this was them. The Access Records page lists exactly what was "
+            "downloaded. If it was not them, disable the account on the Users tab."
+        ),
+        describe_subject="Account",
+    )
+
+
+def rule_share_burst(inputs: AgentInputs) -> list[Finding]:
+    return _burst_findings(
+        rule_id="SHARE_BURST",
+        events=inputs.shares,
+        key=lambda e: e.actor,
+        span=SHARE_SPAN,
+        medium=None,
+        high=None,
+        low=SHARES_LOW,
+        title=lambda s, n: f"{s} shared files {n} times in an hour",
+        summary="A burst of sharing widens who can read the account's files.",
+        action=lambda s: (
+            f"Check {s}'s shares on the Access Records page and revoke any that are not intended."
+        ),
+        describe_subject="Account",
+    )
+
+
+def rule_password_change_failures(inputs: AgentInputs) -> list[Finding]:
+    return _burst_findings(
+        rule_id="PASSWORD_CHANGE_GUESSING",
+        events=inputs.password_failures,
+        key=lambda e: e.actor,
+        span=PASSWORD_FAILURE_SPAN,
+        medium=PASSWORD_FAILURES_MEDIUM,
+        high=None,
+        title=lambda s, n: f"{n} failed password changes on {s}",
+        summary=(
+            "Changing a password needs the current one. Repeated failures from a signed-in "
+            "session suggest someone is guessing it from a session they should not have."
+        ),
+        action=lambda s: (
+            f"Contact {s} to check their session. If it was not them, disable the account on the "
+            "Users tab, which ends its sessions."
+        ),
+        describe_subject="Account",
+    )
+
+
+def rule_recovery(inputs: AgentInputs) -> list[Finding]:
+    findings: list[Finding] = []
+    for event in sorted(inputs.recoveries_executed, key=lambda e: e.at):
+        who = event.actor or "an administrator"
+        findings.append(
+            Finding(
+                rule_id="RECOVERY_EXECUTED",
+                priority=Priority.MEDIUM,
+                title="A file recovery was executed",
+                summary=(
+                    "Recovery re-wraps a file's key for a new holder using the offline recovery "
+                    "key. It is meant to be rare and to follow a request."
+                ),
+                evidence=(f"Executed by {who} at {_stamp(event.at)}",),
+                recommended_action=(
+                    "Confirm the file's owner asked for it, using the request on the Recovery "
+                    "requests tab and the audit entries around that time."
+                ),
+            )
+        )
+    if inputs.recoveries_pending_old:
+        count = inputs.recoveries_pending_old
+        findings.append(
+            Finding(
+                rule_id="RECOVERY_EXECUTED",
+                priority=Priority.LOW,
+                title=f"{_plural(count, 'recovery request')} waiting over a day",
+                summary="Someone asked to regain access to a file and nobody has answered.",
+                evidence=(f"{_plural(count, 'request')} pending for more than 24 hours",),
+                recommended_action=(
+                    "Review the queue on the Recovery requests tab and approve or reject each one."
+                ),
+            )
+        )
+    return findings
+
+
+RULES: tuple[tuple[RuleInfo, Callable[[AgentInputs], list[Finding]]], ...] = (
+    (
+        RuleInfo(
+            "INTEGRITY_DAMAGE",
+            "Damaged stored files",
+            "Files whose newest integrity check is MODIFIED, MISSING or ERROR, or whose status "
+            "is CORRUPTED",
+            "Any file. MODIFIED is critical, MISSING high, ERROR medium",
+        ),
+        rule_integrity,
+    ),
+    (
+        RuleInfo(
+            "AUDIT_CHAIN_BROKEN",
+            "Audit log tampering",
+            "Recomputes the whole audit hash chain",
+            "Any entry that does not verify is critical",
+        ),
+        rule_audit_chain,
+    ),
+    (
+        RuleInfo(
+            "SCAN_NOT_RUNNING",
+            "Detection is running",
+            "When the last integrity scan was recorded",
+            "No scan in 36 hours (or ever) while files exist is medium",
+        ),
+        rule_detection_running,
+    ),
+    (
+        RuleInfo(
+            "LOGIN_GUESSING_SOURCE",
+            "Password guessing from one address",
+            "Failed sign-ins, grouped by source address",
+            f"{LOGIN_FAILURES_MEDIUM}+ in 15 minutes is medium, {LOGIN_FAILURES_HIGH}+ high",
+        ),
+        rule_login_guessing_by_source,
+    ),
+    (
+        RuleInfo(
+            "LOGIN_GUESSING_ACCOUNT",
+            "Password guessing against one account",
+            "Failed sign-ins, grouped by the account they targeted",
+            f"{LOGIN_FAILURES_MEDIUM}+ in 15 minutes is medium",
+        ),
+        rule_login_guessing_by_account,
+    ),
+    (
+        RuleInfo(
+            "SESSION_TOKEN_REUSE",
+            "Stolen session",
+            "Refresh tokens presented after they were already used",
+            "Any replay is high",
+        ),
+        rule_refresh_replay,
+    ),
+    (
+        RuleInfo(
+            "DOWNLOAD_BURST",
+            "Bulk downloading",
+            "Authorised downloads, grouped by account",
+            f"{DOWNLOADS_MEDIUM}+ in 10 minutes is medium, {DOWNLOADS_HIGH}+ high",
+        ),
+        rule_download_burst,
+    ),
+    (
+        RuleInfo(
+            "SHARE_BURST",
+            "Burst of sharing",
+            "File shares, grouped by account",
+            f"{SHARES_LOW}+ in an hour is low",
+        ),
+        rule_share_burst,
+    ),
+    (
+        RuleInfo(
+            "PASSWORD_CHANGE_GUESSING",
+            "Guessing the current password",
+            "Failed password changes, grouped by account",
+            f"{PASSWORD_FAILURES_MEDIUM}+ in 15 minutes is medium",
+        ),
+        rule_password_change_failures,
+    ),
+    (
+        RuleInfo(
+            "RECOVERY_EXECUTED",
+            "Recovery activity",
+            "Executed recoveries, and requests pending over 24 hours",
+            "An executed recovery is medium, a request waiting over a day is low",
+        ),
+        rule_recovery,
+    ),
+)
+
+
+def evaluate(inputs: AgentInputs) -> tuple[list[Finding], list[RuleOutcome]]:
+    """Run every rule. Returns the findings, most urgent first, and how many each rule raised."""
+    findings: list[Finding] = []
+    outcomes: list[RuleOutcome] = []
+    for info, rule in RULES:
+        raised = rule(inputs)
+        findings.extend(raised)
+        outcomes.append(RuleOutcome(info, len(raised)))
+    findings.sort(key=lambda f: (_PRIORITY_ORDER[f.priority], f.rule_id, f.title))
+    return findings, outcomes
