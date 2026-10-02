@@ -3,6 +3,7 @@ import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import AppHeader from '@/components/securfile/header.vue'
 import AppFooter from '@/components/securfile/footer.vue'
+import HelpAssistant from '@/components/assistant/HelpAssistant.vue'
 import { useTheme } from '@/composables/useTheme'
 
 const route = useRoute()
@@ -44,5 +45,6 @@ onBeforeUnmount(() => {
     />
     <RouterView />
     <AppFooter />
+    <HelpAssistant />
   </main>
 </template>
