@@ -78,7 +78,7 @@ onMounted(async () => {
         <div class="p-2 rounded-lg bg-secondary"><Activity class="h-4 w-4 text-primary" /></div>
         <h2 class="text-lg font-semibold text-foreground">Access history</h2>
       </div>
-      <p class="text-sm text-muted-foreground mb-4 [overflow-wrap:anywhere]">{{ props.filename }}</p>
+      <p translate="no" class="text-sm text-muted-foreground mb-4 [overflow-wrap:anywhere]">{{ props.filename }}</p>
 
       <p v-if="props.owned" class="text-xs text-muted-foreground mb-4">
         Everything that has happened to this file, including what the people you shared it
@@ -103,7 +103,7 @@ onMounted(async () => {
         >
           <div class="min-w-0">
             <p class="text-sm text-foreground">
-              <span class="font-medium">{{ entry.actor }}</span>
+              <span translate="no" class="font-medium">{{ entry.actor }}</span>
               <!-- One interpolation, so the separators are real characters. Vue trims
                    whitespace *between* elements, which silently ran the words together. -->
               <span class="text-muted-foreground">{{ entry.summary }}</span>

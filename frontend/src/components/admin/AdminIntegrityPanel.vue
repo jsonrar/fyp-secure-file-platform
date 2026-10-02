@@ -138,7 +138,7 @@ const coverage = computed(() => report.value?.coverage ?? null)
             <div class="min-w-0">
               <p class="flex items-center gap-2 font-medium text-foreground">
                 <AlertTriangle class="h-4 w-4 shrink-0 text-destructive" />
-                <span class="[overflow-wrap:anywhere]">{{ file.original_filename }}</span>
+                <span translate="no" class="[overflow-wrap:anywhere]">{{ file.original_filename }}</span>
               </p>
               <p class="mt-1 text-xs text-muted-foreground">
                 Owner {{ file.owner_username }} · status {{ file.status }}

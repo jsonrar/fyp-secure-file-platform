@@ -78,7 +78,7 @@ onMounted(async () => {
         </div>
         <div class="sm:col-span-3">
           <dt class="text-xs text-muted-foreground">SHA-256 of the stored bytes, recorded at upload</dt>
-          <dd class="break-all font-mono text-xs text-foreground">{{ preview.ciphertext_sha256 }}</dd>
+          <dd translate="no" class="break-all font-mono text-xs text-foreground">{{ preview.ciphertext_sha256 }}</dd>
         </div>
       </dl>
 

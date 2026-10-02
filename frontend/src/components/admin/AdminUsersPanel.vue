@@ -175,7 +175,7 @@ onMounted(() => {
             class="border-b border-border last:border-0"
             :class="{ 'opacity-60': user.status === 'DELETED' }"
           >
-            <td class="px-4 py-3 font-medium text-foreground">
+            <td translate="no" class="px-4 py-3 font-medium text-foreground">
               {{ user.username }}
               <span v-if="isSelf(user)" class="ml-1 text-xs font-normal text-muted-foreground">(you)</span>
             </td>

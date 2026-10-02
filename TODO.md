@@ -233,25 +233,29 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   — seven read-only checks (who has access, a file's history, what I shared, what is shared with
   me, files marked Modified, recent activity, an overview) using the existing My Files and Access
   Records requests. No LLM; nothing is changed from the panel. Closes once deployed and verified.
-- [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
-  — user-selectable product locale with complete key coverage, safe fallback, persistence, and
-  mobile-compatible controls.
+- [x] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
+  — English / 简体中文 switcher in the header, the phone menu and Settings, remembered per device
+  and restored before the first paint. Shared chrome uses keyed vue-i18n messages; the rest of the
+  interface is shown in Chinese from a dictionary drafted at build time by Zhipu `glm-4-flash` and
+  checked against the security glossary by script and test. **The Chinese is machine-drafted and
+  has not had a full human review**, and the Help assistant still matches only English questions.
+  See [docs/I18N.md](docs/I18N.md).
 - [x] [#75 Add validated user avatar upload and display](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
   — optional profile/header image with content validation, safe serving, cleanup, rate limits,
   and initials fallback. Merged (#101, #106) and deployed (the avatar routes are in staging's OpenAPI,
   2026-10-01); the short upload/display/delete walkthrough was not recorded on the Issue before it closed
   on 2026-09-29.
-- [ ] [#76 Fix mobile and narrow-viewport usability across product flows](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
+- [x] [#76 Fix mobile and narrow-viewport usability across product flows](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
   — repair narrow-screen layout and interaction regressions across public, account, and file
-  flows, with repeatable mobile browser evidence. **Mostly done, not closeable yet.** An
+  flows, with repeatable mobile browser evidence. **Closed 2026-10-02.** An
   automated audit of 23 screens at 360 and 320 px found horizontal scrolling on four pages
   (education; registration, forgot-password and upload at 320 px), a My Files table that
   pushed its actions off a phone screen, 9–20 px footer links and dozens of other undersized
   targets; those are fixed (My Files is a card list below 768 px, every flagged target is at
   least 40 px, dialogs wrap long file names and fit the screen) and covered by three Chromium specs
-  ([docs/E2E_TESTING.md](docs/E2E_TESTING.md#phone-widths)). **Still open:** nothing has been run on a
-  real Android phone or in iOS Safari, so the "verify Android Chrome and iOS Safari" criterion is
-  unmet; the audit also did not cover the notifications and settings flows beyond layout.
+  ([docs/E2E_TESTING.md](docs/E2E_TESTING.md#phone-widths)). On 2026-10-02 the phone specs also passed
+  in WebKit (Safari's engine) as an iPhone 13 and in Chromium as a Pixel 7. **Not done:** no run on a
+  physical phone, and the notifications and settings flows were audited for layout only.
 
 ## Definition of done for each Issue
 

@@ -2,12 +2,14 @@
 import { computed, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { Download, KeyRound, ShieldCheck, UserPlus } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
 import PasswordField from '@/components/PasswordField.vue'
 import { enrolAccountKey } from '@/utils/account-crypto'
 
 const route = useRoute()
+const { t } = useI18n()
 
 // Arriving straight from a deletion. Saying so beats a bare registration form for someone
 // who has just destroyed an account on purpose and is expecting to start over.
@@ -15,7 +17,7 @@ const afterDeletion = computed(() => route.query.deleted === '1')
 import {
   PASSPHRASE_MIN_LENGTH,
   PASSWORD_MIN_LENGTH,
-  PASSWORD_REQUIREMENT_HINT,
+  passwordRequirementHint,
   evaluatePassword,
   passphraseLength,
 } from '@/utils/password-policy'
@@ -83,28 +85,28 @@ const errors = computed<Record<FieldName, string>>(() => {
 
   let usernameError = ''
   if (trimmedUsername.length < USERNAME_MIN_LENGTH) {
-    usernameError = `Use at least ${USERNAME_MIN_LENGTH} characters.`
+    usernameError = t('register.usernameTooShort', { min: USERNAME_MIN_LENGTH })
   } else if (trimmedUsername.length > USERNAME_MAX_LENGTH) {
-    usernameError = `Use at most ${USERNAME_MAX_LENGTH} characters.`
+    usernameError = t('register.usernameTooLong', { max: USERNAME_MAX_LENGTH })
   } else if (!USERNAME_PATTERN.test(trimmedUsername)) {
-    usernameError = 'Use only letters, numbers, underscore, dot, and hyphen.'
+    usernameError = t('register.usernameCharacters')
   }
 
   let confirmError = ''
   if (confirmPassword.value.length === 0) {
-    confirmError = 'Repeat your password.'
+    confirmError = t('register.confirmEmpty')
   } else if (confirmPassword.value !== password.value) {
-    confirmError = 'The two passwords do not match.'
+    confirmError = t('register.confirmMismatch')
   }
 
   let passphraseError = ''
   const currentPassphraseLength = passphraseLength(passphrase.value)
   if (currentPassphraseLength === 0) {
-    passphraseError = 'Enter an encryption passphrase.'
+    passphraseError = t('passphrase.enter')
   } else if (currentPassphraseLength < PASSPHRASE_MIN_LENGTH) {
-    passphraseError = `Use at least ${PASSPHRASE_MIN_LENGTH} characters (${currentPassphraseLength} so far).`
+    passphraseError = t('passphrase.tooShort', { min: PASSPHRASE_MIN_LENGTH, length: currentPassphraseLength })
   } else if (passphrase.value === password.value) {
-    passphraseError = 'Use a different value from your login password.'
+    passphraseError = t('passphrase.sameAsPassword')
   }
 
   return {
@@ -112,10 +114,10 @@ const errors = computed<Record<FieldName, string>>(() => {
     password: passwordCheck.value.message,
     confirmPassword: confirmError,
     passphrase: passphraseError,
-    email: emailLooksValid.value ? '' : 'Enter a valid email address.',
+    email: emailLooksValid.value ? '' : t('register.emailInvalid'),
     code: /^\d{6}$/.test(verificationCode.value.trim())
       ? ''
-      : 'Enter the 6-digit code sent to your email.',
+      : t('register.codeInvalid'),
   }
 })
 
@@ -182,10 +184,10 @@ async function sendCode() {
     })
     const data = response.data.data
     const minutes = Math.max(1, Math.round(data.expires_in_seconds / 60))
-    codeNotice.value = `If ${email.value.trim()} is available, a code is on its way. It expires in ${minutes} minutes.`
+    codeNotice.value = t('register.codeSent', { email: email.value.trim(), minutes })
     startCooldown(data.resend_available_in_seconds)
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error, 'Could not send the verification code')
+    errorMessage.value = apiErrorMessage(error, t('register.codeSendFailed'))
   } finally {
     isSendingCode.value = false
   }
@@ -197,7 +199,7 @@ async function register() {
   hasAttemptedSubmit.value = true
   const firstInvalid = FIELD_ORDER.find((field) => errors.value[field] !== '')
   if (firstInvalid) {
-    errorMessage.value = 'Some details still need fixing. See the messages above.'
+    errorMessage.value = t('register.fixErrors')
     focusField(firstInvalid)
     return
   }
@@ -208,10 +210,10 @@ async function register() {
   try {
     // Generating a 3072-bit RSA key and running Argon2id takes a moment and
     // blocks the main thread, so the button reports each stage.
-    progressLabel.value = 'Generating your account key...'
+    progressLabel.value = t('register.progressKey')
     const { keyMaterial, privateKeyPem: generatedPem } = await enrolAccountKey(passphrase.value)
 
-    progressLabel.value = 'Creating your account...'
+    progressLabel.value = t('register.progressAccount')
     const response = await authApi.register({
       username: username.value.trim(),
       email: email.value.trim(),
@@ -228,7 +230,7 @@ async function register() {
     confirmPassword.value = ''
     verificationCode.value = ''
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error, 'Registration failed')
+    errorMessage.value = apiErrorMessage(error, t('register.failed'))
   } finally {
     isSubmitting.value = false
     progressLabel.value = ''
@@ -254,26 +256,25 @@ function downloadPrivateKey() {
           <div class="p-2 rounded-lg bg-primary/10">
             <UserPlus class="h-5 w-5 text-primary" />
           </div>
-          <h1 class="text-2xl font-bold text-foreground">Create Account</h1>
+          <h1 class="text-2xl font-bold text-foreground">{{ t('register.title') }}</h1>
         </div>
 
         <p
           v-if="afterDeletion"
           class="text-sm rounded-md border border-border bg-secondary/60 text-foreground px-3 py-2 mb-4"
         >
-          Your previous account and its files were deleted. You can register again with the
-          same username and email if you want them.
+          {{ t('register.afterDeletion') }}
         </p>
 
         <form novalidate @submit.prevent="register">
           <label for="register-username" class="text-sm text-foreground mb-2 block">
-            Username <span class="text-destructive">*</span>
+            {{ t('login.username') }} <span class="text-destructive">*</span>
           </label>
           <input
             id="register-username"
             ref="usernameInput"
             v-model="username"
-            placeholder="Username"
+            :placeholder="t('login.username')"
             autocomplete="username"
             :aria-invalid="errorFor('username') ? 'true' : undefined"
             class="h-10 w-full rounded-md border bg-secondary px-3 text-foreground"
@@ -288,9 +289,9 @@ function downloadPrivateKey() {
           <PasswordField
             ref="passwordField"
             v-model="password"
-            label="Password"
-            :placeholder="`At least ${PASSWORD_MIN_LENGTH} characters`"
-            :hint="PASSWORD_REQUIREMENT_HINT"
+            :label="t('login.password')"
+            :placeholder="t('register.atLeastCharacters', { min: PASSWORD_MIN_LENGTH })"
+            :hint="passwordRequirementHint()"
             :error="errorFor('password')"
             @blur="markTouched('password')"
           />
@@ -299,8 +300,8 @@ function downloadPrivateKey() {
           <PasswordField
             ref="confirmPasswordField"
             v-model="confirmPassword"
-            label="Confirm Password"
-            placeholder="Repeat your password"
+            :label="t('register.confirmPassword')"
+            :placeholder="t('register.confirmPlaceholder')"
             :error="errorFor('confirmPassword')"
             @blur="markTouched('confirmPassword')"
           />
@@ -309,26 +310,22 @@ function downloadPrivateKey() {
           <PasswordField
             ref="passphraseField"
             v-model="passphrase"
-            label="Encryption Passphrase"
-            :placeholder="`At least ${PASSPHRASE_MIN_LENGTH} characters, different from your password`"
+            :label="t('passphrase.label')"
+            :placeholder="t('register.passphrasePlaceholder', { min: PASSPHRASE_MIN_LENGTH })"
             :error="errorFor('passphrase')"
             @blur="markTouched('passphrase')"
           >
             <template #hint>
               <p class="text-xs text-muted-foreground mt-1 flex gap-1.5">
                 <ShieldCheck class="h-4 w-4 shrink-0 text-primary" />
-                <span>
-                  This never leaves your browser. It unlocks your private key. If you lose both
-                  it and the private key file you are given next, your encrypted files cannot be
-                  recovered. That is why it stays longer than your login password.
-                </span>
+                <span>{{ t('register.passphraseHint') }}</span>
               </p>
             </template>
           </PasswordField>
           <div class="mb-4" />
 
           <label for="register-email" class="text-sm text-foreground mb-2 block">
-            Email Address <span class="text-destructive">*</span>
+            {{ t('register.email') }} <span class="text-destructive">*</span>
           </label>
           <input
             id="register-email"
@@ -348,14 +345,14 @@ function downloadPrivateKey() {
           <div class="mb-4" />
 
           <label for="register-code" class="text-sm text-foreground mb-2 block">
-            Verification Code <span class="text-destructive">*</span>
+            {{ t('register.code') }} <span class="text-destructive">*</span>
           </label>
           <div class="flex gap-2">
             <input
               id="register-code"
               ref="codeInput"
               v-model="verificationCode"
-              placeholder="6-digit code"
+              :placeholder="t('register.codePlaceholder')"
               inputmode="numeric"
               maxlength="6"
               autocomplete="one-time-code"
@@ -370,9 +367,9 @@ function downloadPrivateKey() {
               :disabled="isSendingCode || cooldownSeconds > 0"
               @click="sendCode"
             >
-              <span v-if="isSendingCode">Sending...</span>
-              <span v-else-if="cooldownSeconds > 0">Resend in {{ cooldownSeconds }}s</span>
-              <span v-else>Send code</span>
+              <span v-if="isSendingCode">{{ t('register.sending') }}</span>
+              <span v-else-if="cooldownSeconds > 0">{{ t('register.resendIn', { seconds: cooldownSeconds }) }}</span>
+              <span v-else>{{ t('register.sendCode') }}</span>
             </button>
           </div>
           <p v-if="errorFor('code')" class="text-xs text-destructive mt-1" role="alert">
@@ -386,7 +383,7 @@ function downloadPrivateKey() {
             class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="isSubmitting"
           >
-            {{ progressLabel || 'Register' }}
+            {{ progressLabel || t('register.submit') }}
           </button>
         </form>
 
@@ -395,8 +392,8 @@ function downloadPrivateKey() {
         </p>
 
         <p class="text-sm text-muted-foreground mt-6 text-center">
-          Already have an account?
-          <RouterLink to="/login" class="inline-flex min-h-10 items-center text-primary hover:underline">Sign in</RouterLink>
+          {{ t('register.haveAccount') }}
+          <RouterLink to="/login" class="inline-flex min-h-10 items-center text-primary hover:underline">{{ t('register.signIn') }}</RouterLink>
         </p>
       </template>
 
@@ -405,29 +402,17 @@ function downloadPrivateKey() {
           <div class="p-2 rounded-lg bg-primary/10">
             <KeyRound class="h-5 w-5 text-primary" />
           </div>
-          <h1 class="text-2xl font-bold text-foreground">Save Your Private Key</h1>
+          <h1 class="text-2xl font-bold text-foreground">{{ t('register.saveKeyTitle') }}</h1>
         </div>
 
-        <p class="text-sm text-muted-foreground mb-4">
-          Your account is ready. This is your account's RSA private key — the key your files
-          are encrypted to. It is shown once and is not stored anywhere in readable form on
-          the server.
-        </p>
+        <p class="text-sm text-muted-foreground mb-4">{{ t('register.saveKeyIntro') }}</p>
 
-        <p class="text-sm text-muted-foreground mb-4">
-          <strong class="text-foreground">Save it.</strong> It is the only way back into your
-          files if you forget your encryption passphrase: with it you can set a new passphrase
-          in Settings, and without it neither the team nor the server holds anything that can
-          open your files. The download is a plain text <code class="text-xs">.pem</code> file —
-          your computer may have no application associated with it, which is expected; any
-          text editor can open it.
-        </p>
+        <i18n-t keypath="register.saveKeyWhy" tag="p" class="text-sm text-muted-foreground mb-4" scope="global">
+          <template #saveIt><strong class="text-foreground">{{ t('register.saveIt') }}</strong></template>
+          <template #pem><code class="text-xs">.pem</code></template>
+        </i18n-t>
 
-        <p class="text-sm text-muted-foreground mb-4">
-          Because it needs no passphrase, treat the file itself as the secret: anyone who
-          holds it can decrypt your files. Keep it somewhere you would keep a password, not in
-          your Downloads folder.
-        </p>
+        <p class="text-sm text-muted-foreground mb-4">{{ t('register.saveKeySecret') }}</p>
 
         <textarea
           :value="privateKeyPem"
@@ -437,7 +422,7 @@ function downloadPrivateKey() {
         />
 
         <p class="text-xs text-muted-foreground mt-2 break-all">
-          Public key fingerprint: <span class="font-mono">{{ publicKeyFingerprint }}</span>
+          {{ t('register.fingerprint') }} <span class="font-mono">{{ publicKeyFingerprint }}</span>
         </p>
 
         <button
@@ -446,12 +431,12 @@ function downloadPrivateKey() {
           @click="downloadPrivateKey"
         >
           <Download class="h-4 w-4" />
-          Download private key
+          {{ t('register.downloadKey') }}
         </button>
 
         <label class="flex items-start gap-2 mt-4 text-sm text-foreground">
           <input v-model="keyAcknowledged" type="checkbox" class="mt-1 h-5 w-5 shrink-0" />
-          <span>I have saved this private key somewhere safe. I understand it will not be shown again, and that without it a forgotten passphrase means losing access to my files.</span>
+          <span>{{ t('register.keyAcknowledge') }}</span>
         </label>
 
         <RouterLink
@@ -459,7 +444,7 @@ function downloadPrivateKey() {
           class="mt-4 w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center"
           :class="keyAcknowledged ? '' : 'pointer-events-none opacity-50'"
         >
-          Continue to sign in
+          {{ t('register.continue') }}
         </RouterLink>
       </template>
     </div>

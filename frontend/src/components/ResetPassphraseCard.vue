@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, ref } from 'vue'
 import { CheckCircle, KeyRound, Loader2 } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import PasswordField from '@/components/PasswordField.vue'
 import { apiErrorMessage } from '@/api/http'
 import { PrivateKeyMismatchError } from '@/crypto/download'
@@ -18,6 +19,7 @@ import { PASSPHRASE_MIN_LENGTH, passphraseLength } from '@/utils/password-policy
  * Only the two re-sealed envelopes and a signature over them reach the server.
  */
 
+const { t } = useI18n()
 const keyPem = ref('')
 const keyFileName = ref('')
 const passphrase = ref('')
@@ -38,14 +40,14 @@ onBeforeUnmount(() => {
 const passphraseError = computed(() => {
   if (!submitted.value) return ''
   if (passphraseLength(passphrase.value) < PASSPHRASE_MIN_LENGTH) {
-    return `Use at least ${PASSPHRASE_MIN_LENGTH} characters.`
+    return t('register.usernameTooShort', { min: PASSPHRASE_MIN_LENGTH })
   }
   return ''
 })
 
 const confirmationError = computed(() => {
   if (!submitted.value) return ''
-  return confirmation.value === passphrase.value ? '' : 'The two passphrases do not match.'
+  return confirmation.value === passphrase.value ? '' : t('resetPassphrase.mismatch')
 })
 
 async function chooseKeyFile(event: Event) {
@@ -63,12 +65,12 @@ async function submit() {
   submitted.value = true
   errorMessage.value = ''
   if (!keyPem.value) {
-    errorMessage.value = 'Choose the private key file you saved at registration.'
+    errorMessage.value = t('resetPassphrase.chooseFile')
     return
   }
   if (passphraseError.value || confirmationError.value) return
   if (!acknowledged.value) {
-    errorMessage.value = 'Confirm that you understand the old passphrase will stop working.'
+    errorMessage.value = t('resetPassphrase.needAcknowledge')
     return
   }
 
@@ -83,14 +85,13 @@ async function submit() {
     acknowledged.value = false
   } catch (error) {
     if (error instanceof PrivateKeyMismatchError) {
-      errorMessage.value =
-        'That key file does not belong to this account. Check you saved it from this account.'
+      errorMessage.value = t('resetPassphrase.wrongKey')
     } else if (error instanceof TypeError) {
       errorMessage.value = error.message
     } else if (error instanceof PassphraseTooShortError || error instanceof ResetVerificationError) {
       errorMessage.value = error.message
     } else {
-      errorMessage.value = apiErrorMessage(error, 'The passphrase could not be reset')
+      errorMessage.value = apiErrorMessage(error, t('resetPassphrase.failed'))
     }
   } finally {
     busy.value = false
@@ -102,27 +103,23 @@ async function submit() {
   <div class="mt-6 rounded-xl border border-border bg-card p-6">
     <h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
       <KeyRound class="h-5 w-5 text-primary" />
-      Forgot your encryption passphrase?
+      {{ t('resetPassphrase.title') }}
     </h2>
     <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-      Set a new one with the private key file you were given once at registration. Your files,
-      your shares, and your account key stay exactly as they are; only the passphrase that
-      unlocks the key changes. The file is read in this browser and is never uploaded.
+      {{ t('resetPassphrase.intro') }}
     </p>
 
     <div v-if="done" class="mt-4 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3">
       <CheckCircle class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
       <p class="text-sm text-foreground">
-        Your new passphrase is set and was checked against what the server now stores. Keep
-        your private key file somewhere safe; it is still the only way back if you forget this
-        passphrase too.
+        {{ t('resetPassphrase.done') }}
       </p>
     </div>
 
     <form v-else class="mt-4 space-y-4" novalidate @submit.prevent="submit">
       <div>
         <label class="inline-flex h-10 cursor-pointer items-center rounded-md border border-border px-4 text-sm text-foreground transition-colors hover:bg-secondary">
-          <span>{{ keyFileName || 'Choose private key file' }}</span>
+          <span>{{ keyFileName || t('resetPassphrase.chooseButton') }}</span>
           <input
             type="file"
             accept=".pem,application/x-pem-file,text/plain"
@@ -135,22 +132,19 @@ async function submit() {
 
       <PasswordField
         v-model="passphrase"
-        label="New encryption passphrase"
-        :hint="`At least ${PASSPHRASE_MIN_LENGTH} characters. Not your login password.`"
+        :label="t('resetPassphrase.newLabel')"
+        :hint="t('resetPassphrase.newHint', { min: PASSPHRASE_MIN_LENGTH })"
         :error="passphraseError"
       />
       <PasswordField
         v-model="confirmation"
-        label="Confirm new passphrase"
+        :label="t('resetPassphrase.confirmLabel')"
         :error="confirmationError"
       />
 
       <label class="flex items-start gap-2 text-sm text-foreground">
         <input v-model="acknowledged" type="checkbox" class="mt-1 h-5 w-5 shrink-0" :disabled="busy" />
-        <span>
-          I understand my old encryption passphrase will stop working as soon as this
-          completes. My files and shares are not affected.
-        </span>
+        <span>{{ t('resetPassphrase.acknowledge') }}</span>
       </label>
 
       <p v-if="errorMessage" class="text-sm text-destructive">{{ errorMessage }}</p>
@@ -161,11 +155,10 @@ async function submit() {
         class="inline-flex h-10 items-center gap-2 rounded-md bg-primary px-4 text-sm text-primary-foreground transition-colors hover:bg-primary/90 disabled:opacity-50"
       >
         <Loader2 v-if="busy" class="h-4 w-4 animate-spin" />
-        {{ busy ? 'Resetting…' : 'Reset passphrase' }}
+        {{ busy ? t('resetPassphrase.submitting') : t('resetPassphrase.submit') }}
       </button>
       <p v-if="busy" class="text-xs text-muted-foreground">
-        Deriving the new key takes a moment on purpose: the same cost that slows this down slows
-        an attacker guessing the passphrase offline.
+        {{ t('resetPassphrase.slowOnPurpose') }}
       </p>
     </form>
   </div>

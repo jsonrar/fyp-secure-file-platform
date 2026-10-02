@@ -299,7 +299,7 @@ watch(
 
         <ol ref="log" class="mt-4 space-y-4" aria-label="Questions and answers">
           <li v-for="exchange in exchanges" :key="exchange.id" class="scroll-mt-2 space-y-2">
-            <p class="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground [overflow-wrap:anywhere]">
+            <p translate="no" class="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-primary px-3 py-2 text-sm text-primary-foreground [overflow-wrap:anywhere]">
               {{ exchange.question }}
             </p>
 

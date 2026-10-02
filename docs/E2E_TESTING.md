@@ -221,9 +221,11 @@ code row leaving a 320 px screen, and undersized sign-in and registration target
 
 ### Not verified on real devices
 
-Everything above is Chromium with a phone-sized viewport and touch emulation. **No test has been
-run on a real Android phone or in iOS Safari**, because this project has no devices wired in and
-Playwright's WebKit is not installed in CI. Two behaviours known to differ in mobile Safari were
+In CI everything above is Chromium with a phone-sized viewport and touch emulation. On 2026-10-02
+the public-pages and not-found specs were also run locally in Playwright WebKit (Safari's engine)
+emulating an iPhone 13, and in Chromium emulating a Pixel 7: all passed (the evidence is on Issue
+#76). **No test has been run on a physical phone or in Mobile Safari itself**, and
+`mobile-file-flow` has only run in Chromium, because it needs the disposable stack. Two behaviours known to differ in mobile Safari were
 fixed in advance rather than observed: fields are never smaller than 16 px on touch screens (mobile
 Safari zooms the whole page when a smaller one takes focus), and dialog heights use dynamic viewport
 units (`dvh`) so the address bar does not push a dialog off the bottom. Safe-area insets need no

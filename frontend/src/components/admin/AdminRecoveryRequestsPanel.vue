@@ -219,7 +219,7 @@ onMounted(() => {
                 · file {{ shortId(request.file_id) }}…
               </span>
             </p>
-            <p class="mt-1 text-sm text-foreground">{{ request.reason }}</p>
+            <p translate="no" class="mt-1 text-sm text-foreground">{{ request.reason }}</p>
             <p v-if="request.rejection_reason" class="mt-1 text-sm text-destructive">
               Rejection: {{ request.rejection_reason }}
             </p>

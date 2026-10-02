@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
 import { TriangleAlert } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 import { apiErrorMessage } from '@/api/http'
 import { authApi } from '@/api/auth_api'
@@ -11,6 +12,7 @@ const emit = defineEmits<{
   (e: 'close'): void
 }>()
 
+const { t } = useI18n()
 const password = ref('')
 const confirmation = ref('')
 const errorMessage = ref('')
@@ -27,7 +29,7 @@ onMounted(async () => {
 
 async function deleteAccount() {
   if (!canDelete.value) {
-    errorMessage.value = 'Enter your login password and type DELETE to confirm'
+    errorMessage.value = t('deleteAccount.needBoth')
     return
   }
   isDeleting.value = true
@@ -41,7 +43,7 @@ async function deleteAccount() {
     emit('deleted', res.data?.data?.files_deleted ?? 0)
   } catch (error) {
     password.value = ''
-    errorMessage.value = apiErrorMessage(error, 'Could not delete the account')
+    errorMessage.value = apiErrorMessage(error, t('deleteAccount.failed'))
     await nextTick()
     field.value?.focus()
   } finally {
@@ -60,33 +62,29 @@ async function deleteAccount() {
         <div class="p-2 rounded-lg bg-destructive/10">
           <TriangleAlert class="h-4 w-4 text-destructive" />
         </div>
-        <h2 class="text-lg font-semibold text-foreground">Delete your account</h2>
+        <h2 class="text-lg font-semibold text-foreground">{{ t('deleteAccount.title') }}</h2>
       </div>
 
-      <p class="text-sm text-muted-foreground mb-3">
-        This deletes your account and every file you have uploaded, including files you have
-        shared with other people. It cannot be undone, and no one — not the team, not the
-        server — can bring the files back afterwards.
-      </p>
+      <p class="text-sm text-muted-foreground mb-3">{{ t('deleteAccount.consequence') }}</p>
 
-      <p class="text-sm text-muted-foreground mb-4">
-        If you are here because you forgot your encryption passphrase, try
-        <strong class="text-foreground">unlocking with your private key file</strong> first:
-        the <code class="text-xs">.pem</code> you saved at registration opens your files
-        without the passphrase. Deleting is only worth it if that file is gone too.
-      </p>
+      <i18n-t keypath="deleteAccount.tryKeyFile" tag="p" class="text-sm text-muted-foreground mb-4" scope="global">
+        <template #unlock><strong class="text-foreground">{{ t('deleteAccount.unlockWithKey') }}</strong></template>
+        <template #pem><code class="text-xs">.pem</code></template>
+      </i18n-t>
 
       <form @submit.prevent="deleteAccount">
         <PasswordField
           ref="field"
           v-model="password"
-          label="Login password"
-          placeholder="Your login password"
+          :label="t('deleteAccount.loginPassword')"
+          :placeholder="t('deleteAccount.loginPasswordPlaceholder')"
           autocomplete="current-password"
         />
 
         <label class="text-sm text-foreground mt-4 mb-2 block">
-          Type <code class="text-xs font-mono">DELETE</code> to confirm
+          <i18n-t keypath="deleteAccount.typeDelete" scope="global">
+            <template #word><code class="text-xs font-mono">DELETE</code></template>
+          </i18n-t>
         </label>
         <input
           v-model="confirmation"
@@ -104,14 +102,14 @@ async function deleteAccount() {
             class="flex-1 h-10 rounded-md bg-destructive text-white hover:bg-destructive/90 disabled:opacity-50"
             :disabled="isDeleting || !canDelete"
           >
-            {{ isDeleting ? 'Deleting...' : 'Delete my account' }}
+            {{ isDeleting ? t('deleteAccount.deleting') : t('deleteAccount.submit') }}
           </button>
           <button
             type="button"
             class="h-10 px-4 rounded-md border border-border hover:bg-secondary"
             @click="emit('close')"
           >
-            Cancel
+            {{ t('common.cancel') }}
           </button>
         </div>
       </form>

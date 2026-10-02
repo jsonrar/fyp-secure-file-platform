@@ -144,7 +144,7 @@ async function share() {
       </div>
 
       <p class="text-sm text-muted-foreground mb-4">
-        <span v-if="props.filename" class="text-foreground [overflow-wrap:anywhere]">{{ props.filename }}</span>
+        <span translate="no" v-if="props.filename" class="text-foreground [overflow-wrap:anywhere]">{{ props.filename }}</span>
         <span v-else>This file</span>
         is re-encrypted to the recipient's own key in this browser. They open it with their
         own passphrase — never yours — and the server never sees the file's key.
@@ -168,7 +168,7 @@ async function share() {
             class="flex items-center justify-between gap-3 py-2"
           >
             <div class="min-w-0">
-              <p class="text-sm text-foreground truncate">{{ user.username }}</p>
+              <p translate="no" class="text-sm text-foreground truncate">{{ user.username }}</p>
               <p class="text-xs text-muted-foreground">
                 Since {{ new Date(user.granted_at).toLocaleDateString() }}
                 <span v-if="!user.can_download"> · view only</span>

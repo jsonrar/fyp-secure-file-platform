@@ -143,10 +143,10 @@ onMounted(() => {
             class="border-b border-border last:border-0"
             :class="{ 'opacity-60': file.status === 'DELETED' }"
           >
-            <td class="max-w-[16rem] truncate px-4 py-3 font-medium text-foreground" :title="file.original_filename">
+            <td translate="no" class="max-w-[16rem] truncate px-4 py-3 font-medium text-foreground" :title="file.original_filename">
               {{ file.original_filename }}
             </td>
-            <td class="px-4 py-3 text-muted-foreground">{{ file.owner_username }}</td>
+            <td translate="no" class="px-4 py-3 text-muted-foreground">{{ file.owner_username }}</td>
             <td class="px-4 py-3 text-muted-foreground">{{ formatFileSize(file.file_size) }}</td>
             <td class="px-4 py-3">
               <span class="rounded-full px-2 py-0.5 text-xs font-medium" :class="statusBadgeClass(file.status)">

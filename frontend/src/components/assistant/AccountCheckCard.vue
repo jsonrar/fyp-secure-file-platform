@@ -119,7 +119,7 @@ onMounted(() => {
           class="flex min-w-0 items-baseline justify-between gap-2 rounded-md border border-border bg-background px-3 py-1.5 text-left hover:border-primary/50 hover:bg-primary/5"
           @click="pick(choice)"
         >
-          <span class="min-w-0 truncate font-medium text-foreground">{{ choice.name }}</span>
+          <span translate="no" class="min-w-0 truncate font-medium text-foreground">{{ choice.name }}</span>
           <span class="shrink-0 text-xs text-muted-foreground">{{ choice.detail }}</span>
         </button>
       </div>

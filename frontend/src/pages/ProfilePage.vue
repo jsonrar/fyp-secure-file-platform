@@ -139,10 +139,10 @@ async function removeAvatar() {
             </button>
           </div>
           <div class="min-w-0 flex-1">
-            <h1 class="truncate text-2xl font-bold text-foreground md:text-3xl">
+            <h1 translate="no" class="truncate text-2xl font-bold text-foreground md:text-3xl">
               {{ auth.displayName }}
             </h1>
-            <p v-if="auth.user?.email" class="mt-1 truncate text-sm text-muted-foreground">
+            <p translate="no" v-if="auth.user?.email" class="mt-1 truncate text-sm text-muted-foreground">
               {{ auth.user.email }}
             </p>
             <div class="mt-3 flex flex-wrap items-center gap-2">

@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { nextTick, onMounted, ref } from 'vue'
 import { TriangleAlert } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 withDefaults(
   defineProps<{
@@ -14,11 +15,13 @@ withDefaults(
     busy?: boolean
   }>(),
   {
-    confirmLabel: 'Confirm',
-    busyLabel: 'Working…',
+    confirmLabel: '',
+    busyLabel: '',
     busy: false,
   },
 )
+
+const { t } = useI18n()
 
 const emit = defineEmits<{
   (e: 'confirm'): void
@@ -56,7 +59,7 @@ onMounted(async () => {
         </h2>
       </div>
 
-      <p v-if="detail" class="mb-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{{ detail }}</p>
+      <p v-if="detail" translate="no" class="mb-2 text-sm font-medium text-foreground [overflow-wrap:anywhere]">{{ detail }}</p>
       <p class="text-sm text-muted-foreground [overflow-wrap:anywhere]">{{ consequence }}</p>
 
       <div class="mt-5 flex gap-2">
@@ -66,7 +69,7 @@ onMounted(async () => {
           :disabled="busy"
           @click="emit('close')"
         >
-          Cancel
+          {{ t('common.cancel') }}
         </button>
         <button
           ref="confirmButton"
@@ -75,7 +78,7 @@ onMounted(async () => {
           :disabled="busy"
           @click="emit('confirm')"
         >
-          {{ busy ? busyLabel : confirmLabel }}
+          {{ busy ? busyLabel || t('common.working') : confirmLabel || t('common.confirm') }}
         </button>
       </div>
     </div>

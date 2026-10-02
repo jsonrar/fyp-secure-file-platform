@@ -5,11 +5,13 @@ import router from './router'
 import { setSessionExpiredHandler } from './api/session'
 import { LOGIN_PATH } from './router/guard'
 import { useAuthStore } from './stores/auth_store'
+import { i18n, initLocale } from './i18n'
 import './style.css'
 
 const app = createApp(App)
 app.use(createPinia())
 app.use(router)
+app.use(i18n)
 
 /**
  * End a session that could not be renewed, visibly.
@@ -31,4 +33,6 @@ setSessionExpiredHandler(() => {
   router.push({ path: LOGIN_PATH, query: { expired: '1', ...(redirect ? { redirect } : {}) } })
 })
 
-app.mount('#app')
+// The saved language is loaded before the first render, so a Chinese visitor never sees the
+// English pages flash past first.
+void initLocale().finally(() => app.mount('#app'))

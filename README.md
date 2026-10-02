@@ -74,6 +74,12 @@ questions are not sent or logged. Signed in, it also answers questions about you
 answers only read what My Files and Access Records already show, and change nothing. See
 [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 
+The interface can be switched between **English and 简体中文** (#74) from the header, the phone
+menu or Settings; the choice is remembered on the device. File names, usernames and anything a
+user wrote are never translated. The Chinese is drafted at build time by Zhipu `glm-4-flash` and
+checked against a fixed security glossary; the browser never calls a translation service. See
+[docs/I18N.md](docs/I18N.md).
+
 Core Features now uses a seamless dual-row loop, with hover-to-pause and a static,
 complete card layout for reduced-motion preferences. This is a local frontend update;
 deployment has not yet been verified. See the

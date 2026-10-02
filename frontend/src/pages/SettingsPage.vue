@@ -1,21 +1,24 @@
 <script setup lang="ts">
 import { ref } from 'vue'
 import { LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
 import ResetPassphraseCard from '@/components/ResetPassphraseCard.vue'
 import { useTheme, type ThemePreference } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth_store'
+import { LOCALES, setLocale } from '@/i18n'
 
 const router = useRouter()
 const auth = useAuthStore()
 const { preference, setPreference } = useTheme()
 const showDelete = ref(false)
+const { t, locale } = useI18n()
 
 const themeOptions: { value: ThemePreference; label: string; hint: string; icon: typeof Sun }[] = [
-  { value: 'system', label: 'System', hint: 'Follow the operating system', icon: Monitor },
-  { value: 'light', label: 'Light', hint: 'Always light', icon: Sun },
-  { value: 'dark', label: 'Dark', hint: 'Always dark', icon: Moon },
+  { value: 'system', label: 'theme.system', hint: 'theme.systemHint', icon: Monitor },
+  { value: 'light', label: 'theme.light', hint: 'theme.lightHint', icon: Sun },
+  { value: 'dark', label: 'theme.dark', hint: 'theme.darkHint', icon: Moon },
 ]
 
 async function handleLogout() {
@@ -38,15 +41,15 @@ function onDeleted() {
 <template>
   <section class="py-16 md:py-24">
     <div class="container mx-auto max-w-3xl px-4">
-      <h1 class="text-2xl font-bold text-foreground md:text-3xl">Settings</h1>
+      <h1 class="text-2xl font-bold text-foreground md:text-3xl">{{ t('settings.title') }}</h1>
       <p class="mt-2 text-sm text-muted-foreground">
-        Appearance and account controls for {{ auth.displayName }}.
+        {{ t('settings.intro', { name: auth.displayName }) }}
       </p>
 
       <div class="mt-8 rounded-xl border border-border bg-card p-6">
-        <h2 class="text-lg font-semibold text-foreground">Appearance</h2>
+        <h2 class="text-lg font-semibold text-foreground">{{ t('settings.appearance') }}</h2>
         <p class="mt-1 text-sm text-muted-foreground">
-          Applies immediately and is remembered on this device.
+          {{ t('settings.appearanceHint') }}
         </p>
 
         <div class="mt-4 grid gap-3 sm:grid-cols-3">
@@ -69,21 +72,41 @@ function onDeleted() {
               class="mb-2 h-5 w-5"
               :class="preference === option.value ? 'text-primary' : 'text-muted-foreground'"
             />
-            <p class="text-sm font-semibold text-foreground">{{ option.label }}</p>
-            <p class="mt-1 text-xs text-muted-foreground">{{ option.hint }}</p>
+            <p class="text-sm font-semibold text-foreground">{{ t(option.label) }}</p>
+            <p class="mt-1 text-xs text-muted-foreground">{{ t(option.hint) }}</p>
           </button>
         </div>
       </div>
 
       <div class="mt-6 rounded-xl border border-border bg-card p-6">
-        <h2 class="text-lg font-semibold text-foreground">Account</h2>
+        <h2 id="settings-language" class="text-lg font-semibold text-foreground">{{ t('settings.language') }}</h2>
+        <p class="mt-1 text-sm text-muted-foreground">{{ t('settings.languageHint') }}</p>
+        <div class="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-labelledby="settings-language">
+          <button
+            v-for="option in LOCALES"
+            :key="option.code"
+            type="button"
+            role="radio"
+            :lang="option.code"
+            :aria-checked="locale === option.code"
+            class="rounded-lg border p-4 text-left text-sm font-semibold text-foreground transition-colors"
+            :class="locale === option.code ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'"
+            @click="setLocale(option.code)"
+          >
+            {{ option.label }}
+          </button>
+        </div>
+      </div>
+
+      <div class="mt-6 rounded-xl border border-border bg-card p-6">
+        <h2 class="text-lg font-semibold text-foreground">{{ t('settings.account') }}</h2>
         <div class="mt-4 flex flex-wrap gap-3">
           <RouterLink
             to="/profile"
             class="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm text-foreground transition-colors hover:bg-secondary"
           >
             <UserRound class="h-4 w-4" />
-            View profile
+            {{ t('settings.viewProfile') }}
           </RouterLink>
           <button
             type="button"
@@ -91,7 +114,7 @@ function onDeleted() {
             @click="handleLogout"
           >
             <LogOut class="h-4 w-4" />
-            Log out
+            {{ t('nav.logOut') }}
           </button>
         </div>
       </div>
@@ -99,18 +122,16 @@ function onDeleted() {
       <ResetPassphraseCard />
 
       <div class="mt-6 rounded-xl border border-destructive/40 bg-card p-6">
-        <h2 class="text-lg font-semibold text-foreground">Delete this account</h2>
+        <h2 class="text-lg font-semibold text-foreground">{{ t('settings.deleteTitle') }}</h2>
         <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-          Removes the account and every file uploaded from it. There is no way to reverse this
-          and no way to recover the files afterwards. If you are locked out by a forgotten
-          passphrase, reset it above with your saved private key file instead.
+          {{ t('settings.deleteBody') }}
         </p>
         <button
           type="button"
           class="mt-4 h-10 rounded-md border border-destructive/50 px-4 text-sm text-destructive transition-colors hover:bg-destructive/10"
           @click="showDelete = true"
         >
-          Delete account
+          {{ t('settings.deleteButton') }}
         </button>
       </div>
     </div>

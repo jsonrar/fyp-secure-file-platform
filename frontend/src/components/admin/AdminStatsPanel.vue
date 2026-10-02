@@ -147,7 +147,7 @@ const number = (value: number) => value.toLocaleString('en-US')
           <p class="mt-3 text-xs font-medium text-muted-foreground">Most recent failed or blocked events</p>
           <ul v-if="stats.audit.recent_failures.length" class="mt-1 divide-y divide-border text-sm" data-testid="admin-recent-failures">
             <li v-for="(event, index) in stats.audit.recent_failures" :key="index" class="flex flex-wrap items-baseline justify-between gap-x-3 py-1.5">
-              <span class="text-foreground">{{ auditActionLabel(event.action) }}<span v-if="event.actor_username" class="text-muted-foreground"> · {{ event.actor_username }}</span></span>
+              <span class="text-foreground">{{ auditActionLabel(event.action) }}<span v-if="event.actor_username" translate="no" class="text-muted-foreground"> · {{ event.actor_username }}</span></span>
               <span class="text-xs text-muted-foreground">{{ new Date(event.created_at).toLocaleString() }}</span>
             </li>
           </ul>
