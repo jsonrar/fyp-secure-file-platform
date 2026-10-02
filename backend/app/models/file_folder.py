@@ -46,3 +46,4 @@ class FileFolder(Base):
 
     owner = relationship("User", back_populates="file_folders")
     files = relationship("File", back_populates="folder")
+    shared_placements = relationship("FileAccessGrant", back_populates="folder")

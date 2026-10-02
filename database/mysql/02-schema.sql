@@ -19,7 +19,7 @@
 -- verified pre-deployment backup, then restart from 01-provision.sql.
 --
 -- The DDL below is the flattened final state represented by revisions
--- 0001_initial through 0009_more_aead_suites. Production deployment does not
+-- 0001_initial through 0010_shared_file_folders. Production deployment does not
 -- run Alembic. The alembic_version row is retained only as a compatibility
 -- marker for development tooling and must be updated together with reviewed
 -- future root-executed SQL release scripts.
@@ -493,6 +493,7 @@ CREATE TABLE file_access_grants (
     updated_at DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
     revoked_at DATETIME,
     revision INTEGER UNSIGNED NOT NULL DEFAULT '1',
+    folder_id BIGINT UNSIGNED,
     PRIMARY KEY (id),
     CONSTRAINT uq_file_access_grants_file_user UNIQUE (file_id, user_id),
     CONSTRAINT ck_file_access_grants_status_revoked_at CHECK (
@@ -508,7 +509,10 @@ CREATE TABLE file_access_grants (
         ON DELETE CASCADE ON UPDATE CASCADE,
     CONSTRAINT fk_file_access_grants_granted_by
         FOREIGN KEY (granted_by) REFERENCES users (id)
-        ON DELETE RESTRICT ON UPDATE CASCADE
+        ON DELETE RESTRICT ON UPDATE CASCADE,
+    CONSTRAINT fk_file_access_grants_folder
+        FOREIGN KEY (folder_id) REFERENCES file_folders (id)
+        ON DELETE SET NULL ON UPDATE CASCADE
 ) ENGINE=InnoDB
   DEFAULT CHARSET=utf8mb4
   COLLATE=utf8mb4_unicode_ci;
@@ -517,6 +521,8 @@ CREATE INDEX idx_file_access_grants_created_at
     ON file_access_grants (created_at);
 CREATE INDEX idx_file_access_grants_file_id
     ON file_access_grants (file_id);
+CREATE INDEX idx_file_access_grants_folder_id
+    ON file_access_grants (folder_id);
 CREATE INDEX idx_file_access_grants_granted_by
     ON file_access_grants (granted_by);
 CREATE INDEX idx_file_access_grants_status
@@ -899,15 +905,15 @@ CREATE TABLE alembic_version (
   COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO alembic_version (version_num)
-VALUES ('0009_more_aead_suites');
+VALUES ('0010_shared_file_folders');
 
 -- Restore final-schema default parity only after every prior install statement
 -- has succeeded. The row still advertises 0002 until the final UPDATE below.
 ALTER TABLE audit_chain_heads
-ALTER COLUMN schema_revision SET DEFAULT '0009_more_aead_suites';
+ALTER COLUMN schema_revision SET DEFAULT '0010_shared_file_folders';
 
 -- This must be the final statement: readiness reads this marker rather than
 -- alembic_version because the runtime identity intentionally cannot read it.
 UPDATE audit_chain_heads
-SET schema_revision = '0009_more_aead_suites'
+SET schema_revision = '0010_shared_file_folders'
 WHERE id = 1;

@@ -227,7 +227,12 @@ class FileListOut(StrictFileModel):
     items: list[FileSummaryOut]
     page: int
     page_size: int
+    # Files matching every filter, scope included: what the page is a page of.
     total: int
+    # Files the caller owns, and files shared with them, matching the search but not the
+    # scope or folder: what the two tab labels show.
+    owned_total: int = 0
+    shared_total: int = 0
 
 
 class FolderNameIn(StrictFileModel):
@@ -252,6 +257,9 @@ class FileFolderOut(StrictFileModel):
     folder_id: UUID
     name: str
     file_count: int
+    # The same total split by tab: files you own, and files shared with you that you filed here.
+    owned_file_count: int = 0
+    shared_file_count: int = 0
     created_at: datetime
     updated_at: datetime
 

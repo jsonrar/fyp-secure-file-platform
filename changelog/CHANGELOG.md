@@ -18,6 +18,17 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### My Files: folders for shared files, server-side tabs, tidy actions, re-recorded videos / 我的文件：分享文件可放入文件夹、分页改到服务端、操作按钮对齐、重录视频
+
+- Files shared with you can now be filed in your own folders. Folders used to hold only files you uploaded, because placement lived on the file row, which belongs to its owner; with many people sharing with one account, "Shared with me" could not be organised at all. A recipient's placement now lives on their own access grant (`file_access_grants.folder_id`, migration `0010_shared_file_folders`), so each person files a shared file where they like without changing where its owner keeps it. The Shared tab gets the folder bar, the Folder column and per-tab folder counts; deleting a folder leaves its shared files in no folder, as it already did for your own.
+- 分享给你的文件现在可以放进你自己的文件夹。此前文件夹只能放你上传的文件，因为归属信息存放在属于文件所有者的文件记录上；当很多人向同一账户分享时，“Shared with me” 完全无法整理。现在接收者的归属存放在其自己的访问授权上（`file_access_grants.folder_id`，迁移 `0010_shared_file_folders`），每个人都可以按自己的方式归类共享文件，而不会改变所有者的归类。Shared 标签页有了文件夹栏、Folder 列和分标签的文件夹计数；删除文件夹后，其中的共享文件变为“无文件夹”，与自己的文件一致。
+- The two tabs are now split on the server. The page used to fetch one mixed list and divide it in the browser, so "Shared with me" showed only the shared files that happened to be on the current page, both tab counts were counts of that page, and "Total 15 encrypted files" on the Shared tab counted your own files too. `GET /files` takes `scope=mine|shared` and returns `owned_total` and `shared_total` for the tab labels.
+- 两个标签页现在在服务端拆分。此前页面先取回一份混合列表、再在浏览器里拆分，所以 “Shared with me” 只显示恰好落在当前页的共享文件，两个标签的计数也只是当前页的数量，而 Shared 标签上的 “Total 15 encrypted files” 把你自己的文件也算了进去。`GET /files` 新增 `scope=mine|shared` 参数，并返回供标签使用的 `owned_total` 与 `shared_total`。
+- A shared file's four actions now sit in a 2×2 block (your own files keep 3×2) instead of wrapping as three and one, and the empty space where the Folder column used to be missing on the Shared tab is gone.
+- 共享文件的四个操作按钮现在排成 2×2（自己的文件仍是 3×2），不再是三个加一个的换行；Shared 标签页原先因缺少 Folder 列而留下的空白也消失了。
+- The Help page walkthrough videos were re-recorded from the real product: the cipher step names all six choices, and the share video now ends with the recipient filing the shared file in a folder of their own.
+- Help 页面的演示视频已从真实产品重新录制：选择加密算法的步骤列出全部六种选择，分享视频最后增加了接收者把共享文件放入自己文件夹的步骤。
+
 ### Two more file encryption choices: AES-256-GCM-SIV and XChaCha20-Poly1305 / 新增两种文件加密：AES-256-GCM-SIV 与 XChaCha20-Poly1305
 
 - Meeting item 3 asked for more encryption algorithms. The upload page now offers six authenticated (AEAD) choices: AES-256-GCM (still the default), AES-256-GCM-SIV (RFC 8452, survives a repeated nonce), ChaCha20-Poly1305, XChaCha20-Poly1305 (24-byte nonce), AES-192-GCM and AES-128-GCM. The two new ones come from `@noble/ciphers`, already a dependency, so nothing new is installed. Both are checked byte for byte against independent implementations (OpenSSL, libsodium) and the RFC 8452 vectors in `docs/crypto/test_vectors.json`.

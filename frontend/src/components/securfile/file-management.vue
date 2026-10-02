@@ -88,7 +88,8 @@ const updateViewportColumns = () => {
   const large = window.matchMedia('(min-width: 1024px)').matches
   viewportColumns.value = 3 + (medium ? 2 : 0) + (large ? 1 : 0)
 }
-const columnCount = computed(() => viewportColumns.value + (scope.value === 'mine' ? 1 : 0))
+// The Folder column is shown on both tabs: shared files can be filed too.
+const columnCount = computed(() => viewportColumns.value + 1)
 /** Owned file waiting for delete confirmation; null when no dialog is open. */
 const pendingDelete = ref<EncryptedFile | null>(null)
 const isDeleting = ref(false)
@@ -137,27 +138,40 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   folderId: file.folder_id,
 })
 
-const sharedIds = computed(() => files.value.filter((file) => !file.owned).map((file) => file.id))
-const sharedCount = computed(() => sharedIds.value.length)
+/**
+ * Tab totals come from the server. Counting the rows of the current page made "Shared with me"
+ * show only the shared files that happened to be on it, and the total mix both kinds.
+ */
+const ownedCount = ref(0)
+const sharedCount = ref(0)
 const unseenCount = ref(0)
 
 /** Showing the shared list is what counts as having seen it. */
 const showShared = () => {
   scope.value = 'shared'
   selectedFolder.value = 'all'
-  markSharesSeen(sharedIds.value)
   unseenCount.value = 0
   page.value = 1
   void loadFiles()
 }
 const showMine = () => {
   scope.value = 'mine'
+  selectedFolder.value = 'all'
   page.value = 1
   void loadFiles()
 }
-const ownedCount = computed(() => files.value.filter((file) => file.owned).length)
 
 let requestId = 0
+
+/** The "new" badge on the shared tab: shared files this browser has not shown yet. */
+const refreshUnseenShares = async () => {
+  try {
+    const res = await fileApi.listFiles({ page: 1, page_size: PAGE_SIZE, scope: 'shared' })
+    unseenCount.value = unseenSharedIds(unwrapData(res).items.map((file) => file.file_id)).length
+  } catch {
+    // The badge is a convenience; the shared tab itself still lists everything.
+  }
+}
 
 const loadFolders = async () => {
   try {
@@ -176,21 +190,25 @@ const loadFiles = async () => {
       page: page.value,
       page_size: PAGE_SIZE,
       search: searchQuery.value.trim() || undefined,
-      folder_id:
-        scope.value === 'mine' && !['all', 'unfiled'].includes(selectedFolder.value)
-          ? selectedFolder.value
-          : undefined,
-      unfiled: scope.value === 'mine' && selectedFolder.value === 'unfiled' ? true : undefined,
+      scope: scope.value,
+      folder_id: !['all', 'unfiled'].includes(selectedFolder.value) ? selectedFolder.value : undefined,
+      unfiled: selectedFolder.value === 'unfiled' ? true : undefined,
     })
     // The API paginates: rows live under `items`. Reading anything else silently
     // yields an empty list, which reads as "no files" even when uploads succeeded.
     if (thisRequest !== requestId) return
     const data = unwrapData(res)
     files.value = data.items.map(mapFile)
-    // Counted after each load, and cleared the moment the shared list is opened.
-    unseenCount.value =
-      scope.value === 'shared' ? 0 : unseenSharedIds(sharedIds.value).length
-    if (scope.value === 'shared') markSharesSeen(sharedIds.value)
+    ownedCount.value = data.owned_total
+    sharedCount.value = data.shared_total
+    // Opening the shared list is what counts as seeing it; from the other tab, the badge
+    // counts shared files not seen yet.
+    if (scope.value === 'shared') {
+      markSharesSeen(files.value.map((file) => file.id))
+      unseenCount.value = 0
+    } else {
+      void refreshUnseenShares()
+    }
     // `total` counts every file the caller can reach, not the ones on this page. Dropping
     // it is what let the list quietly stop at one page and still call that the total.
     total.value = data.total
@@ -253,16 +271,10 @@ onBeforeUnmount(() => {
   window.removeEventListener('resize', updateViewportColumns)
 })
 
-// The server has already applied the text search; the split by ownership is local, because
-// `GET /files` returns both in one list and only marks which is which.
+// The server applies the search, the tab and the folder. The ownership check stays as a guard
+// so a stale response from the other tab can never be shown under this one.
 const filteredFiles = computed(() =>
-  files.value.filter((file) => {
-    if (scope.value === 'shared') return !file.owned
-    if (!file.owned) return false
-    if (selectedFolder.value === 'all') return true
-    if (selectedFolder.value === 'unfiled') return file.folderId === null
-    return file.folderId === selectedFolder.value
-  }),
+  files.value.filter((file) => (scope.value === 'shared' ? !file.owned : file.owned)),
 )
 
 const selectFolder = (folder: 'all' | 'unfiled' | string) => {
@@ -632,12 +644,15 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
           </div>
         </div>
 
-        <div v-if="scope === 'mine'" class="mb-6 rounded-lg border border-border bg-secondary/30 p-4">
+        <div class="mb-6 rounded-lg border border-border bg-secondary/30 p-4">
           <div class="mb-3 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div class="flex items-center gap-2">
               <Folder class="h-4 w-4 text-primary" />
               <h3 class="font-medium text-foreground">Folders</h3>
-              <span class="text-xs text-muted-foreground">Organize metadata only; ciphertext does not move.</span>
+              <span class="text-xs text-muted-foreground">
+                <template v-if="scope === 'shared'">Your folders are private: filing a shared file here does not change where its owner keeps it.</template>
+                <template v-else>Organize metadata only; ciphertext does not move.</template>
+              </span>
             </div>
             <form class="flex gap-2" @submit.prevent="createFolder">
               <input
@@ -689,7 +704,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
               </template>
               <template v-else>
                 <button type="button" class="h-8 px-3 text-sm" @click="selectFolder(folder.folder_id)">
-                  {{ folder.name }} ({{ folder.file_count }})
+                  {{ folder.name }} ({{ scope === 'shared' ? folder.shared_file_count : folder.owned_file_count }})
                 </button>
                 <button type="button" class="h-8 w-8 text-muted-foreground hover:text-foreground" :aria-label="`Rename ${folder.name}`" @click="startRenameFolder(folder)"><Pencil class="mx-auto h-3.5 w-3.5" /></button>
                 <button type="button" class="h-8 w-8 text-muted-foreground hover:text-destructive" :aria-label="`Delete ${folder.name}`" @click="pendingFolderDelete = folder"><Trash2 class="mx-auto h-3.5 w-3.5" /></button>
@@ -719,6 +734,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
 
         <div v-else-if="!filteredFiles.length" class="text-center py-12 text-muted-foreground">
           <template v-if="searchQuery.trim()">No file matches "{{ searchQuery.trim() }}".</template>
+          <template v-else-if="selectedFolder !== 'all'">No {{ scope === 'shared' ? 'shared ' : '' }}files {{ selectedFolder === 'unfiled' ? 'outside a folder' : 'in this folder' }}.</template>
           <template v-else-if="scope === 'shared'">No one has shared a file with you yet.</template>
           <template v-else>No encrypted files yet. Upload your first file to get started.</template>
         </div>
@@ -740,7 +756,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <th class="hidden w-[11%] text-left py-3 pr-3 font-medium whitespace-nowrap md:table-cell">Original</th>
                 <th class="hidden w-[11%] text-left py-3 pr-3 font-medium whitespace-nowrap md:table-cell">Encrypted</th>
                 <th class="hidden w-[14%] text-left py-3 pr-3 font-medium whitespace-nowrap lg:table-cell">Encrypted At</th>
-                <th v-if="scope === 'mine'" class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Folder</th>
+                <th class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Folder</th>
                 <th class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Status</th>
                 <th class="w-[8.5rem] text-right py-3 font-medium whitespace-nowrap">Actions</th>
               </tr>
@@ -772,7 +788,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.originalBytes)">{{ file.originalSize }}</td>
                 <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.encryptedBytes)">{{ file.encryptedSize }}</td>
                 <td class="py-3 pr-3 text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
-                <td v-if="scope === 'mine'" class="md:table-cell md:py-3 md:pr-3">
+                <td class="md:table-cell md:py-3 md:pr-3">
                   <select
                     :value="file.folderId ?? ''"
                     :aria-label="`Folder for ${file.name}`"
@@ -790,8 +806,12 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   </button>
                 </td>
                 <td class="col-span-2 border-t border-border pt-3 md:table-cell md:border-0 md:py-3 md:pt-3 md:text-right">
-                  <!-- A row of 40 px targets on a phone; three to a row from md up, so six actions make a tidy 3x2 block instead of a ragged wrap. -->
-                  <div class="flex flex-wrap gap-1 md:ml-auto md:grid md:w-fit md:grid-cols-3 md:justify-items-end">
+                  <!-- A row of 40 px targets on a phone. From md up, an even block: your own files have
+                       six actions (3x2) and shared files four (2x2), never a ragged 3+1 wrap. -->
+                  <div
+                    class="flex flex-wrap gap-1 md:ml-auto md:grid md:w-fit md:justify-items-end"
+                    :class="file.owned ? 'md:grid-cols-3' : 'md:grid-cols-2'"
+                  >
                     <button
                       class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"

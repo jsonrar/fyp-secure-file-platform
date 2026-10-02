@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 import re
-from typing import Annotated
+from typing import Annotated, Literal
 from urllib.parse import quote
 from uuid import UUID
 
@@ -92,12 +92,16 @@ def list_files(
     ] = None,
     folder_id: Annotated[
         UUID | None,
-        Query(description="Return owned files assigned to this folder"),
+        Query(description="Return files the caller put in this folder of theirs"),
     ] = None,
     unfiled: Annotated[
         bool,
-        Query(description="Return only owned files that have no folder"),
+        Query(description="Return only files the caller has not put in a folder"),
     ] = False,
+    scope: Annotated[
+        Literal["all", "mine", "shared"],
+        Query(description="All files, only the caller's own, or only files shared with them"),
+    ] = "all",
 ) -> JSONResponse:
     if folder_id is not None and unfiled:
         raise InputError("folder_id and unfiled cannot be used together")
@@ -108,6 +112,7 @@ def list_files(
         search=search,
         folder_id=folder_id,
         unfiled=unfiled,
+        scope=scope,
     )
     return ApiResponse.success(
         data=result,

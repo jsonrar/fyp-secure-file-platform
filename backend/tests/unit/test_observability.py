@@ -81,12 +81,12 @@ def test_readiness_counts_transitions_not_probe_frequency() -> None:
 
     state.mark_readiness(
         "schema_incompatible",
-        expected_schema="0009_more_aead_suites",
+        expected_schema="0010_shared_file_folders",
         observed_schema="0005_previous",
     )
     state.mark_readiness(
         "schema_incompatible",
-        expected_schema="0009_more_aead_suites",
+        expected_schema="0010_shared_file_folders",
         observed_schema="0005_previous",
     )
     first = state.snapshot()
@@ -96,7 +96,7 @@ def test_readiness_counts_transitions_not_probe_frequency() -> None:
     state.mark_readiness("ready")
     state.mark_readiness(
         "schema_incompatible",
-        expected_schema="0009_more_aead_suites",
+        expected_schema="0010_shared_file_folders",
         observed_schema="0005_previous",
     )
     second = state.snapshot()

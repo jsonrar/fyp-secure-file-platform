@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime
 from uuid import UUID
 
-from sqlalchemy import Select, and_, delete, func, select, update
+from sqlalchemy import Select, and_, case, delete, func, literal, select, union_all, update
 from sqlalchemy.orm import Session, joinedload
 
 from app.models.audit_log import AuditLog
@@ -226,6 +226,22 @@ class FileRepository:
         escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
         return File.original_filename.like(f"%{escaped}%", escape="\\")
 
+    @staticmethod
+    def placement(user_id: int):
+        """The folder this user filed a file in: theirs if they own it, their grant's if shared.
+
+        An owner's placement is `files.folder_id`. A recipient cannot write that (it belongs
+        to the owner), so their placement is on their own grant (revision 0010).
+        """
+        return case((File.owner_id == user_id, File.folder_id), else_=FileAccessGrant.folder_id)
+
+    def _owned_folder_pk(self, folder_id: UUID, user_id: int):
+        return (
+            select(FileFolder.id)
+            .where(FileFolder.folder_uuid == str(folder_id), FileFolder.owner_id == user_id)
+            .scalar_subquery()
+        )
+
     def list_active_access(
         self,
         user_id: int,
@@ -235,28 +251,44 @@ class FileRepository:
         search: str | None = None,
         folder_id: UUID | None = None,
         unfiled: bool = False,
-    ) -> tuple[list[FileAccessRecord], int]:
-        access_statement = self._active_access_statement(user_id)
-        # Eager-load the owner: the listing names whoever shared each file, and resolving
-        # that lazily would be one query per row on a page of up to a hundred.
-        access_statement = access_statement.options(joinedload(File.owner), joinedload(File.folder))
+        scope: str = "all",
+    ) -> tuple[list[FileAccessRecord], int, int, int]:
+        """A page of files the user can open, its total, and the owned and shared totals.
+
+        `scope` is applied here rather than by the client: splitting a page of mixed rows in
+        the browser made the "Shared with me" tab show only the shared files that happened
+        to fall on the current page, and the total count both kinds together.
+        """
+        base = self._active_access_statement(user_id)
+        # Eager-load the owner and both possible placements: the listing names whoever shared
+        # each file and its folder, and resolving those lazily would be a query per row.
+        base = base.options(
+            joinedload(File.owner), joinedload(File.folder), joinedload(FileAccessGrant.folder)
+        )
         if search:
-            access_statement = access_statement.where(self._filename_contains(search))
+            base = base.where(self._filename_contains(search))
+
+        owners = base.with_only_columns(File.owner_id.label("owner_id")).order_by(None).subquery()
+        totals = self.db.execute(
+            select(
+                func.coalesce(func.sum(case((owners.c.owner_id == user_id, 1), else_=0)), 0),
+                func.coalesce(func.sum(case((owners.c.owner_id != user_id, 1), else_=0)), 0),
+            )
+        ).one()
+        owned_total, shared_total = int(totals[0]), int(totals[1])
+
+        access_statement = base
+        if scope == "mine":
+            access_statement = access_statement.where(File.owner_id == user_id)
+        elif scope == "shared":
+            access_statement = access_statement.where(File.owner_id != user_id)
+        placement = self.placement(user_id)
         if folder_id is not None:
             access_statement = access_statement.where(
-                File.owner_id == user_id,
-                File.folder.has(
-                    and_(
-                        FileFolder.folder_uuid == str(folder_id),
-                        FileFolder.owner_id == user_id,
-                    )
-                ),
+                placement == self._owned_folder_pk(folder_id, user_id)
             )
         elif unfiled:
-            access_statement = access_statement.where(
-                File.owner_id == user_id,
-                File.folder_id.is_(None),
-            )
+            access_statement = access_statement.where(placement.is_(None))
         count_statement = select(func.count()).select_from(
             access_statement.with_only_columns(File.id).order_by(None).subquery()
         )
@@ -277,23 +309,45 @@ class FileRepository:
                 for row in rows
             ],
             total,
+            owned_total,
+            shared_total,
         )
 
-    def list_folders(self, owner_id: int) -> list[tuple[FileFolder, int]]:
-        rows = self.db.execute(
-            select(FileFolder, func.count(File.id))
-            .outerjoin(
-                File,
-                and_(
-                    File.folder_id == FileFolder.id,
-                    File.status.in_(("ACTIVE", "CORRUPTED")),
-                ),
+    def _placements(self, user_id: int):
+        """(folder id, whether owned) for every file this user can still see and has filed."""
+        owned = select(File.folder_id.label("folder_id"), literal(1).label("owned")).where(
+            File.owner_id == user_id,
+            File.folder_id.is_not(None),
+            File.status.in_(("ACTIVE", "CORRUPTED")),
+        )
+        shared = (
+            select(FileAccessGrant.folder_id.label("folder_id"), literal(0).label("owned"))
+            .join(File, File.id == FileAccessGrant.file_id)
+            .where(
+                FileAccessGrant.user_id == user_id,
+                FileAccessGrant.status == "ACTIVE",
+                FileAccessGrant.folder_id.is_not(None),
+                File.owner_id != user_id,
+                File.status.in_(("ACTIVE", "CORRUPTED")),
             )
+        )
+        return union_all(owned, shared).subquery()
+
+    def list_folders(self, owner_id: int) -> list[tuple[FileFolder, int, int]]:
+        """Each folder with how many of the user's own files and shared files it holds."""
+        placed = self._placements(owner_id)
+        rows = self.db.execute(
+            select(
+                FileFolder,
+                func.coalesce(func.sum(case((placed.c.owned == 1, 1), else_=0)), 0),
+                func.coalesce(func.sum(case((placed.c.owned == 0, 1), else_=0)), 0),
+            )
+            .outerjoin(placed, placed.c.folder_id == FileFolder.id)
             .where(FileFolder.owner_id == owner_id)
             .group_by(FileFolder.id)
             .order_by(FileFolder.name.asc(), FileFolder.id.asc())
         ).all()
-        return [(row[0], int(row[1])) for row in rows]
+        return [(row[0], int(row[1]), int(row[2])) for row in rows]
 
     def add_folder(self, folder: FileFolder) -> None:
         self.db.add(folder)
@@ -309,17 +363,31 @@ class FileRepository:
         return self.db.scalar(statement.limit(1))
 
     def delete_folder(self, folder: FileFolder) -> int:
+        placed = self._placements(folder.owner_id)
         files_unfiled = int(
             self.db.scalar(
-                select(func.count(File.id)).where(
-                    File.folder_id == folder.id,
-                    File.status.in_(("ACTIVE", "CORRUPTED")),
-                )
+                select(func.count()).select_from(placed).where(placed.c.folder_id == folder.id)
             )
             or 0
         )
+        # Both files.folder_id and file_access_grants.folder_id are ON DELETE SET NULL.
         self.db.execute(delete(FileFolder).where(FileFolder.id == folder.id))
         return files_unfiled
+
+    def lock_recipient_grant(self, file_id: UUID, user_id: int) -> FileAccessGrant | None:
+        """The caller's live grant on a file someone else owns, locked to file it away."""
+        return self.db.scalar(
+            select(FileAccessGrant)
+            .join(File, File.id == FileAccessGrant.file_id)
+            .where(
+                File.file_uuid == str(file_id),
+                File.owner_id != user_id,
+                File.status.in_(("ACTIVE", "CORRUPTED")),
+                FileAccessGrant.user_id == user_id,
+                FileAccessGrant.status == "ACTIVE",
+            )
+            .with_for_update()
+        )
 
     def lock_owned_files(self, owner_id: int) -> list[File]:
         """Every file this account still owns, locked for deletion.

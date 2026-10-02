@@ -24,6 +24,8 @@ export const fileApi = {
     search?: string
     folder_id?: string
     unfiled?: boolean
+    /** Split on the server, so each tab pages through its own files. */
+    scope?: 'all' | 'mine' | 'shared'
   }) {
     return http.get<ApiEnvelope<FileListOut>>('/files', { params })
   },

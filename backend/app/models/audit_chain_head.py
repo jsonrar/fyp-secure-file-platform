@@ -39,8 +39,8 @@ class AuditChainHead(Base):
     schema_revision: Mapped[str] = mapped_column(
         String(64),
         nullable=False,
-        default="0009_more_aead_suites",
-        server_default="0009_more_aead_suites",
+        default="0010_shared_file_folders",
+        server_default="0010_shared_file_folders",
     )
     updated_at: Mapped[datetime] = mapped_column(
         mysql.DATETIME(fsp=6),

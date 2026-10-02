@@ -30,6 +30,7 @@ class FileAccessGrant(Base):
         ),
         CheckConstraint("revision >= 1", name="ck_file_access_grants_revision"),
         Index("idx_file_access_grants_file_id", "file_id"),
+        Index("idx_file_access_grants_folder_id", "folder_id"),
         Index("idx_file_access_grants_user_id", "user_id"),
         Index(
             "idx_file_access_grants_user_status_file",
@@ -115,7 +116,20 @@ class FileAccessGrant(Base):
     revision: Mapped[int] = mapped_column(
         mysql.INTEGER(unsigned=True), nullable=False, default=1, server_default="1"
     )
+    # Where the grantee filed this file, in one of their own folders. Only a recipient's grant
+    # uses it; the owner's placement stays in files.folder_id (revision 0010_shared_file_folders).
+    folder_id: Mapped[int | None] = mapped_column(
+        mysql.BIGINT(unsigned=True),
+        ForeignKey(
+            "file_folders.id",
+            name="fk_file_access_grants_folder",
+            ondelete="SET NULL",
+            onupdate="CASCADE",
+        ),
+        nullable=True,
+    )
 
     file = relationship("File", back_populates="access_grants")
+    folder = relationship("FileFolder", back_populates="shared_placements")
     user = relationship("User", back_populates="access_grants", foreign_keys=[user_id])
     grantor = relationship("User", back_populates="granted_accesses", foreign_keys=[granted_by])
