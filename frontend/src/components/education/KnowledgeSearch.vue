@@ -9,6 +9,7 @@ import {
   type KnowledgeCategory,
 } from '@/data/education/knowledge'
 import { renderKnowledgeContent } from '@/utils/render-knowledge-content'
+import { translateSource } from '@/i18n'
 
 const query = ref('')
 const category = ref<KnowledgeCategory | 'all'>('all')
@@ -44,7 +45,8 @@ function toggle(id: string) {
 }
 
 function renderedContent(content: string) {
-  return renderKnowledgeContent(content)
+  // Chinese is swapped in as whole Markdown, before rendering (Issue #74).
+  return renderKnowledgeContent(translateSource(content))
 }
 </script>
 

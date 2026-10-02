@@ -126,6 +126,21 @@ export async function initLocale(): Promise<void> {
   }
 }
 
+/**
+ * Whole Markdown articles (Education) in the interface language. They are rendered with
+ * v-html into many small nodes, so they are translated as source, lines and all, before
+ * rendering. Reactive: called from a template, it re-renders on a switch.
+ */
+export function translateSource(text: string): string {
+  if (currentLocale.value === 'en' || !dictionary) return text
+  const key = text
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trim()
+  return dictionary[key] ?? text
+}
+
 /** Translate outside a component: API helpers, stores, plain utilities. Reactive in templates. */
 export const t = i18n.global.t
 

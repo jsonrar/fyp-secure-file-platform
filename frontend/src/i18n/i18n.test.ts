@@ -140,6 +140,11 @@ describe('dom-translate matching', () => {
     expect(translateText('Settings')).toBeNull()
   })
 
+  it('matches an entry behind a list marker or step number', () => {
+    expect(translateText('• My Files')).toBe('• 我的文件')
+    expect(translateText('2. My Files')).toBe('2. 我的文件')
+  })
+
   it('leaves text with no letters alone', () => {
     expect(translateText('42')).toBeNull()
   })

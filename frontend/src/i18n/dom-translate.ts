@@ -38,6 +38,13 @@ let observer: MutationObserver | null = null
 
 /** What a text node said in English, and what it was changed to. */
 const textRecords = new WeakMap<Text, { en: string; zh: string }>()
+/** Text nodes translated as part of a whole sentence, and the element holding that sentence. */
+const blockMembers = new WeakMap<Text, Element>()
+
+/** Elements that only style a few words inside a sentence. */
+const INLINE_TAGS = new Set(['EM', 'STRONG', 'B', 'I', 'SPAN', 'MARK', 'SMALL', 'ABBR', 'KBD'])
+/** A list marker or step number the dictionary entry does not include. */
+const LEADING_MARKER = /^([•·▪◦*–—-]\s*|\d+[.)]\s+)(.+)$/s
 const attributeRecords = new WeakMap<Element, Map<string, { en: string; zh: string }>>()
 
 export function normalize(text: string): string {
@@ -89,7 +96,77 @@ export function translateText(text: string): string | null {
     const match = pattern.regex.exec(key)
     if (match) return pattern.zh.replace(/\{@(\d+)\}/g, (_, index) => match[Number(index) + 1] ?? '')
   }
+  // `• Largest AES key size in common use` is the entry with a bullet in front of it.
+  const marked = LEADING_MARKER.exec(key)
+  if (marked) {
+    const rest = translateText(marked[2]!)
+    if (rest !== null) return `${marked[1]}${rest}`
+  }
   return null
+}
+
+/** What a text node says in English, even while it shows Chinese. */
+function englishOf(node: Text): string {
+  const record = textRecords.get(node)
+  const value = node.nodeValue ?? ''
+  return record && value === record.zh ? record.en : value
+}
+
+/**
+ * The text nodes of a sentence with styled words in it (`Your <em>password</em> signs in`),
+ * or null when the element holds anything else (a link, a button, a block).
+ */
+function inlineBlockNodes(element: Element): Text[] | null {
+  let styled = false
+  const nodes: Text[] = []
+  for (const child of element.childNodes) {
+    if (child.nodeType === Node.TEXT_NODE) nodes.push(child as Text)
+    else if (child.nodeType === Node.COMMENT_NODE) continue
+    else if (
+      child.nodeType === Node.ELEMENT_NODE &&
+      INLINE_TAGS.has((child as Element).tagName) &&
+      !(child as Element).matches(SKIP_SELECTOR)
+    ) {
+      styled = true
+      for (const inner of child.childNodes) {
+        if (inner.nodeType === Node.TEXT_NODE) nodes.push(inner as Text)
+        else if (inner.nodeType !== Node.COMMENT_NODE) return null
+      }
+    } else return null
+  }
+  return styled && nodes.length >= 2 ? nodes : null
+}
+
+/**
+ * Translate a styled sentence as one: the Chinese word order rarely keeps the English
+ * fragments in place, so the whole translation goes into the first plain text node and the
+ * other fragments are emptied. The emphasis is lost; the sentence reads correctly.
+ */
+function translateInlineBlock(element: Element): boolean {
+  if (skipped(element)) return false
+  const nodes = inlineBlockNodes(element)
+  if (!nodes) return false
+  const english = nodes.map(englishOf)
+  const zh = translateText(english.join(''))
+  if (zh === null) {
+    // It was one sentence and no longer is one we know: put the English fragments back, so
+    // none stays emptied.
+    for (const [index, node] of nodes.entries()) {
+      if (blockMembers.get(node) !== element) continue
+      blockMembers.delete(node)
+      textRecords.delete(node)
+      if (node.nodeValue !== english[index]) node.nodeValue = english[index]!
+    }
+    return false
+  }
+  const host = nodes.find((node) => node.parentNode === element && /\S/.test(englishOf(node))) ?? nodes[0]!
+  nodes.forEach((node, index) => {
+    const shown = node === host ? zh : ''
+    textRecords.set(node, { en: english[index]!, zh: shown })
+    blockMembers.set(node, element)
+    if (node.nodeValue !== shown) node.nodeValue = shown
+  })
+  return true
 }
 
 function skipped(element: Element | null): boolean {
@@ -100,6 +177,8 @@ function translateTextNode(node: Text) {
   const value = node.nodeValue ?? ''
   const record = textRecords.get(node)
   if (record && value === record.zh) return
+  const block = blockMembers.get(node)
+  if (block && translateInlineBlock(block)) return
   if (skipped(node.parentElement)) return
   const zh = translateText(value)
   if (zh === null) return
@@ -111,7 +190,8 @@ function translateTextNode(node: Text) {
 }
 
 function translateAttributes(element: Element) {
-  if (skipped(element)) return
+  // A text field's own value is never touched, but its placeholder and label are interface.
+  if (element.closest('[translate="no"]')) return
   for (const name of ATTRIBUTES) {
     const value = element.getAttribute(name)
     if (!value) continue
@@ -135,15 +215,21 @@ function translateTree(root: Node) {
   const element = root as Element
   if (skipped(element)) return
   translateAttributes(element)
+  translateInlineBlock(element)
   const walker = document.createTreeWalker(element, NodeFilter.SHOW_TEXT | NodeFilter.SHOW_ELEMENT, {
-    acceptNode: (node) =>
-      node.nodeType === Node.ELEMENT_NODE && (node as Element).matches(SKIP_SELECTOR)
-        ? NodeFilter.FILTER_REJECT
-        : NodeFilter.FILTER_ACCEPT,
+    acceptNode: (node) => {
+      if (node.nodeType !== Node.ELEMENT_NODE || !(node as Element).matches(SKIP_SELECTOR)) return NodeFilter.FILTER_ACCEPT
+      // A <textarea> keeps its text, but its placeholder is still translated.
+      if ((node as Element).tagName === 'TEXTAREA') translateAttributes(node as Element)
+      return NodeFilter.FILTER_REJECT
+    },
   })
   for (let node = walker.nextNode(); node; node = walker.nextNode()) {
     if (node.nodeType === Node.TEXT_NODE) translateTextNode(node as Text)
-    else translateAttributes(node as Element)
+    else {
+      translateAttributes(node as Element)
+      translateInlineBlock(node as Element)
+    }
   }
 }
 

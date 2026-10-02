@@ -38,6 +38,17 @@ export function normalize(text) {
   return text.replace(/\s+/g, ' ').trim()
 }
 
+/** Multi-line text (Markdown articles) keeps its lines; only trailing spaces go. */
+export function normalizeBlock(text) {
+  return text
+    .split('\n')
+    .map((line) => line.trimEnd())
+    .join('\n')
+    .trim()
+}
+
+let allowLowerWords = false
+
 const CLASS_TOKEN = /^[a-z0-9!:\-[\]/.%()#_&>~*=+,'"@]+$/
 
 function looksLikeProse(raw) {
@@ -51,6 +62,8 @@ function looksLikeProse(raw) {
   // Tailwind and other class lists: every token lowercase-ish, at least one with - or :.
   if (literal.every((t) => CLASS_TOKEN.test(t)) && literal.some((t) => /[-:[]/.test(t))) return false
   if (tokens.length === 1) {
+    // Data files show lowercase tags ("encryption", "basics").
+    if (allowLowerWords && /^[a-z]{3,}$/.test(text)) return true
     // One word: shown only if it is capitalised ("Upload", "Cancel"); not CONSTANTS or ids.
     if (!/^[A-Z][a-z]/.test(text)) return false
     if (/[_/]/.test(text) || /[a-z][A-Z]/.test(text)) return false
@@ -64,7 +77,31 @@ function looksLikeProse(raw) {
 
 function addString(set, raw) {
   const text = normalize(raw)
-  if (looksLikeProse(text)) set.add(text)
+  if (!looksLikeProse(text)) return
+  set.add(text)
+  // Markdown is translated whole, lines and all, so its structure survives (translateSource).
+  if (raw.trim().includes('\n')) set.add(normalizeBlock(raw))
+}
+
+/** `'a ' + b + ' c'` is one sentence on screen: collect it as `a {0} c`. */
+function concatenation(node) {
+  const parts = []
+  const flatten = (n) => {
+    if (n.type === 'BinaryExpression' && n.operator === '+') {
+      flatten(n.left)
+      flatten(n.right)
+    } else parts.push(n)
+  }
+  flatten(node)
+  if (!parts.some((p) => p.type === 'StringLiteral' || p.type === 'TemplateLiteral')) return null
+  let out = ''
+  let index = 0
+  for (const part of parts) {
+    if (part.type === 'StringLiteral') out += part.value
+    else if (part.type === 'TemplateLiteral' && part.expressions.length === 0) out += part.quasis[0].value.cooked ?? ''
+    else out += `{${index++}}`
+  }
+  return { text: out, others: parts.filter((p) => p.type !== 'StringLiteral' && !(p.type === 'TemplateLiteral' && p.expressions.length === 0)) }
 }
 
 function templateLiteralPattern(node, source) {
@@ -79,6 +116,14 @@ function templateLiteralPattern(node, source) {
 function walkJs(node, set, source) {
   if (!node || typeof node.type !== 'string') return
   if (node.type === 'ImportDeclaration' || node.type === 'ExportAllDeclaration') return
+  if (node.type === 'BinaryExpression' && node.operator === '+') {
+    const joined = concatenation(node)
+    if (joined) {
+      addString(set, joined.text)
+      joined.others.forEach((child) => walkJs(child, set, source))
+      return
+    }
+  }
   if (node.type === 'StringLiteral') addString(set, node.value)
   else if (node.type === 'TemplateLiteral') {
     // A tagged class list or a CSS string is filtered by looksLikeProse like anything else.
@@ -112,8 +157,39 @@ const ATTRIBUTE = 6
 const DIRECTIVE = 7
 const COMPOUND = 8
 
+// Elements that only style a few words inside a sentence.
+const INLINE = new Set(['em', 'strong', 'b', 'i', 'span', 'mark', 'small', 'abbr', 'kbd'])
+
+/**
+ * A sentence with a bold or italic word in it renders as several text nodes. Collect the whole
+ * sentence too, so dom-translate can translate it as one (see translateInlineBlock).
+ */
+function inlineSentence(node) {
+  const children = node.children.filter((c) => c.type !== 3 /* comment */)
+  if (!children.some((c) => c.type === ELEMENT)) return null
+  let out = ''
+  let index = 0
+  const add = (child) => {
+    if (child.type === TEXT) out += child.content
+    else if (child.type === INTERPOLATION || child.type === COMPOUND) out += `{${index++}}`
+    else return false
+    return true
+  }
+  for (const child of children) {
+    if (child.type === ELEMENT) {
+      if (!INLINE.has(child.tag) || child.props.some((p) => p.type === DIRECTIVE && ['if', 'else', 'else-if', 'for', 'html', 'show'].includes(p.name))) return null
+      for (const grandchild of child.children) if (!add(grandchild)) return null
+    } else if (!add(child)) return null
+  }
+  return /[A-Za-z]/.test(out) ? out : null
+}
+
 function collectTemplate(node, set) {
   if (!node) return
+  if (node.type === ELEMENT && node.children?.length) {
+    const sentence = inlineSentence(node)
+    if (sentence) addString(set, sentence)
+  }
   if (node.props) {
     for (const prop of node.props) {
       if (prop.type === ATTRIBUTE && prop.value && TEXT_ATTRIBUTES.has(prop.name)) {
@@ -167,6 +243,8 @@ export function extract() {
   const set = new Set()
   for (const file of files(SRC)) {
     const source = fs.readFileSync(file, 'utf8')
+    // Only the Education data shows lowercase tags; the assistant data has keyword lists.
+    allowLowerWords = file.includes(`${path.sep}data${path.sep}education${path.sep}`)
     if (file.endsWith('.vue')) {
       const { descriptor } = parseSfc(source, { filename: file })
       if (descriptor.template?.ast) collectTemplate(descriptor.template.ast, set)

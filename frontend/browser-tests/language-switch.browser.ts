@@ -54,6 +54,28 @@ test.describe('desktop', () => {
     expect(seen).not.toContain('Sign In')
   })
 
+  test('long-form pages read as Chinese sentences, and team names are as the team writes them', async ({ page }) => {
+    await page.addInitScript(() => localStorage.setItem('locale', 'zh-CN'))
+
+    // A sentence with an emphasised word is translated whole, not word by word.
+    await page.goto('/how-it-works')
+    const callout = page.getByText(/两个秘密/).first()
+    await expect(callout).toBeVisible()
+    await expect(callout).not.toContainText('password')
+
+    // Education articles are Markdown, translated whole before rendering.
+    await page.goto('/education')
+    await page.goto('/education?article=what-is-encryption#article-what-is-encryption')
+    await expect(page.locator('body')).toContainText('明文')
+    await expect(page.locator('body')).not.toContainText('Encryption is the process of converting plaintext')
+
+    await page.goto('/team')
+    for (const name of ['温硕勋', '李俊言', '黄建兴', '陈泰', 'Asad Malik 博士', '项目导师']) {
+      await expect(page.locator('body')).toContainText(name)
+    }
+    await expect(page.locator('body')).toContainText('马来西亚莫纳什大学信息技术学院')
+  })
+
   test('an unknown saved value falls back to English', async ({ page }) => {
     await page.addInitScript(() => localStorage.setItem('locale', 'fr'))
     await page.goto('/login')

@@ -57,7 +57,11 @@ EXTRA_TERMS = [
     "share = 分享", "upload = 上传", "download = 下载", "file = 文件", "folder = 文件夹",
     "My Files = 我的文件", "Access Records = 访问记录", "audit log = 审计日志",
     "account = 账户", "sign in = 登录", "settings = 设置", "unlock = 解锁", "encrypt = 加密",
-    "decrypt = 解密", "tamper = 篡改", "verification code = 验证码", "Help assistant = 帮助助手", "Education = 学习中心",
+    "decrypt = 解密", "tamper = 篡改", "verification code = 验证码",
+    "Shuoxun Wen = 温硕勋", "Junyan Li = 李俊言", "Jason Huang = 黄建兴", "Tai Chen = 陈泰",
+    "Dr. Asad Malik = Asad Malik 博士 (never transliterate)", "supervisor = 项目导师",
+    "Monash University Malaysia = 马来西亚莫纳什大学", "Monash = 莫纳什",
+    "School of Information Technology = 信息技术学院", "Help assistant = 帮助助手", "Education = 学习中心",
 ]
 
 # Names that stay exactly as written.
@@ -77,7 +81,9 @@ SYSTEM = (
     "parts. Keep algorithm and product names in English: AES-256-GCM, SHA-256, RSA-OAEP, "
     "Argon2id, ChaCha20, nonce, SecureView, PEM, .pem, file names, URLs, email addresses and "
     "numbers. An item may be a fragment of a sentence (text around a link or a bold word): "
-    "translate it as a fragment and keep its leading or trailing punctuation. Use a concise, "
+    "translate it as a fragment and keep its leading or trailing punctuation. An item with "
+    "line breaks is Markdown: keep every line break, list marker (-, •, 1.), table bar (|) and "
+    "**bold** marker, and translate the words inside them. Use a concise, "
     "friendly product tone and address the reader as 你. Inside Chinese text use full-width "
     "punctuation (，。：；？！（）), never a half-width '. ' or ', ' between Chinese words. Keep "
     "PEM lines such as -----BEGIN PUBLIC KEY----- unchanged. Use these exact terms:\n- "
@@ -97,6 +103,8 @@ def faithful(source: str, reply: str) -> str | None:
         return "placeholders"
     if source.count("|") != reply.count("|"):
         return "plural bars"
+    if source.count("\n") != reply.count("\n"):
+        return "line breaks"
     if re.search(r"[{}@$]", PLACEHOLDER.sub("", reply)) and not re.search(r"[{}@$]", PLACEHOLDER.sub("", source)):
         return "special characters"
     lower = source.lower()
@@ -224,6 +232,10 @@ def main() -> None:
 
     locales = Path(args.locales)
     strings = json.loads((locales / "ui-strings.json").read_text())
+    # Strings the extractor cannot recognise ("14 rounds"), listed by hand.
+    extra = locales / "ui-strings.extra.json"
+    if extra.exists():
+        strings += json.loads(extra.read_text())
     en = json.loads((locales / "en.json").read_text())
     memory_path = locales / "zh-CN.dict.json"
     memory: dict[str, str] = json.loads(memory_path.read_text()) if memory_path.exists() else {}
@@ -238,7 +250,13 @@ def main() -> None:
     if pending and not key:
         sys.exit("TRANSLATE_LLM_KEY is not set")
     client = Client(key)
-    batches = [pending[i:i + BATCH] for i in range(0, len(pending), BATCH)]
+    # Up to BATCH strings, or fewer when they are long (whole Markdown articles).
+    batches: list[list[str]] = []
+    for source in pending:
+        if batches and len(batches[-1]) < BATCH and sum(map(len, batches[-1])) + len(source) <= 3000:
+            batches[-1].append(source)
+        else:
+            batches.append([source])
     save_lock = threading.Lock()
     finished = 0
 
