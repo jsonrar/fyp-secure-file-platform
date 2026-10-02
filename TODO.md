@@ -229,6 +229,10 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   — approved 2026-10-02 to come before #74. Client-side retrieval over curated intents and the
   existing Help/Education content; no network call, cited comparisons. The Issue closes once the
   deployment is verified and recorded on it. See [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
+- [x] [#148 Help assistant v2: answer questions about the signed-in visitor's own account](https://github.com/jsonrar/fyp-secure-file-platform/issues/148)
+  — seven read-only checks (who has access, a file's history, what I shared, what is shared with
+  me, files marked Modified, recent activity, an overview) using the existing My Files and Access
+  Records requests. No LLM; nothing is changed from the panel. Closes once deployed and verified.
 - [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   — user-selectable product locale with complete key coverage, safe fallback, persistence, and
   mobile-compatible controls.

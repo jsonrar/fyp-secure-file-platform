@@ -190,6 +190,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] [#146 Help assistant：回答操作、原理与对比问题的悬浮助手（v1 不用大模型）](https://github.com/jsonrar/fyp-secure-file-platform/issues/146)
   ——2026-10-02 批准，排在 #74 之前。在浏览器内检索人工整理的意图和现有 Help/Education 内容；无网络请求，
   对比回答附出处。部署验证并记录到 Issue 后关闭。见 [docs/HELP_ASSISTANT.zh-CN.md](docs/HELP_ASSISTANT.zh-CN.md)。
+- [x] [#148 Help assistant v2：回答已登录用户关于自己账户的问题](https://github.com/jsonrar/fyp-secure-file-platform/issues/148)
+  ——七项只读检查（谁能打开某个文件、单个文件的历史、我分享了什么、别人分享给我什么、被标记为 Modified 的文件、
+  最近活动、账户概览），使用 My Files 和 Access Records 已有的请求。不用大模型；面板里不做任何修改。部署验证后关闭。
 - [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
 - [x] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)

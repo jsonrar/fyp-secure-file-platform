@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
@@ -220,7 +221,31 @@ const loadFiles = async () => {
   }
 }
 
+/**
+ * `/files?tab=shared&q=budget` opens the shared tab searched for "budget": the links the Help
+ * assistant gives for one file. Read again when the query changes, because following such a
+ * link while already on My Files does not remount the page.
+ */
+const route = useRoute()
+const applyRouteQuery = (): boolean => {
+  const tab = route.query.tab === 'shared' ? 'shared' : route.query.tab === 'mine' ? 'mine' : null
+  const q = typeof route.query.q === 'string' ? route.query.q.slice(0, 200) : null
+  if (tab === null && q === null) return false
+  if (tab) scope.value = tab
+  selectedFolder.value = 'all'
+  page.value = 1
+  if (q !== null) searchQuery.value = q
+  return true
+}
+watch(
+  () => [route.query.tab, route.query.q],
+  () => {
+    if (applyRouteQuery()) void loadFiles()
+  },
+)
+
 onMounted(() => {
+  applyRouteQuery()
   void Promise.all([loadFiles(), loadFolders()])
   updateViewportColumns()
   window.addEventListener('resize', updateViewportColumns)

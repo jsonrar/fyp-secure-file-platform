@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Help assistant v2: questions about your own account (#148) / Help assistant v2：回答关于自己账户的问题（#148）
+
+- Signed in, the Help assistant now answers from the visitor's own account: "who has access to budget.xlsx?", "when was it last downloaded?", "which of my files have I shared?", "what has been shared with me?", "are any of my files marked Modified?", "any failed sign-ins?" and "what is in my account?". v1 could only explain where to look; v2 looks, and links to the file in My Files (`/files?q=<name>&tab=shared` now opens the right tab searched for it). A question that names no file, or matches several, gets a short list of the visitor's newest files to pick from.
+- 登录后，Help assistant 现在能根据访客自己的账户作答：“who has access to budget.xlsx?”“它最近一次是什么时候被下载的？”“我分享过哪些文件？”“别人分享了什么给我？”“我的文件有没有被标记为 Modified？”“有没有失败的登录？”以及“我的账户里有什么？”。v1 只能告诉用户去哪里看；v2 直接查，并链接到 My Files 里的对应文件（`/files?q=<名称>&tab=shared` 现在会打开正确的标签页并搜索该文件）。没有说明是哪个文件、或匹配到多个文件时，会列出访客最新的几个文件供选择。
+- Every check is read-only and uses only the requests My Files and Access Records already make, under the visitor's own session, so it can never show more than those pages; recipients and full history are only looked up for files the visitor owns. There is still no language model and the question is not sent: at most a file name goes to the existing `GET /files?search=`. An account question runs at once; a general question with a check attached ("who downloaded my file?") shows the general answer and a button, so nothing is read until asked. Results are not stored, and signing out clears the remembered questions so the next person at the tab does not see them.
+- 每项检查都是只读的，只使用 My Files 和 Access Records 已有的请求，并在访客自己的会话下发出，因此不可能显示超出这些页面的内容；接收者列表和完整历史只对访客自己拥有的文件查询。仍然不使用大语言模型，问题本身也不会发出去：最多只把文件名交给现有的 `GET /files?search=`。账户类问题会立即检查；附带检查的一般性问题（“who downloaded my file?”）先显示一般回答和一个按钮，用户点了才读取。结果不保存；退出登录会清除记住的问题，同一标签页的下一位用户看不到。
+- An LLM rewording layer was considered for v2 and not built, because it would send questions to a third party. Every v1 phrasing test still passes, and 18 new check tests against a fake API and a browser test (ask about the uploaded file at 360 and 320 px, follow the link, pick a file from the list) cover v2.
+- v2 曾考虑加入大语言模型改写层，但没有做，因为那会把问题发给第三方。v1 原有的问法测试全部仍然通过；另有 18 个基于模拟 API 的检查测试和一个浏览器测试（在 360 和 320 px 下询问已上传的文件、点击链接、从列表中选择文件）覆盖 v2。
+
 ### Help assistant: a floating helper that answers how-to, how-it-works and comparison questions (#146) / Help assistant：右下角悬浮助手，回答操作、原理和对比类问题（#146）
 
 - A round button at the bottom right of every page opens the Help assistant: ask "how do I share a file?", "I forgot my passphrase" or "why not just use Google Drive?" and get a two-to-four-sentence answer, numbered steps for a how-to, and one to three links to the right page or video. New users had to find the right page among the explainer, the videos and the Education articles; the assistant answers in place and points there. It is named Help assistant, not agent or AI, so it stays distinct from the security agent the supervisor's feedback was about.

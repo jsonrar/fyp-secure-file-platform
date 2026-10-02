@@ -69,7 +69,10 @@ Every page has a **Help assistant** button at the bottom right (#146). It answer
 how-it-works and "why not Google Drive / WhatsApp / email" questions with a short summary, steps
 and links into the product, matching the question in the browser against curated answers and the
 Education, explainer and picture-guide content. There is no language model and no network call;
-questions are not sent or logged. See [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
+questions are not sent or logged. Signed in, it also answers questions about your own account
+(#148): who has access to a file, what has been shared with you, recent failed sign-ins. Those
+answers only read what My Files and Access Records already show, and change nothing. See
+[docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 
 Core Features now uses a seamless dual-row loop, with hover-to-pause and a static,
 complete card layout for reduced-motion preferences. This is a local frontend update;
