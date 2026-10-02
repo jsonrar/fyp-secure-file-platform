@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### 简体中文: the pages that stayed English, and the team's own names (#74) / 简体中文：补齐仍显示英文的页面，并使用团队自己的中文名（#74）
+
+- After #150 went live, the Education articles and algorithm details, the four quick-start steps and several styled sentences still showed English, and the team page used machine transliterations. Three causes, each fixed: articles are Markdown rendered into many small nodes, so they are now translated whole before rendering (lines, lists and tables kept); sentences built with `'…' + '…'` and sentences with a bold or italic word were collected in pieces, so they are now collected and translated as one sentence; and list items with a `•` or step number in front now match their entry.
+- #150 上线后，Education 的文章与算法详情、快速上手的四个步骤以及若干带加粗/斜体的句子仍显示英文，团队页的人名是机器音译。原因有三，均已修复：文章是被渲染成许多小节点的 Markdown，现在在渲染前整篇翻译（保留换行、列表和表格）；用 `'…' + '…'` 拼接的句子和含加粗/斜体词的句子过去被拆成碎片收集，现在作为整句收集和翻译；带 `•` 或步骤编号前缀的列表项现在也能匹配到对应条目。
+- The team page now reads 项目导师, 马来西亚莫纳什大学信息技术学院, and the members' own names (温硕勋, 李俊言, 黄建兴, 陈泰); the supervisor's name stays Asad Malik 博士 rather than a transliteration. These are in the translation glossary, so future strings use them too. Field placeholders (the Contact us message box) are now translated.
+- 团队页现在使用“项目导师”“马来西亚莫纳什大学信息技术学院”以及成员本人的中文名（温硕勋、李俊言、黄建兴、陈泰）；导师姓名保留为 “Asad Malik 博士”，不做音译。这些已写入翻译术语表，以后的新文本也会沿用。输入框的提示文字（如 Contact us 的留言框）现在也会翻译。
+- `scripts/find-untranslated.mjs` opens every public page in Chinese, presses each button that reveals content, and lists the English still showing: after this change only names, algorithm identifiers, GitHub handles and email addresses remain, which are meant to stay as written.
+- 新增 `scripts/find-untranslated.mjs`：以中文打开每个公开页面，点开所有会展开内容的按钮，列出仍显示的英文。改动之后只剩人名、算法标识、GitHub 用户名和邮箱地址，这些本就应保持原样。
+
 ### English / 简体中文 language switch (#74), and #76 closed / English / 简体中文 语言切换（#74），以及关闭 #76
 
 - The interface can be switched between English and 简体中文 from the header, the phone menu and Settings. The choice is remembered on the device and restored before the first render, so a Chinese visitor never sees the English flash past; an unknown saved value falls back to English. Navigation, sign-in, registration, password reset, Settings and the account dialogs use keyed vue-i18n messages; the rest of the interface is shown in Chinese from a dictionary that swaps whole text nodes, chosen over rewriting every component because it covers the whole product for a fraction of the change.
