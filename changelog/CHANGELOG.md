@@ -38,6 +38,9 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - Stated honestly in the UI and docs: every file already gets its own random key, so a nonce can never repeat in SecureView whichever option is picked; the two new modes are an extra margin and a comparison, not a fix. AES-256-GCM-SIV runs in JavaScript and is about ten times slower than the browser's built-in AES-GCM (0.51 s against 0.07 s for 20 MiB on an Apple M4), which the upload page now says instead of "a little slower".
 - 界面和文档如实说明：每个文件本来就有自己的随机密钥，所以无论选哪种，SecureView 里都不会出现 nonce 重复；两种新模式是额外的安全余量和对比，而不是修复某个问题。AES-256-GCM-SIV 在 JavaScript 中运行，比浏览器内置的 AES-GCM 慢约十倍（Apple M4 上 20 MiB 为 0.51 秒对 0.07 秒），上传页现在照实说明，而不是写“稍慢一点”。
 
+- On a phone, the longer cipher names made the upload page scroll sideways (by 10 px at 360 px wide, caught by the phone test in CI): a grid column cannot shrink below its widest unbreakable content, and the dropdown's longest option set that. The columns are now `minmax(0, 1fr)` and the dropdown may shrink, which the phone test confirms down to 320 px.
+- 在手机上，更长的算法名让上传页出现横向滚动（360 px 宽时多出 10 px，被 CI 中的手机测试发现）：网格列不能比其中最宽的不可断行内容更窄，而下拉框最长的选项决定了这个宽度。现在列宽改为 `minmax(0, 1fr)`，下拉框也可以收窄，手机测试确认在 320 px 宽度下同样正常。
+
 ### Education: the new algorithms, a cipher guide, and corrections / Education：新增算法、加密选择指南及内容更正
 
 - The algorithm explorer gains AES-256-GCM-SIV and XChaCha20-Poly1305, each with how it works, strengths, limits, facts and its own animation (synthetic IV; extended nonce), and ChaCha20 and XChaCha20 are grouped as one family. A new article, "Which File Encryption Should I Choose?", compares all six options (key, nonce, where it runs, when to pick it) and says plainly that the default is the right choice when unsure.
