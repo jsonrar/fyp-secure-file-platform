@@ -266,7 +266,7 @@ const toggle = (id: string) => {
                   <FileIcon v-else class="h-5 w-5 text-primary" />
                 </div>
                 <div>
-                  <h3 class="text-base text-foreground">{{ file.name }}</h3>
+                  <h3 translate="no" class="text-base text-foreground">{{ file.name }}</h3>
                   <p class="text-sm text-muted-foreground flex items-center gap-2 mt-1"><Clock class="h-3 w-3" /> Last activity {{ file.sharedAt }}</p>
                 </div>
               </div>
@@ -296,7 +296,7 @@ const toggle = (id: string) => {
                       {{ event.detail }}
                     </span>
                   </p>
-                  <p class="text-xs text-muted-foreground mt-0.5">
+                  <p translate="no" class="text-xs text-muted-foreground mt-0.5">
                     {{ event.actor }} · {{ event.accessTime }}
                   </p>
                 </div>

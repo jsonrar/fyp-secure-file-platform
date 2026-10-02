@@ -2,6 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { LifeBuoy, LogOut, Monitor, Moon, Settings, Sun, UserRound } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth_store'
 import type { ThemePreference } from '@/composables/useTheme'
 
@@ -15,12 +16,13 @@ const emit = defineEmits<{
 
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 /** What /admin is for this role: the console for staff, the request tracker for everyone else. */
 const consoleLabel = computed(() => {
-  if (auth.isAdmin) return 'Admin console'
-  if (auth.isRecoveryReviewer) return 'Recovery review'
-  return 'Recovery requests'
+  if (auth.isAdmin) return t('nav.adminConsole')
+  if (auth.isRecoveryReviewer) return t('nav.recoveryReview')
+  return t('nav.recoveryRequests')
 })
 
 const isOpen = ref(false)
@@ -34,9 +36,9 @@ const root = ref<HTMLElement | null>(null)
 let closeTimer = 0
 
 const themeOptions: { value: ThemePreference; label: string; icon: typeof Sun }[] = [
-  { value: 'system', label: 'System', icon: Monitor },
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'theme.system', icon: Monitor },
+  { value: 'light', label: 'theme.light', icon: Sun },
+  { value: 'dark', label: 'theme.dark', icon: Moon },
 ]
 
 const currentTheme = computed(
@@ -126,7 +128,7 @@ onBeforeUnmount(() => {
       class="flex h-9 w-9 items-center justify-center overflow-hidden rounded-full border border-border bg-primary/10 text-sm font-semibold text-primary transition-colors hover:border-primary/60 hover:bg-primary/20 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
       :aria-expanded="isOpen"
       aria-haspopup="menu"
-      :aria-label="`Account menu for ${auth.displayName}`"
+      :aria-label="t('nav.accountMenuFor', { name: auth.displayName })"
       @click="goToProfile"
       @focus="open"
     >
@@ -162,8 +164,8 @@ onBeforeUnmount(() => {
           <template v-else>{{ auth.initials }}</template>
         </span>
         <span class="min-w-0">
-          <span class="block truncate text-sm font-medium text-foreground">{{ auth.displayName }}</span>
-          <span v-if="auth.user?.email" class="block truncate text-xs text-muted-foreground">
+          <span translate="no" class="block truncate text-sm font-medium text-foreground">{{ auth.displayName }}</span>
+          <span translate="no" v-if="auth.user?.email" class="block truncate text-xs text-muted-foreground">
             {{ auth.user.email }}
           </span>
         </span>
@@ -177,13 +179,13 @@ onBeforeUnmount(() => {
           @click="goToProfile"
         >
           <UserRound class="h-4 w-4 shrink-0 text-muted-foreground" />
-          Profile
+          {{ t('nav.profile') }}
         </button>
       </div>
 
       <div class="border-t border-border px-4 py-2">
         <p class="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
-          Theme · {{ currentTheme.label }}
+          {{ t('theme.menuHeading', { current: t(currentTheme.label) }) }}
         </p>
         <div class="grid grid-cols-3 gap-1">
           <button
@@ -201,7 +203,7 @@ onBeforeUnmount(() => {
             @click="selectTheme(option.value)"
           >
             <component :is="option.icon" class="h-4 w-4" />
-            {{ option.label }}
+            {{ t(option.label) }}
           </button>
         </div>
       </div>
@@ -223,7 +225,7 @@ onBeforeUnmount(() => {
           @click="goToSettings"
         >
           <Settings class="h-4 w-4 shrink-0 text-muted-foreground" />
-          Settings
+          {{ t('nav.settings') }}
         </button>
         <button
           type="button"
@@ -232,7 +234,7 @@ onBeforeUnmount(() => {
           @click="handleLogout"
         >
           <LogOut class="h-4 w-4 shrink-0" />
-          Log out
+          {{ t('nav.logOut') }}
         </button>
       </div>
     </div>

@@ -2,14 +2,17 @@
 import { computed, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { CheckCircle2, Info, KeyRound } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
 import PasswordField from '@/components/PasswordField.vue'
 import {
   PASSWORD_MIN_LENGTH,
-  PASSWORD_REQUIREMENT_HINT,
+  passwordRequirementHint,
   evaluatePassword,
 } from '@/utils/password-policy'
+
+const { t } = useI18n()
 
 const USERNAME_MIN_LENGTH = 3
 
@@ -53,20 +56,20 @@ const emailLooksValid = computed(() => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email.v
 const errors = computed<Record<FieldName, string>>(() => {
   let confirmError = ''
   if (confirmPassword.value.length === 0) {
-    confirmError = 'Repeat your new password.'
+    confirmError = t('forgot.confirmEmpty')
   } else if (confirmPassword.value !== password.value) {
-    confirmError = 'The two passwords do not match.'
+    confirmError = t('register.confirmMismatch')
   }
 
   return {
     username:
       username.value.trim().length >= USERNAME_MIN_LENGTH
         ? ''
-        : `Use at least ${USERNAME_MIN_LENGTH} characters.`,
-    email: emailLooksValid.value ? '' : 'Enter a valid email address.',
+        : t('register.usernameTooShort', { min: USERNAME_MIN_LENGTH }),
+    email: emailLooksValid.value ? '' : t('register.emailInvalid'),
     code: /^\d{6}$/.test(verificationCode.value.trim())
       ? ''
-      : 'Enter the 6-digit code sent to your email.',
+      : t('register.codeInvalid'),
     password: evaluatePassword(password.value, [username.value.trim(), email.value.trim()]).message,
     confirmPassword: confirmError,
   }
@@ -132,10 +135,10 @@ async function sendCode() {
     })
     const data = response.data.data
     const minutes = Math.max(1, Math.round(data.expires_in_seconds / 60))
-    codeNotice.value = `If an account uses ${email.value.trim()}, a code is on its way. It expires in ${minutes} minutes.`
+    codeNotice.value = t('forgot.codeSent', { email: email.value.trim(), minutes })
     startCooldown(data.resend_available_in_seconds)
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error, 'Could not send the verification code')
+    errorMessage.value = apiErrorMessage(error, t('register.codeSendFailed'))
   } finally {
     isSendingCode.value = false
   }
@@ -147,7 +150,7 @@ async function resetPassword() {
   hasAttemptedSubmit.value = true
   const firstInvalid = FIELD_ORDER.find((field) => errors.value[field] !== '')
   if (firstInvalid) {
-    errorMessage.value = 'Some details still need fixing. See the messages above.'
+    errorMessage.value = t('register.fixErrors')
     focusField(firstInvalid)
     return
   }
@@ -168,7 +171,7 @@ async function resetPassword() {
     confirmPassword.value = ''
     verificationCode.value = ''
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error, 'Password reset failed')
+    errorMessage.value = apiErrorMessage(error, t('forgot.failed'))
   } finally {
     isSubmitting.value = false
   }
@@ -183,23 +186,20 @@ async function resetPassword() {
           <div class="p-2 rounded-lg bg-primary/10">
             <KeyRound class="h-5 w-5 text-primary" />
           </div>
-          <h1 class="text-2xl font-bold text-foreground">Reset Password</h1>
+          <h1 class="text-2xl font-bold text-foreground">{{ t('forgot.title') }}</h1>
         </div>
 
-        <p class="text-sm text-muted-foreground mb-6">
-          Verify your account with your username and email, confirm the emailed code, then set a
-          new password.
-        </p>
+        <p class="text-sm text-muted-foreground mb-6">{{ t('forgot.intro') }}</p>
 
         <form novalidate @submit.prevent="resetPassword">
           <label for="reset-username" class="text-sm text-foreground mb-2 block">
-            Username <span class="text-destructive">*</span>
+            {{ t('login.username') }} <span class="text-destructive">*</span>
           </label>
           <input
             id="reset-username"
             ref="usernameInput"
             v-model="username"
-            placeholder="Username"
+            :placeholder="t('login.username')"
             autocomplete="username"
             :aria-invalid="errorFor('username') ? 'true' : undefined"
             class="h-10 w-full rounded-md border bg-secondary px-3 text-foreground"
@@ -212,7 +212,7 @@ async function resetPassword() {
           <div class="mb-4" />
 
           <label for="reset-email" class="text-sm text-foreground mb-2 block">
-            Email <span class="text-destructive">*</span>
+            {{ t('forgot.email') }} <span class="text-destructive">*</span>
           </label>
           <input
             id="reset-email"
@@ -232,14 +232,14 @@ async function resetPassword() {
           <div class="mb-4" />
 
           <label for="reset-code" class="text-sm text-foreground mb-2 block">
-            Verification Code <span class="text-destructive">*</span>
+            {{ t('register.code') }} <span class="text-destructive">*</span>
           </label>
           <div class="flex gap-2">
             <input
               id="reset-code"
               ref="codeInput"
               v-model="verificationCode"
-              placeholder="6-digit code"
+              :placeholder="t('register.codePlaceholder')"
               inputmode="numeric"
               maxlength="6"
               autocomplete="one-time-code"
@@ -254,9 +254,9 @@ async function resetPassword() {
               :disabled="isSendingCode || cooldownSeconds > 0"
               @click="sendCode"
             >
-              <span v-if="isSendingCode">Sending...</span>
-              <span v-else-if="cooldownSeconds > 0">Resend in {{ cooldownSeconds }}s</span>
-              <span v-else>Send code</span>
+              <span v-if="isSendingCode">{{ t('register.sending') }}</span>
+              <span v-else-if="cooldownSeconds > 0">{{ t('register.resendIn', { seconds: cooldownSeconds }) }}</span>
+              <span v-else>{{ t('register.sendCode') }}</span>
             </button>
           </div>
           <p v-if="errorFor('code')" class="text-xs text-destructive mt-1" role="alert">
@@ -267,9 +267,9 @@ async function resetPassword() {
           <PasswordField
             ref="passwordField"
             v-model="password"
-            label="New Password"
-            :placeholder="`At least ${PASSWORD_MIN_LENGTH} characters`"
-            :hint="PASSWORD_REQUIREMENT_HINT"
+            :label="t('forgot.newPassword')"
+            :placeholder="t('register.atLeastCharacters', { min: PASSWORD_MIN_LENGTH })"
+            :hint="passwordRequirementHint()"
             :error="errorFor('password')"
             @blur="markTouched('password')"
           />
@@ -278,8 +278,8 @@ async function resetPassword() {
           <PasswordField
             ref="confirmPasswordField"
             v-model="confirmPassword"
-            label="Confirm New Password"
-            placeholder="Repeat your new password"
+            :label="t('forgot.confirmNewPassword')"
+            :placeholder="t('forgot.confirmPlaceholder')"
             :error="errorFor('confirmPassword')"
             @blur="markTouched('confirmPassword')"
           />
@@ -287,10 +287,7 @@ async function resetPassword() {
 
           <p class="text-xs text-muted-foreground mb-6 flex gap-1.5">
             <Info class="h-4 w-4 shrink-0 text-primary" />
-            <span>
-              This changes your login password only. Your encryption passphrase and private key are
-              unaffected, so your encrypted files stay accessible.
-            </span>
+            <span>{{ t('forgot.loginOnly') }}</span>
           </p>
 
           <button
@@ -298,7 +295,7 @@ async function resetPassword() {
             class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="isSubmitting"
           >
-            {{ isSubmitting ? 'Resetting password...' : 'Reset password' }}
+            {{ isSubmitting ? t('forgot.submitting') : t('forgot.submit') }}
           </button>
         </form>
 
@@ -308,8 +305,8 @@ async function resetPassword() {
         </p>
 
         <p class="text-sm text-muted-foreground mt-6 text-center">
-          Remember your password?
-          <RouterLink to="/login" class="text-primary hover:underline">Sign in</RouterLink>
+          {{ t('forgot.remember') }}
+          <RouterLink to="/login" class="text-primary hover:underline">{{ t('register.signIn') }}</RouterLink>
         </p>
       </template>
 
@@ -318,22 +315,19 @@ async function resetPassword() {
           <div class="p-2 rounded-lg bg-primary/10">
             <CheckCircle2 class="h-5 w-5 text-primary" />
           </div>
-          <h1 class="text-2xl font-bold text-foreground">Password Reset</h1>
+          <h1 class="text-2xl font-bold text-foreground">{{ t('forgot.doneTitle') }}</h1>
         </div>
 
-        <p class="text-sm text-muted-foreground">
-          Your password has been updated. Sign in with the new password.
-        </p>
+        <p class="text-sm text-muted-foreground">{{ t('forgot.done') }}</p>
         <p v-if="revokedSessions > 0" class="text-sm text-muted-foreground mt-2">
-          {{ revokedSessions }} other active
-          {{ revokedSessions === 1 ? 'session was' : 'sessions were' }} signed out for safety.
+          {{ t('forgot.revokedSessions', revokedSessions) }}
         </p>
 
         <RouterLink
           to="/login"
           class="mt-6 w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center"
         >
-          Continue to sign in
+          {{ t('register.continue') }}
         </RouterLink>
       </template>
     </div>

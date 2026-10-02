@@ -1,5 +1,6 @@
 import axios, { type AxiosRequestConfig } from 'axios'
 
+import { currentLocale, i18n, t } from '@/i18n'
 import {
   clearSession,
   notifySessionExpired,
@@ -33,27 +34,38 @@ export function apiErrorMessage(error: unknown, fallback = 'Request failed'): st
   }
 
   if (error.response === undefined) {
-    return 'Cannot reach the server. Check that the backend is running and try again.'
+    return t('errors.unreachable')
   }
 
   const body = error.response.data as ApiFailureBody | undefined
+  // In Chinese, a known error code gets its translated message; the server's English is the
+  // source of truth for English, so it is left exactly as sent.
+  const code = body?.data?.error_code
+  if (currentLocale.value !== 'en' && code && i18n.global.te(`errors.${code}`, 'en')) {
+    const translated = t(`errors.${code}`)
+    const details = body?.data?.details
+    return Array.isArray(details) && details.length > 0 ? `${translated}（${describeDetails(details)}）` : translated
+  }
   const details = body?.data?.details
   if (Array.isArray(details) && details.length > 0) {
-    const described = details
-      .map((detail) => {
-        const item = detail as { location?: unknown[]; message?: string }
-        const field = Array.isArray(item.location)
-          ? item.location.filter((part) => part !== 'body').join('.')
-          : ''
-        return field ? `${field}: ${item.message ?? 'invalid value'}` : (item.message ?? '')
-      })
-      .filter(Boolean)
-    if (described.length > 0) {
-      return described.join('; ')
-    }
+    const described = describeDetails(details)
+    if (described) return described
   }
 
   return body?.message ?? fallback
+}
+
+function describeDetails(details: unknown[]): string {
+  return details
+    .map((detail) => {
+      const item = detail as { location?: unknown[]; message?: string }
+      const field = Array.isArray(item.location)
+        ? item.location.filter((part) => part !== 'body').join('.')
+        : ''
+      return field ? `${field}: ${item.message ?? 'invalid value'}` : (item.message ?? '')
+    })
+    .filter(Boolean)
+    .join('; ')
 }
 
 /** Read the stable backend error code without coupling callers to Axios response shapes. */

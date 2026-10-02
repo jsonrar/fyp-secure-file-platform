@@ -193,7 +193,7 @@ const goToFiles = () => {
                 <div class="flex min-w-0 items-center gap-3">
                   <FileIcon class="h-5 w-5 shrink-0 text-primary" />
                   <div class="min-w-0">
-                    <p class="text-sm text-foreground [overflow-wrap:anywhere]">{{ file.name }}</p>
+                    <p translate="no" class="text-sm text-foreground [overflow-wrap:anywhere]">{{ file.name }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatFileSize(file.size) }}</p>
                     <p v-if="file.status === 'failed'" class="text-xs text-destructive mt-1">{{ file.error }}</p>
                     <p

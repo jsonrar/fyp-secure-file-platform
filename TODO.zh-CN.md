@@ -193,19 +193,22 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] [#148 Help assistant v2：回答已登录用户关于自己账户的问题](https://github.com/jsonrar/fyp-secure-file-platform/issues/148)
   ——七项只读检查（谁能打开某个文件、单个文件的历史、我分享了什么、别人分享给我什么、被标记为 Modified 的文件、
   最近活动、账户概览），使用 My Files 和 Access Records 已有的请求。不用大模型；面板里不做任何修改。部署验证后关闭。
-- [ ] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
-  ——产品语言可由用户选择，具备完整 key 覆盖、安全 fallback、偏好持久化与手机端可用控件。
+- [x] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
+  ——页头、手机菜单和设置页均可切换 English / 简体中文，按设备记住，并在首次渲染前恢复。公共界面（导航、登录、注册、
+  设置等）使用 vue-i18n 键值消息；其余界面通过词典显示中文，词典在构建阶段由智谱 `glm-4-flash` 起草，并由脚本和测试
+  按安全术语表校验。**中文为机器起草，尚未经过完整人工审校**；Help assistant 仍只能匹配英文提问。见
+  [docs/I18N.md](docs/I18N.md)。
 - [x] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
   ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。已合并（#101、#106）并部署（2026-10-01 staging 的 OpenAPI 中有头像路由）；该 Issue 在 2026-09-29 关闭前，没有在
   Issue 上记录上传/展示/删除的短流程演示。
-- [ ] [#76 修复手机与窄屏下的产品流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
-  ——修复公开页面、账户与文件流程在窄屏下的布局和交互问题，并保留可重复的手机浏览器证据。**大部分已完成，
-  暂不能关闭。**用自动化排查对 23 个界面在 360 与 320 px 下检查，发现多处横向滚动（教育页，320 px 下的注册、
+- [x] [#76 修复手机与窄屏下的产品流程](https://github.com/jsonrar/fyp-secure-file-platform/issues/76)
+  ——修复公开页面、账户与文件流程在窄屏下的布局和交互问题，并保留可重复的手机浏览器证据。**已于 2026-10-02
+  关闭。**用自动化排查对 23 个界面在 360 与 320 px 下检查，发现多处横向滚动（教育页，320 px 下的注册、
   忘记密码与上传页）、My Files 表格把操作按钮推出手机屏幕、高度只有 9–20 px 的页脚链接，以及数十个过小的点击目标；
   这些都已修复（My Files 在 768 px 以下改为卡片列表，被标记的点击目标均不小于 40 px，弹框会让长文件名换行并保持在
-  屏幕内），并由三个 Chromium 测试覆盖（[docs/E2E_TESTING.md](docs/E2E_TESTING.md#phone-widths)）。**仍未完成：**
-  没有在真实 Android 手机或 iOS Safari 上运行过任何测试，所以“验证 Android Chrome 与 iOS Safari”这一条没有满足；
-  排查对通知与设置流程也只覆盖了布局。
+  屏幕内），并由三个 Chromium 测试覆盖（[docs/E2E_TESTING.md](docs/E2E_TESTING.md#phone-widths)）。2026-10-02
+  这些手机测试又在 WebKit（Safari 内核，模拟 iPhone 13）和 Chromium（模拟 Pixel 7）下全部通过。**未做：**没有在
+  实体手机上运行；通知与设置流程只检查了布局。
 
 ## 每个 Issue 的完成定义
 

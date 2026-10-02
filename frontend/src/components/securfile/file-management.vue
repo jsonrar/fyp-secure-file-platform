@@ -728,7 +728,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <button type="button" class="h-8 w-8" aria-label="Cancel rename" @click="editingFolderId = null"><X class="mx-auto h-3.5 w-3.5" /></button>
               </template>
               <template v-else>
-                <button type="button" class="h-8 px-3 text-sm" @click="selectFolder(folder.folder_id)">
+                <button translate="no" type="button" class="h-8 px-3 text-sm" @click="selectFolder(folder.folder_id)">
                   {{ folder.name }} ({{ scope === 'shared' ? folder.shared_file_count : folder.owned_file_count }})
                 </button>
                 <button type="button" class="h-8 w-8 text-muted-foreground hover:text-foreground" :aria-label="`Rename ${folder.name}`" @click="startRenameFolder(folder)"><Pencil class="mx-auto h-3.5 w-3.5" /></button>
@@ -793,7 +793,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 rounded-lg bg-secondary p-2"><FileIcon class="h-4 w-4 text-primary" /></div>
                     <div class="min-w-0">
-                      <p class="text-foreground font-medium [overflow-wrap:anywhere]">{{ file.name }}</p>
+                      <p translate="no" class="text-foreground font-medium [overflow-wrap:anywhere]">{{ file.name }}</p>
                       <p v-if="!file.owned" class="text-xs text-muted-foreground">Shared by {{ file.ownerName }}</p>
                       <p v-if="file.accessError" class="mt-1 text-xs text-destructive">{{ file.accessError }}</p>
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
@@ -821,7 +821,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     @change="moveFile(file, ($event.target as HTMLSelectElement).value)"
                   >
                     <option value="">No folder</option>
-                    <option v-for="folder in folders" :key="folder.folder_id" :value="folder.folder_id">{{ folder.name }}</option>
+                    <option translate="no" v-for="folder in folders" :key="folder.folder_id" :value="folder.folder_id">{{ folder.name }}</option>
                   </select>
                 </td>
                 <td class="md:table-cell md:py-3 md:pr-3">

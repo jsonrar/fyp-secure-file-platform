@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, ref, useId } from 'vue'
 import { Eye, EyeOff } from 'lucide-vue-next'
+import { useI18n } from 'vue-i18n'
 
 const props = withDefaults(
   defineProps<{
@@ -25,6 +26,8 @@ const props = withDefaults(
 const emit = defineEmits<{
   (e: 'blur'): void
 }>()
+
+const { t } = useI18n()
 
 const value = defineModel<string>({ required: true })
 
@@ -81,9 +84,9 @@ defineExpose({
       <button
         type="button"
         class="absolute inset-y-0 right-0 flex w-10 items-center justify-center rounded-r-md text-muted-foreground hover:text-foreground"
-        :aria-label="isRevealed ? 'Hide password' : 'Show password'"
+        :aria-label="t(isRevealed ? 'password.hide' : 'password.show')"
         :aria-pressed="isRevealed"
-        :title="isRevealed ? 'Hide password' : 'Show password'"
+        :title="t(isRevealed ? 'password.hide' : 'password.show')"
         @click="toggleReveal"
       >
         <EyeOff v-if="isRevealed" class="h-4 w-4" />

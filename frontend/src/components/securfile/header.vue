@@ -4,6 +4,8 @@ import { ChevronDown, Menu, Monitor, Moon, Settings, Sun, UserRound, X } from 'l
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import SecureViewMark from '@/components/brand/SecureViewMark.vue'
 import UserMenu from '@/components/UserMenu.vue'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
+import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth_store'
 import type { ThemePreference } from '@/composables/useTheme'
 
@@ -22,6 +24,7 @@ const emit = defineEmits<{
 const route = useRoute()
 const router = useRouter()
 const auth = useAuthStore()
+const { t } = useI18n()
 
 // Signed out: what it is (Product, the feature overview on the home page), how it works, how to
 // use it (Help), the background (Education), then Contact us. "Product" used to point at /upload,
@@ -29,20 +32,20 @@ const auth = useAuthStore()
 // links: /files and /audit-logs existed but were reachable only by typing the URL, so managing or
 // sharing an already-uploaded file had no entry point at all.
 const guestLinks = [
-  { to: '/#features', label: 'Product', match: [] as string[] },
-  { to: '/how-it-works', label: 'How it works', match: ['/how-it-works'] },
-  { to: '/help', label: 'Help', match: ['/help'] },
-  { to: '/education', label: 'Education', match: ['/education'] },
-  { to: '/team', label: 'Contact us', match: ['/team'] },
+  { to: '/#features', label: 'nav.product', match: [] as string[] },
+  { to: '/how-it-works', label: 'nav.howItWorks', match: ['/how-it-works'] },
+  { to: '/help', label: 'nav.help', match: ['/help'] },
+  { to: '/education', label: 'nav.education', match: ['/education'] },
+  { to: '/team', label: 'nav.contact', match: ['/team'] },
 ]
 
 const authedLinks = [
-  { to: '/upload', label: 'Upload', match: ['/upload'] },
-  { to: '/files', label: 'My Files', match: ['/files'] },
-  { to: '/audit-logs', label: 'Access Records', match: ['/audit-logs'] },
-  { to: '/help', label: 'Help', match: ['/help'] },
-  { to: '/education', label: 'Education', match: ['/education'] },
-  { to: '/team', label: 'Contact us', match: ['/team'] },
+  { to: '/upload', label: 'nav.upload', match: ['/upload'] },
+  { to: '/files', label: 'nav.myFiles', match: ['/files'] },
+  { to: '/audit-logs', label: 'nav.accessRecords', match: ['/audit-logs'] },
+  { to: '/help', label: 'nav.help', match: ['/help'] },
+  { to: '/education', label: 'nav.education', match: ['/education'] },
+  { to: '/team', label: 'nav.contact', match: ['/team'] },
 ]
 
 // Administrators and recovery officers get their console in the header. It used to be reachable
@@ -51,7 +54,7 @@ const authedLinks = [
 const navLinks = computed(() => {
   if (!auth.isAuthed) return guestLinks
   if (!auth.isRecoveryReviewer) return authedLinks
-  const label = auth.isAdmin ? 'Admin' : 'Recovery'
+  const label = auth.isAdmin ? 'nav.admin' : 'nav.recovery'
   return [...authedLinks, { to: '/admin', label, match: ['/admin'] }]
 })
 
@@ -84,9 +87,9 @@ const themeOptions: {
   label: string
   icon: typeof Sun
 }[] = [
-  { value: 'system', label: 'System', icon: Monitor },
-  { value: 'light', label: 'Light', icon: Sun },
-  { value: 'dark', label: 'Dark', icon: Moon },
+  { value: 'system', label: 'theme.system', icon: Monitor },
+  { value: 'light', label: 'theme.light', icon: Sun },
+  { value: 'dark', label: 'theme.dark', icon: Moon },
 ]
 
 const currentThemeOption = computed(
@@ -156,7 +159,7 @@ async function handleLogout() {
           <RouterLink
             to="/"
             :class="`inline-flex shrink-0 items-center ${headerText}`"
-            aria-label="SecureView home"
+            :aria-label="t('nav.homeAria')"
           >
             <SecureViewMark variant="logo" class="h-9" />
           </RouterLink>
@@ -169,12 +172,13 @@ async function handleLogout() {
               class="transition-colors whitespace-nowrap"
               :class="headerNavLink(isActive(link.match))"
             >
-              {{ link.label }}
+              {{ t(link.label) }}
             </RouterLink>
           </nav>
         </div>
 
         <div :class="`${responsive.desktop} items-center gap-3 shrink-0`">
+          <LanguageSwitcher />
           <!-- Signed in, the theme control lives in the avatar menu instead: one account
                dropdown rather than two adjacent dropdowns in the same corner. -->
           <div v-if="!auth.isAuthed" ref="desktopThemeRoot" class="relative shrink-0">
@@ -183,12 +187,12 @@ async function handleLogout() {
               :class="themeTriggerClass"
               :aria-expanded="desktopThemeOpen"
               aria-haspopup="listbox"
-              aria-label="Theme"
+              :aria-label="t('theme.label')"
               @click="toggleDesktopTheme"
             >
               <span class="inline-flex min-w-0 items-center gap-1.5">
                 <component :is="currentThemeOption.icon" class="h-4 w-4 shrink-0" />
-                <span class="truncate text-sm">{{ currentThemeOption.label }}</span>
+                <span class="truncate text-sm">{{ t(currentThemeOption.label) }}</span>
               </span>
               <ChevronDown
                 class="h-3.5 w-3.5 shrink-0 opacity-70 transition-transform"
@@ -210,7 +214,7 @@ async function handleLogout() {
                   @click="selectTheme(option.value)"
                 >
                   <component :is="option.icon" class="h-4 w-4 shrink-0" />
-                  <span>{{ option.label }}</span>
+                  <span>{{ t(option.label) }}</span>
                 </button>
               </li>
             </ul>
@@ -220,21 +224,21 @@ async function handleLogout() {
             to="/login"
             :class="`h-9 px-4 rounded-md ${headerText} hover:bg-secondary transition-colors inline-flex items-center`"
           >
-            Sign In
+            {{ t('nav.signIn') }}
           </RouterLink>
           <RouterLink
             v-if="!auth.isAuthed"
             to="/register"
             class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center"
           >
-            Get started
+            {{ t('nav.getStarted') }}
           </RouterLink>
           <template v-else>
             <RouterLink
               to="/dashboard"
               class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center"
             >
-              Dashboard
+              {{ t('nav.dashboard') }}
             </RouterLink>
             <UserMenu
               :theme-preference="themePreference"
@@ -245,6 +249,8 @@ async function handleLogout() {
 
         <button
           :class="`${responsive.mobile} h-9 w-9 inline-flex items-center justify-center rounded-md ${headerText} hover:bg-secondary transition-colors`"
+          :aria-label="t(isMobileMenuOpen ? 'nav.closeMenu' : 'nav.openMenu')"
+          :aria-expanded="isMobileMenuOpen"
           @click="emit('toggle-mobile-menu')"
         >
           <X v-if="isMobileMenuOpen" class="h-5 w-5" />
@@ -259,7 +265,7 @@ async function handleLogout() {
           :class="headerNavLink(homeActive)"
           @click="emit('close-mobile-menu')"
         >
-          Home
+          {{ t('nav.home') }}
         </RouterLink>
         <RouterLink
           v-for="link in navLinks"
@@ -269,21 +275,22 @@ async function handleLogout() {
           :class="headerNavLink(isActive(link.match))"
           @click="emit('close-mobile-menu')"
         >
-          {{ link.label }}
+          {{ t(link.label) }}
         </RouterLink>
         <div class="flex flex-col gap-2 pt-4 border-t border-border">
+          <LanguageSwitcher class="w-fit" />
           <div ref="mobileThemeRoot" class="relative w-[7.25rem] shrink-0">
             <button
               type="button"
               :class="themeTriggerClass"
               :aria-expanded="mobileThemeOpen"
               aria-haspopup="listbox"
-              aria-label="Theme"
+              :aria-label="t('theme.label')"
               @click="toggleMobileTheme"
             >
               <span class="inline-flex min-w-0 items-center gap-1.5">
                 <component :is="currentThemeOption.icon" class="h-4 w-4 shrink-0" />
-                <span class="truncate text-sm">{{ currentThemeOption.label }}</span>
+                <span class="truncate text-sm">{{ t(currentThemeOption.label) }}</span>
               </span>
               <ChevronDown
                 class="h-3.5 w-3.5 shrink-0 opacity-70 transition-transform"
@@ -305,7 +312,7 @@ async function handleLogout() {
                   @click="selectTheme(option.value)"
                 >
                   <component :is="option.icon" class="h-4 w-4 shrink-0" />
-                  <span>{{ option.label }}</span>
+                  <span>{{ t(option.label) }}</span>
                 </button>
               </li>
             </ul>
@@ -316,7 +323,7 @@ async function handleLogout() {
             :class="`h-9 px-4 rounded-md text-left ${headerText} hover:bg-secondary transition-colors`"
             @click="emit('close-mobile-menu')"
           >
-            Sign In
+            {{ t('nav.signIn') }}
           </RouterLink>
           <RouterLink
             v-if="!auth.isAuthed"
@@ -324,7 +331,7 @@ async function handleLogout() {
             class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
             @click="emit('close-mobile-menu')"
           >
-            Get started
+            {{ t('nav.getStarted') }}
           </RouterLink>
           <template v-else>
             <RouterLink
@@ -332,7 +339,7 @@ async function handleLogout() {
               class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors"
               @click="emit('close-mobile-menu')"
             >
-              Dashboard
+              {{ t('nav.dashboard') }}
             </RouterLink>
             <!-- Touch has no hover, so the avatar dropdown's destinations are listed here. -->
             <RouterLink
@@ -341,7 +348,7 @@ async function handleLogout() {
               @click="emit('close-mobile-menu')"
             >
               <UserRound class="h-4 w-4 shrink-0" />
-              Profile
+              {{ t('nav.profile') }}
             </RouterLink>
             <RouterLink
               to="/settings"
@@ -349,13 +356,13 @@ async function handleLogout() {
               @click="emit('close-mobile-menu')"
             >
               <Settings class="h-4 w-4 shrink-0" />
-              Settings
+              {{ t('nav.settings') }}
             </RouterLink>
             <button
               :class="`h-9 px-4 rounded-md text-left ${headerText} hover:bg-secondary transition-colors`"
               @click="handleLogout"
             >
-              Log Out
+              {{ t('nav.logOut') }}
             </button>
           </template>
         </div>

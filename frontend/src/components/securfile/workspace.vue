@@ -137,7 +137,7 @@ const destinations = computed(() => {
           <ul v-else class="divide-y divide-border">
             <li v-for="file in recent" :key="file.file_id" class="flex items-center gap-3 py-3">
               <FileIcon class="h-4 w-4 text-primary shrink-0" />
-              <span class="text-sm text-foreground truncate flex-1">{{ file.original_filename }}</span>
+              <span translate="no" class="text-sm text-foreground truncate flex-1">{{ file.original_filename }}</span>
               <span class="text-xs text-muted-foreground shrink-0">{{ formatFileSize(file.plaintext_size) }}</span>
             </li>
           </ul>

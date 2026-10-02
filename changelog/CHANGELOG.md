@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### English / 简体中文 language switch (#74), and #76 closed / English / 简体中文 语言切换（#74），以及关闭 #76
+
+- The interface can be switched between English and 简体中文 from the header, the phone menu and Settings. The choice is remembered on the device and restored before the first render, so a Chinese visitor never sees the English flash past; an unknown saved value falls back to English. Navigation, sign-in, registration, password reset, Settings and the account dialogs use keyed vue-i18n messages; the rest of the interface is shown in Chinese from a dictionary that swaps whole text nodes, chosen over rewriting every component because it covers the whole product for a fraction of the change.
+- 界面可在页头、手机菜单和设置页切换 English / 简体中文。选择按设备记住，并在首次渲染前恢复，中文用户不会先看到英文闪过；无法识别的保存值回退为英文。导航、登录、注册、重置密码、设置和账户相关弹框使用 vue-i18n 键值消息；其余界面通过词典整段替换文字节点显示中文——之所以不逐个组件改写，是因为这样只需很小的改动就能覆盖整个产品。
+- The Chinese is drafted at build time by Zhipu `glm-4-flash` (`frontend/scripts/translate_ui_strings.py`, run on the staging VPS where the key already is); the browser never calls a translation service and no user text is sent. Every reply is checked for placeholders, algorithm names and the security glossary from #74 (加密口令, 私钥, 撤销, 密文…), and unit tests check the same plus key parity and that every message compiles. File names, usernames and other user content are marked `translate="no"` and never change. The Chinese has not had a full human review; see `docs/I18N.md`.
+- 中文在构建阶段由智谱 `glm-4-flash` 起草（`frontend/scripts/translate_ui_strings.py`，在已有 key 的 staging VPS 上运行）；浏览器从不调用翻译服务，也不发送任何用户文本。每条译文都会校验占位符、算法名称以及 #74 规定的安全术语（加密口令、私钥、撤销、密文……），单元测试同样检查这些，并检查键是否齐全、每条消息能否编译。文件名、用户名等用户内容标记为 `translate="no"`，始终原样显示。中文尚未经过完整人工审校；见 `docs/I18N.md`。
+- #76 (phone usability) is closed: its last open criterion, Android Chrome and iOS Safari, was checked by running the phone specs in WebKit as an iPhone 13 and in Chromium as a Pixel 7 (all pass). No physical phone was used; that limit is recorded on the Issue and in `docs/E2E_TESTING.md`.
+- #76（手机可用性）已关闭：最后一条未满足的标准“Android Chrome 与 iOS Safari”，通过在 WebKit（模拟 iPhone 13）和 Chromium（模拟 Pixel 7）下运行手机测试完成核对（全部通过）。没有使用实体手机；这一局限已记录在 Issue 和 `docs/E2E_TESTING.md` 中。
+
 ### Help assistant v2: questions about your own account (#148) / Help assistant v2：回答关于自己账户的问题（#148）
 
 - Signed in, the Help assistant now answers from the visitor's own account: "who has access to budget.xlsx?", "when was it last downloaded?", "which of my files have I shared?", "what has been shared with me?", "are any of my files marked Modified?", "any failed sign-ins?" and "what is in my account?". v1 could only explain where to look; v2 looks, and links to the file in My Files (`/files?q=<name>&tab=shared` now opens the right tab searched for it). A question that names no file, or matches several, gets a short list of the visitor's newest files to pick from.

@@ -11,7 +11,12 @@
  * One rule is intentionally not mirrored: the server's common-password deny-list
  * stays on the server, where it can grow into a real breached-password corpus
  * without shipping that corpus to every browser.
+ *
+ * The messages come from the locale files (`password.*`), so they follow the interface
+ * language; the English wording stays the server's.
  */
+
+import { t } from '@/i18n'
 
 export const PASSWORD_MIN_LENGTH = 8
 export const PASSWORD_MAX_LENGTH = 128
@@ -31,17 +36,13 @@ export function passphraseLength(passphrase: string): number {
 
 export type PasswordCharacterClass = 'uppercase' | 'lowercase' | 'number' | 'symbol'
 
-export const PASSWORD_CHARACTER_CLASS_LABELS: Record<PasswordCharacterClass, string> = {
-  uppercase: 'uppercase letter',
-  lowercase: 'lowercase letter',
-  number: 'number',
-  symbol: 'symbol',
+/** The rule under the field, in the interface language. A function so it follows a switch. */
+export function passwordRequirementHint(): string {
+  return t('password.requirementHint', {
+    min: PASSWORD_MIN_LENGTH,
+    classes: PASSWORD_MIN_CHARACTER_CLASSES,
+  })
 }
-
-export const PASSWORD_REQUIREMENT_HINT =
-  `At least ${PASSWORD_MIN_LENGTH} characters, mixing at least ` +
-  `${PASSWORD_MIN_CHARACTER_CLASSES} of: uppercase letters, lowercase letters, numbers, symbols. ` +
-  'It must not contain your username or email.'
 
 const UPPERCASE = /\p{Lu}|\p{Lt}/u
 const LOWERCASE = /\p{Ll}/u
@@ -116,17 +117,15 @@ export function evaluatePassword(
 
   let message = ''
   if (isEmpty) {
-    message = 'Enter a password'
+    message = t('password.enter')
   } else if (tooShort) {
-    message = `Use at least ${PASSWORD_MIN_LENGTH} characters (${length} so far).`
+    message = t('password.tooShort', { min: PASSWORD_MIN_LENGTH, length })
   } else if (tooLong) {
-    message = `Use at most ${PASSWORD_MAX_LENGTH} characters (${length} so far).`
+    message = t('password.tooLong', { max: PASSWORD_MAX_LENGTH, length })
   } else if (usesAccountDetails) {
-    message = 'Do not build your password out of your username or email address.'
+    message = t('password.usesAccountDetails')
   } else if (tooFewClasses) {
-    message =
-      `Mix at least ${PASSWORD_MIN_CHARACTER_CLASSES} of: uppercase letters, ` +
-      'lowercase letters, numbers, symbols.'
+    message = t('password.tooFewClasses', { classes: PASSWORD_MIN_CHARACTER_CLASSES })
   }
 
   return {
