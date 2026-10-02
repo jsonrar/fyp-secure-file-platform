@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { BookOpen, FlaskConical, GraduationCap, Layers } from 'lucide-vue-next'
 import AlgorithmExplorer from '@/components/education/AlgorithmExplorer.vue'
 import CryptoPlayground from '@/components/education/CryptoPlayground.vue'
@@ -7,7 +8,19 @@ import KnowledgeSearch from '@/components/education/KnowledgeSearch.vue'
 
 type SectionId = 'algorithms' | 'playground' | 'knowledge'
 
+const route = useRoute()
 const activeSection = ref<SectionId>('algorithms')
+
+// Deep links from the Help assistant: `?article=<id>` opens the Knowledge Base on that article,
+// `?algorithm=<id>` the Algorithm Explorer on that algorithm. The sections read the id themselves.
+watch(
+  () => [route.query.article, route.query.algorithm],
+  ([article, algorithm]) => {
+    if (typeof article === 'string') activeSection.value = 'knowledge'
+    else if (typeof algorithm === 'string') activeSection.value = 'algorithms'
+  },
+  { immediate: true },
+)
 
 const sections: { id: SectionId; label: string; description: string; icon: typeof Layers }[] = [
   {

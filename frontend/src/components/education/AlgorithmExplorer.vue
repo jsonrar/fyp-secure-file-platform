@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { ArrowRight, CheckCircle2, Info, Shield } from 'lucide-vue-next'
 import {
   algorithms,
@@ -14,8 +15,20 @@ type SidebarEntry =
   | { kind: 'family'; family: AlgorithmFamily; label: string; items: AlgorithmInfo[] }
   | { kind: 'item'; algo: AlgorithmInfo }
 
+const route = useRoute()
 const selectedId = ref<AlgorithmId>('aes256')
 const selected = computed(() => algorithms.find((a) => a.id === selectedId.value)!)
+
+// `/education?algorithm=<id>#algorithm-detail` opens on that algorithm, which is how the Help
+// assistant links to one.
+watch(
+  () => route.query.algorithm,
+  (id) => {
+    const match = algorithms.find((a) => a.id === id)
+    if (match) selectedId.value = match.id
+  },
+  { immediate: true },
+)
 
 const sidebar = computed<SidebarEntry[]>(() => {
   const entries: SidebarEntry[] = []
@@ -97,7 +110,7 @@ const roundsHint = computed(() => {
       </template>
     </aside>
 
-    <article class="flex min-w-0 flex-col rounded-xl border border-border bg-card p-4 sm:p-6 md:p-8">
+    <article id="algorithm-detail" class="flex min-w-0 scroll-mt-24 flex-col rounded-xl border border-border bg-card p-4 sm:p-6 md:p-8">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
           <span class="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full mb-3">

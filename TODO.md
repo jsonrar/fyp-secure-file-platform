@@ -225,6 +225,10 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   reset (searched `frontend/src` and `docs` on 2026-10-01). The Issue was closed with these
   unmet; the project owner chose to record that rather than reopen it. See the scope record on
   the Issue.
+- [x] [#146 Help assistant: floating bot for how-to, how-it-works and comparison questions (no LLM in v1)](https://github.com/jsonrar/fyp-secure-file-platform/issues/146)
+  — approved 2026-10-02 to come before #74. Client-side retrieval over curated intents and the
+  existing Help/Education content; no network call, cited comparisons. The Issue closes once the
+  deployment is verified and recorded on it. See [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 - [ ] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   — user-selectable product locale with complete key coverage, safe fallback, persistence, and
   mobile-compatible controls.

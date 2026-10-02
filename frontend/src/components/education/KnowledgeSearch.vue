@@ -1,5 +1,6 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import { BookOpen, Search, Tag } from 'lucide-vue-next'
 import {
   categoryLabels,
@@ -23,6 +24,20 @@ const categories = computed(() => [
 ])
 
 const results = computed(() => searchKnowledge(query.value, category.value))
+
+// `/education?article=<id>#article-<id>` opens that article, which is how the Help assistant
+// links to one; the router's hash scrolling then brings it into view.
+const route = useRoute()
+watch(
+  () => route.query.article,
+  (id) => {
+    if (typeof id !== 'string' || !knowledgeArticles.some((a) => a.id === id)) return
+    query.value = ''
+    category.value = 'all'
+    expandedId.value = id
+  },
+  { immediate: true },
+)
 
 function toggle(id: string) {
   expandedId.value = expandedId.value === id ? null : id
@@ -74,8 +89,9 @@ function renderedContent(content: string) {
 
       <article
         v-for="article in results"
+        :id="`article-${article.id}`"
         :key="article.id"
-        class="rounded-xl border border-border bg-card overflow-hidden transition-shadow hover:shadow-sm"
+        class="scroll-mt-24 rounded-xl border border-border bg-card overflow-hidden transition-shadow hover:shadow-sm"
       >
         <button
           type="button"

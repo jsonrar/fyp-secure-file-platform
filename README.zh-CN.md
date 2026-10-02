@@ -53,6 +53,11 @@ Core Features），`/education` 提供算法教学、演练场与知识库，`/h
 头像菜单进入主题设置、`/profile` 与 `/settings`；当前导航标签使用主题主色高亮，便于确认所在页。
 `/profile` 可上传或移除经验证的 PNG/JPEG 头像（无图时回退首字母）。
 
+每个页面右下角都有 **Help assistant** 按钮（#146）。它回答操作类、原理类以及“为什么不用 Google Drive /
+WhatsApp / 邮件”类问题，给出简短摘要、步骤和产品内链接；问题在浏览器内与人工整理的答案以及 Education、讲解动画、
+图文引导内容匹配。不使用大语言模型、不发网络请求，问题不会被发送或记录。见
+[docs/HELP_ASSISTANT.zh-CN.md](docs/HELP_ASSISTANT.zh-CN.md)。
+
 Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动态效果时静态展示全部功能卡片。
 这是本地前端更新，尚未核验部署。详见 [首页滚动条更新记录](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨)。
 

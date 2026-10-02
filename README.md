@@ -65,6 +65,12 @@ Signed-in users get a header avatar menu with theme control, `/profile`, and `/s
 active nav label uses the theme primary colour so the current tab is obvious. `/profile` can
 upload or remove a validated PNG/JPEG picture (initials remain the fallback).
 
+Every page has a **Help assistant** button at the bottom right (#146). It answers how-to,
+how-it-works and "why not Google Drive / WhatsApp / email" questions with a short summary, steps
+and links into the product, matching the question in the browser against curated answers and the
+Education, explainer and picture-guide content. There is no language model and no network call;
+questions are not sent or logged. See [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
+
 Core Features now uses a seamless dual-row loop, with hover-to-pause and a static,
 complete card layout for reduced-motion preferences. This is a local frontend update;
 deployment has not yet been verified. See the
