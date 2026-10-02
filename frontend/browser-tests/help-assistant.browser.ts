@@ -249,7 +249,16 @@ test.describe('signed in, on a phone', () => {
     }
 
     await test.step('the answer’s link opens My Files searched for that file', async () => {
+      // Reopening the panel shows the answers already given without asking the server again.
+      let lookups = 0
+      const count = (request: { url(): string }) => {
+        if (request.url().includes('/shared-users')) lookups++
+      }
+      page.on('request', count)
       await trigger(page).click()
+      await expect(panel(page).getByTestId('assistant-account-result').last()).toContainText(`Only you can open ${fileName}`)
+      page.off('request', count)
+      expect(lookups, 'shared-users requests on reopening').toBe(0)
       await panel(page).getByRole('link', { name: `Open ${fileName} in My Files` }).last().click()
       await expect(panel(page)).toBeHidden()
       await expect(page).toHaveURL((url) => url.pathname === '/files' && url.searchParams.get('q') === fileName)
@@ -261,11 +270,13 @@ test.describe('signed in, on a phone', () => {
       await trigger(page).click()
       await questionBox(page).fill('who downloaded my file')
       await questionBox(page).press('Enter')
-      await expect(panel(page).getByTestId('assistant-answer').last()).toContainText('What do the access records show?')
-      // Nothing is read until asked to.
-      await expect(panel(page).getByTestId('assistant-account-result')).toHaveCount(0)
-      await panel(page).getByRole('button', { name: 'Check one of my files’ history' }).click()
-      const choose = panel(page).getByTestId('assistant-account-choose').last()
+      const latest = panel(page).getByRole('list', { name: 'Questions and answers' }).locator(':scope > li').last()
+      await expect(latest.getByTestId('assistant-answer')).toContainText('What do the access records show?')
+      // Nothing is read until asked to: the earlier answers keep their results, this one has none yet.
+      await expect(latest.getByRole('button', { name: 'Check one of my files’ history' })).toBeVisible()
+      await expect(latest.getByTestId('assistant-account-result')).toHaveCount(0)
+      await latest.getByRole('button', { name: 'Check one of my files’ history' }).click()
+      const choose = latest.getByTestId('assistant-account-choose')
       await expect(choose).toContainText('Pick one of your newest files')
       await choose.getByRole('button', { name: new RegExp(fileName.replace(/[.]/g, '\\.')) }).click()
       await expect(panel(page).getByTestId('assistant-account-result').last()).toContainText(

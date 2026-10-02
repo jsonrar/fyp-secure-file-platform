@@ -15,6 +15,7 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Bot, MessageCircleQuestion, Send, X } from 'lucide-vue-next'
 import AccountCheckCard from '@/components/assistant/AccountCheckCard.vue'
+import type { AccountResult } from '@/utils/assistant-account'
 import AssistantAnswerCard from '@/components/assistant/AssistantAnswerCard.vue'
 import { ACCOUNT_SUGGESTED_INTENT_IDS, FALLBACK_LINKS, SUGGESTED_INTENT_IDS } from '@/data/assistant/intents'
 import { useAuthStore } from '@/stores/auth_store'
@@ -42,6 +43,8 @@ interface Exchange {
   expanded: boolean
   /** Asked in this page view, so an account check may run without a click. */
   fresh: boolean
+  /** The account check's result, kept in memory only so reopening the panel does not re-ask. */
+  account?: AccountResult
 }
 
 const auth = useAuthStore()
@@ -81,6 +84,11 @@ function compact(exchange: Exchange): boolean {
 
 function onSettled(summary: string) {
   announcement.value = summary
+}
+
+/** Kept on the exchange (and not in storage), and the check will not run by itself again. */
+function onResult(id: number, result: AccountResult) {
+  exchanges.value = exchanges.value.map((e) => (e.id === id ? { ...e, account: result, fresh: false } : e))
 }
 
 function persist() {
@@ -306,8 +314,10 @@ watch(
                   :file-name="exchange.reply.fileName"
                   :auto="autoCheck(exchange)"
                   :shown-links="compact(exchange) ? [] : exchange.reply.answer.links.map((l) => l.to)"
+                  :cached="exchange.account"
                   @navigate="onNavigate"
                   @settled="onSettled"
+                  @result="(result) => onResult(exchange.id, result)"
                 />
                 <div v-if="!exchange.expanded" class="mt-3 border-t border-border pt-2">
                   <button

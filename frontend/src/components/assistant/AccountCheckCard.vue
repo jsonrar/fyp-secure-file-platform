@@ -23,8 +23,17 @@ const props = defineProps<{
   auto: boolean
   /** Links the answer above already shows, so the result does not repeat them. */
   shownLinks?: string[]
+  /**
+   * The result this check already produced. The panel unmounts when closed; without this,
+   * reopening it would ask the server again for every answer on screen.
+   */
+  cached?: AccountResult
 }>()
-const emit = defineEmits<{ (e: 'navigate'): void; (e: 'settled', summary: string): void }>()
+const emit = defineEmits<{
+  (e: 'navigate'): void
+  (e: 'settled', summary: string): void
+  (e: 'result', result: AccountResult): void
+}>()
 
 const auth = useAuthStore()
 
@@ -34,7 +43,7 @@ type State =
   | { kind: 'done'; result: AccountResult }
   | { kind: 'error'; message: string }
 
-const state = ref<State>({ kind: 'idle' })
+const state = ref<State>(props.cached ? { kind: 'done', result: props.cached } : { kind: 'idle' })
 
 const resultLinks = computed(() =>
   state.value.kind === 'done' && state.value.result.kind === 'result'
@@ -48,6 +57,7 @@ async function run(fileId?: string) {
     const me = (await auth.loadUser())?.username ?? null
     const result = await runAccountCheck(props.check, { fileName: props.fileName, fileId }, me)
     state.value = { kind: 'done', result }
+    emit('result', result)
     emit('settled', result.kind === 'result' ? result.headline : result.prompt)
   } catch (error) {
     const message = apiErrorMessage(error, 'Could not check your account just now.')
@@ -61,7 +71,7 @@ function pick(choice: FileChoice) {
 }
 
 onMounted(() => {
-  if (props.auto && auth.isAuthed) void run()
+  if (props.auto && !props.cached && auth.isAuthed) void run()
 })
 </script>
 

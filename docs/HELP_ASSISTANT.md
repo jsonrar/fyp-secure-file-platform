@@ -68,8 +68,9 @@ The rules they keep:
   `who-has-access` and `file-activity` only look at the visitor's own files, because only an owner
   may list a file's recipients or read its whole history.
 - **The question is still not sent.** At most a file name goes to `GET /files?search=`, the same
-  search the My Files box runs. Results are never stored; after a reload the answer waits behind a
-  button instead of asking the server again.
+  search the My Files box runs. Results are never stored: they stay in memory while the page is
+  open, so closing and reopening the panel does not ask again, and after a reload the answer waits
+  behind a button.
 - **Run when asked.** A question about the account ("who has access to my file?") runs its check
   at once. A general question with a check attached ("who downloaded my file?" could mean "how
   would I find out?") shows the general answer and a button such as *Check one of my files'
