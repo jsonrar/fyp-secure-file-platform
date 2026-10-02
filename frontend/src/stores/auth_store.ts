@@ -5,6 +5,7 @@ import { avatarApi } from '@/api/avatar_api'
 import { clearSession, readAccessToken, writeSession } from '@/api/session'
 import { forgetUnlockedKeys } from '@/crypto/download'
 import { forgetSeenShares } from '@/utils/seen-shares'
+import { forgetAssistantSession } from '@/utils/assistant-session'
 
 /**
  * Two letters for the avatar. `jlii0421` has no second word to take an initial from, so a
@@ -129,6 +130,8 @@ export const useAuthStore = defineStore('auth', {
       // The next person to sign in at this machine should not inherit a marker saying they
       // have already seen the previous account's shared files.
       forgetSeenShares()
+      // Nor the questions the last account asked the Help assistant about its files.
+      forgetAssistantSession()
     },
     /**
      * End the session the user asked to leave.

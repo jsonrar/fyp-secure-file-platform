@@ -4,8 +4,10 @@
  * never sits on top of the controls people came to press (Start Encryption, the My Files card
  * actions).
  *
- * The first three tests need no account. The last registers one throwaway account, minted per
- * run like the other browser tests, and uploads one small file so My Files has a card.
+ * The first tests need no account. The last registers one throwaway account, minted per
+ * run like the other browser tests, and uploads one small file so My Files has a card. It then
+ * asks about that file (v2): who has access to it, its history picked from a list, and what has
+ * been shared with the account, answered from the account itself.
  */
 import { randomBytes, randomUUID } from 'node:crypto'
 
@@ -73,6 +75,18 @@ test.describe('signed out, on a desktop screen', () => {
     await expect(answer).toContainText('How do I share a file?')
     await expect(answer.getByTestId('assistant-steps').getByRole('listitem')).toHaveCount(5)
     await expect(answer.getByTestId('assistant-links')).toContainText('(sign in first)')
+  })
+
+  test('asked about an account while signed out, it offers to look once signed in', async ({ page }) => {
+    await trigger(page).click()
+    await questionBox(page).fill('who has access to budget.xlsx')
+    await questionBox(page).press('Enter')
+    const answer = panel(page).getByTestId('assistant-answer').last()
+    await expect(answer).toContainText('Who has access to one of my files?')
+    await expect(answer).toContainText('Signed in, name the file')
+    const signIn = panel(page).getByTestId('assistant-account-signin').last()
+    await expect(signIn).toContainText('Sign in and I can check this for your account.')
+    await expect(panel(page).getByTestId('assistant-account-result')).toHaveCount(0)
   })
 
   test('admits when it does not know, and points to Help', async ({ page }) => {
@@ -218,6 +232,53 @@ test.describe('signed in, on a phone', () => {
       await answer.getByRole('link', { name: 'My Files' }).click()
       await expect(panel(page)).toBeHidden()
       await expect(page).toHaveURL(/\/files$/)
+    })
+
+    for (const width of PHONE_WIDTHS) {
+      await test.step(`asked who has access to the file, it answers from the account at ${width} px`, async () => {
+        await page.setViewportSize({ width, height: 740 })
+        await trigger(page).click()
+        await questionBox(page).fill(`who has access to ${fileName}?`)
+        await questionBox(page).press('Enter')
+        const result = panel(page).getByTestId('assistant-account-result').last()
+        await expect(result).toContainText(`Only you can open ${fileName}. It is not shared with anyone.`)
+        await expect(page.getByTestId('assistant-live')).toContainText(`Only you can open ${fileName}`)
+        await expectFitsScreen(page, `an account answer at ${width}px`)
+        await panel(page).getByRole('button', { name: 'Close' }).click()
+      })
+    }
+
+    await test.step('the answer’s link opens My Files searched for that file', async () => {
+      await trigger(page).click()
+      await panel(page).getByRole('link', { name: `Open ${fileName} in My Files` }).last().click()
+      await expect(panel(page)).toBeHidden()
+      await expect(page).toHaveURL((url) => url.pathname === '/files' && url.searchParams.get('q') === fileName)
+      await expect(page.getByPlaceholder('Search your files...')).toHaveValue(fileName)
+      await expect(page.locator('tr', { hasText: fileName })).toBeVisible()
+    })
+
+    await test.step('a general question offers the check, and the file is picked from a list', async () => {
+      await trigger(page).click()
+      await questionBox(page).fill('who downloaded my file')
+      await questionBox(page).press('Enter')
+      await expect(panel(page).getByTestId('assistant-answer').last()).toContainText('What do the access records show?')
+      // Nothing is read until asked to.
+      await expect(panel(page).getByTestId('assistant-account-result')).toHaveCount(0)
+      await panel(page).getByRole('button', { name: 'Check one of my files’ history' }).click()
+      const choose = panel(page).getByTestId('assistant-account-choose').last()
+      await expect(choose).toContainText('Pick one of your newest files')
+      await choose.getByRole('button', { name: new RegExp(fileName.replace(/[.]/g, '\\.')) }).click()
+      await expect(panel(page).getByTestId('assistant-account-result').last()).toContainText(
+        `Nobody else has downloaded ${fileName}.`,
+      )
+      await expect(panel(page).getByTestId('assistant-account-rows').last()).toContainText('You uploaded it')
+    })
+
+    await test.step('what has been shared with the account', async () => {
+      await panel(page).getByRole('button', { name: 'What has been shared with me?' }).click()
+      await expect(panel(page).getByTestId('assistant-account-result').last()).toContainText(
+        'Nobody has shared a file with you yet.',
+      )
     })
   })
 })

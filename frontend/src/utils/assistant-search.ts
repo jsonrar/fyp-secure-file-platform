@@ -11,12 +11,17 @@
  * - the explainer's scenes and its "ordinary cloud storage versus SecureView" comparison;
  * - the picture guide's steps.
  *
+ * Since v2 some intents are about the visitor's own account ("who can open my file?"). Matching
+ * them works the same way and still sends nothing; `utils/assistant-account.ts` then answers
+ * them with the read-only requests the product pages already make.
+ *
  * Those sources are read, not copied, so an article edited on the Education page is what the
  * assistant answers with. A question that shares too little with all of them gets "not sure"
  * and the closest few, rather than a confident wrong answer.
  */
 import {
   ASSISTANT_INTENTS,
+  type AccountCheckId,
   type AssistantIntent,
   type AssistantLink,
 } from '@/data/assistant/intents'
@@ -35,6 +40,10 @@ export interface AssistantAnswer {
   summary: string
   steps?: string[]
   links: AssistantLink[]
+  /** A look at the visitor's own account this answer can run (v2). */
+  check?: AccountCheckId
+  /** True when the question is about the visitor's account, so the check runs straight away. */
+  personal?: boolean
 }
 
 export interface ScoredAnswer {
@@ -45,7 +54,13 @@ export interface ScoredAnswer {
 }
 
 export type AssistantReply =
-  | { kind: 'answer'; answer: AssistantAnswer; alternatives: AssistantAnswer[] }
+  | {
+      kind: 'answer'
+      answer: AssistantAnswer
+      alternatives: AssistantAnswer[]
+      /** For a question about one file: the name it gave, or the words that are probably the name. */
+      fileName?: string | null
+    }
   | { kind: 'unsure'; closest: AssistantAnswer[] }
   | { kind: 'empty' }
 
@@ -260,6 +275,8 @@ function intentDoc(intent: AssistantIntent) {
       summary: intent.summary,
       steps: intent.steps,
       links: intent.links,
+      check: intent.check,
+      personal: intent.group === 'account',
     },
     boost: INTENT_BOOST,
     questions: [intent.title, ...intent.phrasings],
@@ -471,15 +488,77 @@ export function searchAssistant(question: string): ScoredAnswer[] {
   return results.sort((a, b) => b.score - a.score || a.answer.key.localeCompare(b.answer.key))
 }
 
+// ------------------------------------------------------------------------------ file names
+
+/** `"quarterly report"` or “budget” in quotes, or one word with an extension such as report.pdf. */
+const QUOTED = /["“”'‘’]([^"“”'‘’]{2,80})["“”'‘’]/
+const WITH_EXTENSION = /(?:^|\s)([^\s"“”'‘’]*[^\s.?!,;:"“”'‘’]\.[a-z0-9]{1,5})(?=[\s?!,;:]|$)/i
+
+/**
+ * The file a question names, if it names one, and the question without it. A file name says
+ * which file, not what is being asked, so it is matched separately: "who has access to
+ * budget.xlsx" is the who-has-access question about budget.xlsx. A name with spaces needs
+ * quotes; without them only the word carrying the extension is taken.
+ */
+export function splitFileName(question: string): { fileName: string | null; rest: string } {
+  const quoted = QUOTED.exec(question)
+  if (quoted) return { fileName: quoted[1]!.trim(), rest: question.replace(quoted[0], ' ') }
+  const named = WITH_EXTENSION.exec(question)
+  // "version 1.2" is a number, not a file: a name and its extension both carry a letter.
+  if (named && /[a-z].*\.[a-z0-9]*[a-z]/i.test(named[1]!)) return { fileName: named[1]!, rest: question.replace(named[1]!, ' ') }
+  return { fileName: null, rest: question }
+}
+
+/** Checks that are about one file: a question to them usually carries that file's name. */
+export const FILE_CHECKS: ReadonlySet<string> = new Set(['who-has-access', 'file-activity'])
+/** Only a question that is plainly about the visitor's own file gets the name allowance. */
+const OWN_FILE = /\b(?:my|mine|file|files|document|documents)\b|["“'‘]|\.[a-z0-9]{1,5}\b/i
+
+/**
+ * Words the content never uses, after typo correction. For a question about one file these are
+ * most likely its name ("who has access to my thesis draft"), so they do not count against
+ * the match.
+ */
+function unknownWeight(question: string): number {
+  const idx = getIndex()
+  let unknown = 0
+  let total = 0
+  for (const word of analyze(question)) {
+    const token = correct(word, idx)
+    const weight = idf(idx, token)
+    total += weight
+    if (!idx.df.has(token)) unknown += weight
+  }
+  return total ? unknown / total : 0
+}
+
+/** The words of a question that the content never uses, as written: probably a file's name. */
+function unknownWords(question: string): string[] {
+  const idx = getIndex()
+  return analyze(question)
+    .filter((w) => !idx.vocabulary.has(w.raw) && !idx.df.has(w.token))
+    .map((w) => w.raw)
+}
+
 /** The reply the panel shows: one answer and two runners-up, or "not sure" and the closest three. */
 export function answerQuestion(question: string): AssistantReply {
-  if (tokenize(question).length === 0) return { kind: 'empty' }
-  const ranked = searchAssistant(question)
+  const { fileName, rest } = splitFileName(question)
+  if (tokenize(rest).length === 0) return { kind: 'empty' }
+  const ranked = searchAssistant(rest)
   const best = ranked[0]
-  if (!best || best.score < MIN_SCORE || best.coverage < MIN_COVERAGE) {
+  // Coverage of what is left once the words nobody wrote are taken to be the file's name.
+  const fileQuestion =
+    Boolean(best?.answer.check && FILE_CHECKS.has(best.answer.check)) && OWN_FILE.test(question)
+  const unknown = fileQuestion ? unknownWeight(rest) : 0
+  const coverage = best ? (unknown < 1 ? best.coverage / (1 - unknown) : 0) : 0
+  if (!best || best.score < MIN_SCORE || coverage < MIN_COVERAGE) {
     return { kind: 'unsure', closest: ranked.slice(0, 3).map((r) => r.answer) }
   }
-  return { kind: 'answer', answer: best.answer, alternatives: ranked.slice(1, 3).map((r) => r.answer) }
+  const reply: AssistantReply = { kind: 'answer', answer: best.answer, alternatives: ranked.slice(1, 3).map((r) => r.answer) }
+  if (best.answer.check && FILE_CHECKS.has(best.answer.check)) {
+    reply.fileName = fileName ?? (fileQuestion ? unknownWords(rest).join(' ') || null : null)
+  }
+  return reply
 }
 
 /** An intent's answer by id, for the suggested-question chips. */

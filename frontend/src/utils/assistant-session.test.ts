@@ -11,9 +11,13 @@ vi.stubGlobal('sessionStorage', {
     if (broken) throw new Error('QuotaExceededError')
     store.set(key, value)
   },
+  removeItem: (key: string) => {
+    if (broken) throw new Error('SecurityError')
+    store.delete(key)
+  },
 })
 
-const { MAX_REMEMBERED, readAssistantSession, writeAssistantSession } = await import('./assistant-session')
+const { MAX_REMEMBERED, forgetAssistantSession, readAssistantSession, writeAssistantSession } = await import('./assistant-session')
 
 beforeEach(() => {
   store.clear()
@@ -51,8 +55,26 @@ describe('the Help assistant session', () => {
     expect(readAssistantSession()).toEqual({ open: false, questions: [] })
   })
 
+  it('keeps the file a question named, and drops a malformed one', () => {
+    writeAssistantSession({
+      open: true,
+      questions: [{ question: 'who has access to budget.xlsx', answerKey: 'intent:account-who-has-access', fileName: 'budget.xlsx' }],
+    })
+    expect(readAssistantSession().questions[0]!.fileName).toBe('budget.xlsx')
+
+    store.set('help_assistant', '{"open":true,"questions":[{"question":"q","answerKey":null,"fileName":7}]}')
+    expect(readAssistantSession().questions).toEqual([])
+  })
+
+  it('forgets everything on sign-out', () => {
+    writeAssistantSession({ open: true, questions: [{ question: 'who has access to salary.xlsx', answerKey: null }] })
+    forgetAssistantSession()
+    expect(readAssistantSession()).toEqual({ open: false, questions: [] })
+  })
+
   it('works without storage at all', () => {
     broken = true
+    expect(() => forgetAssistantSession()).not.toThrow()
     expect(() => writeAssistantSession({ open: true, questions: [] })).not.toThrow()
     expect(readAssistantSession()).toEqual({ open: false, questions: [] })
   })

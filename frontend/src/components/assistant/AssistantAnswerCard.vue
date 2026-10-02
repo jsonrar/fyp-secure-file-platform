@@ -6,7 +6,11 @@ import type { AssistantLink } from '@/data/assistant/intents'
 import { useAuthStore } from '@/stores/auth_store'
 import type { AssistantAnswer } from '@/utils/assistant-search'
 
-const props = defineProps<{ answer: AssistantAnswer }>()
+const props = defineProps<{
+  answer: AssistantAnswer
+  /** Title only: an account check below answers the question itself. */
+  compact?: boolean
+}>()
 const emit = defineEmits<{ (e: 'navigate'): void }>()
 
 const router = useRouter()
@@ -24,16 +28,16 @@ function needsSignIn(link: AssistantLink): boolean {
 <template>
   <div class="space-y-3 text-sm" data-testid="assistant-answer">
     <p class="font-semibold text-foreground">{{ answer.title }}</p>
-    <p class="leading-relaxed text-foreground/90">{{ answer.summary }}</p>
+    <p v-if="!compact" class="leading-relaxed text-foreground/90">{{ answer.summary }}</p>
 
-    <ol v-if="answer.steps?.length" class="space-y-1.5" data-testid="assistant-steps">
+    <ol v-if="!compact && answer.steps?.length" class="space-y-1.5" data-testid="assistant-steps">
       <li v-for="(step, i) in answer.steps" :key="step" class="flex gap-2">
         <span class="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-primary/10 text-xs font-semibold text-primary">{{ i + 1 }}</span>
         <span class="text-foreground/90">{{ step }}</span>
       </li>
     </ol>
 
-    <ul class="flex flex-col gap-1.5" data-testid="assistant-links">
+    <ul v-if="!compact" class="flex flex-col gap-1.5" data-testid="assistant-links">
       <li v-for="link in productLinks" :key="link.to">
         <RouterLink
           :to="link.to"

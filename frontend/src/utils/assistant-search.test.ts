@@ -4,12 +4,22 @@ import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
-import { ASSISTANT_INTENTS, FALLBACK_LINKS, SUGGESTED_INTENT_IDS } from '@/data/assistant/intents'
+import { ACCOUNT_SUGGESTED_INTENT_IDS, ASSISTANT_INTENTS, FALLBACK_LINKS, SUGGESTED_INTENT_IDS } from '@/data/assistant/intents'
 import { algorithms } from '@/data/education/algorithms'
 import { knowledgeArticles } from '@/data/education/knowledge'
 import { HELP_VIDEOS } from '@/data/help-videos'
 
-import { allAnswers, answerQuestion, editDistance, intentAnswer, searchAssistant, stem, tokenize } from './assistant-search'
+import { CHECK_LABELS } from './assistant-account'
+import {
+  allAnswers,
+  answerQuestion,
+  editDistance,
+  intentAnswer,
+  searchAssistant,
+  splitFileName,
+  stem,
+  tokenize,
+} from './assistant-search'
 
 // The route table imports every page; the theme composable touches `window` at import time,
 // and the test environment is node.
@@ -153,6 +163,65 @@ describe('realistic questions', () => {
     if (reply.kind !== 'answer') return
     expect(reply.alternatives).toHaveLength(2)
     expect(reply.alternatives.map((a) => a.key)).not.toContain(reply.answer.key)
+  })
+})
+
+describe('questions about the visitor’s own account (v2)', () => {
+  const account = ASSISTANT_INTENTS.filter((i) => i.group === 'account')
+
+  it('cover each account check, and every check has a button label', () => {
+    expect(new Set(account.map((i) => i.check))).toEqual(new Set(Object.keys(CHECK_LABELS)))
+    for (const id of ACCOUNT_SUGGESTED_INTENT_IDS) expect(intentAnswer(id)?.personal, id).toBe(true)
+  })
+
+  it('say what signing in would show, without claiming to have looked', () => {
+    for (const intent of account) expect(intent.summary, intent.id).toMatch(/^Signed in, /)
+  })
+
+  it.each([
+    ['who has access to budget.xlsx', 'intent:account-who-has-access', 'budget.xlsx'],
+    ['who has access to my thesis draft', 'intent:account-who-has-access', 'thesis draft'],
+    ['who did I share "Holiday photos" with', 'intent:account-who-has-access', 'Holiday photos'],
+    ['who else has acess to Q3-report.pdf?', 'intent:account-who-has-access', 'Q3-report.pdf'],
+    ['when was budget.xlsx last downloaded', 'intent:account-file-activity', 'budget.xlsx'],
+    ['history of thesis.docx', 'intent:account-file-activity', 'thesis.docx'],
+    // A general question names no file: the answer explains, and offers the check as a button.
+    ['who downloaded my file', 'intent:access-records', null],
+    ['who downloaded report.pdf', 'intent:access-records', 'report.pdf'],
+  ])('"%s" → %s about %s', (question, expected, fileName) => {
+    const reply = answerQuestion(question)
+    expect(reply.kind).toBe('answer')
+    if (reply.kind !== 'answer') return
+    expect(reply.answer.key).toBe(expected)
+    expect(reply.fileName ?? null).toBe(fileName)
+  })
+
+  it.each([
+    ['what have I shared', 'intent:account-my-shares'],
+    ['did someone share a file with me', 'intent:account-shared-with-me'],
+    ['anything new shared with me', 'intent:account-shared-with-me'],
+    ['any failed logins', 'intent:account-recent-activity'],
+    ['has someone tried to hack my account', 'intent:account-recent-activity'],
+    ['how many files do i have', 'intent:account-overview'],
+    ['scan my files for problems', 'intent:account-modified-files'],
+  ])('"%s" → %s', (question, expected) => {
+    expect(keyFor(question)).toBe(expected)
+  })
+
+  it('offers a check under the how-to answers it fits', () => {
+    expect(intentAnswer('revoke')?.check).toBe('who-has-access')
+    expect(intentAnswer('access-records')?.check).toBe('file-activity')
+    expect(intentAnswer('verified-status')?.check).toBe('modified-files')
+    expect(intentAnswer('revoke')?.personal).toBe(false)
+  })
+
+  it('takes a file name out of the question', () => {
+    expect(splitFileName('who has access to budget.xlsx?')).toEqual({ fileName: 'budget.xlsx', rest: 'who has access to  ?' })
+    expect(splitFileName('who has “Q3 report” open')).toMatchObject({ fileName: 'Q3 report' })
+    expect(splitFileName('what is a .pem file').fileName).toBeNull()
+    expect(splitFileName('version 1.2 notes').fileName).toBeNull()
+    expect(splitFileName('open notes_v2.md please').fileName).toBe('notes_v2.md')
+    expect(splitFileName('how do I share a file').fileName).toBeNull()
   })
 })
 

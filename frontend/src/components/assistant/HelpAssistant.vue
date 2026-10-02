@@ -6,13 +6,20 @@
  * Answers come from `utils/assistant-search.ts`, which runs entirely in this browser over
  * SecureView's own help content. No question is sent anywhere or logged, and the panel says so.
  * It is called the Help assistant, never an agent: the security agent is a different feature.
+ *
+ * Since v2 it also answers questions about the signed-in visitor's own account ("who has access
+ * to budget.xlsx?", "what has been shared with me?") with `AccountCheckCard`, which reads the
+ * same API My Files and Access Records use and changes nothing.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { Bot, MessageCircleQuestion, Send, X } from 'lucide-vue-next'
+import AccountCheckCard from '@/components/assistant/AccountCheckCard.vue'
 import AssistantAnswerCard from '@/components/assistant/AssistantAnswerCard.vue'
-import { FALLBACK_LINKS, SUGGESTED_INTENT_IDS } from '@/data/assistant/intents'
+import { ACCOUNT_SUGGESTED_INTENT_IDS, FALLBACK_LINKS, SUGGESTED_INTENT_IDS } from '@/data/assistant/intents'
+import { useAuthStore } from '@/stores/auth_store'
 import {
+  FILE_CHECKS,
   answerByKey,
   answerQuestion,
   intentAnswer,
@@ -33,7 +40,11 @@ interface Exchange {
   reply: AssistantReply
   /** "Was this not it?" pressed: the runners-up are on show. */
   expanded: boolean
+  /** Asked in this page view, so an account check may run without a click. */
+  fresh: boolean
 }
+
+const auth = useAuthStore()
 
 const open = ref(false)
 const draft = ref('')
@@ -48,8 +59,29 @@ const log = ref<HTMLElement | null>(null)
 const scroller = ref<HTMLElement | null>(null)
 
 const suggestions = computed(() =>
-  SUGGESTED_INTENT_IDS.map((id) => intentAnswer(id)).filter((a): a is AssistantAnswer => Boolean(a)),
+  [...(auth.isAuthed ? ACCOUNT_SUGGESTED_INTENT_IDS : []), ...SUGGESTED_INTENT_IDS]
+    .map((id) => intentAnswer(id))
+    .filter((a): a is AssistantAnswer => Boolean(a)),
 )
+
+/**
+ * Whether an answer's account check runs as soon as it is shown: the question was about the
+ * account, or named one of the visitor's files. A restored answer waits for a click instead.
+ */
+function autoCheck(exchange: Exchange): boolean {
+  if (exchange.reply.kind !== 'answer' || !exchange.fresh) return false
+  const { answer, fileName } = exchange.reply
+  return Boolean(answer.personal || (fileName && answer.check && FILE_CHECKS.has(answer.check)))
+}
+
+/** Signed in, an account answer is the check's result; the "signed in, I can…" text is for visitors. */
+function compact(exchange: Exchange): boolean {
+  return exchange.reply.kind === 'answer' && Boolean(exchange.reply.answer.personal) && auth.isAuthed
+}
+
+function onSettled(summary: string) {
+  announcement.value = summary
+}
 
 function persist() {
   writeAssistantSession({
@@ -57,6 +89,7 @@ function persist() {
     questions: exchanges.value.map((e) => ({
       question: e.question,
       answerKey: e.reply.kind === 'answer' ? e.reply.answer.key : null,
+      fileName: e.reply.kind === 'answer' ? (e.reply.fileName ?? null) : null,
     })),
   })
 }
@@ -83,7 +116,7 @@ async function scrollToLatest() {
 }
 
 function push(question: string, reply: AssistantReply) {
-  exchanges.value = [...exchanges.value, { id: nextId++, question, reply, expanded: false }].slice(-MAX_REMEMBERED)
+  exchanges.value = [...exchanges.value, { id: nextId++, question, reply, expanded: false, fresh: true }].slice(-MAX_REMEMBERED)
   announce(reply)
   persist()
   void scrollToLatest()
@@ -166,12 +199,12 @@ function alternativesFor(question: string, shown: AssistantAnswer): AssistantAns
 function restore(saved: RememberedQuestion): AssistantReply {
   const shown = saved.answerKey ? answerByKey(saved.answerKey) : undefined
   if (!shown) return answerQuestion(saved.question)
-  return { kind: 'answer', answer: shown, alternatives: alternativesFor(saved.question, shown) }
+  return { kind: 'answer', answer: shown, alternatives: alternativesFor(saved.question, shown), fileName: saved.fileName ?? null }
 }
 
 onMounted(() => {
   const saved = readAssistantSession()
-  exchanges.value = saved.questions.map((q) => ({ id: nextId++, question: q.question, reply: restore(q), expanded: false }))
+  exchanges.value = saved.questions.map((q) => ({ id: nextId++, question: q.question, reply: restore(q), expanded: false, fresh: false }))
   open.value = saved.open
   document.addEventListener('keydown', onDocumentKeydown)
 })
@@ -181,6 +214,18 @@ onBeforeUnmount(() => document.removeEventListener('keydown', onDocumentKeydown)
 watch(open, (isOpen) => {
   if (isOpen) void scrollToLatest()
 })
+
+// Signing out (here or in another tab's refresh failure) forgets what was asked, so an answer
+// about the last person's files is not left on screen for the next one.
+watch(
+  () => auth.isAuthed,
+  (isAuthed, was) => {
+    if (was && !isAuthed) {
+      exchanges.value = []
+      announcement.value = ''
+    }
+  },
+)
 </script>
 
 <template>
@@ -229,7 +274,8 @@ watch(open, (isOpen) => {
       <div ref="scroller" class="min-h-0 flex-1 overflow-y-auto overscroll-contain px-4 py-3">
         <p class="text-sm text-muted-foreground">
           Hi! Ask how to do something in SecureView, how it keeps your files private, or how it compares with
-          tools you already use.
+          tools you already use.<template v-if="auth.isAuthed">
+            You can also ask about your own files, such as who has access to one of them.</template>
         </p>
         <div class="mt-3 flex flex-wrap gap-2" data-testid="assistant-suggestions">
           <button
@@ -251,7 +297,18 @@ watch(open, (isOpen) => {
 
             <div class="rounded-2xl rounded-bl-sm border border-border bg-background/60 p-3">
               <template v-if="exchange.reply.kind === 'answer'">
-                <AssistantAnswerCard :answer="exchange.reply.answer" @navigate="onNavigate" />
+                <AssistantAnswerCard :answer="exchange.reply.answer" :compact="compact(exchange)" @navigate="onNavigate" />
+                <AccountCheckCard
+                  v-if="exchange.reply.answer.check && (auth.isAuthed || exchange.reply.answer.personal)"
+                  :key="`${exchange.id}:${auth.isAuthed}`"
+                  class="mt-3"
+                  :check="exchange.reply.answer.check"
+                  :file-name="exchange.reply.fileName"
+                  :auto="autoCheck(exchange)"
+                  :shown-links="compact(exchange) ? [] : exchange.reply.answer.links.map((l) => l.to)"
+                  @navigate="onNavigate"
+                  @settled="onSettled"
+                />
                 <div v-if="!exchange.expanded" class="mt-3 border-t border-border pt-2">
                   <button
                     type="button"
@@ -336,7 +393,8 @@ watch(open, (isOpen) => {
           </button>
         </div>
         <p class="mt-2 text-[11px] leading-snug text-muted-foreground">
-          Answers come from SecureView's own help content; your question is not sent anywhere.
+          Answers come from SecureView's own help content; your question is not sent anywhere. Answers about your
+          account only read what My Files and Access Records already show you.
         </p>
       </form>
     </section>

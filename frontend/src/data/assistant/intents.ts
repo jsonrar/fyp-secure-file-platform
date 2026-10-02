@@ -15,7 +15,20 @@
  * How to add an entry: docs/HELP_ASSISTANT.md.
  */
 
-export type IntentGroup = 'using' | 'how' | 'compare'
+export type IntentGroup = 'using' | 'how' | 'compare' | 'account'
+
+/**
+ * A read-only look at the signed-in visitor's own account (v2), run in `utils/assistant-account.ts`
+ * with the same requests My Files and Access Records already make.
+ */
+export type AccountCheckId =
+  | 'overview'
+  | 'who-has-access'
+  | 'my-shares'
+  | 'shared-with-me'
+  | 'modified-files'
+  | 'file-activity'
+  | 'recent-activity'
 
 export interface AssistantLink {
   label: string
@@ -39,6 +52,12 @@ export interface AssistantIntent {
   steps?: string[]
   /** One to three links into the product, plus sources for comparisons. */
   links: AssistantLink[]
+  /**
+   * The account check this answer can run for someone signed in. An `account` intent runs it as
+   * soon as it is the answer; any other intent offers it behind a button, because the question
+   * may have been a general one.
+   */
+  check?: AccountCheckId
 }
 
 const HELP = { label: 'Help and videos', to: '/help' }
@@ -150,6 +169,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'Under Currently shared with, press Revoke beside their name.',
       'Confirm Revoke access.',
     ],
+    check: 'who-has-access',
     links: [
       { label: 'My Files', to: '/files' },
       { label: 'See who opened it', to: '/audit-logs' },
@@ -318,6 +338,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'Verified means it is active and no check has found it changed. Modified means a download failed ' +
       'its authentication check or the daily scan found the bytes no longer match their SHA-256 ' +
       'fingerprint; it will not decrypt, and an administrator can restore it from the encrypted backup.',
+    check: 'modified-files',
     links: [
       { label: 'My Files', to: '/files' },
       { label: 'Hashing and integrity', to: '/education?article=hashing-vs-encryption#article-hashing-vs-encryption' },
@@ -563,6 +584,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'Change even one stored byte and decryption fails, so the download is refused rather than handing you ' +
       'a modified file. A daily scan also compares every file with its SHA-256 fingerprint, and an ' +
       'administrator can restore the original from the encrypted backup.',
+    check: 'modified-files',
     links: [{ label: 'How it works', to: '/how-it-works' }, VIDEO_STORY],
   },
   {
@@ -581,6 +603,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'Access Records lists every upload, share and download, including what the people you shared with ' +
       'did. The log is hash-chained, so an edited or deleted entry breaks the chain and the page says so. ' +
       'For one file, press Access history in My Files.',
+    check: 'file-activity',
     links: [
       { label: 'Access Records', to: '/audit-logs' },
       { label: 'My Files', to: '/files' },
@@ -660,6 +683,139 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       { label: 'Gmail: how Gmail encrypts your email', to: 'https://support.google.com/mail/answer/6330403', kind: 'source' },
     ],
   },
+
+  // ---------------------------------------------------------------- Your account (v2)
+  // Signed in, these run their check at once and answer from the visitor's own files and records.
+  // Signed out, the summary says what the check would show and the panel asks them to sign in.
+  {
+    id: 'account-overview',
+    group: 'account',
+    title: 'What is in my account?',
+    phrasings: [
+      'what is in my account',
+      'how many files do I have',
+      'give me a summary of my account',
+      'how many files have I uploaded',
+    ],
+    keywords: ['account', 'summary', 'overview', 'many', 'count', 'total', 'number', 'uploaded'],
+    summary:
+      'Signed in, I can count your own files, the files shared with you, your folders and any ' +
+      'shared files you have not opened the list for yet. Nothing is changed by looking.',
+    links: [{ label: 'My Files', to: '/files' }],
+    check: 'overview',
+  },
+  {
+    id: 'account-who-has-access',
+    group: 'account',
+    title: 'Who has access to one of my files?',
+    phrasings: [
+      'who has access to my file',
+      'who did I share this file with',
+      'who else has access to it',
+      'list the people who have access',
+    ],
+    keywords: ['access', 'people', 'recipients', 'else', 'currently', 'right', 'now'],
+    summary:
+      'Signed in, name the file (or pick it from your newest ones) and I will list everyone who has ' +
+      'access to it now, with the date each person was added. Revoking someone is done from its Share window.',
+    links: [{ label: 'My Files', to: '/files' }],
+    check: 'who-has-access',
+  },
+  {
+    id: 'account-file-activity',
+    group: 'account',
+    title: 'What has happened to one of my files?',
+    phrasings: [
+      'what has happened to my file',
+      'show the history of my file',
+      'when was my file last downloaded',
+      'how many times was my file downloaded',
+    ],
+    keywords: ['history', 'happened', 'times', 'timeline'],
+    summary:
+      'Signed in, name one of your files and I will summarise its access history: who downloaded it, ' +
+      'when it was shared or revoked, and any failed integrity check. Access history in My Files shows the full list.',
+    links: [
+      { label: 'Access Records', to: '/audit-logs' },
+      { label: 'My Files', to: '/files' },
+    ],
+    check: 'file-activity',
+  },
+  {
+    id: 'account-my-shares',
+    group: 'account',
+    title: 'Which of my files have I shared?',
+    phrasings: [
+      'which of my files have I shared',
+      'what have I shared',
+      'list everything I shared with other people',
+      'show the files I gave other people access to',
+    ],
+    keywords: ['which', 'shared', 'list', 'everything', 'others', 'gave', 'outgoing'],
+    summary:
+      'Signed in, I go through your newest files and list each one that someone else can open, with ' +
+      'their names. It is the same list each file’s Share window shows.',
+    links: [{ label: 'My Files', to: '/files' }],
+    check: 'my-shares',
+  },
+  {
+    id: 'account-shared-with-me',
+    group: 'account',
+    title: 'What has been shared with me?',
+    phrasings: [
+      'what has been shared with me',
+      'did anyone send me a file',
+      'did someone share a file with me',
+      'any new files for me',
+      'show the files other people shared with me',
+      'what did I receive',
+    ],
+    keywords: ['received', 'receive', 'incoming', 'new', 'me', 'anyone', 'inbox', 'for'],
+    summary:
+      'Signed in, I list the newest files other people have shared with you and who shared each one. ' +
+      'Files you have not seen since you last opened the Shared with me tab are marked new.',
+    links: [{ label: 'Shared with me', to: '/files?tab=shared' }],
+    check: 'shared-with-me',
+  },
+  {
+    id: 'account-modified-files',
+    group: 'account',
+    title: 'Are any of my files marked Modified?',
+    phrasings: [
+      'are any of my files marked modified',
+      'check all my files for tampering',
+      'scan my files for problems',
+      'have any of my files been damaged',
+    ],
+    keywords: ['any', 'all', 'scan', 'problem', 'problems', 'damaged', 'broken', 'tampering', 'marked'],
+    summary:
+      'Signed in, I look at the Status of every file you can open and list any marked Modified. ' +
+      'The server sets that when a download fails its authentication check or the daily scan finds ' +
+      'the stored bytes changed; an administrator can restore the file from the encrypted backup.',
+    links: [{ label: 'My Files', to: '/files' }],
+    check: 'modified-files',
+  },
+  {
+    id: 'account-recent-activity',
+    group: 'account',
+    title: 'What happened on my account recently?',
+    phrasings: [
+      'what happened on my account recently',
+      'show my recent activity',
+      'has anyone tried to log into my account',
+      'any failed sign ins on my account',
+      'any failed logins',
+    ],
+    keywords: ['recent', 'recently', 'lately', 'happened', 'tried', 'failed', 'attempts', 'suspicious', 'account'],
+    summary:
+      'Signed in, I show the latest events on your account and your files from Access Records, and ' +
+      'point out failed sign-ins. If one was not you, change your password.',
+    links: [
+      { label: 'Access Records', to: '/audit-logs' },
+      { label: 'Settings', to: '/settings' },
+    ],
+    check: 'recent-activity',
+  },
 ]
 
 /** The chips a fresh panel offers: one per common need, in the order a newcomer meets them. */
@@ -670,6 +826,13 @@ export const SUGGESTED_INTENT_IDS = [
   'passphrase-vs-password',
   'vs-google-drive',
   'vs-whatsapp',
+] as const
+
+/** Offered as well once someone is signed in: questions about their own account. */
+export const ACCOUNT_SUGGESTED_INTENT_IDS = [
+  'account-shared-with-me',
+  'account-who-has-access',
+  'account-recent-activity',
 ] as const
 
 /** Where every fallback points. */
