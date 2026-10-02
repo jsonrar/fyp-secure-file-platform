@@ -28,7 +28,7 @@ def _head() -> dict[str, object]:
     return {
         "last_log_id": 42,
         "current_hash": "a" * 64,
-        "schema_revision": "0008_avatars",
+        "schema_revision": "0010_shared_file_folders",
         "updated_at": "2026-09-25T04:00:00.000000Z",
     }
 

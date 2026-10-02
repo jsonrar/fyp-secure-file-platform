@@ -241,6 +241,27 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     expect(bytes.equals(fileBytes), "the recipient's download equals the uploaded file").toBe(true)
   })
 
+  await test.step('the recipient files the shared file in a folder of their own', async () => {
+    // Folders used to exist for your own uploads only: a shared file had no Folder column and
+    // could not be organised at all.
+    await recipient.getByRole('textbox', { name: 'New folder name' }).fill('From colleagues')
+    await recipient.getByRole('button', { name: 'Add', exact: true }).click()
+    await expect(recipient.getByText('Created folder From colleagues')).toBeVisible()
+    await recipient.getByRole('button', { name: 'All files' }).click()
+    await sharedRow.getByLabel(`Folder for ${fileName}`).selectOption({ label: 'From colleagues' })
+    await expect(recipient.getByText(`Moved ${fileName} to From colleagues`)).toBeVisible()
+
+    // Selecting the folder on the shared tab lists the file, and the count says so.
+    await recipient.getByRole('button', { name: 'From colleagues (1)' }).click()
+    await expect(sharedRow).toBeVisible()
+
+    // A shared file's four actions sit in an even 2x2 block, not a 3+1 wrap.
+    const columns = await sharedRow
+      .getByRole('button', { name: 'Download and decrypt' })
+      .evaluate((button) => getComputedStyle(button.parentElement!).gridTemplateColumns.split(' ').length)
+    expect(columns).toBe(2)
+  })
+
   await test.step('revoke the share', async () => {
     const row = owner.getByRole('row').filter({ hasText: fileName })
     await row.getByRole('button', { name: 'Share', exact: true }).click()

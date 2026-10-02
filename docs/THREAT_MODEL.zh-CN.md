@@ -387,7 +387,7 @@ X8 替换各把公钥能得到什么：
 | 可观察的内容 | 来源 | 精度 |
 |---|---|---|
 | 文件名、MIME 类型 | `files` 表的列 | 精确 |
-| 文件大小 | `file_size_bytes`；AES-GCM 与 ChaCha20-Poly1305 的密文长度与明文相同 | **精确**——没有填充 |
+| 文件大小 | `file_size_bytes`；所有支持的算法（AES-GCM、AES-GCM-SIV、(X)ChaCha20-Poly1305）的密文长度都与明文相同 | **精确**——没有填充 |
 | 上传、更新与删除时间 | `files` 表的时间戳 | 精确 |
 | 谁拥有什么、谁共享给了谁、带什么权限 | `files`、`file_access_grants` | 精确 |
 | 每个文件何时被谁请求下载 | `FILE_DOWNLOAD_AUTHORIZED` 审计行 | 精确，逐次请求 |

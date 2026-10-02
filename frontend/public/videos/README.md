@@ -6,7 +6,7 @@ Recorded from the real product, not mocked, by `frontend/scripts/record-walkthro
 | --- | --- |
 | `how-it-works.mp4` | The animated explainer (`/how-it-works?present`), seven scenes at eight seconds each |
 | `encrypt-upload.mp4` | Sign in, choose a file, pick the cipher, Start Encryption, the encrypted preview |
-| `share-open.mp4` | Share with another account, then that account decrypts it with its own passphrase |
+| `share-open.mp4` | Share with another account, that account decrypts it with its own passphrase, then files it in a folder of its own |
 
 Each has a `.jpg` poster. The accounts are made up (`sam`, `alex`, `@example.com`) on a disposable
 local stack; passwords and passphrases are masked by the page and were throwaway values.

@@ -317,6 +317,7 @@ class FileService:
         search: str | None = None,
         folder_id: UUID | None = None,
         unfiled: bool = False,
+        scope: str = "all",
     ) -> FileListOut:
         # `original_filename` is a cleartext column: the server already stores it, shows it
         # back in every listing, and the client binds it into the file AAD precisely
@@ -324,26 +325,29 @@ class FileService:
         # discloses nothing the caller could not already read, and nothing about content --
         # the ciphertext and the file key stay as opaque to this query as to every other.
         normalized = search.strip() if search else None
-        records, total = self.repository.list_active_access(
+        records, total, owned_total, shared_total = self.repository.list_active_access(
             actor.user_id,
             offset=(page - 1) * page_size,
             limit=page_size,
             search=normalized or None,
             folder_id=folder_id,
             unfiled=unfiled,
+            scope=scope,
         )
         return FileListOut(
             items=[self._summary(record, actor_user_id=actor.user_id) for record in records],
             page=page,
             page_size=page_size,
             total=total,
+            owned_total=owned_total,
+            shared_total=shared_total,
         )
 
     def list_folders(self, *, actor: ActorContext) -> FileFolderListOut:
         return FileFolderListOut(
             items=[
-                self._folder_out(folder, count)
-                for folder, count in self.repository.list_folders(actor.user_id)
+                self._folder_out(folder, owned, shared)
+                for folder, owned, shared in self.repository.list_folders(actor.user_id)
             ]
         )
 
@@ -356,7 +360,7 @@ class FileService:
         except IntegrityError as exc:
             self.db.rollback()
             raise FileFolderNameConflictError() from exc
-        return self._folder_out(folder, 0)
+        return self._folder_out(folder, 0, 0)
 
     def rename_folder(self, *, actor: ActorContext, folder_id: UUID, name: str) -> FileFolderOut:
         folder = self.repository.get_owned_folder(folder_id, actor.user_id, lock=True)
@@ -369,15 +373,15 @@ class FileService:
         except IntegrityError as exc:
             self.db.rollback()
             raise FileFolderNameConflictError() from exc
-        count = next(
+        owned, shared = next(
             (
-                value
-                for item, value in self.repository.list_folders(actor.user_id)
+                (own, other)
+                for item, own, other in self.repository.list_folders(actor.user_id)
                 if item.id == folder.id
             ),
-            0,
+            (0, 0),
         )
-        return self._folder_out(folder, count)
+        return self._folder_out(folder, owned, shared)
 
     def delete_folder(self, *, actor: ActorContext, folder_id: UUID) -> FileFolderDeleteOut:
         folder = self.repository.get_owned_folder(folder_id, actor.user_id, lock=True)
@@ -394,18 +398,22 @@ class FileService:
     def move_file(
         self, *, actor: ActorContext, file_id: UUID, folder_id: UUID | None
     ) -> FileMoveOut:
-        file_record = self.repository.lock_owned_file(file_id, actor.user_id)
-        if file_record is None or file_record.status == "DELETED":
+        # The owner files the file itself; a recipient files their own grant, so two people
+        # can keep the same shared file in different folders of their own.
+        target = self.repository.lock_owned_file(file_id, actor.user_id)
+        if target is None or target.status == "DELETED":
+            target = self.repository.lock_recipient_grant(file_id, actor.user_id)
+        if target is None:
             raise FileResourceNotFoundError()
         folder = None
         if folder_id is not None:
             folder = self.repository.get_owned_folder(folder_id, actor.user_id, lock=True)
             if folder is None:
                 raise FileFolderNotFoundError()
-        file_record.folder_id = folder.id if folder else None
-        file_record.updated_at = self._now()
-        if hasattr(file_record, "revision"):
-            file_record.revision += 1
+        target.folder_id = folder.id if folder else None
+        target.updated_at = self._now()
+        if hasattr(target, "revision"):
+            target.revision += 1
         try:
             self.db.commit()
         except Exception:
@@ -581,21 +589,26 @@ class FileService:
             status=record.file.status,
             owner=owned,
             owner_username=getattr(record.file.owner, "username", None),
-            folder_id=(
-                UUID(record.file.folder.folder_uuid)
-                if owned and getattr(record.file, "folder", None) is not None
-                else None
-            ),
+            folder_id=self._placement_uuid(record, owned=owned),
             created_at=to_api_utc(record.file.created_at),
             updated_at=to_api_utc(record.file.updated_at),
         )
 
     @staticmethod
-    def _folder_out(folder: FileFolder, file_count: int) -> FileFolderOut:
+    def _placement_uuid(record: FileAccessRecord, *, owned: bool) -> UUID | None:
+        """The caller's folder for this file: the file's own if they own it, else their grant's."""
+        holder = record.file if owned else record.grant
+        folder = getattr(holder, "folder", None)
+        return UUID(folder.folder_uuid) if folder is not None else None
+
+    @staticmethod
+    def _folder_out(folder: FileFolder, owned: int, shared: int) -> FileFolderOut:
         return FileFolderOut(
             folder_id=UUID(folder.folder_uuid),
             name=folder.name,
-            file_count=file_count,
+            file_count=owned + shared,
+            owned_file_count=owned,
+            shared_file_count=shared,
             created_at=to_api_utc(folder.created_at),
             updated_at=to_api_utc(folder.updated_at),
         )

@@ -1,7 +1,7 @@
 {
-  "$comment": "Known-answer vectors for the browser cryptography library. Generated with python-cryptography (an independent implementation) so the TypeScript side is checked against something other than itself. Regenerating these is a deliberate specification change, not a way to make a failing test pass. Suite 2 added AES-128-GCM and AES-192-GCM file envelopes; suite 3 adds ChaCha20-Poly1305, whose primitive vectors under chacha20_poly1305_detached begin with the RFC 8439 section 2.8.2 vector. Suite 4 adds Argon2id KEK vectors from argon2-cffi, the native reference implementation, so the browser's hash-wasm derivation is checked against the same code an offline attacker would run. Earlier vectors are unchanged.",
-  "suite_version": 4,
-  "generated_with": "python-cryptography 50.0.0",
+  "$comment": "Known-answer vectors for the browser cryptography library. Generated with python-cryptography (an independent implementation) so the TypeScript side is checked against something other than itself. Regenerating these is a deliberate specification change, not a way to make a failing test pass. Suite 2 added AES-128-GCM and AES-192-GCM file envelopes; suite 3 adds ChaCha20-Poly1305, whose primitive vectors under chacha20_poly1305_detached begin with the RFC 8439 section 2.8.2 vector. Suite 4 adds Argon2id KEK vectors from argon2-cffi, the native reference implementation, so the browser's hash-wasm derivation is checked against the same code an offline attacker would run. Earlier vectors are unchanged. Suite 5 adds AES-256-GCM-SIV, from python-cryptography (OpenSSL), and XChaCha20-Poly1305, from libsodium via PyNaCl because python-cryptography does not provide it; each primitive list begins with its specification's own vector (RFC 8452 appendix C.2; draft-irtf-cfrg-xchacha appendix A.3.1), and file_envelope gains the three ChaCha20 cases re-sealed under each.",
+  "suite_version": 5,
+  "generated_with": "python-cryptography 50.0.0; libsodium (PyNaCl) for XChaCha20-Poly1305",
   "aes_256_gcm_detached": [
     {
       "case": "empty-plaintext",
@@ -284,6 +284,102 @@
       "aad_hex": "4659502d46494c452d434f4e54454e540001fedcba9876544321a0123456789abcde000000010000001143686143686132302d506f6c7931333035000000000000000c00000010e5ada3e5baa6e68aa5e5918a2e7478740000000a746578742f706c61696e",
       "ciphertext_hex": "1df9df64c8ec088bfd2a678a",
       "auth_tag_hex": "6da551037d9f90e306319f17fbbe349e"
+    },
+    {
+      "case": "report-gcm-siv",
+      "file_id": "5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM-SIV",
+      "plaintext_size": 32,
+      "original_filename": "report.pdf",
+      "mime_type": "application/pdf",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "404142434445464748494a4b",
+      "plaintext_hex": "517561727465726c79206e756d626572732c20636f6e666964656e7469616c2e",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400015e4d3c2b1a094f8eb7d6c5b4a3928170000000010000000f4145532d3235362d47434d2d53495600000000000000200000000a7265706f72742e7064660000000f6170706c69636174696f6e2f706466",
+      "ciphertext_hex": "8c737d7588a258f973858bec4b87ce0d2bea73abbf449af5d4013ab583e94453",
+      "auth_tag_hex": "0be5f05581a9aa0f6b0c67d5b2707689"
+    },
+    {
+      "case": "empty-gcm-siv",
+      "file_id": "0a1b2c3d-4e5f-4a6b-8c7d-8e9f00112233",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM-SIV",
+      "plaintext_size": 0,
+      "original_filename": "empty.bin",
+      "mime_type": "application/octet-stream",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "404142434445464748494a4b",
+      "plaintext_hex": "",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400010a1b2c3d4e5f4a6b8c7d8e9f00112233000000010000000f4145532d3235362d47434d2d534956000000000000000000000009656d7074792e62696e000000186170706c69636174696f6e2f6f637465742d73747265616d",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "7269d5471ced06e926f77acb018f4384"
+    },
+    {
+      "case": "cjk-filename-gcm-siv",
+      "file_id": "fedcba98-7654-4321-a012-3456789abcde",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "AES-256-GCM-SIV",
+      "plaintext_size": 12,
+      "original_filename": "季度报告.txt",
+      "mime_type": "text/plain",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "404142434445464748494a4b",
+      "plaintext_hex": "e5ada3e5baa6e68aa5e5918a",
+      "aad_hex": "4659502d46494c452d434f4e54454e540001fedcba9876544321a0123456789abcde000000010000000f4145532d3235362d47434d2d534956000000000000000c00000010e5ada3e5baa6e68aa5e5918a2e7478740000000a746578742f706c61696e",
+      "ciphertext_hex": "15caa385091a22a5cac3cbfb",
+      "auth_tag_hex": "df9c6c1c7118386e5a355ce2ad8bcfd3"
+    },
+    {
+      "case": "report-xchacha20",
+      "file_id": "5e4d3c2b-1a09-4f8e-b7d6-c5b4a3928170",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "XChaCha20-Poly1305",
+      "plaintext_size": 32,
+      "original_filename": "report.pdf",
+      "mime_type": "application/pdf",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "404142434445464748494a4b4c4d4e4f5051525354555657",
+      "plaintext_hex": "517561727465726c79206e756d626572732c20636f6e666964656e7469616c2e",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400015e4d3c2b1a094f8eb7d6c5b4a392817000000001000000125843686143686132302d506f6c793133303500000000000000200000000a7265706f72742e7064660000000f6170706c69636174696f6e2f706466",
+      "ciphertext_hex": "854c6402a4850b7af6d4e9cbc2fe00e0e1968da77c3735f30e54933160654fbe",
+      "auth_tag_hex": "7d29ff67ee3a6825a67318fa4009d01e"
+    },
+    {
+      "case": "empty-xchacha20",
+      "file_id": "0a1b2c3d-4e5f-4a6b-8c7d-8e9f00112233",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "XChaCha20-Poly1305",
+      "plaintext_size": 0,
+      "original_filename": "empty.bin",
+      "mime_type": "application/octet-stream",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "404142434445464748494a4b4c4d4e4f5051525354555657",
+      "plaintext_hex": "",
+      "aad_hex": "4659502d46494c452d434f4e54454e5400010a1b2c3d4e5f4a6b8c7d8e9f0011223300000001000000125843686143686132302d506f6c7931333035000000000000000000000009656d7074792e62696e000000186170706c69636174696f6e2f6f637465742d73747265616d",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "9140369bd1aabf59f25deb29e383e17a"
+    },
+    {
+      "case": "cjk-filename-xchacha20",
+      "file_id": "fedcba98-7654-4321-a012-3456789abcde",
+      "envelope_version": 1,
+      "aad_version": 1,
+      "encryption_algorithm": "XChaCha20-Poly1305",
+      "plaintext_size": 12,
+      "original_filename": "季度报告.txt",
+      "mime_type": "text/plain",
+      "dek_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "404142434445464748494a4b4c4d4e4f5051525354555657",
+      "plaintext_hex": "e5ada3e5baa6e68aa5e5918a",
+      "aad_hex": "4659502d46494c452d434f4e54454e540001fedcba9876544321a0123456789abcde00000001000000125843686143686132302d506f6c7931333035000000000000000c00000010e5ada3e5baa6e68aa5e5918a2e7478740000000a746578742f706c61696e",
+      "ciphertext_hex": "3194a6956a469f9c2a111634",
+      "auth_tag_hex": "08e67564f67bb3432a0a4e0c0684bbaf"
     }
   ],
   "chacha20_poly1305_detached": [
@@ -351,6 +447,82 @@
       "iterations": 6,
       "parallelism": 1,
       "kek_hex": "8b7d37b7dfff732f8a06017a65f1456fddd32eba5675f7724f6805d2c1626ff3"
+    }
+  ],
+  "aes_256_gcm_siv_detached": [
+    {
+      "case": "rfc8452-c2-empty",
+      "key_hex": "0100000000000000000000000000000000000000000000000000000000000000",
+      "nonce_hex": "030000000000000000000000",
+      "aad_hex": "",
+      "plaintext_hex": "",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "07f5f4169bbf55a8400cd47ea6fd400f"
+    },
+    {
+      "case": "rfc8452-c2-8-bytes",
+      "key_hex": "0100000000000000000000000000000000000000000000000000000000000000",
+      "nonce_hex": "030000000000000000000000",
+      "aad_hex": "",
+      "plaintext_hex": "0100000000000000",
+      "ciphertext_hex": "c2ef328e5c71c83b",
+      "auth_tag_hex": "843122130f7364b761e0b97427e3df28"
+    },
+    {
+      "case": "empty-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "101112131415161718191a1b",
+      "aad_hex": "",
+      "plaintext_hex": "717561727465726c79206e756d626572732c20636f6e666964656e7469616c2e",
+      "ciphertext_hex": "e4e20a5b3eba727a3012eb737fcda5cf48f49e4c2f9c8289bdf5a5ff2fa55ebc",
+      "auth_tag_hex": "513803623c5dd4bc9e2d74b4ea8a96f1"
+    },
+    {
+      "case": "long-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "101112131415161718191a1b",
+      "aad_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      "plaintext_hex": "61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "ciphertext_hex": "32f038de47b504bdcc932f1d27cb725c9c2897a0f5464a33737c57088434b72b085cd39565efc4c885f27d9eeb40fb62bcc60f7fca37d92ece7c1272eeb10a131cf246f8ae479b29df52a57c906f64fa83b612c2fd43182027a1216338fe2376eff263ae",
+      "auth_tag_hex": "ed8121eb55ea40a66dc56c4a159dd48e"
+    }
+  ],
+  "xchacha20_poly1305_detached": [
+    {
+      "case": "draft-xchacha-a.3.1",
+      "key_hex": "808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9f",
+      "nonce_hex": "404142434445464748494a4b4c4d4e4f5051525354555657",
+      "aad_hex": "50515253c0c1c2c3c4c5c6c7",
+      "plaintext_hex": "4c616469657320616e642047656e746c656d656e206f662074686520636c617373206f66202739393a204966204920636f756c64206f6666657220796f75206f6e6c79206f6e652074697020666f7220746865206675747572652c2073756e73637265656e20776f756c642062652069742e",
+      "ciphertext_hex": "bd6d179d3e83d43b9576579493c0e939572a1700252bfaccbed2902c21396cbb731c7f1b0b4aa6440bf3a82f4eda7e39ae64c6708c54c216cb96b72e1213b4522f8c9ba40db5d945b11b69b982c1bb9e3f3fac2bc369488f76b2383565d3fff921f9664c97637da9768812f615c68b13b52e",
+      "auth_tag_hex": "c0875924c1c7987947deafd8780acf49"
+    },
+    {
+      "case": "empty-plaintext",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "101112131415161718191a1b1c1d1e1f2021222324252627",
+      "aad_hex": "",
+      "plaintext_hex": "",
+      "ciphertext_hex": "",
+      "auth_tag_hex": "045d737a4021c0b44dcc0480485b1d38"
+    },
+    {
+      "case": "empty-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "101112131415161718191a1b1c1d1e1f2021222324252627",
+      "aad_hex": "",
+      "plaintext_hex": "717561727465726c79206e756d626572732c20636f6e666964656e7469616c2e",
+      "ciphertext_hex": "5589628420ed53bfefa24cb890f2467e7ca7d78c960346ba822197027344ccbb",
+      "auth_tag_hex": "dbb9bba0bbade012a629ccc4ee15ccff"
+    },
+    {
+      "case": "long-aad",
+      "key_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f",
+      "nonce_hex": "101112131415161718191a1b1c1d1e1f2021222324252627",
+      "aad_hex": "000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff000102030405060708090a0b0c0d0e0f101112131415161718191a1b1c1d1e1f202122232425262728292a2b2c2d2e2f303132333435363738393a3b3c3d3e3f404142434445464748494a4b4c4d4e4f505152535455565758595a5b5c5d5e5f606162636465666768696a6b6c6d6e6f707172737475767778797a7b7c7d7e7f808182838485868788898a8b8c8d8e8f909192939495969798999a9b9c9d9e9fa0a1a2a3a4a5a6a7a8a9aaabacadaeafb0b1b2b3b4b5b6b7b8b9babbbcbdbebfc0c1c2c3c4c5c6c7c8c9cacbcccdcecfd0d1d2d3d4d5d6d7d8d9dadbdcdddedfe0e1e2e3e4e5e6e7e8e9eaebecedeeeff0f1f2f3f4f5f6f7f8f9fafbfcfdfeff",
+      "plaintext_hex": "61616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161616161",
+      "ciphertext_hex": "459d629735e940b2f7e343ac9cf1426d6eea968e980c41b2872598177b44c1f4cbb69d56698346b76b2acaac341911d29453126a1cde28fd4787673bc527219499cdaeab28cea147709be02a35241dfd1d98a7b171ef519b4c5d6abad9fa80249e172840",
+      "auth_tag_hex": "6fe76a5b1fa1a2a09bbf6eefa9043b53"
     }
   ]
 }

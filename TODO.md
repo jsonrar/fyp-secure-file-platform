@@ -44,7 +44,7 @@ live deployment and repeatable browser coverage remain separate acceptance work.
   session invalidation, account deletion, throttling, Argon2id password hashing, and RBAC.
 - [x] Browser-held account-key enrolment, passphrase/private-key-file unlock, idle relock, and
   historical key-bundle retrieval without sending plaintext private keys to the server.
-- [x] Browser-side AES-128/192/256-GCM and ChaCha20-Poly1305 file encryption, RSA-OAEP-SHA256
+- [x] Browser-side AES-128/192/256-GCM, AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305 file encryption, RSA-OAEP-SHA256
   DEK wrapping, authenticated download/decryption, integrity failures, and encrypted storage.
 - [x] Filename search, pagination, owner/shared separation, sharing by recipient-key rewrap,
   recipient list, revocation, notifications, per-file history, and ownership-correct audit

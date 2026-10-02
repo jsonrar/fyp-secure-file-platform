@@ -101,7 +101,7 @@ Each round applies:
 
 AES-128 remains NIST-approved and is widely used (for example in many TLS suites).
 
-**In SecureView:** AES-128-GCM is one of the upload choices. AES-192-GCM (12 rounds) is offered where the browser supports it, and AES-256-GCM is the default.
+**In SecureView:** AES-128-GCM is one of the upload choices. AES-192-GCM (12 rounds) is offered where the browser supports it, AES-256-GCM is the default, and AES-256-GCM-SIV is a variant that tolerates a repeated nonce. See “Which file encryption should I choose?”.
 
 **Note on DES / 3DES:** Those older block ciphers are not taught here. NIST removed 3DES from its recommendations in 2023; use AES instead.`,
   },
@@ -122,6 +122,33 @@ Round operations are the same family as AES-128 (SubBytes, ShiftRows, MixColumns
 **In SecureView:** Files are encrypted in the browser with **AES-256-GCM** by default, so the server only stores authenticated ciphertext. In GCM mode AES runs forwards over a counter to make a keystream; decryption repeats it, and the authentication tag must verify first.
 
 **Why not DES / 3DES?** NIST deprecated and removed 3DES from approved algorithms in 2023. Modern systems should use AES (or ChaCha20-Poly1305), not triple-DES.`,
+  },
+  {
+    id: 'choosing-a-cipher',
+    title: 'Which File Encryption Should I Choose?',
+    category: 'symmetric',
+    tags: ['AES-GCM', 'AES-GCM-SIV', 'ChaCha20-Poly1305', 'XChaCha20-Poly1305', 'AEAD', 'nonce', 'SecureView', 'upload'],
+    summary: 'All six upload choices are authenticated encryption and detect tampering. Keep the default unless you have a reason; here is what each one changes.',
+    content: `Every option on SecureView's upload page is an **AEAD** (authenticated encryption with associated data): it keeps the file secret *and* detects any change to it. None of them pads the file, so the stored ciphertext is exactly as long as the original; the nonce and the 16-byte authentication tag are kept next to it.
+
+| Option | Key | Nonce | Runs in | Pick it when |
+|---|---|---|---|---|
+| **AES-256-GCM** (default) | 256-bit | 96-bit | Browser built-in, usually hardware-accelerated | You have no reason to change it |
+| AES-192-GCM | 192-bit | 96-bit | Browser built-in, where supported (not Chrome) | Comparing AES key lengths |
+| AES-128-GCM | 128-bit | 96-bit | Browser built-in | Speed matters more than the extra margin |
+| AES-256-GCM-SIV | 256-bit | 96-bit | JavaScript library | You want a mode that survives a repeated nonce |
+| ChaCha20-Poly1305 | 256-bit | 96-bit | JavaScript library | You want a design that does not depend on AES |
+| XChaCha20-Poly1305 | 256-bit | 192-bit | JavaScript library | You want a nonce long enough to choose at random forever |
+
+**What the newer two are for.** The weak point of AES-GCM and ChaCha20-Poly1305 is a repeated nonce under the same key: it can expose the relationship between two messages and, for GCM, the authentication key. AES-GCM-SIV limits the damage to revealing that two messages were identical; XChaCha20-Poly1305 makes a random repeat practically impossible.
+
+**Honest note for SecureView:** your browser makes a **new random key for every file**, so a nonce can never repeat under the same key here, whichever option you pick. In SecureView the two newer modes are an extra safety margin and a way to compare designs, not a fix for a problem the platform has.
+
+**Speed.** The AES-GCM options use the browser's own implementation and are the fastest on most computers. The other three run in a JavaScript library; ChaCha20 and XChaCha20 are still quick, while AES-GCM-SIV is noticeably slower on very large files.
+
+**You do not need to tell anyone which you chose.** The choice is stored with the file and bound into its authentication data, and the recipient's browser uses it automatically.
+
+**If you are unsure, keep the default.**`,
   },
   {
     id: 'rsa-explained',
@@ -159,7 +186,7 @@ Because factoring n back into p and q is computationally infeasible for large n 
 |---|---|---|
 | **Reversible?** | Yes, with the key | No — one-way |
 | **Purpose** | Confidentiality | Integrity verification |
-| **Output size** | Same as input (+ padding) | Fixed (e.g., 256 bits for SHA-256) |
+| **Output size** | About the input's size (block modes may pad; GCM and ChaCha20 do not) | Fixed (e.g., 256 bits for SHA-256) |
 | **Example** | AES, RSA | SHA-256, SHA-3 |
 
 **When to use hashing:**
@@ -173,7 +200,7 @@ Because factoring n back into p and q is computationally infeasible for large n 
 • Secure data in transit
 • Protect stored credentials (though passwords should be hashed, not encrypted)
 
-**In SecureView:** a SHA-256 of every stored (encrypted) file is recorded at upload and checked on every download and by a daily scan. After decryption, the authentication tag proves the file is exactly what was uploaded.`,
+**In SecureView:** a SHA-256 of every stored (encrypted) file is recorded at upload — in the file record and in the tamper-evident audit log — and checked on every download and by a daily scan. Decryption also checks the authentication tag, so the file you get back is exactly what was uploaded or nothing at all.`,
   },
   {
     id: 'key-management',
@@ -184,9 +211,9 @@ Because factoring n back into p and q is computationally infeasible for large n 
     content: `Even the strongest algorithm fails if keys are poorly managed.
 
 **Creating strong keys:**
-• Use at least 256 bits of entropy for AES keys
+• Generate keys with a cryptographically secure random generator, at the algorithm's full length (128 to 256 bits). SecureView's browser makes a fresh random key for every file
 • Prefer randomly generated keys over memorable passwords for file encryption
-• If using a password, make it long (16+ characters) with mixed character types
+• If a key must come from a password, use a long passphrase (several unrelated words) and a slow, salted function such as Argon2id. Length matters more than symbol rules
 
 **Storing keys safely:**
 • Never store private keys in plain text on shared drives
@@ -244,7 +271,7 @@ This means encryption and decryption are the same operation — XOR plaintext wi
 
 **One-time pad:** If the key is truly random, as long as the message, and used only once, XOR encryption is theoretically unbreakable (proven by Shannon, 1949). In practice, generating and distributing such keys is impractical for most use cases.
 
-**In modern ciphers:** AES internally uses XOR in its AddRoundKey step. Stream ciphers like ChaCha20 XOR a keystream with plaintext.`,
+**In modern ciphers:** AES internally uses XOR in its AddRoundKey step, and in GCM mode AES produces a keystream that is XORed with the plaintext. Stream ciphers like ChaCha20 do the same with their own keystream. Because of that, the ciphertext is exactly as long as the file.`,
   },
   {
     id: 'secure-file-sharing',

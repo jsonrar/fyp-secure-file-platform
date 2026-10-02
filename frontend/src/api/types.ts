@@ -49,13 +49,20 @@ export interface FileListOut {
   items: FileSummaryOut[]
   page: number
   page_size: number
+  /** Files matching every filter, the tab included: what this page is a page of. */
   total: number
+  /** Your own files and files shared with you that match the search, for the tab labels. */
+  owned_total: number
+  shared_total: number
 }
 
 export interface FileFolderOut {
   folder_id: string
   name: string
   file_count: number
+  /** The same total split by tab: your own files, and shared files you filed here. */
+  owned_file_count: number
+  shared_file_count: number
   created_at: string
   updated_at: string
 }

@@ -85,6 +85,36 @@ const hasVideo = computed(() => Boolean(props.demo.videoSrc))
           <p class="mt-5 text-xs text-muted-foreground">ChaCha20 generates a keystream, then XORs it with the message</p>
         </div>
 
+        <div v-else-if="demo.animationId === 'siv-flow'" class="aes-flow mx-auto w-full">
+          <div class="aes-flow__rail">
+            <span class="aes-chip aes-chip--plain">Plaintext</span>
+            <span class="aes-arrow" aria-hidden="true" />
+            <span class="aes-chip aes-chip--rounds">POLYVAL → tag</span>
+            <span class="aes-arrow" aria-hidden="true" />
+            <span class="aes-chip aes-chip--key">tag = IV</span>
+            <span class="aes-arrow" aria-hidden="true" />
+            <span class="aes-chip aes-chip--cipher">AES-CTR → ciphertext</span>
+          </div>
+          <p class="mt-5 text-center text-xs text-muted-foreground">
+            The IV comes from the message itself, so a repeated nonce reveals only “same message twice”
+          </p>
+        </div>
+
+        <div v-else-if="demo.animationId === 'xchacha-nonce'" class="chacha-flow mx-auto w-full text-center">
+          <div class="aes-flow__rail">
+            <span class="aes-chip aes-chip--plain">24-byte nonce</span>
+            <span class="aes-arrow" aria-hidden="true" />
+            <span class="aes-chip aes-chip--key">HChaCha20 → subkey</span>
+            <span class="aes-arrow" aria-hidden="true" />
+            <span class="aes-chip aes-chip--key chacha-stream">ChaCha20-Poly1305</span>
+            <span class="aes-arrow" aria-hidden="true" />
+            <span class="aes-chip aes-chip--cipher">Ciphertext + tag</span>
+          </div>
+          <p class="mt-5 text-xs text-muted-foreground">
+            16 nonce bytes make a fresh subkey; the last 8 feed ordinary ChaCha20-Poly1305
+          </p>
+        </div>
+
         <div v-else class="argon-flow mx-auto w-full max-w-md text-center">
           <div class="mb-3 flex justify-center gap-2">
             <span class="aes-chip aes-chip--plain">Password</span>

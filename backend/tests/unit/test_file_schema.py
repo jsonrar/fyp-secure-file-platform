@@ -83,3 +83,30 @@ def test_folder_name_is_normalized_and_rejects_path_syntax() -> None:
     for unsafe in ("..", "work/reports", "work\\reports", "line\nbreak"):
         with pytest.raises(ValidationError):
             FolderNameIn(name=unsafe)
+
+
+@pytest.mark.parametrize(
+    ("algorithm", "nonce_length"),
+    [
+        ("AES-128-GCM", 12),
+        ("AES-192-GCM", 12),
+        ("AES-256-GCM", 12),
+        ("AES-256-GCM-SIV", 12),
+        ("ChaCha20-Poly1305", 12),
+        ("XChaCha20-Poly1305", 24),
+    ],
+)
+def test_each_suite_takes_its_own_nonce_length(algorithm: str, nonce_length: int) -> None:
+    accepted = _metadata(encryption_algorithm=algorithm, nonce=_b64(b"n" * nonce_length))
+    assert (
+        accepted.encryption_algorithm == algorithm and len(accepted.nonce_bytes()) == nonce_length
+    )
+
+    wrong = 24 if nonce_length == 12 else 12
+    with pytest.raises(ValidationError, match=f"nonce must decode to {nonce_length} bytes"):
+        _metadata(encryption_algorithm=algorithm, nonce=_b64(b"n" * wrong))
+
+
+def test_a_nonce_of_no_suite_length_is_refused_before_the_suite_check() -> None:
+    with pytest.raises(ValidationError, match="nonce must decode to 12, 24 bytes"):
+        _metadata(encryption_algorithm="XChaCha20-Poly1305", nonce=_b64(b"n" * 16))

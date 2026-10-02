@@ -423,7 +423,7 @@ What the server can therefore observe, recorded rather than implied:
 | Observable | Source | Precision |
 |---|---|---|
 | Filename, MIME type | `files` columns | Exact |
-| File size | `file_size_bytes`; AES-GCM and ChaCha20-Poly1305 ciphertext is the same length as the plaintext | **Exact** — no padding |
+| File size | `file_size_bytes`; every supported suite (AES-GCM, AES-GCM-SIV, (X)ChaCha20-Poly1305) produces ciphertext the same length as the plaintext | **Exact** — no padding |
 | Upload, update and deletion times | `files` timestamps | Exact |
 | Who owns what and who shares with whom, with which capabilities | `files`, `file_access_grants` | Exact |
 | When each file was requested for download, and by whom | `FILE_DOWNLOAD_AUTHORIZED` audit rows | Exact, per request |

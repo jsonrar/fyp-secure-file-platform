@@ -189,7 +189,7 @@ await recordFlow('encrypt-upload', async (page) => {
   await unpoint(picker)
   await pause(page, 1200)
 
-  await caption(page, 4, 'Pick the cipher — AES-256-GCM is the default', 'AES-128/192-GCM and ChaCha20-Poly1305 are here too. All of them detect tampering.')
+  await caption(page, 4, 'Pick the cipher — AES-256-GCM is the default', 'AES-GCM-SIV, ChaCha20, XChaCha20 and AES-128/192 are here too. All of them detect tampering.')
   await point(page.getByRole('combobox').first(), 2200)
   await unpoint(page.getByRole('combobox').first())
 
@@ -255,8 +255,25 @@ await recordFlow('share-open', async (page) => {
   await click(shared.getByRole('button', { name: 'Download and decrypt' }))
   await unlockIfAsked(page, alex, 10)
   await page.getByText(`Decrypted and saved ${FILE_NAME}`).first().waitFor({ timeout: 60_000 })
-  await caption(page, '✓', 'Decrypted and checked', 'The authentication tag and SHA-256 matched, so this is exactly the file Sam uploaded.')
-  await pause(page, 3500)
+  await caption(page, 11, 'Decrypted and checked', 'The authentication tag and SHA-256 matched, so this is exactly the file Sam uploaded.')
+  await pause(page, 2800)
+
+  await caption(page, 12, 'Keep shared files in folders of your own', 'Folders are private: filing it here does not change where Sam keeps it.')
+  const folderName = page.getByRole('textbox', { name: 'New folder name' })
+  await type(folderName, 'From Sam')
+  await click(page.getByRole('button', { name: 'Add', exact: true }))
+  await page.getByText('Created folder From Sam').first().waitFor()
+  await click(page.getByRole('button', { name: 'All files' }))
+  const folderSelect = shared.getByLabel(`Folder for ${FILE_NAME}`)
+  await point(folderSelect, 900)
+  await folderSelect.selectOption({ label: 'From Sam' })
+  await unpoint(folderSelect)
+  await page.getByText(`Moved ${FILE_NAME} to From Sam`).first().waitFor()
+  await click(page.getByRole('button', { name: 'From Sam (1)' }))
+  await point(shared, 1800)
+  await unpoint(shared)
+  await caption(page, '✓', 'Shared, opened and filed', 'Sam can revoke access at any time; Alex’s folder simply becomes empty.')
+  await pause(page, 3000)
 })
 
 // --- 3. The animated explainer, in present mode --------------------------------------------------

@@ -56,7 +56,7 @@ describe('describeSizes', () => {
     const relation = describeSizes({ plaintext_size: 7_903_232, ciphertext_size: 7_903_232 })
     expect(relation.sameLength).toBe(true)
     expect(relation.explanation).toMatch(/Same length is expected/)
-    expect(relation.explanation).toMatch(/12-byte nonce.*16-byte authentication tag/)
+    expect(relation.explanation).toMatch(/nonce \(12 bytes, or 24 for XChaCha20-Poly1305\).*16-byte authentication tag/)
   })
 
   it('treats any difference as a problem rather than overhead', () => {

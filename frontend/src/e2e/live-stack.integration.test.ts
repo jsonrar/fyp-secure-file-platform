@@ -301,10 +301,17 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
   })
 
   describe('every supported file algorithm', () => {
-    it('offers exactly the four AEAD suites the schema accepts', () => {
+    it('offers exactly the six AEAD suites the schema accepts', () => {
       // Migration 0006 widens the CHECK constraint to exactly these names.
       expect([...ENCRYPTION_ALGORITHMS].sort()).toEqual(
-        ['AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM', 'ChaCha20-Poly1305'].sort(),
+        [
+          'AES-128-GCM',
+          'AES-192-GCM',
+          'AES-256-GCM',
+          'AES-256-GCM-SIV',
+          'ChaCha20-Poly1305',
+          'XChaCha20-Poly1305',
+        ].sort(),
       )
     })
 

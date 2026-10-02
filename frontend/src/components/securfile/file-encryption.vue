@@ -56,8 +56,12 @@ onMounted(async () => {
 
 const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
   'AES-256-GCM': 'The default, and what the recovery path is tested against.',
+  'AES-256-GCM-SIV':
+    'AES with a synthetic IV (RFC 8452): a repeated nonce would reveal only that the same file was encrypted twice, never the key. Runs in a JavaScript library, so it is noticeably slower than the default on very large files.',
+  'XChaCha20-Poly1305':
+    'ChaCha20-Poly1305 with a 24-byte nonce, long enough to choose at random without ever repeating. What libsodium recommends. Fast in the browser.',
   'ChaCha20-Poly1305':
-    'A different construction, not a different key length: a stream cipher authenticated by Poly1305. Often faster on devices without AES hardware acceleration.',
+    'A different construction, not a different key length: a stream cipher authenticated by Poly1305. The usual choice on devices without AES hardware; here it runs in a JavaScript library.',
   'AES-192-GCM': 'AES at an intermediate key length. Not available in every browser.',
   'AES-128-GCM': 'AES at the shortest of its three key lengths. Still considered secure.',
 }
@@ -164,7 +168,9 @@ const goToFiles = () => {
         <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Files are encrypted in your browser with the algorithm you choose below (AES-256-GCM by default). Only ciphertext is uploaded; the server never receives your readable file or its key.</p>
       </div>
       <div class="max-w-4xl mx-auto rounded-xl bg-card border border-border p-6">
-        <div class="grid lg:grid-cols-2 gap-8">
+        <!-- minmax(0, 1fr): a grid track otherwise never gets narrower than its widest unbreakable
+             content, and the cipher dropdown's longest option pushed a phone sideways. -->
+        <div class="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8">
           <div>
             <label class="text-foreground mb-4 block text-lg font-medium">Upload Files</label>
             <div
@@ -223,12 +229,14 @@ const goToFiles = () => {
             <div class="space-y-4">
               <div class="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
                 <div class="flex justify-between text-sm items-center gap-3">
-                  <label for="content-algorithm" class="text-muted-foreground">File contents</label>
+                  <label for="content-algorithm" class="shrink-0 text-muted-foreground">File contents</label>
+                  <!-- A select is as wide as its longest option, and "XChaCha20-Poly1305" pushed a
+                       360 px phone 10 px sideways. min-w-0 lets it shrink with the row instead. -->
                   <select
                     id="content-algorithm"
                     v-model="algorithm"
                     :disabled="isEncrypting"
-                    class="h-10 font-semibold text-primary bg-transparent border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                    class="h-10 min-w-0 max-w-full font-semibold text-primary bg-transparent border border-border rounded-md px-2 py-1 disabled:opacity-50"
                   >
                     <option v-for="choice in algorithmChoices" :key="choice" :value="choice">
                       {{ choice }}

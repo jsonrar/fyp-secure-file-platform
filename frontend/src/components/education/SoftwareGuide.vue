@@ -45,7 +45,7 @@ const guides = [
     id: 'share-access',
     tag: 'Walkthrough',
     title: 'Share securely with another account',
-    summary: 'Share with a named account by re-sealing the key, then see the recipient decrypt it with their own passphrase.',
+    summary: 'Share with a named account by re-sealing the key, then see the recipient decrypt it with their own passphrase and file it in a folder of their own.',
     videoSrc: '/videos/share-open.mp4',
     poster: '/videos/share-open.jpg',
     steps: [
@@ -55,6 +55,7 @@ const guides = [
       'The recipient signs in and finds it under Shared with me.',
       'Download and decrypt, with the recipient’s own passphrase.',
       'The tag and SHA-256 match, so it is exactly the uploaded file.',
+      'The recipient files it in a private folder; the owner’s folders are unaffected.',
     ],
   },
 ]
