@@ -19,7 +19,7 @@
 -- verified pre-deployment backup, then restart from 01-provision.sql.
 --
 -- The DDL below is the flattened final state represented by revisions
--- 0001_initial through 0008_avatars. Production deployment does not
+-- 0001_initial through 0009_more_aead_suites. Production deployment does not
 -- run Alembic. The alembic_version row is retained only as a compatibility
 -- marker for development tooling and must be updated together with reviewed
 -- future root-executed SQL release scripts.
@@ -262,9 +262,13 @@ CREATE TABLE files (
         AND (encrypted_size_bytes IS NULL OR encrypted_size_bytes >= 0)
     ),
     CONSTRAINT ck_files_encryption_envelope CHECK (
-        encryption_algorithm COLLATE utf8mb4_bin
-            IN ('AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM', 'ChaCha20-Poly1305')
-        AND OCTET_LENGTH(iv) = 12
+        (
+            (encryption_algorithm COLLATE utf8mb4_bin
+                IN ('AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM', 'AES-256-GCM-SIV', 'ChaCha20-Poly1305')
+             AND OCTET_LENGTH(iv) = 12)
+            OR (encryption_algorithm COLLATE utf8mb4_bin = 'XChaCha20-Poly1305'
+             AND OCTET_LENGTH(iv) = 24)
+        )
         AND OCTET_LENGTH(auth_tag) = 16
     ),
     CONSTRAINT ck_files_encrypted_sha256
@@ -895,15 +899,15 @@ CREATE TABLE alembic_version (
   COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO alembic_version (version_num)
-VALUES ('0008_avatars');
+VALUES ('0009_more_aead_suites');
 
 -- Restore final-schema default parity only after every prior install statement
 -- has succeeded. The row still advertises 0002 until the final UPDATE below.
 ALTER TABLE audit_chain_heads
-ALTER COLUMN schema_revision SET DEFAULT '0008_avatars';
+ALTER COLUMN schema_revision SET DEFAULT '0009_more_aead_suites';
 
 -- This must be the final statement: readiness reads this marker rather than
 -- alembic_version because the runtime identity intentionally cannot read it.
 UPDATE audit_chain_heads
-SET schema_revision = '0008_avatars'
+SET schema_revision = '0009_more_aead_suites'
 WHERE id = 1;

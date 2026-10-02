@@ -36,9 +36,13 @@ class File(Base):
             name="ck_files_nonnegative_sizes",
         ),
         CheckConstraint(
-            "encryption_algorithm COLLATE utf8mb4_bin IN "
-            "('AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM', 'ChaCha20-Poly1305') "
-            "AND OCTET_LENGTH(iv) = 12 AND OCTET_LENGTH(auth_tag) = 16",
+            # Every suite has a 16-byte tag; XChaCha20-Poly1305 alone takes a 24-byte nonce.
+            "((encryption_algorithm COLLATE utf8mb4_bin IN "
+            "('AES-128-GCM', 'AES-192-GCM', 'AES-256-GCM', 'AES-256-GCM-SIV', 'ChaCha20-Poly1305') "
+            "AND OCTET_LENGTH(iv) = 12) "
+            "OR (encryption_algorithm COLLATE utf8mb4_bin = 'XChaCha20-Poly1305' "
+            "AND OCTET_LENGTH(iv) = 24)) "
+            "AND OCTET_LENGTH(auth_tag) = 16",
             name="ck_files_encryption_envelope",
         ),
         CheckConstraint(

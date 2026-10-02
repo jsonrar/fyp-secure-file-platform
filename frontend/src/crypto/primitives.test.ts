@@ -25,6 +25,9 @@ import {
   rsaPssSign,
   rsaPssVerify,
   sha256Hex,
+  libraryAeadDecryptDetached,
+  libraryAeadEncryptDetached,
+  nonceBytesForAlgorithm,
 } from './primitives'
 
 /**
@@ -32,6 +35,16 @@ import {
  * against an independent one is the point; a round trip against itself would pass even if
  * both directions were wrong in the same way.
  */
+interface DetachedVector {
+  case: string
+  key_hex: string
+  nonce_hex: string
+  aad_hex: string
+  plaintext_hex: string
+  ciphertext_hex: string
+  auth_tag_hex: string
+}
+
 const vectorsPath = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
   '../../../docs/crypto/test_vectors.json',
@@ -55,6 +68,8 @@ const vectors = JSON.parse(readFileSync(vectorsPath, 'utf8')) as {
     ciphertext_hex: string
     auth_tag_hex: string
   }[]
+  aes_256_gcm_siv_detached: DetachedVector[]
+  xchacha20_poly1305_detached: DetachedVector[]
   sha256: { case: string; input_utf8: string; digest_hex: string }[]
   public_key_fingerprint: { case: string; public_key_pem: string; fingerprint_hex: string }[]
 }
@@ -384,5 +399,62 @@ describe('ChaCha20-Poly1305 with a detached tag', () => {
     })
     expect(sealed.authTag.length).toBe(AES_GCM_TAG_BYTES)
     expect(CHACHA20_NONCE_BYTES).toBe(AES_GCM_NONCE_BYTES)
+  })
+})
+
+describe.each([
+  // Each list begins with its specification's own vector (RFC 8452 appendix C.2; the XChaCha
+  // draft's appendix A.3.1); the rest come from OpenSSL and libsodium respectively.
+  ['AES-256-GCM-SIV', vectors.aes_256_gcm_siv_detached],
+  ['XChaCha20-Poly1305', vectors.xchacha20_poly1305_detached],
+] as const)('%s with a detached tag', (algorithm, cases) => {
+  it.each(cases)('encrypts $case to the reference ciphertext', async (vector) => {
+    const { ciphertext, authTag } = await libraryAeadEncryptDetached({
+      algorithm,
+      key: hexToBytes(vector.key_hex),
+      nonce: hexToBytes(vector.nonce_hex),
+      plaintext: hexToBytes(vector.plaintext_hex),
+      aad: hexToBytes(vector.aad_hex),
+    })
+    expect(bytesToHex(ciphertext)).toBe(vector.ciphertext_hex)
+    expect(bytesToHex(authTag)).toBe(vector.auth_tag_hex)
+    expect(ciphertext.length).toBe(hexToBytes(vector.plaintext_hex).length)
+  })
+
+  it.each(cases)('decrypts $case back to the plaintext', async (vector) => {
+    const plaintext = await libraryAeadDecryptDetached({
+      algorithm,
+      key: hexToBytes(vector.key_hex),
+      nonce: hexToBytes(vector.nonce_hex),
+      ciphertext: hexToBytes(vector.ciphertext_hex),
+      authTag: hexToBytes(vector.auth_tag_hex),
+      aad: hexToBytes(vector.aad_hex),
+    })
+    expect(bytesToHex(plaintext)).toBe(vector.plaintext_hex)
+  })
+
+  it('refuses a changed byte, tag or AAD, and the wrong nonce length', async () => {
+    const key = randomBytes(32)
+    const nonce = randomBytes(nonceBytesForAlgorithm(algorithm))
+    const aad = new TextEncoder().encode('aad')
+    const sealed = await libraryAeadEncryptDetached({
+      algorithm, key, nonce, plaintext: new TextEncoder().encode('secret file'), aad,
+    })
+    const open = (overrides: Partial<{ ciphertext: Uint8Array; authTag: Uint8Array; aad: Uint8Array }>) =>
+      libraryAeadDecryptDetached({ algorithm, key, nonce, ...sealed, aad, ...overrides })
+
+    const flipped = sealed.ciphertext.slice()
+    flipped[0]! ^= 1
+    await expect(open({ ciphertext: flipped })).rejects.toBeInstanceOf(AuthenticationFailure)
+    const badTag = sealed.authTag.slice()
+    badTag[15]! ^= 1
+    await expect(open({ authTag: badTag })).rejects.toBeInstanceOf(AuthenticationFailure)
+    await expect(open({ aad: new TextEncoder().encode('other') })).rejects.toBeInstanceOf(
+      AuthenticationFailure,
+    )
+    const wrongLength = algorithm === 'XChaCha20-Poly1305' ? 12 : 24
+    await expect(
+      libraryAeadEncryptDetached({ algorithm, key, nonce: randomBytes(wrongLength), plaintext: new Uint8Array(1), aad }),
+    ).rejects.toBeInstanceOf(RangeError)
   })
 })

@@ -35,7 +35,10 @@ import {
   importAesGcmKey,
   importRsaOaepPublicKey,
   isEncryptionAlgorithm,
+  isLibraryAead,
   keyBytesForAlgorithm,
+  libraryAeadDecryptDetached,
+  libraryAeadEncryptDetached,
   nonceBytesForAlgorithm,
   publicKeyFingerprint,
   randomBytes,
@@ -185,10 +188,10 @@ export interface EncryptedFileEnvelope {
 /**
  * Seal under whichever AEAD the identity names.
  *
- * The two branches are the only place the construction is chosen. Everything above this --
- * the AAD, the detached tag, the length checks, the self-test -- is identical for both,
- * because both take a 12-byte nonce and produce a 16-byte tag over a ciphertext the same
- * length as the plaintext.
+ * These branches are the only place the construction is chosen. Everything above this -- the
+ * AAD, the detached tag, the length checks, the self-test -- is identical for every suite,
+ * because each produces a 16-byte tag over a ciphertext the same length as the plaintext; the
+ * nonce length comes from the suite table.
  */
 async function sealWith(params: {
   algorithm: EncryptionAlgorithm
@@ -200,6 +203,9 @@ async function sealWith(params: {
   const { algorithm, dek, nonce, plaintext, aad } = params
   if (algorithm === 'ChaCha20-Poly1305') {
     return chacha20Poly1305EncryptDetached({ key: dek, nonce, plaintext, aad })
+  }
+  if (isLibraryAead(algorithm)) {
+    return libraryAeadEncryptDetached({ algorithm, key: dek, nonce, plaintext, aad })
   }
   return aesGcmEncryptDetached({ key: await importAesGcmKey(dek), nonce, plaintext, aad })
 }
@@ -216,6 +222,9 @@ async function openWith(params: {
   const { algorithm, dek, nonce, ciphertext, authTag, aad } = params
   if (algorithm === 'ChaCha20-Poly1305') {
     return chacha20Poly1305DecryptDetached({ key: dek, nonce, ciphertext, authTag, aad })
+  }
+  if (isLibraryAead(algorithm)) {
+    return libraryAeadDecryptDetached({ algorithm, key: dek, nonce, ciphertext, authTag, aad })
   }
   return aesGcmDecryptDetached({
     key: await importAesGcmKey(dek),

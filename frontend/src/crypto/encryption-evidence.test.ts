@@ -27,6 +27,7 @@ import {
   type EncryptionAlgorithm,
   publicKeyFingerprint,
   sha256Hex,
+  nonceBytesForAlgorithm,
 } from './primitives'
 import { prepareUpload, type UploadRecipients } from './upload'
 
@@ -109,7 +110,7 @@ describe.each([...ENCRYPTION_ALGORITHMS] as EncryptionAlgorithm[])(
 
       // 1. Same length, because no padding; the nonce and tag live in the metadata.
       expect(ciphertext.length).toBe(plaintext.length)
-      expect(fromBase64(payload.metadata.nonce)).toHaveLength(12)
+      expect(fromBase64(payload.metadata.nonce)).toHaveLength(nonceBytesForAlgorithm(algorithm))
       expect(fromBase64(payload.metadata.auth_tag)).toHaveLength(16)
 
       // 2. Random-looking where the plaintext is not.

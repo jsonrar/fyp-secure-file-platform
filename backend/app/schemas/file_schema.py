@@ -8,20 +8,23 @@ from datetime import datetime
 from typing import Annotated, Literal
 from uuid import UUID
 
-from pydantic import BaseModel, ConfigDict, Field, field_validator
+from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
 
 _MIME_TYPE_RE = re.compile(
     r"^[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,126}/[A-Za-z0-9][A-Za-z0-9!#$&^_.+-]{0,126}$"
 )
 _WRAPPED_KEY_LENGTHS = frozenset({256, 384, 512})
 
-# The suites a file may be encrypted under. Every one is an AEAD with a 12-byte nonce and a
-# 16-byte tag, which is why one set of columns and one CHECK constraint serve them all. The
+# The suites a file may be encrypted under. Every one is an AEAD with a 16-byte tag; all but
+# XChaCha20-Poly1305 use a 12-byte nonce, and that one uses 24 (see NONCE_BYTES below). The
 # client commits to the name in the AAD, so ciphertext written under one cannot be
 # reinterpreted as another.
 #
 # ChaCha20-Poly1305 is a different construction rather than another key length: a stream
 # cipher authenticated by Poly1305, where AES-GCM is a block cipher authenticated by GHASH.
+# XChaCha20-Poly1305 is the same with a 192-bit nonce, so a random nonce never realistically
+# repeats. AES-256-GCM-SIV (RFC 8452) is nonce-misuse resistant: a repeated nonce reveals
+# only that two identical files were encrypted, and leaks no key material.
 #
 # Deliberately a Literal and not a str: the value is copied into a stored row and handed back
 # to every client that later decrypts the file, so the set of legal names is enforced here
@@ -31,8 +34,20 @@ EncryptionAlgorithm = Literal[
     "AES-128-GCM",
     "AES-192-GCM",
     "AES-256-GCM",
+    "AES-256-GCM-SIV",
     "ChaCha20-Poly1305",
+    "XChaCha20-Poly1305",
 ]
+
+# The nonce each suite takes. The database CHECK constraint states the same table.
+NONCE_BYTES: dict[str, int] = {
+    "AES-128-GCM": 12,
+    "AES-192-GCM": 12,
+    "AES-256-GCM": 12,
+    "AES-256-GCM-SIV": 12,
+    "ChaCha20-Poly1305": 12,
+    "XChaCha20-Poly1305": 24,
+}
 
 
 def _decode_canonical_base64(value: str, *, field_name: str) -> bytes:
@@ -112,7 +127,18 @@ class FileUploadMetadata(StrictFileModel):
     @field_validator("nonce")
     @classmethod
     def validate_nonce(cls, value: str) -> str:
-        return _strict_base64(value, field_name="nonce", lengths={12})
+        return _strict_base64(value, field_name="nonce", lengths=set(NONCE_BYTES.values()))
+
+    @model_validator(mode="after")
+    def nonce_matches_algorithm(self) -> FileUploadMetadata:
+        # Checked against the suite, not just "12 or 24": a 24-byte nonce under AES-GCM, or a
+        # 12-byte one under XChaCha20, is a client bug the database would also refuse.
+        expected = NONCE_BYTES[self.encryption_algorithm]
+        if len(self.nonce_bytes()) != expected:
+            raise ValueError(
+                f"nonce must decode to {expected} bytes for {self.encryption_algorithm}"
+            )
+        return self
 
     @field_validator("auth_tag")
     @classmethod

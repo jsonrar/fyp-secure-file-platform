@@ -56,6 +56,10 @@ onMounted(async () => {
 
 const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
   'AES-256-GCM': 'The default, and what the recovery path is tested against.',
+  'AES-256-GCM-SIV':
+    'AES with a synthetic IV (RFC 8452): even if a nonce ever repeated, it would reveal only that the same file was encrypted twice — never the key. A little slower than plain GCM.',
+  'XChaCha20-Poly1305':
+    'ChaCha20-Poly1305 with a 24-byte nonce, so a random nonce never realistically repeats. The choice of libsodium and many modern apps.',
   'ChaCha20-Poly1305':
     'A different construction, not a different key length: a stream cipher authenticated by Poly1305. Often faster on devices without AES hardware acceleration.',
   'AES-192-GCM': 'AES at an intermediate key length. Not available in every browser.',

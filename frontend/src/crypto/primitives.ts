@@ -5,7 +5,8 @@
  * Envelope construction, AAD layout, and business rules live in the modules above this one.
  */
 
-import { chacha20poly1305 } from '@noble/ciphers/chacha.js'
+import { gcmsiv } from '@noble/ciphers/aes.js'
+import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 
 import { bytesToHex, fromBase64 } from './encoding'
 
@@ -22,10 +23,18 @@ export const AES_GCM_TAG_BITS = AES_GCM_TAG_BYTES * 8
 /**
  * The suites a file may be encrypted under, strongest-and-safest first.
  *
- * Two constructions, not one family. AES-GCM is a block cipher in counter mode authenticated
- * by GHASH; ChaCha20-Poly1305 is a stream cipher authenticated by Poly1305 (RFC 8439). They
- * fail differently and rest on different assumptions, which is the point of offering both --
- * the three AES entries differ only in key length.
+ * Two families, not one. AES-GCM is a block cipher in counter mode authenticated by GHASH;
+ * ChaCha20-Poly1305 is a stream cipher authenticated by Poly1305 (RFC 8439). They fail
+ * differently and rest on different assumptions, which is the point of offering both. Within
+ * each family one entry answers the weak point of the basic construction, a repeated nonce:
+ *
+ * - AES-256-GCM-SIV (RFC 8452) derives its IV from the message, so a nonce that repeats by
+ *   accident reveals only that the same plaintext was encrypted twice. Plain GCM would leak
+ *   the XOR of the two plaintexts and the authentication key.
+ * - XChaCha20-Poly1305 takes a 24-byte nonce, so random nonces never realistically collide
+ *   (the XChaCha IETF draft, as libsodium implements it).
+ *
+ * The three plain AES-GCM entries differ only in key length.
  *
  * Every suite here is an AEAD. Nothing unauthenticated may be added: AES-CBC and AES-CTR are
  * available in WebCrypto and would discard the integrity guarantee the whole envelope rests
@@ -38,14 +47,11 @@ export const AES_GCM_TAG_BITS = AES_GCM_TAG_BYTES * 8
  */
 export const ENCRYPTION_SUITES = Object.freeze({
   'AES-256-GCM': Object.freeze({ keyBytes: 32, nonceBytes: 12, tagBytes: 16, platform: true }),
-  'ChaCha20-Poly1305': Object.freeze({
-    keyBytes: 32,
-    nonceBytes: 12,
-    tagBytes: 16,
-    // Provided by @noble/ciphers rather than WebCrypto, so unlike the AES entries it is
-    // available wherever this code runs and needs no capability probe.
-    platform: false,
-  }),
+  // From @noble/ciphers, like the two ChaCha entries: WebCrypto offers none of the three, so
+  // they need no capability probe and work wherever this code runs.
+  'AES-256-GCM-SIV': Object.freeze({ keyBytes: 32, nonceBytes: 12, tagBytes: 16, platform: false }),
+  'ChaCha20-Poly1305': Object.freeze({ keyBytes: 32, nonceBytes: 12, tagBytes: 16, platform: false }),
+  'XChaCha20-Poly1305': Object.freeze({ keyBytes: 32, nonceBytes: 24, tagBytes: 16, platform: false }),
   'AES-192-GCM': Object.freeze({ keyBytes: 24, nonceBytes: 12, tagBytes: 16, platform: true }),
   'AES-128-GCM': Object.freeze({ keyBytes: 16, nonceBytes: 12, tagBytes: 16, platform: true }),
 })
@@ -90,7 +96,7 @@ export function keyBytesForAlgorithm(algorithm: string): number {
   return suiteFor(algorithm).keyBytes
 }
 
-/** The nonce length for an algorithm name. Every current suite uses 12, but none assumes it. */
+/** The nonce length for an algorithm name: 12 bytes, except 24 for XChaCha20-Poly1305. */
 export function nonceBytesForAlgorithm(algorithm: string): number {
   return suiteFor(algorithm).nonceBytes
 }
@@ -314,6 +320,71 @@ export async function chacha20Poly1305DecryptDetached(params: {
     // substituted envelope, or corrupt ciphertext caused it.
     throw new AuthenticationFailure('ChaCha20-Poly1305 authentication failed')
   }
+}
+
+/**
+ * The suites implemented by @noble/ciphers rather than WebCrypto, by name. Same contract as
+ * ChaCha20-Poly1305 above: raw key bytes, the tag appended on encrypt and expected appended on
+ * decrypt, and an `AuthenticationFailure` for any tag that does not verify.
+ */
+const LIBRARY_AEADS = {
+  'AES-256-GCM-SIV': gcmsiv,
+  'XChaCha20-Poly1305': xchacha20poly1305,
+} as const
+
+export type LibraryAead = keyof typeof LIBRARY_AEADS
+
+function checkLibraryParams(algorithm: LibraryAead, key: Uint8Array, nonce: Uint8Array): void {
+  const suite = ENCRYPTION_SUITES[algorithm]
+  if (key.length !== suite.keyBytes) {
+    throw new RangeError(`${algorithm} key must be ${suite.keyBytes} bytes`)
+  }
+  if (nonce.length !== suite.nonceBytes) {
+    throw new RangeError(`${algorithm} nonce must be ${suite.nonceBytes} bytes`)
+  }
+}
+
+/** AES-256-GCM-SIV or XChaCha20-Poly1305 encryption, with the 16-byte tag detached. */
+export async function libraryAeadEncryptDetached(params: {
+  algorithm: LibraryAead
+  key: Uint8Array
+  nonce: Uint8Array
+  plaintext: Uint8Array
+  aad: Uint8Array
+}): Promise<AesGcmCiphertext> {
+  const { algorithm, key, nonce, plaintext, aad } = params
+  checkLibraryParams(algorithm, key, nonce)
+  const tagBytes = ENCRYPTION_SUITES[algorithm].tagBytes
+  const joined = LIBRARY_AEADS[algorithm](key, nonce, aad).encrypt(plaintext)
+  return {
+    ciphertext: joined.slice(0, joined.length - tagBytes),
+    authTag: joined.slice(joined.length - tagBytes),
+  }
+}
+
+/** AES-256-GCM-SIV or XChaCha20-Poly1305 decryption, rejoining the detached tag first. */
+export async function libraryAeadDecryptDetached(params: {
+  algorithm: LibraryAead
+  key: Uint8Array
+  nonce: Uint8Array
+  ciphertext: Uint8Array
+  authTag: Uint8Array
+  aad: Uint8Array
+}): Promise<Uint8Array> {
+  const { algorithm, key, nonce, ciphertext, authTag, aad } = params
+  checkLibraryParams(algorithm, key, nonce)
+  if (authTag.length !== ENCRYPTION_SUITES[algorithm].tagBytes) {
+    throw new RangeError(`${algorithm} tag must be ${ENCRYPTION_SUITES[algorithm].tagBytes} bytes`)
+  }
+  try {
+    return LIBRARY_AEADS[algorithm](key, nonce, aad).decrypt(concat(ciphertext, authTag))
+  } catch {
+    throw new AuthenticationFailure(`${algorithm} authentication failed`)
+  }
+}
+
+export function isLibraryAead(algorithm: string): algorithm is LibraryAead {
+  return algorithm in LIBRARY_AEADS
 }
 
 function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
