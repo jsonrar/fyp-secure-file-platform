@@ -9,14 +9,14 @@ answer live, and says what the evidence does and does not prove.
 
 ## Why the two sizes match
 
-SecureView encrypts with AES-128/192/256-GCM or ChaCha20-Poly1305. Both are *stream-style*
-authenticated ciphers: they encrypt byte for byte, with **no padding**, so the ciphertext is
+SecureView encrypts with AES-128/192/256-GCM, AES-256-GCM-SIV, ChaCha20-Poly1305 or XChaCha20-Poly1305.
+All of them are *stream-style* authenticated ciphers: they encrypt byte for byte, with **no padding**, so the ciphertext is
 exactly as long as the original file. Two small things are added, and neither is appended to the
 file:
 
 | Item | Size | Where it lives |
 | --- | --- | --- |
-| Nonce (the "IV") | 12 bytes | the file's metadata row in the database |
+| Nonce (the "IV") | 12 bytes (24 for XChaCha20-Poly1305) | the file's metadata row in the database |
 | Authentication tag | 16 bytes | the file's metadata row, **detached** from the ciphertext |
 
 The backend enforces this: it rejects an upload whose ciphertext length differs from the
@@ -54,14 +54,21 @@ So **equal size is expected, and unequal size would be the bug.** The file list 
 
 `frontend/src/crypto/encryption-evidence.test.ts` pushes a **20 MiB** file made of a repeated
 English sentence (the easiest plaintext to recognise) through the real `prepareUpload` path with
-each of the four algorithms, and checks the result. A run on an Apple M4, Node 22:
+each of the six algorithms, and checks the result. A run on an Apple M4, Node 22 (2026-10-02):
 
 | Algorithm | Bytes in → out | Entropy, bits/byte | Bytes equal to the original | Encrypt + self-test |
 | --- | --- | --- | --- | --- |
-| AES-256-GCM | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.391 % | 0.08 s |
-| AES-192-GCM | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.387 % | 0.05 s |
-| AES-128-GCM | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.389 % | 0.05 s |
+| AES-256-GCM | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.392 % | 0.07 s |
+| AES-256-GCM-SIV | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.389 % | 0.51 s |
 | ChaCha20-Poly1305 | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.390 % | 0.18 s |
+| XChaCha20-Poly1305 | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.390 % | 0.18 s |
+| AES-192-GCM | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.391 % | 0.05 s |
+| AES-128-GCM | 20,971,520 → 20,971,520 | 4.441 → 7.99999 | 0.391 % | 0.05 s |
+
+The time column is not a benchmark, but it shows a real difference: the AES-GCM rows use the
+browser's built-in, hardware-accelerated AES, while AES-256-GCM-SIV and the two ChaCha rows run in
+a JavaScript library (`@noble/ciphers`). ChaCha is fast in JavaScript; AES-GCM-SIV is roughly ten
+times slower than built-in GCM, which is a few extra seconds for a 500 MB file on a laptop.
 
 Reading the columns: entropy of 8 is the maximum, and the structured plaintext sits at 4.4;
 "equal to the original" is the share of positions where ciphertext and plaintext happen to hold

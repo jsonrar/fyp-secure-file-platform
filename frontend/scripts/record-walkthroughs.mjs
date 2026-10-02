@@ -189,7 +189,7 @@ await recordFlow('encrypt-upload', async (page) => {
   await unpoint(picker)
   await pause(page, 1200)
 
-  await caption(page, 4, 'Pick the cipher — AES-256-GCM is the default', 'AES-128/192-GCM and ChaCha20-Poly1305 are here too. All of them detect tampering.')
+  await caption(page, 4, 'Pick the cipher — AES-256-GCM is the default', 'AES-GCM-SIV, ChaCha20, XChaCha20 and AES-128/192 are here too. All of them detect tampering.')
   await point(page.getByRole('combobox').first(), 2200)
   await unpoint(page.getByRole('combobox').first())
 

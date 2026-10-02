@@ -23,7 +23,7 @@ HTTPS 不只关系到地址栏那把锁，而是产品能否运行的前提：�
 
 本项目重点关注：
 
-- 客户端 AES-GCM（128/192/256 位密钥）与 ChaCha20-Poly1305 文件加密
+- 客户端文件加密，六种认证加密算法：AES-GCM（128/192/256 位密钥）、AES-256-GCM-SIV、ChaCha20-Poly1305 与 XChaCha20-Poly1305
 - 基于 RSA 的文件密钥封装
 - 受控共享与撤销
 - 基于角色和文件级别的访问控制
@@ -42,7 +42,7 @@ passphrase、KEK、AMK、明文私钥、文件 DEK 和文件明文都不得出�
 浏览器 MVP 已端到端可运行：邮箱验证码注册与重置登录密码、客户端账户密钥登记、使用
 passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲自动上锁、上传前认证加密、下载后本地解密、文件名搜索、将
 文件密钥重新包装给接收者的共享、撤销、逐文件访问历史、静默刷新会话、登出及注销账户。
-每个文件可选择 AES-128/192/256-GCM 或 ChaCha20-Poly1305，默认仍为 AES-256-GCM；旧有硬编码
+每个文件可选择 AES-128/192/256-GCM、AES-256-GCM-SIV、ChaCha20-Poly1305 或 XChaCha20-Poly1305，默认仍为 AES-256-GCM；旧有硬编码
 凭据和演示 token 后备均已移除。
 
 公开产品页与登录后工作台并列：`/` 为营销落地页（"Encryption and Sharing" 主标题与横向滚动
@@ -129,7 +129,7 @@ Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动
 | 后端 | FastAPI |
 | 数据库 | MySQL 8.4 |
 | 文件存储 | 用于 FYP 演示的本地加密文件存储 |
-| 文件加密 | AES-128/192/256-GCM 与 ChaCha20-Poly1305（默认 AES-256-GCM） |
+| 文件加密 | AES-128/192/256-GCM、AES-256-GCM-SIV、ChaCha20-Poly1305、XChaCha20-Poly1305（默认 AES-256-GCM） |
 | 密钥封装 | 使用 SHA-256 的 RSA-OAEP |
 | 密码哈希 | Argon2id（`pwdlib`） |
 
@@ -238,7 +238,7 @@ fyp-secure-file-platform/
 
 现有 Changelog 的主要工作线包括：
 
-1. **客户端密码学**：账户密钥登记、AES-GCM/ChaCha20-Poly1305 文件信封、下载解密、`.pem`
+1. **客户端密码学**：账户密钥登记、AES-GCM(-SIV)/(X)ChaCha20-Poly1305 文件信封、下载解密、`.pem`
    解锁、分享时 DEK 重包装及跨语言测试向量。
 2. **认证和账户安全**：邮箱验证码、密码重置、Argon2id 策略、refresh 轮换、会话失效及账户注销。
 3. **文件与共享体验**：分页/搜索、所有者与接收文件分区、完整性状态、分享通知、撤销和逐文件历史。

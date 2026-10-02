@@ -27,7 +27,7 @@ security-sensitive actions in a tamper-evident audit log.
 
 The project focuses on:
 
-- Client-side AES-GCM (128/192/256-bit keys) and ChaCha20-Poly1305 file encryption
+- Client-side file encryption with six AEAD suites: AES-GCM (128/192/256-bit keys), AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305
 - RSA-based file-key wrapping
 - Controlled sharing and revocation
 - Role-based and file-level access control
@@ -50,8 +50,9 @@ client-held account-key enrolment, passphrase or private-key-file unlock, passph
 with the private-key file, idle relock,
 authenticated encryption before upload, local decryption after download, filename search,
 sharing by rewrapping the file key to the recipient, revocation, per-file access history,
-silent session refresh, logout, and account deletion. AES-128/192/256-GCM and
-ChaCha20-Poly1305 are selectable per file; AES-256-GCM remains the default. The former
+silent session refresh, logout, and account deletion. AES-128/192/256-GCM,
+AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305 are selectable per file; AES-256-GCM
+remains the default. The former
 hard-coded credential and demo-token fallbacks are gone.
 
 Public product pages sit beside the authenticated workspace: `/` is the marketing landing
@@ -165,7 +166,7 @@ is infrastructure behavior rather than an application API operation.
 | Backend | FastAPI |
 | Database | MySQL 8.4 |
 | File Storage | Local encrypted file storage for the FYP demo |
-| File Encryption | AES-128/192/256-GCM and ChaCha20-Poly1305 (default: AES-256-GCM) |
+| File Encryption | AES-128/192/256-GCM, AES-256-GCM-SIV, ChaCha20-Poly1305, XChaCha20-Poly1305 (default: AES-256-GCM) |
 | Key Wrapping | RSA-OAEP with SHA-256 |
 | Password Hashing | Argon2id (`pwdlib`) |
 
@@ -282,7 +283,7 @@ README and TODO updated whenever current capabilities or remaining work change.
 
 The existing changelog's main work streams are:
 
-1. **Client cryptography:** account-key enrolment, AES-GCM/ChaCha20-Poly1305 file envelopes,
+1. **Client cryptography:** account-key enrolment, AES-GCM(-SIV)/(X)ChaCha20-Poly1305 file envelopes,
    browser decryption, `.pem` unlock, sharing DEK rewrap, and cross-language vectors.
 2. **Authentication and account security:** emailed codes, password reset, Argon2id policy,
    refresh rotation, session invalidation, and account deletion.

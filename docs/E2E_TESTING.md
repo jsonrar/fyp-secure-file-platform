@@ -91,7 +91,7 @@ keeps.
 | Refresh | Rotation retires the old access token; replaying a consumed refresh token revokes the whole family, including the tokens just issued |
 | Logout | Both the access and the refresh token stop working |
 | Unlock | Another account's passphrase is refused; the right one opens the key |
-| File algorithms | AES-128/192/256-GCM and ChaCha20-Poly1305 each round-trip binary content, report the right algorithm, and serve ciphertext only |
+| File algorithms | AES-128/192/256-GCM, AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305 each round-trip binary content, report the right algorithm, and serve ciphertext only |
 | Share and revoke | The recipient decrypts with their own passphrase, cannot re-share, and after revocation gets a uniform 404 on read and download |
 | Audit visibility | The owner sees the recipient's download; the recipient sees only rows about themselves |
 | Role denial | Anonymous callers get 401; an ordinary user gets 403 on admin, chain-verification and recovery-key routes; the admin gets in and the chain verifies |

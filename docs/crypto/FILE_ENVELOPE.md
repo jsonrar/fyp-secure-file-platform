@@ -19,17 +19,28 @@ account-key envelopes because that mistake was made once.
 |---|---|
 | `envelope_version` | 1 |
 | `aad_version` | 1 |
-| `encryption_algorithm` | `AES-128-GCM`, `AES-192-GCM`, `AES-256-GCM`, or `ChaCha20-Poly1305`; `AES-256-GCM` by default |
+| `encryption_algorithm` | `AES-128-GCM`, `AES-192-GCM`, `AES-256-GCM`, `AES-256-GCM-SIV`, `ChaCha20-Poly1305` or `XChaCha20-Poly1305`; `AES-256-GCM` by default |
 | `key_wrapping_algorithm` | `RSA-OAEP-SHA256`, SHA-256 MGF1, **empty label** |
 | DEK | 16, 24, or 32 random bytes to match the algorithm, fresh per file |
-| Nonce | 12 random bytes, fresh per encryption, from a CSPRNG |
+| Nonce | 12 random bytes (24 for `XChaCha20-Poly1305`), fresh per encryption, from a CSPRNG |
 | Tag | 16 bytes, stored **detached** from the ciphertext |
 
-Two constructions, not one family. The three AES entries differ only in key length;
+Two families, not one. The three plain AES-GCM entries differ only in key length;
 `ChaCha20-Poly1305` (RFC 8439) is a stream cipher authenticated by Poly1305, where AES-GCM is
-a block cipher authenticated by GHASH. Every entry is an AEAD, takes a 12-byte nonce, produces
-a 16-byte tag, and yields ciphertext the same length as the plaintext — which is why one
-column layout, one CHECK constraint, and every byte of the layout below serve all four.
+a block cipher authenticated by GHASH. Each family has one entry that answers the basic
+construction's weak point, a repeated nonce: `AES-256-GCM-SIV` (RFC 8452) derives its IV from
+the message, so a repeat reveals only that two messages were equal, and `XChaCha20-Poly1305`
+(draft-irtf-cfrg-xchacha, as libsodium implements it) takes a 24-byte nonce that never
+realistically repeats when chosen at random. Every file already gets a fresh DEK, so neither
+property is needed to keep SecureView safe; they are offered as alternatives and for comparison.
+
+Every entry is an AEAD, produces a 16-byte tag, and yields ciphertext the same length as the
+plaintext. All take a 12-byte nonce except `XChaCha20-Poly1305` (24 bytes), so the nonce length
+is per suite: the database CHECK constraint (`ck_files_encryption_envelope`, revision
+`0009_more_aead_suites`) and the API schema state the same table, and `files.iv` was already
+`VARBINARY(32)`. The AES-GCM entries run in WebCrypto; `AES-256-GCM-SIV` and both ChaCha
+entries run in `@noble/ciphers`, whose output is checked against RFC 8452's vectors, OpenSSL and
+libsodium in `docs/crypto/test_vectors.json`.
 
 **Nothing unauthenticated may be added to this table.** AES-CBC and AES-CTR are available in
 WebCrypto and would silently discard the integrity guarantee everything here rests on. 3DES is
@@ -37,9 +48,10 @@ excluded for that reason and its own: it is not an AEAD, its 8-byte block would 
 shared nonce and tag lengths, and NIST withdrew it for encryption in 2023.
 
 The name is framed into the AAD, so ciphertext written under one algorithm cannot be
-relabelled as another without the tag failing. This matters most between `AES-256-GCM` and
-`ChaCha20-Poly1305`: both take a 32-byte key and a 12-byte nonce and produce a 16-byte tag, so
-**no length check distinguishes them and the AAD binding is the only thing that does.** A
+relabelled as another without the tag failing. This matters most between `AES-256-GCM`,
+`AES-256-GCM-SIV` and `ChaCha20-Poly1305`: all take a 32-byte key and a 12-byte nonce and
+produce a 16-byte tag, so **no length check distinguishes them and the AAD binding is the only
+thing that does.** A
 reader must take the algorithm from the file's own stored metadata, compare the name exactly
 including case, and reject anything not in this table.
 

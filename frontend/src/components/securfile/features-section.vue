@@ -25,7 +25,7 @@ const features: FeatureItem[] = [
     icon: ShieldCheck,
     title: 'Strong Encryption',
     description:
-      'AES-256-GCM by default, or AES-128-GCM, ChaCha20-Poly1305 and, where the browser supports it, AES-192-GCM: authenticated encryption, so a change is detected, not just hidden.',
+      'AES-256-GCM by default, or AES-256-GCM-SIV, ChaCha20-Poly1305, XChaCha20-Poly1305, AES-128-GCM and, where the browser supports it, AES-192-GCM. All six are authenticated encryption, so a change is detected, not just hidden.',
   },
   {
     icon: Share2,

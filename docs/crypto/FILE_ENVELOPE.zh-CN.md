@@ -16,23 +16,30 @@ AAD，也从不认证这个 tag。没有任何服务端检查能发现某个实�
 |---|---|
 | `envelope_version` | 1 |
 | `aad_version` | 1 |
-| `encryption_algorithm` | `AES-128-GCM`、`AES-192-GCM`、`AES-256-GCM` 或 `ChaCha20-Poly1305`；默认 `AES-256-GCM` |
+| `encryption_algorithm` | `AES-128-GCM`、`AES-192-GCM`、`AES-256-GCM`、`AES-256-GCM-SIV`、`ChaCha20-Poly1305` 或 `XChaCha20-Poly1305`；默认 `AES-256-GCM` |
 | `key_wrapping_algorithm` | `RSA-OAEP-SHA256`，SHA-256 MGF1，**空 label** |
 | DEK | 16、24 或 32 随机字节，与算法匹配，每个文件全新生成 |
-| Nonce | 12 随机字节，每次加密全新生成，来自 CSPRNG |
+| Nonce | 12 随机字节（`XChaCha20-Poly1305` 为 24 字节），每次加密全新生成，来自 CSPRNG |
 | Tag | 16 字节，与密文**分离**存储 |
 
-这是两种构造，而不是一个算法族。三个 AES 条目之间只差密钥长度；`ChaCha20-Poly1305`（RFC 8439）
-是由 Poly1305 认证的流密码，而 AES-GCM 是由 GHASH 认证的分组密码。表中每一项都是 AEAD，都使用
-12 字节 nonce、产生 16 字节 tag，且密文长度等于明文长度——正因如此，一套列布局、一条 CHECK 约束
-以及下文布局的每一个字节可以同时服务这四种算法。
+这是两个算法族，而不是一个。三个普通 AES-GCM 条目之间只差密钥长度；`ChaCha20-Poly1305`（RFC 8439）
+是由 Poly1305 认证的流密码，而 AES-GCM 是由 GHASH 认证的分组密码。每个算法族各有一项针对基本构造的弱点——
+nonce 重复：`AES-256-GCM-SIV`（RFC 8452）从消息本身推导 IV，重复时只会暴露“两条消息相同”；
+`XChaCha20-Poly1305`（draft-irtf-cfrg-xchacha，按 libsodium 的实现）使用 24 字节 nonce，随机选取时实际上不会重复。
+每个文件本来就使用全新的 DEK，所以 SecureView 的安全并不依赖这两项特性；它们作为可选项和对比而提供。
+
+表中每一项都是 AEAD，都产生 16 字节 tag，且密文长度等于明文长度。除 `XChaCha20-Poly1305`（24 字节）外都使用
+12 字节 nonce，因此 nonce 长度按算法而定：数据库 CHECK 约束（`ck_files_encryption_envelope`，revision
+`0009_more_aead_suites`）与 API schema 列出同一张表，`files.iv` 原本就是 `VARBINARY(32)`。AES-GCM 各项在 WebCrypto 中运行；
+`AES-256-GCM-SIV` 与两种 ChaCha 在 `@noble/ciphers` 中运行，其输出在 `docs/crypto/test_vectors.json` 中与 RFC 8452 向量、
+OpenSSL 和 libsodium 逐字节比对。
 
 **不得向本表加入任何不带认证的算法。** WebCrypto 提供了 AES-CBC 与 AES-CTR，采用它们会静默地
 丢弃这里一切所依赖的完整性保证。3DES 被排除，除上述原因外还有其自身的问题：它根本不是 AEAD，
 8 字节分组会破坏上面共用的 nonce 与 tag 长度，且 NIST 已于 2023 年将其用于加密的用途废止。
 
 算法名会被 frame 进 AAD，因此在某一算法下写出的密文无法被重新标注为另一种而不导致 tag 校验失败。
-这一点在 `AES-256-GCM` 与 `ChaCha20-Poly1305` 之间尤为关键：两者都使用 32 字节密钥、12 字节
+这一点在 `AES-256-GCM`、`AES-256-GCM-SIV` 与 `ChaCha20-Poly1305` 之间尤为关键：三者都使用 32 字节密钥、12 字节
 nonce，并产生 16 字节 tag，因此**没有任何长度检查能区分它们，唯一能区分的就是 AAD 绑定**。读取方
 必须从文件自身存储的元数据中取得算法名，按精确大小写比较，并拒绝不在上表中的任何名称。
 

@@ -101,9 +101,10 @@ export interface SizeRelation {
 /**
  * Why the two sizes match, or what the difference means.
  *
- * AES-GCM and ChaCha20-Poly1305 encrypt as stream ciphers: no padding, so the ciphertext is
- * exactly as long as the original. The 12-byte nonce and 16-byte authentication tag are
- * stored beside the file, not appended to it. A mismatch is therefore not "overhead" but a
+ * Every supported suite (AES-GCM, AES-GCM-SIV, ChaCha20 and XChaCha20-Poly1305) encrypts as a
+ * stream: no padding, so the ciphertext is exactly as long as the original. The nonce (12
+ * bytes, or 24 for XChaCha20-Poly1305) and the 16-byte authentication tag are stored beside
+ * the file, not appended to it. A mismatch is therefore not "overhead" but a
  * sign that something is wrong, and the panel says so.
  */
 export function describeSizes(preview: Pick<CiphertextPreviewOut, 'plaintext_size' | 'ciphertext_size'>): SizeRelation {
@@ -111,7 +112,7 @@ export function describeSizes(preview: Pick<CiphertextPreviewOut, 'plaintext_siz
     return {
       sameLength: true,
       explanation:
-        'Same length is expected. These algorithms encrypt without padding, so the ciphertext is exactly as long as the original. The 12-byte nonce and the 16-byte authentication tag are stored next to the file, not added to it.',
+        'Same length is expected. These algorithms encrypt without padding, so the ciphertext is exactly as long as the original. The nonce (12 bytes, or 24 for XChaCha20-Poly1305) and the 16-byte authentication tag are stored next to the file, not added to it.',
     }
   }
   const difference = preview.ciphertext_size - preview.plaintext_size
