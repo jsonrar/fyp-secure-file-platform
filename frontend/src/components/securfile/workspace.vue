@@ -52,7 +52,7 @@ const destinations = computed(() => {
       to: '/upload',
       icon: Upload,
       title: 'Upload & Encrypt',
-      body: 'Encrypt a new file in your browser with AES-256-GCM. Only the ciphertext is uploaded.',
+      body: 'Encrypt a new file in your browser (AES-256-GCM by default). Only the ciphertext is uploaded.',
       cta: 'Encrypt a file',
     },
     {

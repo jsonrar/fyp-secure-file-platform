@@ -83,7 +83,7 @@ export interface Comparison {
 export const COMPARISON: Comparison[] = [
   {
     question: 'Who can read your file on the server?',
-    ordinary: 'The provider, its staff, and anyone who breaks in.',
+    ordinary: 'Usually the provider can, and so can anyone who gets into its systems.',
     secureview: 'No one. The server only holds ciphertext it has no key for.',
   },
   {

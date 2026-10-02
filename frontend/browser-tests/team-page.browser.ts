@@ -12,7 +12,7 @@ test('the team page shows the supervisor, the four members and the feedback form
   await page.goto('/team')
 
   await expect(page.getByRole('heading', { name: 'Contact us' })).toBeVisible()
-  await expect(page.getByTestId('team-feedback').getByRole('button', { name: 'Send feedback' })).toBeVisible()
+  await expect(page.getByTestId('team-feedback').getByRole('button', { name: 'Write the email' })).toBeVisible()
 
   const supervisor = page.getByTestId('team-supervisor')
   await expect(supervisor.getByRole('heading', { name: 'Dr. Asad Malik' })).toBeVisible()
