@@ -212,12 +212,9 @@ test.describe('signed in, on a phone', () => {
         await page.goto('/files')
         const card = page.locator('tr', { hasText: fileName })
         await expect(card).toBeVisible()
-        for (const name of ['Download and decrypt', 'Download encrypted file', 'Request recovery']) {
-          await expectNotCovered(page, card.getByRole('button', { name }), name)
+        for (const name of ['Download and decrypt', 'Share', 'Delete', 'More actions']) {
+          await expectNotCovered(page, card.getByRole('button', { name, exact: true }), name)
         }
-        await expectNotCovered(page, card.getByTitle('Access history'), 'Access history')
-        await expectNotCovered(page, card.getByTitle('Share', { exact: true }), 'Share')
-        await expectNotCovered(page, card.getByTitle('Delete', { exact: true }), 'Delete')
         await expectFitsScreen(page, `My Files at ${width}px`)
       })
     }

@@ -141,7 +141,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'their own account first.',
     steps: [
       'Open My Files and find a file you own.',
-      'Press its Share icon (the connected dots, next to Delete).',
+      'Press its blue Share button, next to Delete.',
       'If asked, unlock with your encryption passphrase.',
       'Enter their exact username or email address and press Share.',
       'Check the name and key fingerprint shown, then press Confirm and share.',
@@ -364,7 +364,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
     steps: [
       'Open My Files.',
       'Press Encrypted preview under the file name.',
-      'For the whole thing, press Download encrypted file and open it in a hex viewer.',
+      'For the whole thing, open More (⋯) on the file, choose Download encrypted file, and open it in a hex viewer.',
     ],
     links: [{ label: 'My Files', to: '/files' }, VIDEO_ENCRYPT],
   },
@@ -477,7 +477,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'file’s key cannot be opened with your current account key, Request recovery asks a recovery ' +
       'officer to re-seal it to your key. It never reveals or resets your passphrase.',
     steps: [
-      'In My Files, press Request recovery (the lifebuoy) on the file.',
+      'In My Files, open More (⋯) on the file and choose Request recovery.',
       'Give a reason and press Submit request.',
       'Follow it under Recovery in the menu.',
     ],
