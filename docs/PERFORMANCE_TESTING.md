@@ -80,6 +80,20 @@ The nginx per-IP limits mean the choice of target matters:
 Running the generator **on** the VPS itself would avoid the network but take CPU from the server
 being measured, so it is not recommended.
 
+**The tunnel needs an sshd exception.** The server's sshd sets `AllowTcpForwarding no`, and the
+only exception (`Match User jason,junyan,charter`) permits `127.0.0.1:3306`, so the tunnel above
+opens a local port but every request is reset. For the 2026-10-03 run a root-only block was
+appended to `/etc/ssh/sshd_config` (back up first, `sshd -t`, `systemctl reload ssh`) and the
+backup restored afterwards:
+
+```text
+Match User root
+    AllowTcpForwarding local
+    PermitOpen 127.0.0.1:8000
+```
+
+Add `-o ServerAliveInterval=15` to the tunnel for long runs.
+
 ## Test matrix
 
 Mapped to the matrix in the meeting notes. Durations are suggestions; stop raising load when the
@@ -107,9 +121,13 @@ the 04:15 backup (or the backup will copy the test files) and before the 05:30 i
 
    ```bash
    cd /opt/mcs21/current/backend && set -a && . /etc/fyp-secure-file-platform/backend.env && set +a
-   sudo -u fypapp env PYTHONPATH=$PWD .venv/bin/python scripts/seed_load_users.py \
+   sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_CA \
+     env PYTHONPATH=$PWD .venv/bin/python scripts/seed_load_users.py \
      --count 100 --out /tmp/loadtest-accounts.json
    ```
+
+   `sudo` resets the environment, so without `--preserve-env` the script falls back to other
+   database settings and fails with `Access denied for user 'fyp_user'`.
 
    Copy the file to the generator (`scp mcs21-vps:/tmp/loadtest-accounts.json .`) and delete it from
    the server.

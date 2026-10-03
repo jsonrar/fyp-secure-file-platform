@@ -61,6 +61,18 @@ SecureView 在浏览器里加密。服务器从不加密或解密文件：上传
 
 在 VPS 本机上跑压测工具虽然没有网络瓶颈，但会抢占被测服务器的 CPU，所以不推荐。
 
+**隧道需要 sshd 例外。** 服务器的 sshd 设置了 `AllowTcpForwarding no`，唯一的例外（`Match User jason,junyan,charter`）只放行
+`127.0.0.1:3306`，所以上面的隧道能在本地开出端口，但每个请求都会被重置。2026-10-03 那次测试临时在 `/etc/ssh/sshd_config`
+末尾加了一个只针对 root 的块（先备份，`sshd -t` 检查，`systemctl reload ssh` 生效），测完用备份还原：
+
+```text
+Match User root
+    AllowTcpForwarding local
+    PermitOpen 127.0.0.1:8000
+```
+
+长时间测试时给隧道加上 `-o ServerAliveInterval=15`。
+
 ## 测试矩阵
 
 对应会议纪要里的矩阵。时长只是建议；错误率超过约 5% 或 p95 涨到三倍以上时，就不要再继续加压。
@@ -86,9 +98,13 @@ SecureView 在浏览器里加密。服务器从不加密或解密文件：上传
 
    ```bash
    cd /opt/mcs21/current/backend && set -a && . /etc/fyp-secure-file-platform/backend.env && set +a
-   sudo -u fypapp env PYTHONPATH=$PWD .venv/bin/python scripts/seed_load_users.py \
+   sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_CA \
+     env PYTHONPATH=$PWD .venv/bin/python scripts/seed_load_users.py \
      --count 100 --out /tmp/loadtest-accounts.json
    ```
+
+   `sudo` 会重置环境变量，不加 `--preserve-env` 的话，脚本会退回使用别处的数据库配置，报
+   `Access denied for user 'fyp_user'`。
 
    把文件复制到压测机（`scp mcs21-vps:/tmp/loadtest-accounts.json .`），然后从服务器上删掉。
 2. 在服务器上启动采样：
