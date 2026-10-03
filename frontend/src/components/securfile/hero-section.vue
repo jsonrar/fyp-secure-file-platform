@@ -10,9 +10,9 @@ const auth = useAuthStore()
 const maxUploadLabel = formatFileSize(MAX_UPLOAD_BYTES).replace(' ', '')
 
 const highlights = [
-  { value: 'In-browser', label: 'Encryption, before upload' },
-  { value: '0', label: 'File keys the server can read' },
-  { value: 'AES · RSA', label: 'Authenticated, standard ciphers' },
+  { value: 'In-browser', label: 'Encrypted before upload' },
+  { value: 'AES · RSA', label: 'Standard ciphers' },
+  { value: '0 Key', label: 'Readable by the server' },
   { value: maxUploadLabel, label: 'Per file' },
 ]
 </script>
@@ -56,10 +56,10 @@ const highlights = [
           </RouterLink>
         </div>
 
-        <div class="mt-16 grid w-full max-w-3xl grid-cols-2 gap-8 md:grid-cols-4">
+        <div class="mt-16 grid w-full max-w-4xl grid-cols-2 gap-x-3 gap-y-8 md:grid-cols-4">
           <div v-for="item in highlights" :key="item.value" class="text-center">
             <div class="text-2xl font-bold text-primary md:text-3xl">{{ item.value }}</div>
-            <div class="mt-1 text-sm text-muted-foreground">{{ item.label }}</div>
+            <div class="mt-1 whitespace-nowrap text-xs text-muted-foreground sm:text-sm">{{ item.label }}</div>
           </div>
         </div>
       </div>

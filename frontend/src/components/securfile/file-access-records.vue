@@ -197,11 +197,11 @@ const toggle = (id: string) => {
 </script>
 
 <template>
-  <section id="access-records" class="py-20 bg-background">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-16">
+  <section id="access-records" class="product-page">
+    <div class="container relative mx-auto max-w-6xl px-4">
+      <div class="product-heading">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">File Access Records</h2>
-        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Track security-sensitive actions recorded by the audit log service</p>
+        <p class="text-muted-foreground max-w-2xl text-pretty">Track security-sensitive actions recorded by the audit log service</p>
       </div>
 
       <div class="flex items-center justify-center gap-3 mb-8">

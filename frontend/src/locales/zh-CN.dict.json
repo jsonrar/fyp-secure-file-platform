@@ -1933,5 +1933,10 @@
   "· first invalid at position {0}": "· 首次无效位置 {0}",
   "· last checked {0}": "· 最后检查 {0}",
   "· view only": "· 只读",
-  "· {0} entries checked": "· {0} 条记录已检查"
+  "· {0} entries checked": "· {0} 条记录已检查",
+  "AES-256-GCM by default, with six authenticated encryption options to keep files private and detect tampering.": "默认使用 AES-256-GCM，提供六种认证加密选项，保护文件隐私并检测篡改。",
+  "0 Key": "0 密钥",
+  "Standard ciphers": "标准加密算法",
+  "Readable by the server": "服务器可读取的密钥",
+  "Encrypted before upload": "上传前完成加密"
 }

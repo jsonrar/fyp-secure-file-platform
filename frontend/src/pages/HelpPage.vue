@@ -5,9 +5,9 @@ import SoftwareGuide from '@/components/education/SoftwareGuide.vue'
 </script>
 
 <template>
-  <section class="py-16 md:py-24">
-    <div class="container mx-auto px-4">
-      <div class="mb-12 mx-auto max-w-3xl text-center">
+  <section class="product-page">
+    <div class="container relative mx-auto max-w-6xl px-4">
+      <div class="product-heading">
         <div class="mb-5 inline-flex items-center gap-2 rounded-full border border-primary/20 bg-primary/10 px-4 py-2">
           <span class="text-sm font-medium text-primary">Product Help</span>
         </div>

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { ChevronDown, Menu, Monitor, Moon, Settings, Sun, UserRound, X } from 'lucide-vue-next'
+import { Menu, Monitor, Moon, Settings, Sun, UserRound, X } from 'lucide-vue-next'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 import SecureViewMark from '@/components/brand/SecureViewMark.vue'
 import UserMenu from '@/components/UserMenu.vue'
@@ -75,12 +75,11 @@ const headerNavLink = (active: boolean) =>
     : `${headerText} opacity-70 hover:opacity-100 hover:text-primary`
 
 /**
- * Fixed trigger width sized for the longest label ("System") so switching Light/Dark/System
- * never changes the control's box and cannot shove neighbouring header actions sideways.
+ * A compact settings icon keeps guest appearance controls together.
  */
 const themeTriggerClass =
-  `h-9 w-[7.25rem] shrink-0 rounded-md ${headerText} hover:bg-secondary transition-colors ` +
-  'inline-flex items-center justify-between gap-1 px-3'
+  `h-9 w-9 shrink-0 rounded-md ${headerText} hover:bg-secondary transition-colors ` +
+  'inline-flex items-center justify-center'
 
 const themeOptions: {
   value: ThemePreference
@@ -92,9 +91,6 @@ const themeOptions: {
   { value: 'dark', label: 'theme.dark', icon: Moon },
 ]
 
-const currentThemeOption = computed(
-  () => themeOptions.find((option) => option.value === props.themePreference) ?? themeOptions[0],
-)
 
 const desktopThemeOpen = ref(false)
 const mobileThemeOpen = ref(false)
@@ -121,6 +117,10 @@ function selectTheme(preference: ThemePreference) {
   closeThemeMenus()
 }
 
+function onKeydown(event: KeyboardEvent) {
+  if (event.key === 'Escape') closeThemeMenus()
+}
+
 function onDocumentPointerDown(event: PointerEvent) {
   const target = event.target as Node | null
   if (!target) return
@@ -131,10 +131,12 @@ function onDocumentPointerDown(event: PointerEvent) {
 
 onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
+  document.addEventListener('keydown', onKeydown)
 })
 
 onBeforeUnmount(() => {
   document.removeEventListener('pointerdown', onDocumentPointerDown)
+  document.removeEventListener('keydown', onKeydown)
 })
 
 watch(
@@ -178,7 +180,6 @@ async function handleLogout() {
         </div>
 
         <div :class="`${responsive.desktop} items-center gap-3 shrink-0`">
-          <LanguageSwitcher />
           <!-- Signed in, the theme control lives in the avatar menu instead: one account
                dropdown rather than two adjacent dropdowns in the same corner. -->
           <div v-if="!auth.isAuthed" ref="desktopThemeRoot" class="relative shrink-0">
@@ -186,29 +187,25 @@ async function handleLogout() {
               type="button"
               :class="themeTriggerClass"
               :aria-expanded="desktopThemeOpen"
-              aria-haspopup="listbox"
-              :aria-label="t('theme.label')"
+              aria-haspopup="dialog"
+              data-testid="appearance-settings"
+              :aria-label="t('nav.settings')"
               @click="toggleDesktopTheme"
             >
-              <span class="inline-flex min-w-0 items-center gap-1.5">
-                <component :is="currentThemeOption.icon" class="h-4 w-4 shrink-0" />
-                <span class="truncate text-sm">{{ t(currentThemeOption.label) }}</span>
-              </span>
-              <ChevronDown
-                class="h-3.5 w-3.5 shrink-0 opacity-70 transition-transform"
-                :class="desktopThemeOpen ? 'rotate-180' : ''"
-              />
+              <Settings class="h-5 w-5" />
             </button>
-            <ul
+            <div
               v-if="desktopThemeOpen"
-              role="listbox"
-              class="absolute right-0 top-full z-[60] mt-1 w-[7.25rem] overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
+              role="dialog"
+              :aria-label="t('nav.settings')"
+              class="absolute right-0 top-full z-[60] mt-1 w-48 overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
             >
-              <li v-for="option in themeOptions" :key="option.value">
+              <div class="px-2 py-2"><LanguageSwitcher /></div>
+              <div v-for="option in themeOptions" :key="option.value">
                 <button
                   type="button"
-                  role="option"
-                  :aria-selected="themePreference === option.value"
+
+                  :aria-pressed="themePreference === option.value"
                   class="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary"
                   :class="themePreference === option.value ? `${headerText} font-medium` : `${headerText} opacity-70`"
                   @click="selectTheme(option.value)"
@@ -216,8 +213,8 @@ async function handleLogout() {
                   <component :is="option.icon" class="h-4 w-4 shrink-0" />
                   <span>{{ t(option.label) }}</span>
                 </button>
-              </li>
-            </ul>
+              </div>
+            </div>
           </div>
           <RouterLink
             v-if="!auth.isAuthed"
@@ -278,35 +275,31 @@ async function handleLogout() {
           {{ t(link.label) }}
         </RouterLink>
         <div class="flex flex-col gap-2 pt-4 border-t border-border">
-          <LanguageSwitcher class="w-fit" />
-          <div ref="mobileThemeRoot" class="relative w-[7.25rem] shrink-0">
+          <UserMenu v-if="auth.isAuthed" :theme-preference="themePreference" @set-theme-preference="emit('set-theme-preference', $event)" />
+          <div v-if="!auth.isAuthed" ref="mobileThemeRoot" class="relative w-[7.25rem] shrink-0">
             <button
               type="button"
               :class="themeTriggerClass"
               :aria-expanded="mobileThemeOpen"
-              aria-haspopup="listbox"
-              :aria-label="t('theme.label')"
+              aria-haspopup="dialog"
+              data-testid="appearance-settings"
+              :aria-label="t('nav.settings')"
               @click="toggleMobileTheme"
             >
-              <span class="inline-flex min-w-0 items-center gap-1.5">
-                <component :is="currentThemeOption.icon" class="h-4 w-4 shrink-0" />
-                <span class="truncate text-sm">{{ t(currentThemeOption.label) }}</span>
-              </span>
-              <ChevronDown
-                class="h-3.5 w-3.5 shrink-0 opacity-70 transition-transform"
-                :class="mobileThemeOpen ? 'rotate-180' : ''"
-              />
+              <Settings class="h-5 w-5" />
             </button>
-            <ul
+            <div
               v-if="mobileThemeOpen"
-              role="listbox"
-              class="absolute left-0 top-full z-[60] mt-1 w-[7.25rem] overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
+              role="dialog"
+              :aria-label="t('nav.settings')"
+              class="absolute left-0 top-full z-[60] mt-1 w-48 overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
             >
-              <li v-for="option in themeOptions" :key="`mobile-${option.value}`">
+              <div class="px-2 py-2"><LanguageSwitcher /></div>
+              <div v-for="option in themeOptions" :key="`mobile-${option.value}`">
                 <button
                   type="button"
-                  role="option"
-                  :aria-selected="themePreference === option.value"
+
+                  :aria-pressed="themePreference === option.value"
                   class="flex w-full items-center gap-1.5 px-3 py-2 text-left text-sm transition-colors hover:bg-secondary"
                   :class="themePreference === option.value ? `${headerText} font-medium` : `${headerText} opacity-70`"
                   @click="selectTheme(option.value)"
@@ -314,8 +307,8 @@ async function handleLogout() {
                   <component :is="option.icon" class="h-4 w-4 shrink-0" />
                   <span>{{ t(option.label) }}</span>
                 </button>
-              </li>
-            </ul>
+              </div>
+            </div>
           </div>
           <RouterLink
             v-if="!auth.isAuthed"

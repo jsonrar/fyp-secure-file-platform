@@ -14,6 +14,9 @@ async function chooseLanguage(page: Page, code: 'en' | 'zh-CN') {
   if (!(await switcher.isVisible())) {
     await page.locator('header button[aria-expanded]').filter({ visible: true }).first().click()
   }
+  if (!(await switcher.isVisible())) {
+    await page.getByTestId('appearance-settings').filter({ visible: true }).click()
+  }
   await page.getByTestId('language-switcher').filter({ visible: true }).first().selectOption(code)
 }
 

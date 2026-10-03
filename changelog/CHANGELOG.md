@@ -18,6 +18,21 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### UI layout and navigation consistency (Junyan#9) / 界面排版与导航一致性（Junyan#9）
+
+- Shortened bilingual encryption copy and aligned feature cards to equal heights; extracted `FeatureLane.vue` so Core Features keeps autoplay while also supporting touch pan, mouse drag and keyboard focus/scroll, without a visible native scrollbar, so visitors can inspect each card deliberately.
+- 精简中英文加密说明并对齐等高功能卡片；抽出 `FeatureLane.vue`，核心功能区在保留自动滚动的同时支持触屏滑动、鼠标拖动与键盘聚焦/浏览，且不显示浏览器原生滚动条，方便逐张查看。
+- Reordered hero highlights with single-line captions (`Encrypted before upload` / `Standard ciphers` / `0 Key` / size), moved the file lifecycle explainer (`SecurityStory`) from the home page to below Upload, and applied shared `.product-page` / `.product-heading` Contact us styling to Upload, Education, Help, Access Records and My Files.
+- 调整首页指标顺序并保持说明单行（上传前加密 / 标准算法 / 0 密钥 / 大小），将文件生命周期说明（`SecurityStory`）从首页移到上传区下方，并为上传、教育、帮助、访问记录与我的文件统一采用联系我们页的 `.product-page` / `.product-heading` 风格。
+- Grouped language and theme: signed-in users get both in the account menu; signed-out users open a settings icon (`appearance-settings`) that holds language plus Light/Dark/System. The language-switch browser test follows that guest control. File table rows use vertical middle alignment on desktop.
+- 归组语言与主题：已登录用户在账户菜单中同时切换；未登录用户通过设置图标（`appearance-settings`）打开含语言与 Light/Dark/System 的面板。语言切换浏览器测试跟随该访客控件。桌面端文件表行改为垂直居中对齐。
+- Synced `ui-strings.json` / `zh-CN.dict.json` for the shortened feature and hero copy so Chinese still matches the new English.
+- 同步更新 `ui-strings.json` / `zh-CN.dict.json` 中缩短后的功能与首页文案，确保中文与新英文一致。
+- Validation: frontend typecheck and production build passed; all 13 i18n tests passed. Local Chrome checks covered 1440px/390px layouts, equal feature-card heights, keyboard scrolling, guest language settings and signed-in menus/pages with API fixtures. Fixtures are not live integration or deployment evidence.
+- 验证：前端类型检查与生产构建通过，13 项国际化测试通过；本地 Chrome 检查覆盖 1440px/390px 布局、功能卡片等高、键盘滚动、访客语言设置，以及使用 API 模拟数据的登录菜单和页面。模拟数据检查不作为真实集成或部署证据。
+- Local UI change only (Junyan#9): no API, migration, secret or deployment changes; no Issue is closed without deployment evidence.
+- 本次仅修改本地界面（Junyan#9）：不涉及 API、迁移、密钥或部署变更；未在缺少部署证据时关闭任何 Issue。
+
 ### 简体中文: the pages that stayed English, and the team's own names (#74) / 简体中文：补齐仍显示英文的页面，并使用团队自己的中文名（#74）
 
 - After #150 went live, the Education articles and algorithm details, the four quick-start steps and several styled sentences still showed English, and the team page used machine transliterations. Three causes, each fixed: articles are Markdown rendered into many small nodes, so they are now translated whole before rendering (lines, lists and tables kept); sentences built with `'…' + '…'` and sentences with a bold or italic word were collected in pieces, so they are now collected and translated as one sentence; and list items with a `•` or step number in front now match their entry.

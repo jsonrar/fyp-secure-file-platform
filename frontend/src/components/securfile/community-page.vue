@@ -45,9 +45,9 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
 </script>
 
 <template>
-  <section class="py-16 md:py-24">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-12 max-w-3xl mx-auto">
+  <section class="product-page">
+    <div class="container relative mx-auto max-w-6xl px-4">
+      <div class="product-heading">
         <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-5">
           <!-- <GraduationCap class="h-4 w-4 text-primary" /> -->
           <span class="text-sm text-primary font-medium">Encryption Education</span>
