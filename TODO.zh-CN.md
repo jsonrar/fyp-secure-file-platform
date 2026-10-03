@@ -233,7 +233,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 可选：
 
-- [ ] 注册拆成两步，注册后直接登录
+- [x] 注册拆成两步，注册后直接登录（[PR #161](https://github.com/jsonrar/fyp-secure-file-platform/pull/161)）
 - [ ] 首次登录的新手清单（上传 → 分享 → 对方下载）
 - [ ] 对 staging 做 OWASP ZAP 基线扫描，并附 `pip-audit` / `npm audit` 报告
 
