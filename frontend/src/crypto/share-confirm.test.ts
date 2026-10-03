@@ -6,9 +6,11 @@ import { publicKeyFingerprint } from './primitives'
 import { knownFingerprint, rememberFingerprint } from '@/utils/known-keys'
 
 const lookup = vi.fn()
-vi.mock('@/api/key_api', () => ({ keyApi: { activePublicKeyByIdentifier: (id: string) => lookup(id) } }))
+// A plain function in front of the spy, so one test can fail the lookup without a spy recording it.
+let respond: (id: string) => unknown = (id) => lookup(id)
+vi.mock('@/api/key_api', () => ({ keyApi: { activePublicKeyByIdentifier: (id: string) => respond(id) } }))
 
-const { lookupRecipient, RecipientKeyMismatchError } = await import('./share')
+const { lookupRecipient, RecipientKeyMismatchError, RecipientNotFoundError } = await import('./share')
 
 async function publicPem(): Promise<string> {
   const pair = (await globalThis.crypto.subtle.generateKey(
@@ -29,7 +31,10 @@ describe('formatFingerprint', () => {
 })
 
 describe('lookupRecipient', () => {
-  beforeEach(() => lookup.mockReset())
+  beforeEach(() => {
+    lookup.mockReset()
+    respond = (id) => lookup(id)
+  })
 
   it('fingerprints the key in this browser and returns what will be shared to', async () => {
     const pem = await publicPem()
@@ -50,6 +55,13 @@ describe('lookupRecipient', () => {
     })
 
     await expect(lookupRecipient('bob')).rejects.toBeInstanceOf(RecipientKeyMismatchError)
+  })
+
+  it('treats any lookup failure as no such recipient', async () => {
+    respond = () => Promise.reject(new TypeError('network down'))
+    const outcome = await lookupRecipient('nobody').catch((error: unknown) => error)
+    // By name: under vi.mock the class can be loaded twice, which defeats instanceof.
+    expect((outcome as Error).name).toBe(RecipientNotFoundError.name)
   })
 })
 
