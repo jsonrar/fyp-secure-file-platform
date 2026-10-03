@@ -156,7 +156,11 @@
     "viewProfile": "View profile",
     "deleteTitle": "Delete this account",
     "deleteBody": "Removes the account and every file uploaded from it. There is no way to reverse this and no way to recover the files afterwards. If you are locked out by a forgotten passphrase, reset it above with your saved private key file instead.",
-    "deleteButton": "Delete account"
+    "deleteButton": "Delete account",
+    "fingerprintTitle": "Your key fingerprint",
+    "fingerprintBody": "When someone shares a file with you, their screen shows this fingerprint for your key. Reading it out to each other and checking it matches proves the file is sealed to you and not to a key someone substituted.",
+    "fingerprintLoading": "Working out your fingerprint…",
+    "fingerprintError": "Your fingerprint could not be loaded. Sign in again and reopen Settings."
   },
   "common": {
     "cancel": "Cancel",
