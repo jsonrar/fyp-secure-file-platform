@@ -3,7 +3,8 @@
  *
  * The plaintext never leaves this module. It is read into memory, encrypted under a fresh
  * data encryption key, and only the ciphertext and the envelope metadata are handed to the
- * API layer.
+ * API layer. The one exception is the `sample` progress event: a copy of the first bytes of
+ * plaintext and ciphertext for the page to show side by side. It stays in the browser.
  */
 
 import { fileApi } from '@/api/file_api'
@@ -118,6 +119,38 @@ export async function fetchUploadRecipients(): Promise<UploadRecipients> {
   }
 }
 
+export type UploadStage = 'read' | 'encrypt' | 'wrap' | 'upload'
+
+/** How many leading bytes of plaintext and ciphertext the `sample` event carries. */
+export const SAMPLE_BYTES = 16
+
+/**
+ * What the upload page shows while a file is processed. `timed` carries the measured duration
+ * of the work alone; any pause the listener adds is not counted in it.
+ */
+export type UploadEvent =
+  | { type: 'stage'; stage: UploadStage }
+  | { type: 'timed'; stage: UploadStage; ms: number }
+  | { type: 'sample'; plaintextHead: Uint8Array; ciphertextHead: Uint8Array }
+  | { type: 'upload-progress'; fraction: number }
+
+/** A listener may return a promise to hold the pipeline, e.g. so a step stays on screen. */
+export type UploadListener = (event: UploadEvent) => void | Promise<void>
+
+/** Run one stage, reporting its start and its own duration. */
+async function timedStage<T>(
+  stage: UploadStage,
+  onEvent: UploadListener | undefined,
+  work: () => Promise<T>,
+): Promise<T> {
+  await onEvent?.({ type: 'stage', stage })
+  const started = performance.now()
+  const result = await work()
+  const ms = performance.now() - started
+  await onEvent?.({ type: 'timed', stage, ms })
+  return result
+}
+
 /** The subset of `File` this module needs, so tests do not have to build a real one. */
 export interface UploadableFile {
   name: string
@@ -136,8 +169,9 @@ export async function prepareUpload(params: {
   file: UploadableFile
   recipients: UploadRecipients
   algorithm?: EncryptionAlgorithm
+  onEvent?: UploadListener
 }): Promise<UploadPayload> {
-  const { file, recipients } = params
+  const { file, recipients, onEvent } = params
 
   if (file.size > MAX_UPLOAD_BYTES) {
     throw new RangeError(
@@ -146,14 +180,23 @@ export async function prepareUpload(params: {
   }
 
   let envelope: Awaited<ReturnType<typeof encryptFile>>
+  let plaintextHead: Uint8Array
   try {
-    const plaintext = new Uint8Array(await file.arrayBuffer())
-    envelope = await encryptFile({
-      plaintext,
-      originalFilename: resolveUploadFilename(file.name),
-      mimeType: resolveMimeType(file.type),
-      algorithm: params.algorithm ?? DEFAULT_ENCRYPTION_ALGORITHM,
-    })
+    const plaintext = await timedStage(
+      'read',
+      onEvent,
+      async () => new Uint8Array(await file.arrayBuffer()),
+    )
+    // slice() copies, so the event never keeps the whole plaintext buffer alive.
+    plaintextHead = plaintext.slice(0, SAMPLE_BYTES)
+    envelope = await timedStage('encrypt', onEvent, () =>
+      encryptFile({
+        plaintext,
+        originalFilename: resolveUploadFilename(file.name),
+        mimeType: resolveMimeType(file.type),
+        algorithm: params.algorithm ?? DEFAULT_ENCRYPTION_ALGORITHM,
+      }),
+    )
   } catch (error) {
     if (isMemoryExhaustion(error)) {
       throw new Error(
@@ -163,13 +206,21 @@ export async function prepareUpload(params: {
     throw error
   }
 
-  return buildUploadPayload({
-    envelope,
-    ownerKeyId: recipients.ownerKeyId,
-    ownerPublicKeyPem: recipients.ownerPublicKeyPem,
-    recoveryKeyId: recipients.recoveryKeyId,
-    recoveryPublicKeyPem: recipients.recoveryPublicKeyPem,
+  await onEvent?.({
+    type: 'sample',
+    plaintextHead,
+    ciphertextHead: envelope.ciphertext.slice(0, SAMPLE_BYTES),
   })
+
+  return timedStage('wrap', onEvent, () =>
+    buildUploadPayload({
+      envelope,
+      ownerKeyId: recipients.ownerKeyId,
+      ownerPublicKeyPem: recipients.ownerPublicKeyPem,
+      recoveryKeyId: recipients.recoveryKeyId,
+      recoveryPublicKeyPem: recipients.recoveryPublicKeyPem,
+    }),
+  )
 }
 
 export interface UploadResult {
@@ -186,11 +237,16 @@ export async function encryptAndUpload(
   file: UploadableFile,
   recipients?: UploadRecipients,
   algorithm?: EncryptionAlgorithm,
+  onEvent?: UploadListener,
 ): Promise<UploadResult> {
   const resolved = recipients ?? (await fetchUploadRecipients())
-  const payload = await prepareUpload({ file, recipients: resolved, algorithm })
+  const payload = await prepareUpload({ file, recipients: resolved, algorithm, onEvent })
 
-  await fileApi.uploadEncrypted(payload)
+  await timedStage('upload', onEvent, () =>
+    fileApi.uploadEncrypted(payload, (fraction) => {
+      void onEvent?.({ type: 'upload-progress', fraction })
+    }),
+  )
 
   return {
     fileId: payload.metadata.file_id,
