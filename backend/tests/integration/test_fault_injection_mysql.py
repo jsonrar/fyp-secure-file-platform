@@ -149,10 +149,22 @@ def test_a_connection_killed_at_commit_leaves_no_row_and_an_orphan_reconcile_rem
         connection_id = victim.exec_driver_sql("SELECT CONNECTION_ID()").scalar_one()
         session.commit()
 
+        # Kill at the COMMIT that would persist the file row, not at an earlier read-only
+        # commit (the upload releases its connection before staging the ciphertext).
+        wrote_file_row = False
+
+        def note_file_insert(_conn, _cursor, statement, *_args) -> None:
+            nonlocal wrote_file_row
+            if statement.lstrip().upper().startswith("INSERT INTO FILES"):
+                wrote_file_row = True
+
         def kill_at_commit(_conn) -> None:
+            if not wrote_file_row:
+                return
             with auth_mysql_engine.connect() as killer:
                 killer.exec_driver_sql(f"KILL CONNECTION {int(connection_id)}")
 
+        event.listen(victim, "before_cursor_execute", note_file_insert)
         event.listen(victim, "commit", kill_at_commit)
         with pytest.raises(DBAPIError):
             run_upload(file_service(session, tmp_path), owner, metadata, uploaded.ciphertext)

@@ -183,9 +183,12 @@ From the meeting notes, filled from [the staging report](performance/REPORT-2026
   uploads failed with HTTP 500. Parallel tasks per user (1/2/5/10) caused no server error.
 - **Bottleneck:** Beyond 50 users the limit is the single API process's database pool (5 + 10
   connections, 30 s wait): at 100 users requests time out waiting for a connection while server
-  CPU averages 3% and memory is flat. Scaling means releasing the DB connection before long file
-  transfers if possible, then a larger pool and/or more uvicorn workers, re-measured with this
-  tool. Below that, every transfer number was bounded by the network: the VPS port is ~100 Mbit/s,
+  CPU averages 3% and memory is flat. **Fixed 2026-10-04 (PR #163):** uploads held a connection
+  while awaiting the thread pool, whose threads were waiting for connections; the upload's database
+  work now runs in the pool and holds no connection while staging. Locally the 100-user step went
+  from 80% failed uploads to none at 56 ops/s ([details](performance/pool-fix-2026-10-04/README.md));
+  the staging re-run is still to do. Beyond that, scaling means more uvicorn workers and a larger
+  pool, re-measured with this tool. Below that, every transfer number was bounded by the network: the VPS port is ~100 Mbit/s,
   and the test link was ~24 Mbit/s up and ~13 Mbit/s down.
 - **Large files:** Every type (pdf, png, jpg, mp4, zip, exe) up to 500 MiB round-trips byte-exact
   (144/144 operations, every download SHA-256 verified); 500 MiB took p50 146 s up and 295 s down

@@ -278,7 +278,9 @@ Must do:
 
 Strongly recommended (Award):
 
-- [ ] Fix the DB-pool bottleneck and re-run #140 at 100 users for a before/after chart
+- [x] Fix the DB-pool bottleneck, with a before/after measurement at 100 users (locally:
+  80 % failed → 0 %, [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163))
+- [ ] Re-run the #140 `steps` on staging after PR #163 deploys, for the staging before/after chart
 - [ ] #115 usability study with SUS (needs the supervisor's ethics answer and a pilot first)
 - [x] Confirm the recipient before sharing, with their key fingerprint (key verification) —
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160); threat model T-S5 now mitigated against a data writer

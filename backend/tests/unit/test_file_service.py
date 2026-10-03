@@ -122,6 +122,11 @@ class FakeRepository:
         self.uploaded_since = since
         return self.uploaded_recently
 
+    released = False
+
+    def release_connection(self) -> None:
+        self.released = True
+
     def get_active_recovery_key(self, key_id: UUID):
         assert key_id == RECOVERY_KEY_ID
         return self.recovery_key
@@ -147,8 +152,13 @@ class FakeStorage:
         self.discarded: list[Any] = []
         self.deleted: list[str] = []
 
+    repository: FakeRepository | None = None
+
     async def stage_upload(self, upload, *, max_size_bytes: int) -> StagedCiphertext:
         assert max_size_bytes == 100
+        if self.repository is not None:
+            # Staging waits on the thread pool; the DB connection must already be released.
+            assert self.repository.released
         return StagedCiphertext(token=OBJECT_ID, size_bytes=5, sha256="d" * 64)
 
     def allocate_object_key(self, file_id: UUID, *, random_id: UUID) -> str:
@@ -247,6 +257,15 @@ def _attempt(service: FileService) -> None:
             actor=_actor(), metadata=_metadata(), ciphertext=_upload(), context=RequestContext()
         )
     )
+
+
+def test_upload_releases_its_db_connection_before_waiting_to_stage_the_file() -> None:
+    db, repository, storage, audit = FakeDb(), FakeRepository(), FakeStorage(), FakeAudit()
+    storage.repository = repository
+
+    _attempt(_service(db, repository, storage, audit))
+
+    assert repository.released and db.commits == 1
 
 
 def test_upload_over_the_storage_quota_is_refused_before_anything_is_stored() -> None:

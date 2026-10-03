@@ -226,7 +226,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 强烈推荐（冲 Award）：
 
-- [ ] 修掉数据库连接池瓶颈，再用 #140 的工具重测 100 用户，做出修复前后对比图
+- [x] 修掉数据库连接池瓶颈，并在 100 用户下做修复前后对比（本地：失败率 80% → 0%，
+  [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163)）
+- [ ] PR #163 部署后，在 staging 上重跑 #140 的 `steps`，做出 staging 的修复前后对比图
 - [ ] #115 可用性研究并计算 SUS 分数（开始前需要导师就伦理审查的书面答复，并先做一次预演）
 - [x] 分享前确认接收者，并显示对方的密钥指纹（密钥验证）——
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160)；威胁模型 T-S5 已针对数据写入者缓解
