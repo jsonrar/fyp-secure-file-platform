@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Show the real encryption steps while a file uploads / 上传时展示真实的加密步骤
+
+- Encrypting a few MB in the browser takes tens of milliseconds, so the upload used to finish the moment the button was pressed and looked as if nothing had been encrypted. The upload page now shows each real step for the file in progress (read in the browser, encrypt with the chosen algorithm and self-check, wrap the file key with RSA-OAEP for the owner and the recovery key, upload the ciphertext with a real progress bar), each with its measured duration, and then the file's first 16 bytes beside the first 16 bytes the server receives. Nothing is slowed down to look busy: each step stays on screen for at least 0.35 s (batches of five files or fewer only), and the times shown exclude that pause.
+- 在浏览器里加密几 MB 的文件只要几十毫秒，所以以前一按按钮上传就完成了，看起来像根本没加密。现在上传页会展示当前文件的每个真实步骤（在浏览器中读取、用所选算法加密并自检、用 RSA-OAEP 把文件密钥包装给本人和恢复密钥、上传密文并显示真实进度），每一步标出实测耗时，最后把文件的前 16 个字节和服务器收到的前 16 个字节并排显示。没有为了“看起来在忙”而故意放慢：每一步最少停留 0.35 秒（只对 5 个文件以内的批次生效），显示的耗时不包含这段停留。
+- `prepareUpload` / `encryptAndUpload` take an optional event listener (`stage`, `timed`, `sample`, `upload-progress`) and `fileApi.uploadEncrypted` reports axios upload progress; existing callers are unchanged and the button labels the browser tests use are kept. The byte sample is a 16-byte copy that stays in the browser. A unit test checks the stage order and that the sample is the real plaintext and ciphertext; checked by hand in English and 简体中文, at desktop and 375 px widths. New strings are in `ui-strings.json` and `zh-CN.dict.json`.
+- `prepareUpload` / `encryptAndUpload` 新增可选的事件监听参数（`stage`、`timed`、`sample`、`upload-progress`），`fileApi.uploadEncrypted` 会上报 axios 的上传进度；现有调用方不受影响，浏览器测试依赖的按钮文字保持不变。字节样本是 16 字节的副本，只留在浏览器里。单元测试检查了阶段顺序，以及样本确实是真实的明文和密文；已在英文和简体中文、桌面和 375 px 宽度下手动验证。新增文字已加入 `ui-strings.json` 和 `zh-CN.dict.json`。
+- Added `docs/presentation/TALKING_POINTS.zh-CN.md`: what to say about the encryption, the #140 capacity numbers, the #139 fix, monitoring, upload abuse and why the server cannot scan for viruses, with the evidence for each and the questions judges are likely to ask. Items not yet done are marked as planned.
+- 新增 `docs/presentation/TALKING_POINTS.zh-CN.md`：整理了加密、#140 容量数据、#139 修复、监控告警、防恶意上传，以及服务器为什么不能扫毒这几部分该怎么讲，每条都附上证据和评委可能问的问题。尚未完成的项目标为“计划中”。
+
 ### Staging capacity and performance measured (#140) / 在 staging 上实测容量与性能（#140）
 
 - Ran the full `loadtest/` matrix against staging on the night of 2026-10-03/04 (release `c041880`, including the #139 retry) and committed the evidence under `docs/performance/`: the report, charts, every run's `summary.json`, the server sampler CSV and the run logs. 22,264 operations; 5,094 downloads decrypted and SHA-256-compared with the original, 0 integrity failures; every file type up to 500 MiB round-trips byte-exact. This answers meeting items 4–6 with measurements instead of "it supports many users"; the conclusions are filled in at the end of `docs/PERFORMANCE_TESTING.md` (EN and zh-CN).

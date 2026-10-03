@@ -9,12 +9,15 @@ import {
   type EncryptionAlgorithm,
   supportedEncryptionAlgorithms,
 } from '@/crypto/primitives'
+import EncryptionProgress from '@/components/EncryptionProgress.vue'
 import {
   classifyUploadSize,
   encryptAndUpload,
   fetchUploadRecipients,
   MAX_UPLOAD_BYTES,
+  type UploadEvent,
   type UploadRecipients,
+  type UploadStage,
 } from '@/crypto/upload'
 
 type UploadStatus = 'pending' | 'encrypting' | 'done' | 'failed'
@@ -70,6 +73,63 @@ const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
 const hasOversizeFile = computed(() =>
   files.value.some((file) => file.status === 'pending' && classifyUploadSize(file.size) === 'too-large'),
 )
+
+interface Progress {
+  fileName: string
+  fileSize: number
+  algorithm: string
+  stage: UploadStage | null
+  durations: Partial<Record<UploadStage, number>>
+  uploadFraction: number
+  plaintextHead: Uint8Array | null
+  ciphertextHead: Uint8Array | null
+  done: boolean
+}
+
+const progress = ref<Progress | null>(null)
+
+/**
+ * Encrypting a few MB takes tens of milliseconds, so without a pause every step would flash
+ * past and the page would look as if nothing happened. Each step stays on screen at least
+ * this long; the times shown are the measured work alone. Large batches skip the pause.
+ */
+const MIN_STAGE_MS = 350
+const PACED_BATCH_LIMIT = 5
+
+const sleep = (ms: number) => new Promise<void>((resolve) => setTimeout(resolve, ms))
+
+const startProgress = (file: UploadedFile): Progress => ({
+  fileName: file.name,
+  fileSize: file.size,
+  algorithm: algorithm.value,
+  stage: null,
+  durations: {},
+  uploadFraction: 0,
+  plaintextHead: null,
+  ciphertextHead: null,
+  done: false,
+})
+
+const progressListener = (paced: boolean) => {
+  let shownAt = 0
+  return async (event: UploadEvent) => {
+    const current = progress.value
+    if (!current) return
+    if (event.type === 'stage') {
+      current.stage = event.stage
+      shownAt = performance.now()
+    } else if (event.type === 'timed') {
+      const remaining = MIN_STAGE_MS - (performance.now() - shownAt)
+      if (paced && remaining > 0 && event.stage !== 'upload') await sleep(remaining)
+      current.durations = { ...current.durations, [event.stage]: event.ms }
+    } else if (event.type === 'sample') {
+      current.plaintextHead = event.plaintextHead
+      current.ciphertextHead = event.ciphertextHead
+    } else {
+      current.uploadFraction = event.fraction
+    }
+  }
+}
 
 const toUploadedFile = (file: File): UploadedFile => ({
   raw: file,
@@ -135,11 +195,15 @@ const handleEncrypt = async () => {
   }
 
   let failures = 0
+  const paced = files.value.length <= PACED_BATCH_LIMIT
   for (const file of files.value) {
     file.status = 'encrypting'
     file.error = ''
+    progress.value = startProgress(file)
     try {
-      await encryptAndUpload(file.raw, recipients, algorithm.value)
+      await encryptAndUpload(file.raw, recipients, algorithm.value, progressListener(paced))
+      progress.value.stage = null
+      progress.value.done = true
       file.status = 'done'
     } catch (error) {
       failures += 1
@@ -273,6 +337,8 @@ const goToFiles = () => {
                 <p class="text-xs font-mono break-all text-foreground">{{ recoveryFingerprint }}</p>
               </div>
             </div>
+
+            <EncryptionProgress v-if="progress" class="mt-6" v-bind="progress" />
 
             <div class="mt-8">
               <button :disabled="!files.length || isEncrypting || hasOversizeFile" class="w-full h-11 inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="handleEncrypt">

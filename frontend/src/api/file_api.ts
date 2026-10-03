@@ -60,14 +60,20 @@ export const fileApi = {
    * boundary itself; naming the type without a boundary produces a body the server cannot
    * parse.
    */
-  uploadEncrypted(payload: UploadPayload) {
+  uploadEncrypted(payload: UploadPayload, onProgress?: (fraction: number) => void) {
     const form = new FormData()
     const ciphertext = new Blob([payload.ciphertext as BlobPart], {
       type: 'application/octet-stream',
     })
     form.append('file', ciphertext, `${payload.metadata.file_id}.ciphertext`)
     form.append('metadata', JSON.stringify(payload.metadata))
-    return http.post<ApiEnvelope<FileOut>>('/files/upload', form)
+    return http.post<ApiEnvelope<FileOut>>('/files/upload', form, {
+      onUploadProgress: onProgress
+        ? (event) => {
+            if (event.total) onProgress(event.loaded / event.total)
+          }
+        : undefined,
+    })
   },
 
   /** Verified ciphertext only. The caller can save it as-is or decrypt it locally. */
