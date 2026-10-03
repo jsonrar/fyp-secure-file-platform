@@ -98,7 +98,8 @@ nginx 限制每个地址同时最多 10 个上传；安全 Agent 会报告上传
 
 Final Presentation 要讲什么、每一点的证据在哪，见
 [docs/presentation/TALKING_POINTS.zh-CN.md](docs/presentation/TALKING_POINTS.zh-CN.md)；目前还有哪些不足、按优先级该怎么改，见
-[docs/presentation/REFLECTION.zh-CN.md](docs/presentation/REFLECTION.zh-CN.md)。
+[docs/presentation/REFLECTION.zh-CN.md](docs/presentation/REFLECTION.zh-CN.md)。现场篡改演示（在 staging 上改掉存储的密文，接收方下载时被拒绝）
+的步骤见 [docs/presentation/TAMPER_DEMO.zh-CN.md](docs/presentation/TAMPER_DEMO.zh-CN.md)。
 
 ## 网站如何使用
 

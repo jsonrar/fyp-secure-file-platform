@@ -21,7 +21,7 @@ project-management content**. Time follows its nine parts:
 | 0:00–1:00 | Opening and the problem: an ordinary cloud drive can read your files, and a breach exposes all of them | — |
 | 1:00–1:45 | Target users and a one-slide requirements status table | `docs/PROPOSAL_TRACEABILITY.md` |
 | 1:45–3:30 | Design: architecture diagram and encryption flow | 1 |
-| 3:30–7:30 | **4-minute live demo**: (1) upload, showing the encryption steps and the byte comparison; (2) share, and the recipient downloads and decrypts; (3) change the stored ciphertext on the server, and the recipient's download fails | 1, 2 |
+| 3:30–7:30 | **4-minute live demo**: (1) upload, showing the encryption steps and the byte comparison; (2) share, and the recipient downloads and decrypts; (3) change the stored ciphertext on the server, and the recipient's download fails ([TAMPER_DEMO.md](TAMPER_DEMO.md)) | 1, 2 |
 | 7:30–9:30 | Outcomes and evidence: load-test numbers, the bug testing found and fixed, the alert emails | 3, 4, 5 |
 | 9:30–10:30 | Limitations, raised by us | 7, 8 and REFLECTION |
 | 10:30–12:00 | Future work, conclusion, buffer | REFLECTION |
@@ -35,6 +35,9 @@ only ciphertext, wrapped keys and metadata, and has no way to decrypt.
 **Evidence:**
 - `docs/ENCRYPTION_EVIDENCE.md`, `docs/crypto/FILE_ENVELOPE.md` (the format and test vectors)
 - The `tamper-drill` CI job: stored ciphertext is altered on the server and the client must detect it
+- The live tamper demonstration, [TAMPER_DEMO.md](TAMPER_DEMO.md): one byte of the stored file is changed
+  on staging in front of the audience and the recipient's download is refused. Rewriting the database
+  digest as well is still refused, because the upload's digest is also in the hash-chained audit log
 - The ciphertext preview panel on My Files
 - The encryption steps shown during upload (point 2)
 
@@ -207,7 +210,7 @@ first share on a new device trusts the first key it sees. The comparison is the 
 
 | Question | One-line answer | See |
 | --- | --- | --- |
-| Is it really encrypted? | The upload shows each step's measured time and the bytes before and after; CI also runs a tamper drill | 1, 2 |
+| Is it really encrypted? | The upload shows each step's measured time and the bytes before and after; the live tamper demo shows a changed byte being refused; CI also runs a tamper drill | 1, 2 |
 | How many users can it take? | No server error up to 50 concurrent users; at 100 the database pool runs out while CPU is at 3 % | 3 |
 | What about large files? | Six types up to 500 MB byte-exact; 5,094 downloads, 0 integrity failures | 3 |
 | Did testing find anything? | Two concurrency deadlocks, fixed, with a regression test and zero recurrences on staging | 4 |
