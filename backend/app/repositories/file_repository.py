@@ -110,6 +110,14 @@ class FileRepository:
             or 0
         )
 
+    def release_connection(self) -> None:
+        """End the current read-only transaction so its connection goes back to the pool.
+
+        Only for a point where nothing is pending. The session factory sets
+        expire_on_commit=False, so rows already loaded stay usable afterwards.
+        """
+        self.db.commit()
+
     def stored_bytes_for_owner(self, owner_id: int) -> int:
         """Ciphertext bytes the owner currently occupies (every file not deleted)."""
         return int(

@@ -94,11 +94,16 @@ The report's "Test conditions" section says so.
 port tops out at about 100 Mbit/s, which still means 40-plus seconds for 500 MB.
 
 **Likely question:** it fails at 100 users?
-**Answer:** we found the exact bottleneck: the single API process's database pool, not the hardware.
-The way to scale is clear: check whether a file transfer holds its database connection for the whole
-transfer, then enlarge the pool and/or add workers, and re-measure with the same tool. Being able to say
-where it breaks, why, and how to scale it is what the test was for. (If the re-measure in REFLECTION is
-done, show the before/after chart here.)
+**Answer:** it did, and then we fixed it. The test pointed at the database pool, not the hardware.
+Our first guess, that file transfers held connections, was **wrong**, and a measurement showed it: slow
+downloads held no transaction. The real cause was uploads holding a connection while waiting for a thread
+pool whose threads were all waiting for connections. After the fix (PR #163), the same tool on the same
+machine at 100 users: **80 % of uploads failed → 0 %, 0.33 → 56 operations per second**. Show the two
+charts in `docs/performance/pool-fix-2026-10-04/` side by side. Say the re-measure was local; the staging
+re-run is the next step.
+
+**How to tell it:** this is the strongest engineering story in the project: measure, find the bottleneck,
+be wrong once and prove it, fix the real cause, measure again.
 
 ## 4. Testing found real bugs, and they were fixed (#139 → PR #154)
 
@@ -211,7 +216,7 @@ first share on a new device trusts the first key it sees. The comparison is the 
 | Question | One-line answer | See |
 | --- | --- | --- |
 | Is it really encrypted? | The upload shows each step's measured time and the bytes before and after; the live tamper demo shows a changed byte being refused; CI also runs a tamper drill | 1, 2 |
-| How many users can it take? | No server error up to 50 concurrent users; at 100 the database pool runs out while CPU is at 3 % | 3 |
+| How many users can it take? | The 100-user failure was found, explained and fixed: 80 % failed uploads → 0 %, 0.33 → 56 ops/s (local re-measure) | 3 |
 | What about large files? | Six types up to 500 MB byte-exact; 5,094 downloads, 0 integrity failures | 3 |
 | Did testing find anything? | Two concurrency deadlocks, fixed, with a regression test and zero recurrences on staging | 4 |
 | How would you know something broke? | Monitoring emails an alert; each of the three overloads on test night sent one | 5 |
