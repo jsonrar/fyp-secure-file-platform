@@ -52,6 +52,7 @@ attention now, how urgent is it, and what should I do?**
 | `SESSION_TOKEN_REUSE` | A used refresh token presented again | Any = High |
 | `DOWNLOAD_BURST` | Downloads per account | 20+ in 10 min = Medium, 60+ = High |
 | `SHARE_BURST` | Shares per account | 10+ in an hour = Low |
+| `UPLOAD_BURST` | Uploads per account | 30+ in 10 min = Medium, 100+ = High |
 | `PASSWORD_CHANGE_GUESSING` | Failed password changes per account | 5+ in 15 min = Medium |
 | `RECOVERY_EXECUTED` | Executed recoveries, requests waiting over a day | Executed = Medium, waiting = Low |
 

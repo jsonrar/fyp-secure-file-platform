@@ -48,6 +48,7 @@ v2（[#137](https://github.com/jsonrar/fyp-secure-file-platform/issues/137)）�
 | `SESSION_TOKEN_REUSE` | 已使用过的刷新令牌再次出现 | 任意一次 = High |
 | `DOWNLOAD_BURST` | 每个账户的下载 | 10 分钟内 20 次以上 = Medium，60 次以上 = High |
 | `SHARE_BURST` | 每个账户的分享 | 一小时内 10 次以上 = Low |
+| `UPLOAD_BURST` | 每个账户的上传 | 10 分钟内 30 次以上 = Medium，100 次以上 = High |
 | `PASSWORD_CHANGE_GUESSING` | 每个账户的改密失败 | 15 分钟内 5 次以上 = Medium |
 | `RECOVERY_EXECUTED` | 已执行的恢复、等待超过一天的请求 | 已执行 = Medium，等待 = Low |
 
