@@ -11,6 +11,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.db_retry import run_with_deadlock_retry
 from app.core.security import (
     PasswordManager,
     PasswordOperationCapacityError,
@@ -359,7 +360,25 @@ class AuthService:
     ) -> LoginResult:
         normalized_username = username.strip()
         buckets = self._login_buckets(normalized_username, context)
+        return run_with_deadlock_retry(
+            self.db,
+            lambda: self._attempt_login(normalized_username, password, context, buckets),
+        )
 
+    def _attempt_login(
+        self,
+        normalized_username: str,
+        password: str,
+        context: RequestContext,
+        buckets: tuple[tuple[LoginThrottleScope, str], ...],
+    ) -> LoginResult:
+        """One full attempt, from the throttle check to the commit.
+
+        Two brand-new accounts signing in at the same instant can each find no existing
+        session row and take MySQL's gap lock on the same, still-empty tail of
+        `idx_user_sessions_user_status`; whichever loses that deadlock aborts here with an
+        `OperationalError`, which `login` retries as an entirely fresh attempt (issue #139).
+        """
         try:
             now = self._now()
             # Inspect persisted failures under row locks. In-flight memory use

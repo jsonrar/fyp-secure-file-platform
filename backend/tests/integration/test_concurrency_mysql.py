@@ -105,6 +105,49 @@ def test_concurrent_logins_hold_the_session_limit_exactly(auth_mysql_engine: Eng
     assert statuses.count(SessionStatus.ACTIVE) == settings.AUTH_MAX_ACTIVE_SESSIONS
 
 
+def test_two_simultaneous_fresh_account_logins_never_surface_a_deadlock(
+    auth_mysql_engine: Engine,
+) -> None:
+    """Two brand-new accounts signing in at the same instant must not 500 (issue #139).
+
+    Each has no `user_sessions` row yet, so `lock_active_sessions`'s `SELECT ... FOR UPDATE`
+    matches nothing and InnoDB takes a gap lock on the still-empty tail of
+    `idx_user_sessions_user_status` instead of a single row. Two such accounts -- the two
+    newest in the table -- land in the same gap; whichever inserts its new session second
+    deadlocks against the other under MySQL error 1213. `login` retries the whole attempt on
+    exactly that error (`app.core.db_retry`), so this must come back clean every time, not
+    just on average. A single iteration reproduced the deadlock on the unfixed code about
+    70% of the time, so the loop below would almost certainly have caught a regression even
+    without asserting on every iteration -- it asserts on every one anyway.
+    """
+    settings = integration_settings()
+    passwords = PasswordManager(max_concurrent_operations=2)
+
+    for _ in range(5):
+        first = register_real_user(auth_mysql_engine, prefix="concy-fresh-a")
+        second = register_real_user(auth_mysql_engine, prefix="concy-fresh-b")
+        accounts = (first, second)
+
+        def login(index: int, accounts: tuple = accounts) -> None:
+            user = accounts[index]
+            with session_scope(auth_mysql_engine) as session:
+                AuthService(db=session, settings=settings, passwords=passwords).login(
+                    username=user.username,
+                    password=user.password,
+                    context=request_context(),
+                )
+
+        results = race(login, 2)
+        assert outcome_names(results) == ["ok", "ok"], results
+
+    with session_scope(auth_mysql_engine) as session:
+        for user in (first, second):
+            statuses = session.scalars(
+                select(UserSession.status).where(UserSession.user_id == user.user_id)
+            ).all()
+            assert statuses == [SessionStatus.ACTIVE]
+
+
 def test_concurrent_wrong_passwords_are_all_counted_and_lock_the_account(
     auth_mysql_engine: Engine,
 ) -> None:
