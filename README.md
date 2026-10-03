@@ -1,5 +1,4 @@
 # Secure File Encryption and Sharing Platform
-
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 Final Year Project architecture for a secure file encryption and sharing platform.
@@ -61,8 +60,9 @@ with demos and a knowledge base, `/help` points to the homepage picture guide an
 placeholders for longer clips, and `/team` (**Contact us**) shows a feedback form preview plus
 the development roster. `/benchmark/argon2`, linked from no menu, times the unlock key derivation
 on the visiting device; it is the evidence behind the threat model's passphrase analysis.
-Signed-in users get a header avatar menu with theme control, `/profile`, and `/settings`; the
-active nav label uses the theme primary colour so the current tab is obvious. `/profile` can
+Signed-in users get a header avatar menu with language and theme controls, `/profile`, and
+`/settings`; signed-out visitors open the same appearance controls from a header settings icon.
+The active nav label uses the theme primary colour so the current tab is obvious. `/profile` can
 upload or remove a validated PNG/JPEG picture (initials remain the fallback).
 
 Every page has a **Help assistant** button at the bottom right (#146). It answers how-to,
@@ -74,16 +74,17 @@ questions are not sent or logged. Signed in, it also answers questions about you
 answers only read what My Files and Access Records already show, and change nothing. See
 [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 
-The interface can be switched between **English and 简体中文** (#74) from the header, the phone
-menu or Settings; the choice is remembered on the device. File names, usernames and anything a
-user wrote are never translated. The Chinese is drafted at build time by Zhipu `glm-4-flash` and
-checked against a fixed security glossary; the browser never calls a translation service. See
-[docs/I18N.md](docs/I18N.md).
+The interface can be switched between **English and 简体中文** (#74) from the account menu
+(signed in), the guest settings icon, the phone menu or Settings; the choice is remembered on
+the device. File names, usernames and anything a user wrote are never translated. The Chinese is
+drafted at build time by Zhipu `glm-4-flash` and checked against a fixed security glossary; the
+browser never calls a translation service. See [docs/I18N.md](docs/I18N.md).
 
-Core Features now uses a seamless dual-row loop, with hover-to-pause and a static,
-complete card layout for reduced-motion preferences. This is a local frontend update;
-deployment has not yet been verified. See the
-[landing polish changelog](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨).
+Core Features uses a dual-row `FeatureLane` with autoplay plus touch, mouse-drag and keyboard
+scrolling (no native scrollbar), and a static complete-card layout for reduced-motion
+preferences. The file lifecycle explainer sits below Upload; Upload, Education, Help, Access
+Records and My Files share Contact us page styling. See
+[changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9).
 
 The homepage's How it works section offers six annotated screenshots from the real UI under
 `/#how-it-works`, covering file selection, encryption, sharing, unlock, and recipient download.

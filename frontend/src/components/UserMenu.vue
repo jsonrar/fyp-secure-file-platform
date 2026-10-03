@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { LifeBuoy, LogOut, Monitor, Moon, Settings, Sun, UserRound } from 'lucide-vue-next'
+import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth_store'
@@ -129,8 +130,7 @@ onBeforeUnmount(() => {
       :aria-expanded="isOpen"
       aria-haspopup="menu"
       :aria-label="t('nav.accountMenuFor', { name: auth.displayName })"
-      @click="goToProfile"
-      @focus="open"
+      @click="open"
     >
       <img
         v-if="auth.avatarObjectUrl"
@@ -144,7 +144,7 @@ onBeforeUnmount(() => {
     <div
       v-if="isOpen"
       role="menu"
-      class="absolute right-0 top-full z-[60] mt-2 w-60 overflow-hidden rounded-xl border border-border bg-card shadow-lg"
+      class="absolute left-0 lg:left-auto lg:right-0 top-full z-[60] mt-2 w-60 overflow-hidden rounded-xl border border-border bg-card shadow-lg"
     >
       <button
         type="button"
@@ -184,6 +184,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="border-t border-border px-4 py-2">
+        <LanguageSwitcher class="mb-2" />
         <p class="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {{ t('theme.menuHeading', { current: t(currentTheme.label) }) }}
         </p>

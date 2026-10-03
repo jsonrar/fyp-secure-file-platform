@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { FileCheck, Key, Settings, Share2, ShieldCheck, Upload } from 'lucide-vue-next'
 import type { Component } from 'vue'
+import FeatureLane from './FeatureLane.vue'
 
 interface FeatureItem {
   icon: Component
@@ -25,7 +26,7 @@ const features: FeatureItem[] = [
     icon: ShieldCheck,
     title: 'Strong Encryption',
     description:
-      'AES-256-GCM by default, or AES-256-GCM-SIV, ChaCha20-Poly1305, XChaCha20-Poly1305, AES-128-GCM and, where the browser supports it, AES-192-GCM. All six are authenticated encryption, so a change is detected, not just hidden.',
+      'AES-256-GCM by default, with six authenticated encryption options to keep files private and detect tampering.',
   },
   {
     icon: Share2,
@@ -65,7 +66,7 @@ const secondRow = features.slice(splitIndex)
       <div class="mx-auto max-w-6xl space-y-8">
         <!-- Three equal groups cover the viewport even at the one-group loop boundary.
              Keep the trailing gap inside each group so every seam has the same spacing. -->
-        <div class="marquee-lane overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+        <FeatureLane reverse>
           <div class="marquee-track marquee-right">
             <div
               v-for="copy in 3"
@@ -86,9 +87,9 @@ const secondRow = features.slice(splitIndex)
               </article>
             </div>
           </div>
-        </div>
+        </FeatureLane>
 
-        <div class="marquee-lane overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_8%,black_92%,transparent)]">
+        <FeatureLane>
           <div class="marquee-track marquee-left">
             <div
               v-for="copy in 3"
@@ -109,18 +110,13 @@ const secondRow = features.slice(splitIndex)
               </article>
             </div>
           </div>
-        </div>
+        </FeatureLane>
       </div>
     </div>
   </section>
 </template>
 
 <style scoped>
-.marquee-lane {
-  /* Room above/below so hover lift + shadow are not clipped by overflow:hidden */
-  padding-block: 1.25rem;
-}
-
 .marquee-track {
   display: flex;
   width: max-content;
@@ -135,19 +131,9 @@ const secondRow = features.slice(splitIndex)
   padding-inline-end: 1.5rem;
 }
 
-.marquee-left {
-  animation: marquee-left 40s linear infinite;
-}
-
-.marquee-right {
-  animation: marquee-right 40s linear infinite;
-}
-
-.marquee-lane:hover .marquee-track {
-  animation-play-state: paused;
-}
-
 .feature-card {
+  min-height: 280px;
+  user-select: none;
   min-width: 320px;
   max-width: 320px;
   flex-shrink: 0;
@@ -168,30 +154,7 @@ const secondRow = features.slice(splitIndex)
   transform: translateY(-4px);
 }
 
-@keyframes marquee-left {
-  from {
-    transform: translate3d(0, 0, 0);
-  }
-  to {
-    transform: translate3d(calc(-100% / 3), 0, 0);
-  }
-}
-
-@keyframes marquee-right {
-  from {
-    transform: translate3d(calc(-100% / 3), 0, 0);
-  }
-  to {
-    transform: translate3d(0, 0, 0);
-  }
-}
-
 @media (max-width: 768px) {
-  .marquee-left,
-  .marquee-right {
-    animation-duration: 28s;
-  }
-
   .feature-card {
     min-width: 280px;
     max-width: 280px;
@@ -200,11 +163,6 @@ const secondRow = features.slice(splitIndex)
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .marquee-left,
-  .marquee-right {
-    animation: none;
-  }
-
   .marquee-track {
     transform: none !important;
     width: 100%;
@@ -226,8 +184,5 @@ const secondRow = features.slice(splitIndex)
     width: 100%;
   }
 
-  .marquee-lane {
-    mask-image: none;
-  }
 }
 </style>

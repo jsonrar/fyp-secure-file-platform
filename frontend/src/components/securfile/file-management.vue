@@ -621,14 +621,14 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
 </script>
 
 <template>
-  <section id="manage" class="py-20 bg-transparent">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-16">
+  <section id="manage" class="product-page">
+    <div class="container relative mx-auto max-w-6xl px-4">
+      <div class="product-heading">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Manage Encrypted Files</h2>
-        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">View, download, share, and verify all your encrypted files</p>
+        <p class="text-muted-foreground max-w-2xl text-pretty">View, download, share, and verify all your encrypted files</p>
       </div>
 
-      <div class="bg-card border border-border rounded-xl max-w-6xl mx-auto p-6">
+      <div class="bg-card border border-border rounded-3xl max-w-6xl mx-auto p-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div class="inline-flex rounded-lg border border-border p-1 mb-2">
@@ -788,7 +788,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
             </thead>
             <tbody class="block space-y-3 md:table-row-group md:space-y-0">
               <template v-for="file in filteredFiles" :key="file.id">
-              <tr class="grid grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-border bg-card p-4 md:table-row md:rounded-none md:border-0 md:border-b md:border-border/60 md:bg-transparent md:p-0 md:align-top">
+              <tr class="grid grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-border bg-card p-4 md:table-row md:rounded-none md:border-0 md:border-b md:border-border/60 md:bg-transparent md:p-0 md:align-middle">
                 <td class="col-span-2 md:table-cell md:py-3 md:pr-3">
                   <div class="flex items-start gap-3">
                     <div class="mt-0.5 shrink-0 rounded-lg bg-secondary p-2"><FileIcon class="h-4 w-4 text-primary" /></div>

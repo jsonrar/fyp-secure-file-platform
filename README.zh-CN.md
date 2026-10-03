@@ -1,5 +1,4 @@
 # 安全文件加密与共享平台
-
 [English](README.md) | [简体中文](README.zh-CN.md)
 
 安全文件加密与共享平台的毕业设计（FYP）架构。
@@ -49,8 +48,8 @@ passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲�
 Core Features），`/education` 提供算法教学、演练场与知识库，`/help` 优先指向首页图文引导并保留
 视频占位，`/team`（导航标签为 **Contact us**）提供反馈
 表单预览与开发团队名单。`/benchmark/argon2` 不在任何菜单中出现，用于在访问设备上测量解锁时密钥派生的
-耗时，是威胁模型中 passphrase 分析的依据。登录用户可通过页头
-头像菜单进入主题设置、`/profile` 与 `/settings`；当前导航标签使用主题主色高亮，便于确认所在页。
+耗时，是威胁模型中 passphrase 分析的依据。登录用户可通过页头头像菜单切换语言与主题，并进入
+`/profile` 与 `/settings`；未登录访客通过页头设置图标打开同样的外观控件。当前导航标签使用主题主色高亮，便于确认所在页。
 `/profile` 可上传或移除经验证的 PNG/JPEG 头像（无图时回退首字母）。
 
 每个页面右下角都有 **Help assistant** 按钮（#146）。它回答操作类、原理类以及“为什么不用 Google Drive /
@@ -60,12 +59,12 @@ WhatsApp / 邮件”类问题，给出简短摘要、步骤和产品内链接；
 本来就能看到的内容，不做任何修改。见
 [docs/HELP_ASSISTANT.zh-CN.md](docs/HELP_ASSISTANT.zh-CN.md)。
 
-界面可以在 **English 和简体中文** 之间切换（#74），入口在页头、手机菜单和设置页；选择按设备记住。文件名、用户名
+界面可以在 **English 和简体中文** 之间切换（#74），入口在账户菜单（已登录）、访客设置图标、手机菜单和设置页；选择按设备记住。文件名、用户名
 以及用户自己写的内容一律不翻译。中文在构建阶段由智谱 `glm-4-flash` 起草，并按固定的安全术语表校验；浏览器从不
 调用翻译服务。见 [docs/I18N.md](docs/I18N.md)。
 
-Core Features 现使用无缝双向循环，支持悬停暂停；偏好减少动态效果时静态展示全部功能卡片。
-这是本地前端更新，尚未核验部署。详见 [首页滚动条更新记录](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨)。
+Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动、鼠标拖动与键盘浏览（不显示原生滚动条）；偏好减少动态效果时静态展示全部功能卡片。文件生命周期说明位于上传区下方；上传、教育、帮助、访问记录与我的文件统一采用联系我们页风格。详见
+[changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9)。
 
 首页 How it works（`/#how-it-works`）提供六张带定位标记的真实界面截图，涵盖选文件、加密、分享、
 解锁和接收者下载。默认自动播放（每步 8 秒，带进度条），用户可暂停；也可放大图片或在手机上滑动换步；

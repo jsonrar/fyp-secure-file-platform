@@ -161,13 +161,13 @@ const goToFiles = () => {
 </script>
 
 <template>
-  <section id="encrypt" class="py-20">
-    <div class="container mx-auto px-4">
-      <div class="text-center mb-16">
+  <section id="encrypt" class="product-page">
+    <div class="container relative mx-auto max-w-6xl px-4">
+      <div class="product-heading">
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Encrypt Your Files</h2>
-        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">Files are encrypted in your browser with the algorithm you choose below (AES-256-GCM by default). Only ciphertext is uploaded; the server never receives your readable file or its key.</p>
+        <p class="text-muted-foreground max-w-2xl text-pretty">Files are encrypted in your browser with the algorithm you choose below (AES-256-GCM by default). Only ciphertext is uploaded; the server never receives your readable file or its key.</p>
       </div>
-      <div class="max-w-4xl mx-auto rounded-xl bg-card border border-border p-6">
+      <div class="max-w-6xl mx-auto rounded-3xl bg-card border border-border p-6">
         <!-- minmax(0, 1fr): a grid track otherwise never gets narrower than its widest unbreakable
              content, and the cipher dropdown's longest option pushed a phone sideways. -->
         <div class="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8">
