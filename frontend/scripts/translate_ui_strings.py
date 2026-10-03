@@ -58,7 +58,7 @@ EXTRA_TERMS = [
     "My Files = 我的文件", "Access Records = 访问记录", "audit log = 审计日志",
     "account = 账户", "sign in = 登录", "settings = 设置", "unlock = 解锁", "encrypt = 加密",
     "decrypt = 解密", "tamper = 篡改", "verification code = 验证码",
-    "Shuoxun Wen = 温硕勋", "Junyan Li = 李俊言", "Jason Huang = 黄建兴", "Tai Chen = 陈泰",
+    "Shuoxun Wen = 温硕勋", "Junyan Li = 李俊言", "Jason Huang = 黄建幸", "Tai Chen = 陈泰",
     "Dr. Asad Malik = Asad Malik 博士 (never transliterate)", "supervisor = 项目导师",
     "Monash University Malaysia = 马来西亚莫纳什大学", "Monash = 莫纳什",
     "School of Information Technology = 信息技术学院", "Help assistant = 帮助助手", "Education = 学习中心",

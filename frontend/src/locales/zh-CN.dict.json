@@ -650,7 +650,7 @@
   "It is your account’s private key, shown once when you register. It opens your files without the passphrase and lets you set a new passphrase in Settings. It is read in your browser and never uploaded. Keep it offline and private: anyone who has it can open your files.": "这是你账户的私钥，注册时显示一次。无需口令即可打开你的文件，并允许你在设置中设置新的口令。它将在你的浏览器中读取，永远不会上传。请将其离线并保持私密：任何拥有它的人都可以打开你的文件。",
   "It stopped at the time limit; scan again to continue with the files checked longest ago.": "它在时间限制时停止；再次扫描以继续检查最久未检查的文件。",
   "I’m not sure about that one. The closest things I know about:": "我不确定那一个。我知道的类似的东西是：",
-  "Jason Huang": "黄建兴",
+  "Jason Huang": "黄建幸",
   "Junyan Li": "李俊言",
   "Keep AES-256-GCM or pick another authenticated cipher.": "保留AES-256-GCM或选择另一个认证加密算法。",
   "Keep AES-256-GCM, the default, unless you have a reason to pick another cipher.": "保留AES-256-GCM，默认选项，除非你有选择其他加密算法的理由。",

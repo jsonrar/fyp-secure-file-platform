@@ -73,7 +73,7 @@ test.describe('desktop', () => {
     await expect(page.locator('body')).not.toContainText('Encryption is the process of converting plaintext')
 
     await page.goto('/team')
-    for (const name of ['温硕勋', '李俊言', '黄建兴', '陈泰', 'Asad Malik 博士', '项目导师']) {
+    for (const name of ['温硕勋', '李俊言', '黄建幸', '陈泰', 'Asad Malik 博士', '项目导师']) {
       await expect(page.locator('body')).toContainText(name)
     }
     await expect(page.locator('body')).toContainText('马来西亚莫纳什大学信息技术学院')
