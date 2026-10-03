@@ -36,20 +36,26 @@ async function register(page: Page) {
   await page.getByRole('textbox', { name: /^Username/ }).fill(account.username)
   await page.getByRole('textbox', { name: /^Password/ }).fill(account.password)
   await page.getByRole('textbox', { name: /^Confirm Password/ }).fill(account.password)
-  await page.getByRole('textbox', { name: /^Encryption Passphrase/ }).fill(account.passphrase)
   await page.getByRole('textbox', { name: /^Email Address/ }).fill(account.email)
-  await expectFitsScreen(page, 'registration form')
+  await expectFitsScreen(page, 'registration form, step 1')
 
   await page.getByRole('button', { name: 'Send code' }).click()
   await expect(page.getByText('a code is on its way')).toBeVisible()
   let code: string | undefined
   await expect.poll(() => (code = takeVerificationCode(account.email))).toBeTruthy()
   await page.getByRole('textbox', { name: /^Verification Code/ }).fill(code!)
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('textbox', { name: /^Encryption Passphrase/ }).fill(account.passphrase)
+  await expectFitsScreen(page, 'registration form, step 2')
   await page.getByRole('button', { name: 'Register' }).click()
   await expect(page.getByRole('heading', { name: 'Save Your Private Key' })).toBeVisible({ timeout: 60_000 })
   await expectFitsScreen(page, 'private key page')
   await page.getByRole('checkbox', { name: /I have saved this private key/ }).check()
-  await page.getByRole('link', { name: 'Continue to sign in' }).click()
+  await page.getByRole('link', { name: 'Continue to your workspace' }).click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+  // Start the rest of the flow from a fresh sign-in, as before registration signed in.
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/login')
   await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible()
 }
 
