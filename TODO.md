@@ -288,7 +288,7 @@ Strongly recommended (Award):
 Optional:
 
 - [x] Two-step registration and signing in straight after registering ([PR #161](https://github.com/jsonrar/fyp-secure-file-platform/pull/161))
-- [ ] First-login checklist (upload → share → recipient downloads)
+- [x] First-login checklist (upload → share → recipient downloads) ([PR #162](https://github.com/jsonrar/fyp-secure-file-platform/pull/162))
 - [ ] OWASP ZAP baseline scan of staging plus `pip-audit` / `npm audit` report
 
 Done for the presentation:

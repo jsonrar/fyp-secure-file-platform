@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import GettingStartedCard from '@/components/GettingStartedCard.vue'
 import { ChevronRight, FileIcon, LifeBuoy, Shield, Upload } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
@@ -93,6 +94,8 @@ const destinations = computed(() => {
           have already uploaded.
         </p>
       </div>
+
+      <GettingStartedCard />
 
       <div class="grid gap-6 max-w-5xl mx-auto sm:grid-cols-2 lg:grid-cols-4">
         <RouterLink
