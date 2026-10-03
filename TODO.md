@@ -269,8 +269,9 @@ has its problem, fix and effort. What to say, with evidence, is in
 Must do:
 
 - [ ] Demo script for a 4-minute live demo, demo accounts created on staging, and a recorded backup video
-- [ ] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
-  fix the Help assistant button covering the row at ~800 px
+- [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
+  fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
+- [ ] Re-capture the homepage picture guide: its screenshots still show the old six-icon row
 - [ ] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
 - [ ] State NFR2 (usability) honestly unless #115 has results

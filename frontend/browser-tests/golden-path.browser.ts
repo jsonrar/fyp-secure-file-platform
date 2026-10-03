@@ -259,11 +259,11 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await recipient.getByRole('button', { name: 'From colleagues (1)' }).click()
     await expect(sharedRow).toBeVisible()
 
-    // A shared file's four actions sit in an even 2x2 block, not a 3+1 wrap.
-    const columns = await sharedRow
-      .getByRole('button', { name: 'Download and decrypt' })
-      .evaluate((button) => getComputedStyle(button.parentElement!).gridTemplateColumns.split(' ').length)
-    expect(columns).toBe(2)
+    // A recipient gets Download and More; Share and Delete belong to the owner and are not offered.
+    await expect(sharedRow.getByRole('button', { name: 'Download and decrypt' })).toBeVisible()
+    await expect(sharedRow.getByRole('button', { name: 'More actions' })).toBeVisible()
+    await expect(sharedRow.getByRole('button', { name: 'Share', exact: true })).toHaveCount(0)
+    await expect(sharedRow.getByRole('button', { name: 'Delete', exact: true })).toHaveCount(0)
   })
 
   await test.step('revoke the share', async () => {
