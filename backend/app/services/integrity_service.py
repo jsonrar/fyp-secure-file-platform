@@ -9,6 +9,7 @@ from uuid import UUID
 from sqlalchemy.orm import Session
 
 from app.core.config import Settings
+from app.core.db_retry import run_with_deadlock_retry
 from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import FileCapability
@@ -175,49 +176,24 @@ class IntegrityService:
         except StorageObjectError:
             result = "ERROR"
 
-        checked_at = self._now()
+        # The ciphertext is already read and verified above; only this transactional tail
+        # -- recording the check, moving the file status, appending to the audit chain --
+        # is retried. A download racing a share can deadlock over the chain-head lock and a
+        # `users` row (issue #139); retrying here never re-reads the (possibly 500 MB)
+        # object, only redoes these few small writes against a fresh lock order.
         try:
-            self._add_check(
-                record=record,
-                actor=actor,
-                checked_at=checked_at,
-                result=result,
-                actual=actual,
-                message=message,
+            return run_with_deadlock_retry(
+                self.db,
+                lambda: self._finalize_download_verification(
+                    record=record,
+                    actor=actor,
+                    context=context,
+                    result=result,
+                    actual=actual,
+                    message=message,
+                    verified=verified,
+                ),
             )
-            self._apply_status(record.file, result, checked_at)
-            if result != "VALID":
-                self.audit.append(
-                    action="FILE_DOWNLOAD_INTEGRITY_FAILED",
-                    result="FAIL",
-                    actor_user_id=actor.user_id,
-                    resource_type="FILE",
-                    resource_id=record.file.file_uuid,
-                    context_ip_address=context.ip_address,
-                    context_user_agent=context.user_agent,
-                    metadata={"integrity_result": result},
-                )
-                self.db.commit()
-                if verified is not None:
-                    verified.stream.close()
-                if result == "ERROR":
-                    raise StorageUnavailableError()
-                raise IntegrityVerificationError()
-
-            self.audit.append(
-                action="FILE_DOWNLOAD_AUTHORIZED",
-                result="SUCCESS",
-                actor_user_id=actor.user_id,
-                resource_type="FILE",
-                resource_id=record.file.file_uuid,
-                context_ip_address=context.ip_address,
-                context_user_agent=context.user_agent,
-                metadata={"ciphertext_size": verified.size_bytes if verified else 0},
-            )
-            self.db.commit()
-            if verified is None:  # pragma: no cover - result invariant
-                raise RuntimeError("Verified ciphertext stream was not created")
-            return verified
         except (IntegrityVerificationError, StorageUnavailableError):
             raise
         except Exception:
@@ -225,6 +201,60 @@ class IntegrityService:
             if verified is not None:
                 verified.stream.close()
             raise
+
+    def _finalize_download_verification(
+        self,
+        *,
+        record: FileAccessRecord,
+        actor: ActorContext,
+        context: RequestContext,
+        result: str,
+        actual: str | None,
+        message: str | None,
+        verified: VerifiedCiphertext | None,
+    ) -> VerifiedCiphertext:
+        checked_at = self._now()
+        self._add_check(
+            record=record,
+            actor=actor,
+            checked_at=checked_at,
+            result=result,
+            actual=actual,
+            message=message,
+        )
+        self._apply_status(record.file, result, checked_at)
+        if result != "VALID":
+            self.audit.append(
+                action="FILE_DOWNLOAD_INTEGRITY_FAILED",
+                result="FAIL",
+                actor_user_id=actor.user_id,
+                resource_type="FILE",
+                resource_id=record.file.file_uuid,
+                context_ip_address=context.ip_address,
+                context_user_agent=context.user_agent,
+                metadata={"integrity_result": result},
+            )
+            self.db.commit()
+            if verified is not None:
+                verified.stream.close()
+            if result == "ERROR":
+                raise StorageUnavailableError()
+            raise IntegrityVerificationError()
+
+        self.audit.append(
+            action="FILE_DOWNLOAD_AUTHORIZED",
+            result="SUCCESS",
+            actor_user_id=actor.user_id,
+            resource_type="FILE",
+            resource_id=record.file.file_uuid,
+            context_ip_address=context.ip_address,
+            context_user_agent=context.user_agent,
+            metadata={"ciphertext_size": verified.size_bytes if verified else 0},
+        )
+        self.db.commit()
+        if verified is None:  # pragma: no cover - result invariant
+            raise RuntimeError("Verified ciphertext stream was not created")
+        return verified
 
     def _anchor_conflicts(self, file_record: File) -> bool:
         anchor = self.repository.upload_anchor_sha256(file_record.file_uuid)

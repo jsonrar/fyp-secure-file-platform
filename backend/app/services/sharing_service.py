@@ -6,6 +6,7 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.db_retry import run_with_deadlock_retry
 from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.errors import (
@@ -65,6 +66,59 @@ class SharingService:
         can_share: bool,
         context: RequestContext,
     ) -> tuple[bool, str]:
+        created, status = run_with_deadlock_retry(
+            self.db,
+            lambda: self._attempt_share(
+                actor=actor,
+                file_id=file_id,
+                target_user_id=target_user_id,
+                target_key_id=target_key_id,
+                wrapped_file_key=wrapped_file_key,
+                can_download=can_download,
+                can_share=can_share,
+                context=context,
+            ),
+        )
+
+        # After the commit, deliberately. The share has happened; a mail server that is
+        # down must not turn a successful share into a reported failure, and must not roll
+        # one back. The notifier swallows its own delivery errors for the same reason.
+        if self.notifier is not None:
+            now = to_second_resolution_utc(self.clock())
+            target_user = self.repository.get_user_by_uuid(target_user_id)
+            actor_user = self.repository.get_user(actor.user_id)
+            # Bound the notifier by what has already been sent today, so it can never eat
+            # the allowance verification codes depend on.
+            midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
+            self.notifier.sent_today = lambda: self.repository.count_shares_since(midnight)
+            if target_user is not None:
+                self.notifier.notify_shared(
+                    recipient_email=target_user.email,
+                    recipient_username=target_user.username,
+                    sender_username=getattr(actor_user, "username", "Someone"),
+                )
+
+        return created, status
+
+    def _attempt_share(
+        self,
+        *,
+        actor: ActorContext,
+        file_id: UUID,
+        target_user_id: UUID,
+        target_key_id: UUID,
+        wrapped_file_key: bytes,
+        can_download: bool,
+        can_share: bool,
+        context: RequestContext,
+    ) -> tuple[bool, str]:
+        """One full attempt, from re-reading the grant to the commit.
+
+        A deadlock aborts the whole transaction (issue #139: sharing raced against a
+        download can deadlock over the audit-chain-head lock and a `users` row), so a retry
+        must redo every read here under a fresh lock, not reuse `file`/`grant` from a failed
+        attempt.
+        """
         try:
             file, actor_grant = self._authorized_file(
                 actor=actor, file_id=file_id, capability="can_share"
@@ -175,26 +229,10 @@ class SharingService:
                 },
             )
             self.db.commit()
+            return created, "ACTIVE"
         except Exception:
             self.db.rollback()
             raise
-
-        # After the commit, deliberately. The share has happened; a mail server that is
-        # down must not turn a successful share into a reported failure, and must not roll
-        # one back. The notifier swallows its own delivery errors for the same reason.
-        if self.notifier is not None:
-            actor_user = self.repository.get_user(actor.user_id)
-            # Bound the notifier by what has already been sent today, so it can never eat
-            # the allowance verification codes depend on.
-            midnight = now.replace(hour=0, minute=0, second=0, microsecond=0)
-            self.notifier.sent_today = lambda: self.repository.count_shares_since(midnight)
-            self.notifier.notify_shared(
-                recipient_email=target_user.email,
-                recipient_username=target_user.username,
-                sender_username=getattr(actor_user, "username", "Someone"),
-            )
-
-        return created, "ACTIVE"
 
     def list_shared_users(self, *, actor: ActorContext, file_id: UUID):
         file, _grant = self._authorized_file(
