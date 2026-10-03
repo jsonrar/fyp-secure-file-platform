@@ -149,6 +149,9 @@ class FileService:
         if self.repository.file_uuid_exists(metadata.file_id):
             raise FileStateConflictError("file_id has already been used")
         self._enforce_upload_limits(actor, metadata.plaintext_size)
+        # Release the connection before awaiting the thread pool to stage the file, so an
+        # upload never holds one while threads queue for connections (#140).
+        self.repository.release_connection()
 
         staged: StagedCiphertext | None = None
         object_key: str | None = None

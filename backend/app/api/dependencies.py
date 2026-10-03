@@ -161,10 +161,17 @@ def get_security_agent_service(
 def get_current_actor(
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
+    db: Annotated[Session, Depends(get_request_db)],
 ) -> ActorContext:
     if credentials is None or not credentials.credentials:
         raise AuthenticationError()
-    return auth_service.authenticate_access_token(credentials.credentials)
+    actor = auth_service.authenticate_access_token(credentials.credentials)
+    # Authentication only reads. Ending that transaction returns the connection to the pool
+    # before the endpoint runs, instead of holding it for the whole request: an async handler
+    # that then waited on the thread pool kept it while every thread waited for a connection,
+    # and at 100 concurrent users the pool timed out (#140).
+    db.rollback()
+    return actor
 
 
 def require_admin(
