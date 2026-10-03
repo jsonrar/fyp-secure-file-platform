@@ -7,10 +7,11 @@ users, files and how large a file the server handles, and where it breaks (items
 meeting action list). This page is the plan, the tool, the limits already known before a single
 test ran, and what the local dry run found.
 
-**Status (2026-10-02):** the tool is built and proven end to end against a local stack. The run
-against the staging server has **not** happened yet: the server is busy with another workload, and
-numbers taken while something else uses the CPU and network would be wrong. Nothing below is a
-staging measurement. The run is tracked in
+**Status (2026-10-04):** the full matrix ran against staging on the night of 2026-10-03/04. The
+report, charts, raw summaries, server sampler CSV and run logs are in
+[`performance/`](performance/REPORT-2026-10-03.md); the conclusions are filled in at the end of this
+page. Read the report's "Test conditions" before quoting a number: the generator's home link, not
+the server, bounds every transfer figure. Tracked in
 [#140](https://github.com/jsonrar/fyp-secure-file-platform/issues/140).
 
 ## What is being measured, and what the server actually does
@@ -144,15 +145,29 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=root DB_PASSWORD=... DB_NAME=fyp_loadtest
 
 The tool's own tests: `cd loadtest && .venv/bin/python -m pytest tests`.
 
-## The conclusions the run must produce
+## Conclusions (staging run, 2026-10-03/04)
 
-From the meeting notes, to be filled from the staging report:
+From the meeting notes, filled from [the staging report](performance/REPORT-2026-10-03.md):
 
-- **Capacity:** "On this server (8 vCPU, 16 GB), the system stays stable up to ___ concurrent users,
-  ___ parallel file tasks per user; at ___ MB files p95 is ___ s and the error rate ___%."
-- **Bottleneck:** "Beyond ___ users the limit is ___ (CPU / RAM / disk / network / DB / the single
-  API process), so scaling means ___ (more workers, a larger pool, rate limiting)."
-- **Large files:** "Every type up to ___ MB round-trips byte-exact (SHA-256 verified); 500 MB takes ___ s
-  up and ___ s down over a ___ Mbit/s link."
-- **Sign-in:** "The server verifies two passwords at a time by design; ___ simultaneous sign-ins see
-  ___% rejected for retry."
+- **Capacity:** On this server (8 vCPU, 16 GB), the system served 5 concurrent users on a mixed
+  upload/download/share load for 108 minutes in total (19,372 operations) with no server-side
+  error; at 1 MiB files upload p95 was 2.1–4.9 s and download p95 1.7–2.3 s over the test link.
+  Up to 50 concurrent users the server returned no error (the failures seen at 10–50 users are
+  the SSH tunnel on the generator side, see the report). At 100 concurrent users 65–78% of
+  uploads failed with HTTP 500. Parallel tasks per user (1/2/5/10) caused no server error.
+- **Bottleneck:** Beyond 50 users the limit is the single API process's database pool (5 + 10
+  connections, 30 s wait): at 100 users requests time out waiting for a connection while server
+  CPU averages 3% and memory is flat. Scaling means releasing the DB connection before long file
+  transfers if possible, then a larger pool and/or more uvicorn workers, re-measured with this
+  tool. Below that, every transfer number was bounded by the network: the VPS port is ~100 Mbit/s,
+  and the test link was ~24 Mbit/s up and ~13 Mbit/s down.
+- **Large files:** Every type (pdf, png, jpg, mp4, zip, exe) up to 500 MiB round-trips byte-exact
+  (144/144 operations, every download SHA-256 verified); 500 MiB took p50 146 s up and 295 s down
+  over a ~24 Mbit/s up / ~13 Mbit/s down link. Across the whole run, 5,094 downloads were verified
+  with 0 integrity failures.
+- **Sign-in:** The server verifies two passwords at a time by design; 4, 8 and 16 simultaneous
+  sign-ins saw 50%, 75% and 71% rejected immediately with HTTP 429 for retry, and none failed with
+  a 500 or a deadlock.
+- **Recovery and monitoring:** After the 100-user overload the next 5-user step had 0 errors with
+  no restart or manual action, and each deliberate overload produced exactly one alert email from
+  `mcs21-observe` that cleared on the next check.
