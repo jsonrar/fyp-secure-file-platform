@@ -119,7 +119,7 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 | AC3 Recipient decrypts with own passphrase | Done | Recipient-key rewrap and live two-account proof |
 | AC4 Tamper detection before successful decrypt | Done | Authenticated decryption/integrity refusal and UI error |
 | AC4a Recovery after tampering (teacher's integrity-and-recovery ask) | Done in code; timer not yet installed | Daily sweep, admin Integrity tab, `restore_file.py`, drill step in `mysql-gate` (BACKUP_AND_RECOVERY §9) |
-| AC8 AI agent that solves a defined automation problem (supervisor's guidance) | Done (v2, rule-based) | Admin → Security agent: inputs, twelve rules, Critical/High/Medium/Low output with recommended actions, stated boundaries; v2 (#137) runs it daily and mails the team on Critical/High findings, detects a sign-in that succeeded after guessing, and reports active sign-in throttle blocks — [SECURITY_AGENT.md](SECURITY_AGENT.md) |
+| AC8 AI agent that solves a defined automation problem (supervisor's guidance) | Done (v2, rule-based) | Admin → Security agent: inputs, thirteen rules, Critical/High/Medium/Low output with recommended actions, stated boundaries; v2 (#137) runs it daily and mails the team on Critical/High findings, detects a sign-in that succeeded after guessing, and reports active sign-in throttle blocks — [SECURITY_AGENT.md](SECURITY_AGENT.md) |
 | AC5 Timestamped actor/access audit | Done | Upload/download/share/revoke events and per-file history |
 | AC6 Interactive crypto education | Done | AES/RSA/SHA/Argon2id content and playgrounds |
 | AC7 Dismissible four-stage progress pipeline | In progress | Per-file spinner/result exists; inspection→encryption→upload→complete stages and dismissal do not |

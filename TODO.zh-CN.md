@@ -136,13 +136,14 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   loopback 绑定、nginx 未暴露 metrics、外部 checkpoint 已在另一台机器下载并完成 HMAC 校验、测试告警不含 journal 内容。
   checkpoint timer 在 2026-10-01 仍在每小时发布。
 
-- [ ] [#140 在 staging 上测量服务器容量与性能（会议行动项 4–6）](https://github.com/jsonrar/fyp-secure-file-platform/issues/140)
-  — 工具、场景、服务器采样、测试账号脚本和操作步骤都已就绪
-  （[docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md)），本地预演端到端通过。
-  **目前还没有任何 staging 数据**：要等服务器空闲时再测。
-- [ ] [#139 并发使用下两个 MySQL 死锁返回 HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
-  — 由压测工具发现：同时登录（会话上限检查的间隙锁），以及下载与分享（审计链头与 `users` 行）。需要选定后端修法；
-  复现方法和 InnoDB 死锁报告在 Issue 里。
+- [x] [#140 在 staging 上测量服务器容量与性能（会议行动项 4–6）](https://github.com/jsonrar/fyp-secure-file-platform/issues/140)
+  — 2026-10-03 至 04 夜间完成，证据已在 [PR #155](https://github.com/jsonrar/fyp-secure-file-platform/pull/155) 合并：
+  共 22,264 次操作，5,094 次下载全部 SHA-256 校验、完整性失败 0 次，所有类型在 500 MiB 以内逐字节一致，50 个并发用户
+  以内服务器零错误，100 个用户时第一个瓶颈是 15 个数据库连接。[报告](docs/performance/REPORT-2026-10-03.md)；结论见
+  [docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md)。传输类数字受压测端家庭网络限制，引用前先读报告里的测试条件。
+- [x] [#139 并发使用下两个 MySQL 死锁返回 HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
+  — 已在 [PR #154](https://github.com/jsonrar/fyp-secure-file-platform/pull/154) 中通过对 MySQL 1213/1205 重试修复；
+  回归测试在修复前约 7/10 次复现死锁，修复后从未复现。#140 压测的 28,540 个请求中没有出现 1213 或 1205。
 
 - [ ] [#115 运行非专业用户可用性研究（WBS 5.4、NFR2）](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)
   ——研究套件已在 [`docs/usability/`](docs/usability/STUDY_PLAN.zh-CN.md) 就绪：计划、同意书、筛选表、十张任务卡、
@@ -208,6 +209,38 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   屏幕内），并由三个 Chromium 测试覆盖（[docs/E2E_TESTING.md](docs/E2E_TESTING.md#phone-widths)）。2026-10-02
   这些手机测试又在 WebKit（Safari 内核，模拟 iPhone 13）和 Chromium（模拟 Pixel 7）下全部通过。**未做：**没有在
   实体手机上运行；通知与设置流程只检查了布局。
+
+## Final Presentation 与 FYP Award（12 分钟展示）
+
+优先级、每一项的问题、改法和工作量见 [docs/presentation/REFLECTION.zh-CN.md](docs/presentation/REFLECTION.zh-CN.md)；
+要讲什么、证据在哪，见 [docs/presentation/TALKING_POINTS.zh-CN.md](docs/presentation/TALKING_POINTS.zh-CN.md)。
+
+一定要做：
+
+- [ ] 4 分钟现场演示的脚本、在 staging 上建好演示账号、录一份备用视频
+- [ ] 文件行操作：下载（解密）、分享、删除三个按钮带文字直接显示，其余收进"更多"；修掉约 800 px 宽度下助手按钮压住操作的问题
+- [ ] 现场篡改演示：改掉服务器上密文的一个字节，接收者下载时报错
+- [ ] 幻灯片：架构图、加密流程图、需求完成表、局限（最后做）
+- [ ] 除非 #115 已有结果，否则如实说明 NFR2（可用性）尚未验证
+
+强烈推荐（冲 Award）：
+
+- [ ] 修掉数据库连接池瓶颈，再用 #140 的工具重测 100 用户，做出修复前后对比图
+- [ ] #115 可用性研究并计算 SUS 分数（开始前需要导师就伦理审查的书面答复，并先做一次预演）
+- [ ] 分享前确认接收者，并显示对方的密钥指纹（密钥验证）
+- [x] 上传滥用限制和"他人分享程序"警告（威胁模型 F-09）——
+  [PR #157](https://github.com/jsonrar/fyp-secure-file-platform/pull/157)；已按该 PR 列出的 nginx 与环境变量改动部署
+
+可选：
+
+- [ ] 注册拆成两步，注册后直接登录
+- [ ] 首次登录的新手清单（上传 → 分享 → 对方下载）
+- [ ] 对 staging 做 OWASP ZAP 基线扫描，并附 `pip-audit` / `npm audit` 报告
+
+已为展示完成：
+
+- [x] 上传页面展示真实的加密步骤、实测耗时和加密前后的字节对比
+  （[PR #156](https://github.com/jsonrar/fyp-secure-file-platform/pull/156)）
 
 ## 每个 Issue 的完成定义
 

@@ -96,6 +96,14 @@ class Settings(BaseSettings):
     MAX_REQUEST_BODY_BYTES: int = Field(default=1024 * 1024, gt=0, le=8 * 1024 * 1024)
     MAX_UPLOAD_SIZE_BYTES: int = Field(default=500 * 1024 * 1024, gt=0)
     MAX_UPLOAD_REQUEST_OVERHEAD_BYTES: int = Field(default=256 * 1024, ge=128 * 1024)
+    # Abuse limits on uploads (threat model T-D2). 0 turns a limit off, e.g. for a capacity run.
+    # Storage counts the ciphertext of files not deleted; the daily figure counts every upload in
+    # the last 24 hours, deleted or not, so deleting and re-uploading does not reset it.
+    USER_STORAGE_QUOTA_BYTES: int = Field(default=2 * 1024**3, ge=0)
+    USER_DAILY_UPLOAD_BYTES: int = Field(default=5 * 1024**3, ge=0)
+    # Refuse every upload while the storage filesystem has less than this free after the file.
+    # The server is shared with other services, so a full disk must not be reachable by uploads.
+    UPLOAD_MIN_FREE_DISK_BYTES: int = Field(default=2 * 1024**3, ge=0)
     LOG_LEVEL: str = "INFO"
 
     DB_HOST: str = "localhost"

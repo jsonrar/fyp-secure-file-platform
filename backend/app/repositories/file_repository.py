@@ -110,6 +110,28 @@ class FileRepository:
             or 0
         )
 
+    def stored_bytes_for_owner(self, owner_id: int) -> int:
+        """Ciphertext bytes the owner currently occupies (every file not deleted)."""
+        return int(
+            self.db.scalar(
+                select(func.coalesce(func.sum(File.encrypted_size_bytes), 0)).where(
+                    File.owner_id == owner_id, File.status != "DELETED"
+                )
+            )
+            or 0
+        )
+
+    def uploaded_bytes_since(self, owner_id: int, since: datetime) -> int:
+        """Plaintext bytes the owner uploaded since `since`, deleted files included."""
+        return int(
+            self.db.scalar(
+                select(func.coalesce(func.sum(File.file_size_bytes), 0)).where(
+                    File.owner_id == owner_id, File.created_at >= since
+                )
+            )
+            or 0
+        )
+
     def file_uuid_exists(self, file_id: UUID) -> bool:
         return (
             self.db.scalar(select(File.id).where(File.file_uuid == str(file_id)).limit(1))

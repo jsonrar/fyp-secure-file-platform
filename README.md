@@ -107,6 +107,30 @@ file, shows what the server really stores: the exact sizes, the recorded SHA-256
 of the first 128 bytes of ciphertext, for owned and received files alike. Why the two sizes match,
 and how to show it live, is in [docs/ENCRYPTION_EVIDENCE.md](docs/ENCRYPTION_EVIDENCE.md).
 
+While a file uploads, the Upload page shows the real steps for it (read in the browser, encrypt
+and self-check, wrap the file key with RSA-OAEP, upload the ciphertext with a real progress bar),
+each with its measured time, and then the file's first 16 bytes beside the first 16 bytes the
+server receives. Encryption takes tens of milliseconds, so without this an upload looked as if
+nothing had been encrypted; nothing is slowed down to look busy.
+
+**Measured capacity (staging, 2026-10-03/04, #140):** 22,264 operations, 5,094 downloads
+SHA-256-verified with 0 integrity failures, every common file type up to 500 MiB byte-exact; no
+server error up to 50 concurrent users; at 100 the API's 15-connection database pool is the first
+limit while CPU averages 3 %. Read the test conditions before quoting a number:
+[docs/performance/REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) and the conclusions
+in [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md).
+
+**Upload limits (threat model F-09):** each account may store 2 GiB and upload 5 GiB per 24 hours,
+uploads stop while the storage disk is below a free-space floor, nginx allows ten uploads in flight
+per address, and the security agent reports upload bursts. Because the server only ever holds
+ciphertext it cannot scan for malware, so a recipient is warned before saving a shared program or
+macro-capable file. See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §11.3.
+
+What to say in the final presentation, with the evidence for each point, is in
+[docs/presentation/TALKING_POINTS.md](docs/presentation/TALKING_POINTS.md); what is still missing
+and what to do about it, by priority, is in
+[docs/presentation/REFLECTION.md](docs/presentation/REFLECTION.md).
+
 ## Using the Website
 
 ### Standard user flow

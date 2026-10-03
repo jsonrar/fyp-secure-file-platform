@@ -63,7 +63,7 @@ def test_a_really_tampered_file_is_reported_as_critical_with_its_backup_window(
     assert "Damage first seen" in " ".join(finding.evidence)
     assert report.counts.critical >= 1
     assert report.inputs.files_checkable >= 1 and report.inputs.audit_chain_entries_verified >= 1
-    assert len(report.rules) == 12
+    assert len(report.rules) == 13
 
 
 def test_every_agent_query_runs_on_mysql_with_no_activity(auth_mysql_engine: Engine) -> None:

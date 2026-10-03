@@ -82,6 +82,24 @@ Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动�
 会显示服务器真正存储的内容：精确大小、已记录的 SHA-256，以及密文前 128 字节的十六进制转储，自己的文件和别人分享给你的文件都适用。
 两个大小为什么一样、以及如何现场演示，见 [docs/ENCRYPTION_EVIDENCE.zh-CN.md](docs/ENCRYPTION_EVIDENCE.zh-CN.md)。
 
+上传文件时，上传页面会展示这个文件的真实步骤（在浏览器中读取、加密并自检、用 RSA-OAEP 包装文件密钥、上传密文并显示真实进度），
+每一步标出实测耗时，最后把文件的前 16 个字节和服务器收到的前 16 个字节并排显示。加密只要几十毫秒，以前上传看起来就像根本没加密；
+现在的展示没有为了"看起来在忙"而故意放慢。
+
+**实测容量（staging，2026-10-03/04，#140）：** 共 22,264 次操作，5,094 次下载全部做了 SHA-256 校验，完整性失败 0 次；
+所有常见文件类型在 500 MiB 以内都能逐字节一致地往返；50 个并发用户以内服务器零错误；到 100 个用户时，第一个瓶颈是 API 的
+15 个数据库连接，而 CPU 平均只有 3%。引用数字前请先读测试条件：
+[docs/performance/REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) 和
+[docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md) 末尾的结论。
+
+**上传限额（威胁模型 F-09）：** 每个账户最多存储 2 GiB、24 小时内最多上传 5 GiB；存储磁盘剩余空间低于底线时停止接受上传；
+nginx 限制每个地址同时最多 10 个上传；安全 Agent 会报告上传突增。服务器始终只保存密文，无法扫描恶意软件，所以接收者在保存
+他人分享的程序或可能带宏的文件之前会看到警告。详见 [docs/THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md) 第 11.3 节。
+
+Final Presentation 要讲什么、每一点的证据在哪，见
+[docs/presentation/TALKING_POINTS.zh-CN.md](docs/presentation/TALKING_POINTS.zh-CN.md)；目前还有哪些不足、按优先级该怎么改，见
+[docs/presentation/REFLECTION.zh-CN.md](docs/presentation/REFLECTION.zh-CN.md)。
+
 ## 网站如何使用
 
 ### 普通用户流程

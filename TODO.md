@@ -163,13 +163,17 @@ not a release pass.
   external checkpoint downloaded and HMAC-verified on a separate machine, and a test alert with no journal
   contents. The checkpoint timer was still publishing hourly on 2026-10-01.
 
-- [ ] [#140 Measure server capacity and performance on staging (meeting items 4–6)](https://github.com/jsonrar/fyp-secure-file-platform/issues/140)
-  — the tool, scenarios, server sampler, account seeder and procedure are ready
-  ([docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md)) and the local dry run passes end to end.
-  **No staging number exists yet**: the run waits for the server to be otherwise idle.
-- [ ] [#139 Two MySQL deadlocks under concurrent use return HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
-  — found by the load tool: simultaneous sign-ins (session-limit gap lock) and download vs share (audit
-  chain head vs a `users` row). Backend fix to choose; reproduction and InnoDB's report are on the Issue.
+- [x] [#140 Measure server capacity and performance on staging (meeting items 4–6)](https://github.com/jsonrar/fyp-secure-file-platform/issues/140)
+  — run on 2026-10-03/04, evidence merged in [PR #155](https://github.com/jsonrar/fyp-secure-file-platform/pull/155):
+  22,264 operations, 5,094 SHA-256-verified downloads with 0 integrity failures, every type to 500 MiB
+  byte-exact, no server error up to 50 concurrent users, the 15-connection DB pool is the first limit at 100.
+  [Report](docs/performance/REPORT-2026-10-03.md); conclusions in
+  [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md). Transfer figures are bounded by the
+  generator's home link; read the report's test conditions first.
+- [x] [#139 Two MySQL deadlocks under concurrent use return HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
+  — fixed in [PR #154](https://github.com/jsonrar/fyp-secure-file-platform/pull/154) by retrying MySQL
+  1213/1205; the regression test reproduced the deadlock ~7/10 times before the fix and never after.
+  The #140 run saw no 1213 or 1205 in 28,540 requests.
 
 - [ ] [#115 Run the non-expert usability study (WBS 5.4, NFR2)](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)
   — the kit is ready in [`docs/usability/`](docs/usability/STUDY_PLAN.md): plan, consent sheet,
@@ -255,6 +259,40 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   ([docs/E2E_TESTING.md](docs/E2E_TESTING.md#phone-widths)). On 2026-10-02 the phone specs also passed
   in WebKit (Safari's engine) as an iPhone 13 and in Chromium as a Pixel 7. **Not done:** no run on a
   physical phone, and the notifications and settings flows were audited for layout only.
+
+## Final presentation and FYP Award (12-minute talk)
+
+Prioritised in [docs/presentation/REFLECTION.md](docs/presentation/REFLECTION.md), where each item
+has its problem, fix and effort. What to say, with evidence, is in
+[docs/presentation/TALKING_POINTS.md](docs/presentation/TALKING_POINTS.md).
+
+Must do:
+
+- [ ] Demo script for a 4-minute live demo, demo accounts created on staging, and a recorded backup video
+- [ ] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
+  fix the Help assistant button covering the row at ~800 px
+- [ ] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails
+- [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
+- [ ] State NFR2 (usability) honestly unless #115 has results
+
+Strongly recommended (Award):
+
+- [ ] Fix the DB-pool bottleneck and re-run #140 at 100 users for a before/after chart
+- [ ] #115 usability study with SUS (needs the supervisor's ethics answer and a pilot first)
+- [ ] Confirm the recipient before sharing, with their key fingerprint (key verification)
+- [x] Upload abuse limits and the shared-program warning (threat model F-09) —
+  [PR #157](https://github.com/jsonrar/fyp-secure-file-platform/pull/157); deployed with the nginx and env changes its PR lists
+
+Optional:
+
+- [ ] Two-step registration and signing in straight after registering
+- [ ] First-login checklist (upload → share → recipient downloads)
+- [ ] OWASP ZAP baseline scan of staging plus `pip-audit` / `npm audit` report
+
+Done for the presentation:
+
+- [x] Upload page shows the real encryption steps, measured times and a before/after byte sample
+  ([PR #156](https://github.com/jsonrar/fyp-secure-file-platform/pull/156))
 
 ## Definition of done for each Issue
 
