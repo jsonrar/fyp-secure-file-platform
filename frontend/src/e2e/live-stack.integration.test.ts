@@ -500,7 +500,7 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
       expect(res.status).toBe(200)
       const report = res.data.data
 
-      expect(report.rules).toHaveLength(12)
+      expect(report.rules).toHaveLength(13)
       expect(report.boundaries.length).toBeGreaterThan(0)
       expect(report.inputs.audit_events_read).toBeGreaterThanOrEqual(10)
       const guessing = report.findings.find(

@@ -117,6 +117,14 @@ memory, disk, network, API and MySQL process CPU/RSS and DB connection counts wi
 **Prerequisites:** the server is otherwise idle; the run is announced to the team; it ends before
 the 04:15 backup (or the backup will copy the test files) and before the 05:30 integrity sweep.
 
+**Upload limits:** since 2026-10-04 each account may store 2 GiB and upload 5 GiB per 24 hours, and
+nginx allows ten uploads in flight per address. The `sizes` scenario alone uploads about 5 GiB from
+one account, and a soak far more, so for a capacity run set `USER_STORAGE_QUOTA_BYTES=0` and
+`USER_DAILY_UPLOAD_BYTES=0` in `/etc/fyp-secure-file-platform/backend.env`, restart
+`fyp-backend`, and restore both values afterwards. The SSH tunnel bypasses nginx, so its connection
+limit does not apply. Leave `UPLOAD_MIN_FREE_DISK_BYTES` in place: it is what keeps a run from
+filling a disk the server shares with other services.
+
 1. On the server, create the test accounts (written 0600; test accounts only):
 
    ```bash

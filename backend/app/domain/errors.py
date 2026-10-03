@@ -165,6 +165,21 @@ class FileTooLargeError(InputError):
     public_message = "The encrypted file exceeds the upload size limit"
 
 
+class StorageQuotaExceededError(InputError):
+    code = "storage_quota_exceeded"
+    public_message = "This upload would take your account over its storage limit"
+
+
+class UploadDailyLimitError(AppError):
+    code = "upload_daily_limit"
+    public_message = "You have reached the upload limit for the last 24 hours"
+
+
+class ServerStorageLowError(AppError):
+    code = "server_storage_low"
+    public_message = "The server is low on storage and is not accepting uploads right now"
+
+
 class FileStateConflictError(ConflictError):
     code = "file_state_conflict"
     public_message = "The file is not in a state that permits this action"

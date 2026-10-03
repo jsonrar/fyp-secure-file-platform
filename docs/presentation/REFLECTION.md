@@ -41,8 +41,8 @@ Last updated: 2026-10-04
 
 | # | Problem | Fix | Priority | Status |
 | --- | --- | --- | --- | --- |
-| — | No per-account storage quota: one account could fill a disk shared with other services (threat model T-D2 / F-09). | Per-account quota, a 24-hour upload volume, a free-disk floor, per-IP concurrent uploads in nginx, an `UPLOAD_BURST` rule. | Must | In review (PR #157) |
-| — | The server cannot scan for viruses (inherent in zero-knowledge encryption). | Warn before downloading a shared program or macro file; rely on endpoint antivirus; never send hashes to a third party. | Must | In review (PR #157) |
+| — | No per-account storage quota: one account could fill a disk shared with other services (threat model T-D2 / F-09). | Per-account quota, a 24-hour upload volume, a free-disk floor, per-IP concurrent uploads in nginx, an `UPLOAD_BURST` rule. | Must | **Done** (PR #157) |
+| — | The server cannot scan for viruses (inherent in zero-knowledge encryption). | Warn before downloading a shared program or macro file; rely on endpoint antivirus; never send hashes to a third party. | Must | **Done** (PR #157) |
 | 12 | No third-party security scan; "secure" is only our own word. | An OWASP ZAP baseline scan of staging plus `pip-audit` / `npm audit`; fix what they find and commit the report. | Optional | To do (7th) |
 | — | The server sees metadata (file name, size, type, times). | A design trade-off; say so in the talk. Encrypted file names are future work. | State it | Recorded in the threat model |
 | — | No multi-factor sign-in. | Future work. | State it | — |

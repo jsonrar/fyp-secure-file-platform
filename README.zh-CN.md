@@ -92,6 +92,10 @@ Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动�
 [docs/performance/REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) 和
 [docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md) 末尾的结论。
 
+**上传限额（威胁模型 F-09）：** 每个账户最多存储 2 GiB、24 小时内最多上传 5 GiB；存储磁盘剩余空间低于底线时停止接受上传；
+nginx 限制每个地址同时最多 10 个上传；安全 Agent 会报告上传突增。服务器始终只保存密文，无法扫描恶意软件，所以接收者在保存
+他人分享的程序或可能带宏的文件之前会看到警告。详见 [docs/THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md) 第 11.3 节。
+
 Final Presentation 要讲什么、每一点的证据在哪，见
 [docs/presentation/TALKING_POINTS.zh-CN.md](docs/presentation/TALKING_POINTS.zh-CN.md)；目前还有哪些不足、按优先级该怎么改，见
 [docs/presentation/REFLECTION.zh-CN.md](docs/presentation/REFLECTION.zh-CN.md)。

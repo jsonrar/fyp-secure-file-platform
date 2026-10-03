@@ -145,7 +145,7 @@ def test_a_quiet_platform_gives_an_empty_report_that_still_shows_what_was_read()
     assert report.inputs.audit_events_read == 0
     assert report.inputs.files_checkable == 5 and report.inputs.audit_chain_entries_verified == 120
     assert report.inputs.last_scan_at is not None
-    assert len(report.rules) == 12 and all(rule.findings == 0 for rule in report.rules)
+    assert len(report.rules) == 13 and all(rule.findings == 0 for rule in report.rules)
     assert report.boundaries == BOUNDARIES
 
 
@@ -161,6 +161,7 @@ def test_the_window_is_measured_back_from_now_and_only_watched_events_are_reques
         "AUTH_REFRESH_REPLAY_DETECTED",
         "FILE_DOWNLOAD_AUTHORIZED",
         "FILE_SHARED",
+        "FILE_UPLOADED",
         "AUTH_PASSWORD_CHANGE_FAILED",
         "RECOVERY_REQUEST_EXECUTED",
     }

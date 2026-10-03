@@ -15,7 +15,12 @@ from starlette.datastructures import Headers
 
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
-from app.domain.errors import StorageUnavailableError
+from app.domain.errors import (
+    ServerStorageLowError,
+    StorageQuotaExceededError,
+    StorageUnavailableError,
+    UploadDailyLimitError,
+)
 from app.schemas.file_schema import FileUploadMetadata
 from app.services.file_service import FileService
 from app.services.file_storage_service import StagedCiphertext, StorageObjectError
@@ -104,6 +109,19 @@ class FakeRepository:
     def file_uuid_exists(self, file_id: UUID) -> bool:
         return False
 
+    stored_bytes = 0
+    uploaded_recently = 0
+    uploaded_since: datetime | None = None
+
+    def stored_bytes_for_owner(self, owner_id: int) -> int:
+        assert owner_id == 7
+        return self.stored_bytes
+
+    def uploaded_bytes_since(self, owner_id: int, since: datetime) -> int:
+        assert owner_id == 7
+        self.uploaded_since = since
+        return self.uploaded_recently
+
     def get_active_recovery_key(self, key_id: UUID):
         assert key_id == RECOVERY_KEY_ID
         return self.recovery_key
@@ -145,6 +163,11 @@ class FakeStorage:
     def delete_object(self, object_key: str) -> None:
         self.deleted.append(object_key)
 
+    free = 10**12
+
+    def free_bytes(self) -> int:
+        return self.free
+
 
 class UnavailableStorage(FakeStorage):
     async def stage_upload(self, upload, *, max_size_bytes: int) -> StagedCiphertext:
@@ -159,10 +182,24 @@ class FakeAudit:
         self.events.append(event)
 
 
-def _service(db: FakeDb, repository: FakeRepository, storage: FakeStorage, audit: FakeAudit):
+def _service(
+    db: FakeDb,
+    repository: FakeRepository,
+    storage: FakeStorage,
+    audit: FakeAudit,
+    *,
+    quota: int = 0,
+    daily: int = 0,
+    min_free: int = 0,
+):
     return FileService(
         db=db,
-        settings=SimpleNamespace(MAX_UPLOAD_SIZE_BYTES=100),
+        settings=SimpleNamespace(
+            MAX_UPLOAD_SIZE_BYTES=100,
+            USER_STORAGE_QUOTA_BYTES=quota,
+            USER_DAILY_UPLOAD_BYTES=daily,
+            UPLOAD_MIN_FREE_DISK_BYTES=min_free,
+        ),
         storage=storage,
         audit_service=audit,
         repository=repository,
@@ -202,6 +239,56 @@ def test_upload_persists_only_ciphertext_envelope_and_owner_access() -> None:
     assert result.crypto_envelope.wrapped_file_key == _b64(b"w" * 256)
     assert audit.events[0]["action"] == "FILE_UPLOADED"
     assert storage.published
+
+
+def _attempt(service: FileService) -> None:
+    asyncio.run(
+        service.upload(
+            actor=_actor(), metadata=_metadata(), ciphertext=_upload(), context=RequestContext()
+        )
+    )
+
+
+def test_upload_over_the_storage_quota_is_refused_before_anything_is_stored() -> None:
+    db, repository, storage, audit = FakeDb(), FakeRepository(), FakeStorage(), FakeAudit()
+    repository.stored_bytes = 96  # 96 + the 5-byte file > 100
+
+    with pytest.raises(StorageQuotaExceededError) as caught:
+        _attempt(_service(db, repository, storage, audit, quota=100))
+
+    assert caught.value.details == {"used_bytes": 96, "quota_bytes": 100}
+    assert storage.published == [] and db.commits == 0 and audit.events == []
+
+
+def test_upload_exactly_filling_the_quota_is_allowed() -> None:
+    db, repository, storage, audit = FakeDb(), FakeRepository(), FakeStorage(), FakeAudit()
+    repository.stored_bytes = 95
+
+    _attempt(_service(db, repository, storage, audit, quota=100))
+
+    assert db.commits == 1
+
+
+def test_upload_over_the_daily_limit_counts_the_last_24_hours() -> None:
+    db, repository, storage, audit = FakeDb(), FakeRepository(), FakeStorage(), FakeAudit()
+    repository.uploaded_recently = 98
+
+    with pytest.raises(UploadDailyLimitError):
+        _attempt(_service(db, repository, storage, audit, daily=100))
+
+    # Naive UTC, like the DATETIME column it is compared with.
+    assert repository.uploaded_since == datetime(2026, 8, 11, 12, 0)
+    assert storage.published == []
+
+
+def test_upload_is_refused_when_it_would_leave_the_disk_below_its_floor() -> None:
+    db, repository, storage, audit = FakeDb(), FakeRepository(), FakeStorage(), FakeAudit()
+    storage.free = 1_004  # 1,004 - 5 < 1,000
+
+    with pytest.raises(ServerStorageLowError):
+        _attempt(_service(db, repository, storage, audit, min_free=1_000))
+
+    assert storage.published == []
 
 
 def test_upload_preserves_published_object_when_database_commit_outcome_is_ambiguous() -> None:

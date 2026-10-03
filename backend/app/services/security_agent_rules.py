@@ -49,6 +49,9 @@ DOWNLOADS_MEDIUM = 20
 DOWNLOADS_HIGH = 60
 SHARE_SPAN = timedelta(hours=1)
 SHARES_LOW = 10
+UPLOAD_SPAN = timedelta(minutes=10)
+UPLOADS_MEDIUM = 30
+UPLOADS_HIGH = 100
 PASSWORD_FAILURE_SPAN = timedelta(minutes=15)
 PASSWORD_FAILURES_MEDIUM = 5
 SWEEP_STALE_AFTER = timedelta(hours=36)
@@ -86,6 +89,7 @@ class AgentInputs:
     refresh_replays: Sequence[Event] = ()
     downloads: Sequence[Event] = ()
     shares: Sequence[Event] = ()
+    uploads: Sequence[Event] = ()
     password_failures: Sequence[Event] = ()
     recoveries_executed: Sequence[Event] = ()
     recoveries_pending_old: int = 0
@@ -621,6 +625,28 @@ def rule_share_burst(inputs: AgentInputs) -> list[Finding]:
     )
 
 
+def rule_upload_burst(inputs: AgentInputs) -> list[Finding]:
+    return _burst_findings(
+        rule_id="UPLOAD_BURST",
+        events=inputs.uploads,
+        key=lambda e: e.actor,
+        span=UPLOAD_SPAN,
+        medium=UPLOADS_MEDIUM,
+        high=UPLOADS_HIGH,
+        title=lambda s, n: f"{s} uploaded {n} files in minutes",
+        summary=(
+            "An unusually fast run of uploads can be someone trying to fill the server's disk or "
+            "load it. The per-account storage and daily limits cap how much gets stored; this "
+            "shows who is pushing against them. It can also be a legitimate bulk upload."
+        ),
+        action=lambda s: (
+            f"Ask {s} whether this was them. If it was not, or it continues, disable the account "
+            "on the Users tab."
+        ),
+        describe_subject="Account",
+    )
+
+
 def rule_password_change_failures(inputs: AgentInputs) -> list[Finding]:
     return _burst_findings(
         rule_id="PASSWORD_CHANGE_GUESSING",
@@ -772,6 +798,15 @@ RULES: tuple[tuple[RuleInfo, Callable[[AgentInputs], list[Finding]]], ...] = (
             f"{SHARES_LOW}+ in an hour is low",
         ),
         rule_share_burst,
+    ),
+    (
+        RuleInfo(
+            "UPLOAD_BURST",
+            "Burst of uploads",
+            "File uploads, grouped by account",
+            f"{UPLOADS_MEDIUM}+ in 10 minutes is medium, {UPLOADS_HIGH}+ high",
+        ),
+        rule_upload_burst,
     ),
     (
         RuleInfo(

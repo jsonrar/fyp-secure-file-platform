@@ -120,6 +120,12 @@ limit while CPU averages 3 %. Read the test conditions before quoting a number:
 [docs/performance/REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) and the conclusions
 in [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md).
 
+**Upload limits (threat model F-09):** each account may store 2 GiB and upload 5 GiB per 24 hours,
+uploads stop while the storage disk is below a free-space floor, nginx allows ten uploads in flight
+per address, and the security agent reports upload bursts. Because the server only ever holds
+ciphertext it cannot scan for malware, so a recipient is warned before saving a shared program or
+macro-capable file. See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §11.3.
+
 What to say in the final presentation, with the evidence for each point, is in
 [docs/presentation/TALKING_POINTS.md](docs/presentation/TALKING_POINTS.md); what is still missing
 and what to do about it, by priority, is in
