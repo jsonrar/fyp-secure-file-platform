@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Contact us: correct Jason Huang's Chinese name (Junyan#10) / Contact us：更正 Jason Huang 的中文名（Junyan#10）
+
+- Corrected the Contact us / team-page Chinese rendering of Jason Huang from 黄建兴 to 黄建幸 in the translation dictionary, the build-time glossary, and the language-switch browser check, so Simplified Chinese shows the member's own preferred characters.
+- 将 Contact us / 团队页中 Jason Huang 的中文显示由“黄建兴”更正为“黄建幸”，同步更新翻译词典、构建期术语表与语言切换浏览器检查，使简体中文展示成员本人使用的写法。
+
 ### UI layout and navigation consistency (Junyan#9) / 界面排版与导航一致性（Junyan#9）
 
 - Shortened bilingual encryption copy and aligned feature cards to equal heights; extracted `FeatureLane.vue` so Core Features keeps autoplay while also supporting touch pan, mouse drag and keyboard focus/scroll, without a visible native scrollbar, so visitors can inspect each card deliberately.
