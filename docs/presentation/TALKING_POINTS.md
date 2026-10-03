@@ -151,7 +151,7 @@ be trusted.
 **The gap that existed:** recorded in the threat model (`docs/THREAT_MODEL.md` T-D2 / F-09): no
 per-account storage quota, so one account could in principle fill the disk.
 
-**The hardening (in review as PR #157; not done until merged and deployed):**
+**The hardening (PR #157, merged and deployed):**
 1. Each account may store 2 GB and upload 5 GB per 24 hours (deleted files count), with a clear message
    when exceeded; all uploads are refused when free disk would fall below a floor
 2. nginx allows 10 uploads in flight per IP (not lower, because a campus network puts many people behind one address)
@@ -175,7 +175,7 @@ encrypted drives (Proton Drive, for example) cannot scan contents on the server 
   risk is that of an email attachment from someone you know
 - Once decrypted in the browser and saved, the file is scanned by the operating system's own antivirus
   (Windows Defender, macOS XProtect) as usual
-- A warning before downloading a program or macro-capable file (in review, PR #157)
+- A warning before downloading a program or macro-capable file (PR #157)
 - We **deliberately do not** send file hashes to a service such as VirusTotal, which would tell a third
   party who holds which file
 
