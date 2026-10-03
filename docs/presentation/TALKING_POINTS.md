@@ -182,6 +182,25 @@ encrypted drives (Proton Drive, for example) cannot scan contents on the server 
 **How to say it:** "Privacy and server-side scanning cannot both be had. We chose privacy, and reduce the
 risk with sharing scope, a download warning and endpoint antivirus."
 
+## 9. Checking who a file is really shared with: key fingerprints (PR #160)
+
+**What to say:** a server that could swap a recipient's public key for its own would receive every
+file shared to that person. Our threat model listed this (T-S5) and recommended a control; we built
+it. Before anything is shared, the dialog names the recipient and shows the fingerprint of the key the
+file will be sealed to, **computed in the browser** from the key itself, never taken from the server.
+The recipient sees the same fingerprint in their Settings, so two people can read it out and compare.
+The browser remembers each recipient's fingerprint and warns if it changes later, the same idea as
+SSH's known hosts or Signal's safety numbers. The key that was confirmed is exactly the key used:
+there is no second lookup in between.
+
+**Demo it:** share a file, point at the fingerprint, then open the recipient's Settings on the second
+screen and show that it matches.
+
+**Likely question:** does this stop every attack?
+**Answer:** no, and we say so. It stops a server-side data attacker from silently redirecting a share.
+Someone who controls the code the browser runs could remove the check (threat model N1), and the very
+first share on a new device trusts the first key it sees. The comparison is the user's choice.
+
 ---
 
 ## Quick answers for judges
@@ -194,4 +213,5 @@ risk with sharing scope, a download warning and endpoint antivirus."
 | Did testing find anything? | Two concurrency deadlocks, fixed, with a regression test and zero recurrences on staging | 4 |
 | How would you know something broke? | Monitoring emails an alert; each of the three overloads on test night sent one | 5 |
 | What if someone floods uploads? | Rate limits and email verification already; the quota gap was in the threat model and is now closed (PR #157) | 7 |
+| Could the server redirect a share to itself? | Not silently: the recipient's key fingerprint is computed in the browser, confirmed, and pinned with a warning on change | 9 |
 | Can you scan for viruses? | Not on the server under zero-knowledge; sharing scope, a download warning and endpoint antivirus instead | 8 |

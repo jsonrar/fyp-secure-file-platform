@@ -49,7 +49,7 @@ export const workflowSlides = [
     short: 'Choose a person',
     page: 'My Files / Share this file',
     title: 'Choose your teammate and confirm.',
-    action: 'Enter their exact SecureView username or email address, then click Share.',
+    action: 'Enter their exact SecureView username or email address and click Share. Check the name and key fingerprint, then click Confirm and share.',
     result: 'Their name appears under Currently shared with.',
     tip: 'They need their own SecureView account. Sharing uses their public key, never either person’s passphrase.',
     alt: 'The actual Share this file window with the example username alex entered and Share marked 5.',
