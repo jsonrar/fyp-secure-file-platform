@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### A getting-started checklist on the dashboard / 仪表盘上的新手清单
+
+- A first sign-in gave no hint that the product is three moves: upload, share, and someone opening the file. The dashboard now shows "Getting started" with those three steps (encrypt and upload a file; share it with someone, checking their key fingerprint; download and decrypt a file, yours or one shared with you), each linking to where it is done. A step ticks itself from the account's own audit trail (`FILE_UPLOADED`, `FILE_SHARED`, `FILE_DOWNLOAD_AUTHORIZED`), so it reflects what really happened, not a button press. The card can be hidden per account and stays hidden; once all three are done it says so. It also gives the live demo a script to follow.
+- 第一次登录时，界面没有提示这个产品的核心其实就是三步：上传、分享、对方打开文件。现在仪表盘会显示“新手入门”，列出这三步：加密并上传一个文件；把它分享给别人（并核对对方的密钥指纹）；下载并解密一个文件（自己的或别人分享的）。每一步都链接到对应的页面，并根据账号自己的审计记录（`FILE_UPLOADED`、`FILE_SHARED`、`FILE_DOWNLOAD_AUTHORIZED`）自动打勾，反映的是真实发生的操作，而不是点过某个按钮。卡片可以按账号隐藏，隐藏后不会再出现；三步都完成后会给出提示。它也正好可以当作现场演示的流程。
+- `utils/getting-started.ts` holds the rule and the per-account hide flag, with unit tests; `GettingStartedCard.vue` waits for the signed-in user before reading the trail, which is fetched after the page loads. Checked by hand against a local API: a new account showed 0 of 3, then 1 of 3 after an upload, and hiding survived a reload; strings translated in `zh-CN.dict.json`.
+- 判断规则和按账号隐藏的标记放在 `utils/getting-started.ts`，配有单元测试；`GettingStartedCard.vue` 会等登录用户信息加载完成后再读取审计记录（用户信息是在页面加载之后才取回的）。已在本地 API 上手动验证：新账号显示 0/3，上传后变为 1/3，隐藏后刷新页面仍保持隐藏；新增文字已翻译进 `zh-CN.dict.json`。
+
 ### File rows: Download, Share and Delete visible with labels, the rest under More / 文件行：下载、分享、删除直接显示并带标签，其余收进"更多"
 
 - A first-time-user walkthrough found each file row had six unlabelled icons: Share, the action a demo depends on, was one of them; Share, Delete and Access history had no accessible name; and at about 800 px the Help assistant button covered Delete. The row now shows Download (decrypt), a labelled blue Share button and Delete, plus More (⋯) holding Download encrypted file, Request recovery and Access history. A recipient's row shows Download and More only, as before for Share and Delete. Every control has an accessible name. The menu is teleported to `<body>` so the table's horizontal scroll box cannot clip it, opens upwards near the bottom of the window, and closes on Escape, an outside click, scroll or resize.
