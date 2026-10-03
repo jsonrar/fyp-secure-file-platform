@@ -1,11 +1,13 @@
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref } from 'vue'
+import { computed, nextTick, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
-import { Download, KeyRound, ShieldCheck, UserPlus } from 'lucide-vue-next'
+import { ArrowLeft, Download, KeyRound, ShieldCheck, UserPlus } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
 import PasswordField from '@/components/PasswordField.vue'
+import { unlockWithPrivateKeyPem } from '@/crypto/download'
+import { useAuthStore } from '@/stores/auth_store'
 import { enrolAccountKey } from '@/utils/account-crypto'
 
 const route = useRoute()
@@ -44,6 +46,16 @@ let cooldownTimer: ReturnType<typeof setInterval> | undefined
 const privateKeyPem = ref('')
 const publicKeyFingerprint = ref('')
 const keyAcknowledged = ref(false)
+
+/**
+ * Two steps, because one form asking for a password, a second password with different rules,
+ * an email and a code was the hardest part of a first-time walkthrough. Step one is the
+ * account; step two is the encryption passphrase alone, with why it exists.
+ */
+const step = ref<1 | 2>(1)
+/** Signed in straight after registering, so the user is not asked to sign in again. */
+const signedIn = ref(false)
+const auth = useAuthStore()
 
 /**
  * Registration validates on submit, not by disabling the button.
@@ -131,6 +143,45 @@ const FIELD_ORDER: readonly FieldName[] = [
   'code',
 ]
 
+const STEP_ONE: readonly FieldName[] = ['username', 'password', 'confirmPassword', 'email', 'code']
+
+async function goToStepTwo() {
+  for (const field of STEP_ONE) markTouched(field)
+  const firstInvalid = STEP_ONE.find((field) => errors.value[field] !== '')
+  if (firstInvalid) {
+    errorMessage.value = t('register.fixErrors')
+    focusField(firstInvalid)
+    return
+  }
+  errorMessage.value = ''
+  step.value = 2
+  await nextTick()
+  focusField('passphrase')
+}
+
+function backToStepOne() {
+  errorMessage.value = ''
+  step.value = 1
+}
+
+/**
+ * Sign in with the credentials just registered, and open this session's account key with the
+ * private key generated a moment ago, so the first upload or share does not ask for the
+ * passphrase again. Either step failing is not an error: the key page then offers sign-in.
+ */
+async function signInAfterRegistering(pem: string) {
+  try {
+    const res = await authApi.login({ username: username.value.trim(), password: password.value })
+    const token = res.data?.data?.access_token
+    if (!token) return
+    auth.setSession(token, res.data?.data?.refresh_token ?? '')
+    signedIn.value = true
+    await unlockWithPrivateKeyPem(pem)
+  } catch {
+    // Throttled, or the key check failed: the user signs in from the login page as before.
+  }
+}
+
 function errorFor(field: FieldName): string {
   if (!hasAttemptedSubmit.value && !touched[field]) return ''
   return errors.value[field]
@@ -200,6 +251,8 @@ async function register() {
   const firstInvalid = FIELD_ORDER.find((field) => errors.value[field] !== '')
   if (firstInvalid) {
     errorMessage.value = t('register.fixErrors')
+    if (STEP_ONE.includes(firstInvalid)) step.value = 1
+    await nextTick()
     focusField(firstInvalid)
     return
   }
@@ -221,6 +274,9 @@ async function register() {
       verification_code: verificationCode.value.trim(),
       key_material: keyMaterial,
     })
+
+    progressLabel.value = t('register.progressSignIn')
+    await signInAfterRegistering(generatedPem)
 
     privateKeyPem.value = generatedPem
     publicKeyFingerprint.value = response.data.data.public_key_fingerprint
@@ -266,7 +322,12 @@ function downloadPrivateKey() {
           {{ t('register.afterDeletion') }}
         </p>
 
-        <form novalidate @submit.prevent="register">
+        <p class="mb-4 text-xs font-medium text-muted-foreground" data-testid="register-step">
+          {{ t('register.stepOf', { step, total: 2 }) }} · {{ step === 1 ? t('register.stepAccount') : t('register.stepEncryption') }}
+        </p>
+
+        <form novalidate @submit.prevent="step === 1 ? goToStepTwo() : register()">
+          <template v-if="step === 1">
           <label for="register-username" class="text-sm text-foreground mb-2 block">
             {{ t('login.username') }} <span class="text-destructive">*</span>
           </label>
@@ -285,7 +346,6 @@ function downloadPrivateKey() {
             {{ errorFor('username') }}
           </p>
           <div class="mb-4" />
-
           <PasswordField
             ref="passwordField"
             v-model="password"
@@ -296,7 +356,6 @@ function downloadPrivateKey() {
             @blur="markTouched('password')"
           />
           <div class="mb-4" />
-
           <PasswordField
             ref="confirmPasswordField"
             v-model="confirmPassword"
@@ -306,24 +365,6 @@ function downloadPrivateKey() {
             @blur="markTouched('confirmPassword')"
           />
           <div class="mb-4" />
-
-          <PasswordField
-            ref="passphraseField"
-            v-model="passphrase"
-            :label="t('passphrase.label')"
-            :placeholder="t('register.passphrasePlaceholder', { min: PASSPHRASE_MIN_LENGTH })"
-            :error="errorFor('passphrase')"
-            @blur="markTouched('passphrase')"
-          >
-            <template #hint>
-              <p class="text-xs text-muted-foreground mt-1 flex gap-1.5">
-                <ShieldCheck class="h-4 w-4 shrink-0 text-primary" />
-                <span>{{ t('register.passphraseHint') }}</span>
-              </p>
-            </template>
-          </PasswordField>
-          <div class="mb-4" />
-
           <label for="register-email" class="text-sm text-foreground mb-2 block">
             {{ t('register.email') }} <span class="text-destructive">*</span>
           </label>
@@ -343,7 +384,6 @@ function downloadPrivateKey() {
             {{ errorFor('email') }}
           </p>
           <div class="mb-4" />
-
           <label for="register-code" class="text-sm text-foreground mb-2 block">
             {{ t('register.code') }} <span class="text-destructive">*</span>
           </label>
@@ -380,11 +420,55 @@ function downloadPrivateKey() {
 
           <button
             type="submit"
+            class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {{ t('register.next') }}
+          </button>
+          </template>
+
+          <template v-else>
+          <div class="mb-4 rounded-lg border border-border bg-secondary/50 p-3" data-testid="two-secrets">
+            <p class="flex items-center gap-1.5 text-sm font-medium text-foreground">
+              <ShieldCheck class="h-4 w-4 shrink-0 text-primary" />
+              {{ t('register.twoSecretsTitle') }}
+            </p>
+            <p class="mt-1 text-xs text-muted-foreground">{{ t('register.twoSecretsBody') }}</p>
+          </div>
+          <PasswordField
+            ref="passphraseField"
+            v-model="passphrase"
+            :label="t('passphrase.label')"
+            :placeholder="t('register.passphrasePlaceholder', { min: PASSPHRASE_MIN_LENGTH })"
+            :error="errorFor('passphrase')"
+            @blur="markTouched('passphrase')"
+          >
+            <template #hint>
+              <p class="text-xs text-muted-foreground mt-1 flex gap-1.5">
+                <ShieldCheck class="h-4 w-4 shrink-0 text-primary" />
+                <span>{{ t('register.passphraseHint') }}</span>
+              </p>
+            </template>
+          </PasswordField>
+          <div class="mb-4" />
+          <div class="mb-2" />
+
+          <button
+            type="submit"
             class="w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50 disabled:cursor-not-allowed"
             :disabled="isSubmitting"
           >
             {{ progressLabel || t('register.submit') }}
           </button>
+          <button
+            type="button"
+            class="mt-2 w-full h-10 rounded-md border border-border text-sm text-foreground hover:bg-secondary inline-flex items-center justify-center gap-2 disabled:opacity-50"
+            :disabled="isSubmitting"
+            @click="backToStepOne"
+          >
+            <ArrowLeft class="h-4 w-4" />
+            {{ t('register.back') }}
+          </button>
+          </template>
         </form>
 
         <p v-if="errorMessage" class="text-sm text-destructive mt-3" role="alert">
@@ -440,11 +524,11 @@ function downloadPrivateKey() {
         </label>
 
         <RouterLink
-          to="/login"
+          :to="signedIn ? '/dashboard' : '/login'"
           class="mt-4 w-full h-11 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 flex items-center justify-center"
           :class="keyAcknowledged ? '' : 'pointer-events-none opacity-50'"
         >
-          {{ t('register.continue') }}
+          {{ signedIn ? t('register.continueToWorkspace') : t('register.continue') }}
         </RouterLink>
       </template>
     </div>

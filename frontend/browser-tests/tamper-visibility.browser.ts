@@ -66,7 +66,6 @@ async function register(page: Page, account: Account) {
   await page.getByRole('textbox', { name: /^Username/ }).fill(account.username)
   await page.getByRole('textbox', { name: /^Password/ }).fill(account.password)
   await page.getByRole('textbox', { name: /^Confirm Password/ }).fill(account.password)
-  await page.getByRole('textbox', { name: /^Encryption Passphrase/ }).fill(account.passphrase)
   await page.getByRole('textbox', { name: /^Email Address/ }).fill(account.email)
 
   await page.getByRole('button', { name: 'Send code' }).click()
@@ -79,12 +78,18 @@ async function register(page: Page, account: Account) {
     .toBeTruthy()
   await page.getByRole('textbox', { name: /^Verification Code/ }).fill(code!)
 
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('textbox', { name: /^Encryption Passphrase/ }).fill(account.passphrase)
   await page.getByRole('button', { name: 'Register' }).click()
   await expect(page.getByRole('heading', { name: 'Save Your Private Key' })).toBeVisible({
     timeout: 60_000,
   })
   await page.getByRole('checkbox', { name: /I have saved this private key/ }).check()
-  await page.getByRole('link', { name: 'Continue to sign in' }).click()
+  await page.getByRole('link', { name: 'Continue to your workspace' }).click()
+  await expect(page).toHaveURL(/\/dashboard$/)
+  // Start the rest of the flow from a fresh sign-in, as before registration signed in.
+  await page.evaluate(() => localStorage.clear())
+  await page.goto('/login')
   await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible()
 }
 

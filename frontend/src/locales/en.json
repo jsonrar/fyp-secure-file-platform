@@ -125,7 +125,16 @@
     "fingerprint": "Public key fingerprint:",
     "downloadKey": "Download private key",
     "keyAcknowledge": "I have saved this private key somewhere safe. I understand it will not be shown again, and that without it a forgotten passphrase means losing access to my files.",
-    "continue": "Continue to sign in"
+    "continue": "Continue to sign in",
+    "stepOf": "Step {step} of {total}",
+    "stepAccount": "Your account",
+    "stepEncryption": "Your encryption passphrase",
+    "next": "Next",
+    "back": "Back",
+    "twoSecretsTitle": "Why a second password?",
+    "twoSecretsBody": "Your login password lets you sign in, and the server checks it. Your encryption passphrase never leaves this browser: it locks the key that opens your files, so not even the server, or we, can read them. Use a different one, and keep it somewhere safe.",
+    "progressSignIn": "Signing you in…",
+    "continueToWorkspace": "Continue to your workspace"
   },
   "forgot": {
     "title": "Reset Password",
