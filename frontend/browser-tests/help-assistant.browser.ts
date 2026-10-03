@@ -73,7 +73,8 @@ test.describe('signed out, on a desktop screen', () => {
     await questionBox(page).press('Enter')
     const answer = panel(page).getByTestId('assistant-answer').last()
     await expect(answer).toContainText('How do I share a file?')
-    await expect(answer.getByTestId('assistant-steps').getByRole('listitem')).toHaveCount(5)
+    // Five steps plus checking the recipient's key fingerprint before confirming.
+    await expect(answer.getByTestId('assistant-steps').getByRole('listitem')).toHaveCount(6)
     await expect(answer.getByTestId('assistant-links')).toContainText('(sign in first)')
   })
 
