@@ -1031,7 +1031,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         <button
           role="menuitem"
           type="button"
-          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary disabled:opacity-40"
+          class="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-sm md:min-h-0 text-foreground hover:bg-secondary disabled:opacity-40"
           :disabled="downloadBusy || Boolean(moreMenuFile.accessError)"
           @click="handleEncryptedDownload(moreMenuFile); closeMoreMenu()"
         >
@@ -1041,7 +1041,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         <button
           role="menuitem"
           type="button"
-          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary disabled:opacity-40"
+          class="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-sm md:min-h-0 text-foreground hover:bg-secondary disabled:opacity-40"
           :disabled="Boolean(moreMenuFile.accessError)"
           @click="recoveryFileId = moreMenuFile.id; closeMoreMenu()"
         >
@@ -1051,7 +1051,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         <button
           role="menuitem"
           type="button"
-          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary"
+          class="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-sm md:min-h-0 text-foreground hover:bg-secondary"
           @click="historyFileId = moreMenuFile.id; closeMoreMenu()"
         >
           <Activity class="h-4 w-4 shrink-0" />
