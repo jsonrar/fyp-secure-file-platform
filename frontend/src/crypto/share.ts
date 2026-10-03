@@ -25,7 +25,12 @@ import {
   unlockedKeyFor,
 } from './download'
 import { unwrapDek } from './file_envelope'
-import { AuthenticationFailure, importRsaOaepPublicKey, rsaOaepWrap } from './primitives'
+import {
+  AuthenticationFailure,
+  importRsaOaepPublicKey,
+  publicKeyFingerprint,
+  rsaOaepWrap,
+} from './primitives'
 
 /** No active account by that username/email, or it has no key a file could be wrapped to. */
 export class RecipientNotFoundError extends Error {
@@ -43,27 +48,39 @@ export class ShareWithSelfError extends Error {
   }
 }
 
+/** The server's stated fingerprint disagrees with the key it returned. Never share to it. */
+export class RecipientKeyMismatchError extends Error {
+  constructor() {
+    super('The server returned a key whose fingerprint does not match it, so it was not used')
+    this.name = 'RecipientKeyMismatchError'
+  }
+}
+
 export interface ShareOutcome {
   username: string
   /** False when the grant already existed and was updated rather than created. */
   created: boolean
 }
 
+/** A recipient's active key, looked up and fingerprinted here, for the sender to confirm. */
+export interface RecipientCandidate {
+  identifier: string
+  userId: string
+  keyId: string
+  publicKeyPem: string
+  /** SHA-256 of the key, computed in this browser rather than taken from the server. */
+  fingerprint: string
+}
+
 /**
- * Rewrap a file's key to another account and record the grant.
+ * Find the account a share would go to, so the sender can confirm it before anything is sent.
  *
- * Requires the sender's account key to be unlocked, for the same reason downloading does:
- * the DEK is reachable only through it.
+ * The fingerprint is recomputed from the key itself. The server's own `fingerprint` field must
+ * agree; a server that returned one key and described another is not trusted with the share.
  */
-export async function shareFileWithRecipient(
-  fileId: string,
-  identifier: string,
-  options: { canDownload?: boolean; canShare?: boolean } = {},
-): Promise<ShareOutcome> {
+export async function lookupRecipient(identifier: string): Promise<RecipientCandidate> {
   const name = identifier.trim()
   if (!name) throw new RecipientNotFoundError(identifier)
-  if (!isUnlocked()) throw new NotUnlockedError()
-
   let recipient
   try {
     recipient = (await keyApi.activePublicKeyByIdentifier(name)).data.data
@@ -72,6 +89,36 @@ export async function shareFileWithRecipient(
     // here is equally "cannot share with them", so it is not worth splitting further.
     throw new RecipientNotFoundError(name)
   }
+  const fingerprint = await publicKeyFingerprint(recipient.public_key_pem)
+  if (recipient.fingerprint && recipient.fingerprint.toLowerCase() !== fingerprint) {
+    throw new RecipientKeyMismatchError()
+  }
+  return {
+    identifier: name,
+    userId: recipient.user_id,
+    keyId: recipient.key_id,
+    publicKeyPem: recipient.public_key_pem,
+    fingerprint,
+  }
+}
+
+/**
+ * Rewrap a file's key to another account and record the grant.
+ *
+ * Given a confirmed `RecipientCandidate`, the file key is wrapped to exactly that key, with no
+ * second lookup that could return a different one. Given a name, it looks the recipient up first.
+ * Requires the sender's account key to be unlocked, for the same reason downloading does: the
+ * DEK is reachable only through it.
+ */
+export async function shareFileWithRecipient(
+  fileId: string,
+  target: string | RecipientCandidate,
+  options: { canDownload?: boolean; canShare?: boolean } = {},
+): Promise<ShareOutcome> {
+  if (typeof target === 'string' && !target.trim()) throw new RecipientNotFoundError(target)
+  if (!isUnlocked()) throw new NotUnlockedError()
+  const recipient = typeof target === 'string' ? await lookupRecipient(target) : target
+  const name = recipient.identifier
 
   const metadata = (await fileApi.getFile(fileId)).data.data as FileOut
   const envelope = metadata.crypto_envelope
@@ -94,12 +141,12 @@ export async function shareFileWithRecipient(
   // RSA-OAEP authenticates, and unwrapDek checks the length, so a DEK that reaches here is
   // the one that was sealed. The sender cannot verify the outgoing wrapping -- that needs
   // the recipient's private key -- which is why the server also checks its shape.
-  const recipientKey = await importRsaOaepPublicKey(recipient.public_key_pem)
+  const recipientKey = await importRsaOaepPublicKey(recipient.publicKeyPem)
   const wrappedForRecipient = await rsaOaepWrap(recipientKey, dek)
 
   const response = await shareApi.shareFile(fileId, {
-    target_user_id: recipient.user_id,
-    target_key_id: recipient.key_id,
+    target_user_id: recipient.userId,
+    target_key_id: recipient.keyId,
     wrapped_file_key: toBase64(wrappedForRecipient),
     can_download: options.canDownload ?? true,
     can_share: options.canShare ?? false,

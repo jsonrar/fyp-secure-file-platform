@@ -4,6 +4,7 @@ import { LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
+import KeyFingerprintCard from '@/components/KeyFingerprintCard.vue'
 import ResetPassphraseCard from '@/components/ResetPassphraseCard.vue'
 import { useTheme, type ThemePreference } from '@/composables/useTheme'
 import { useAuthStore } from '@/stores/auth_store'
@@ -118,6 +119,8 @@ function onDeleted() {
           </button>
         </div>
       </div>
+
+      <KeyFingerprintCard />
 
       <ResetPassphraseCard />
 

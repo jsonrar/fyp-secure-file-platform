@@ -165,7 +165,11 @@
     "viewProfile": "查看个人资料",
     "deleteTitle": "删除此账户",
     "deleteBody": "删除该账户及其上传的所有文件。无法撤销此操作，也无法在之后恢复文件。如果你因忘记口令而被锁定，请使用你保存的私钥文件在上面的地方重置它。",
-    "deleteButton": "删除账户"
+    "deleteButton": "删除账户",
+    "fingerprintTitle": "你的密钥指纹",
+    "fingerprintBody": "别人给你分享文件时，他的屏幕上会显示你这把密钥的指纹。你们互相念一遍、确认一致，就能证明文件是加密给你的，而不是加密给被人替换掉的某把密钥。",
+    "fingerprintLoading": "正在计算你的指纹…",
+    "fingerprintError": "无法加载你的指纹。请重新登录后再打开设置。"
   },
   "common": {
     "cancel": "取消",
