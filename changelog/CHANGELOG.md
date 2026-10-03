@@ -20,8 +20,12 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ### Contact us: correct Jason Huang's Chinese name (Junyan#10) / Contact us：更正 Jason Huang 的中文名（Junyan#10）
 
-- Corrected the Contact us / team-page Chinese rendering of Jason Huang from 黄建兴 to 黄建幸 in the translation dictionary, the build-time glossary, and the language-switch browser check, so Simplified Chinese shows the member's own preferred characters.
-- 将 Contact us / 团队页中 Jason Huang 的中文显示由“黄建兴”更正为“黄建幸”，同步更新翻译词典、构建期术语表与语言切换浏览器检查，使简体中文展示成员本人使用的写法。
+- Corrected the Contact us / team-page Chinese name for Jason Huang from 黄建兴 to 黄建幸. The English source stays `Jason Huang` in `team-page.vue`; Simplified Chinese comes from the dictionary and glossary, so those are what visitors actually see when the locale is 简体中文.
+- 将 Contact us / 团队页中 Jason Huang 的中文名由“黄建兴”更正为“黄建幸”。英文源仍为 `team-page.vue` 中的 `Jason Huang`；简体中文由词典与术语表提供，因此切换到简体中文时访客看到的是更正后的写法。
+- Updated `frontend/src/locales/zh-CN.dict.json` (`"Jason Huang": "黄建幸"`), the build-time glossary in `frontend/scripts/translate_ui_strings.py`, and the Chinese-name assertions in `frontend/browser-tests/language-switch.browser.ts`, so future translation runs and the language-switch check keep the preferred characters.
+- 已更新 `frontend/src/locales/zh-CN.dict.json`（`"Jason Huang": "黄建幸"`）、`frontend/scripts/translate_ui_strings.py` 构建期术语表，以及 `frontend/browser-tests/language-switch.browser.ts` 中的中文名断言，确保后续翻译生成与语言切换检查都沿用正确写法。
+- Local copy-only change on Junyan#10: no API, migration, secret or deployment changes.
+- 本次为 Junyan#10 上的文案更正：不涉及 API、迁移、密钥或部署变更。
 
 ### UI layout and navigation consistency (Junyan#9) / 界面排版与导航一致性（Junyan#9）
 
@@ -42,8 +46,8 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 - After #150 went live, the Education articles and algorithm details, the four quick-start steps and several styled sentences still showed English, and the team page used machine transliterations. Three causes, each fixed: articles are Markdown rendered into many small nodes, so they are now translated whole before rendering (lines, lists and tables kept); sentences built with `'…' + '…'` and sentences with a bold or italic word were collected in pieces, so they are now collected and translated as one sentence; and list items with a `•` or step number in front now match their entry.
 - #150 上线后，Education 的文章与算法详情、快速上手的四个步骤以及若干带加粗/斜体的句子仍显示英文，团队页的人名是机器音译。原因有三，均已修复：文章是被渲染成许多小节点的 Markdown，现在在渲染前整篇翻译（保留换行、列表和表格）；用 `'…' + '…'` 拼接的句子和含加粗/斜体词的句子过去被拆成碎片收集，现在作为整句收集和翻译；带 `•` 或步骤编号前缀的列表项现在也能匹配到对应条目。
-- The team page now reads 项目导师, 马来西亚莫纳什大学信息技术学院, and the members' own names (温硕勋, 李俊言, 黄建兴, 陈泰); the supervisor's name stays Asad Malik 博士 rather than a transliteration. These are in the translation glossary, so future strings use them too. Field placeholders (the Contact us message box) are now translated.
-- 团队页现在使用“项目导师”“马来西亚莫纳什大学信息技术学院”以及成员本人的中文名（温硕勋、李俊言、黄建兴、陈泰）；导师姓名保留为 “Asad Malik 博士”，不做音译。这些已写入翻译术语表，以后的新文本也会沿用。输入框的提示文字（如 Contact us 的留言框）现在也会翻译。
+- The team page now reads 项目导师, 马来西亚莫纳什大学信息技术学院, and the members' own names (温硕勋, 李俊言, 黄建幸, 陈泰); the supervisor's name stays Asad Malik 博士 rather than a transliteration. These are in the translation glossary, so future strings use them too. Field placeholders (the Contact us message box) are now translated.
+- 团队页现在使用“项目导师”“马来西亚莫纳什大学信息技术学院”以及成员本人的中文名（温硕勋、李俊言、黄建幸、陈泰）；导师姓名保留为 “Asad Malik 博士”，不做音译。这些已写入翻译术语表，以后的新文本也会沿用。输入框的提示文字（如 Contact us 的留言框）现在也会翻译。
 - `scripts/find-untranslated.mjs` opens every public page in Chinese, presses each button that reveals content, and lists the English still showing: after this change only names, algorithm identifiers, GitHub handles and email addresses remain, which are meant to stay as written.
 - 新增 `scripts/find-untranslated.mjs`：以中文打开每个公开页面，点开所有会展开内容的按钮，列出仍显示的英文。改动之后只剩人名、算法标识、GitHub 用户名和邮箱地址，这些本就应保持原样。
 
