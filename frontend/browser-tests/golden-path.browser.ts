@@ -75,7 +75,6 @@ async function register(page: Page, account: Account) {
   await page.getByRole('textbox', { name: /^Username/ }).fill(account.username)
   await page.getByRole('textbox', { name: /^Password/ }).fill(account.password)
   await page.getByRole('textbox', { name: /^Confirm Password/ }).fill(account.password)
-  await page.getByRole('textbox', { name: /^Encryption Passphrase/ }).fill(account.passphrase)
   await page.getByRole('textbox', { name: /^Email Address/ }).fill(account.email)
 
   await page.getByRole('button', { name: 'Send code' }).click()
@@ -88,13 +87,18 @@ async function register(page: Page, account: Account) {
     .toBeTruthy()
   await page.getByRole('textbox', { name: /^Verification Code/ }).fill(code!)
 
+  await page.getByRole('button', { name: 'Next' }).click()
+  await page.getByRole('textbox', { name: /^Encryption Passphrase/ }).fill(account.passphrase)
   await page.getByRole('button', { name: 'Register' }).click()
   // Key generation and Argon2id run in the page before the request is even sent.
   await expect(page.getByRole('heading', { name: 'Save Your Private Key' })).toBeVisible({
     timeout: 60_000,
   })
   await page.getByRole('checkbox', { name: /I have saved this private key/ }).check()
-  await page.getByRole('link', { name: 'Continue to sign in' }).click()
+  // Registering signs the new account straight in.
+  await page.getByRole('link', { name: 'Continue to your workspace' }).click()
+  await expect(page.getByRole('heading', { name: 'Your Workspace' })).toBeVisible()
+  await signOut(page)
   await expect(page.getByRole('heading', { name: 'Sign In' })).toBeVisible()
 }
 

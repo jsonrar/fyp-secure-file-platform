@@ -84,11 +84,11 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'Your browser then creates your keys and shows a private key file once: download it and keep it ' +
       'somewhere safe, because it is the only way back if you forget the passphrase.',
     steps: [
-      'Open Register and fill in username, password, encryption passphrase and email.',
-      'Press Send code and type in the code from your email.',
-      'Press Register and wait while your keys are created.',
+      'Open Register and fill in your username, password and email.',
+      'Press Send code, type in the code from your email, and press Next.',
+      'Choose an encryption passphrase, different from your password, and press Register.',
       'On Save Your Private Key, download the .pem file and tick that you have saved it.',
-      'Sign in with your username and password.',
+      'Press Continue to your workspace: you are already signed in.',
     ],
     links: [
       { label: 'Register', to: '/register' },
