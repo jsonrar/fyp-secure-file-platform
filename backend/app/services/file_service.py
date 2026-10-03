@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import base64
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timedelta
 from uuid import UUID, uuid4
 
 from fastapi import UploadFile
@@ -20,7 +20,10 @@ from app.domain.errors import (
     FileResourceNotFoundError,
     FileStateConflictError,
     FileTooLargeError,
+    ServerStorageLowError,
+    StorageQuotaExceededError,
     StorageUnavailableError,
+    UploadDailyLimitError,
 )
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
@@ -145,6 +148,7 @@ class FileService:
             )
         if self.repository.file_uuid_exists(metadata.file_id):
             raise FileStateConflictError("file_id has already been used")
+        self._enforce_upload_limits(actor, metadata.plaintext_size)
 
         staged: StagedCiphertext | None = None
         object_key: str | None = None
@@ -647,6 +651,35 @@ class FileService:
             # Preserve the use-case failure. Crash/orphan reconciliation handles the rare
             # case where best-effort compensation itself cannot reach local storage.
             return
+
+    def _enforce_upload_limits(self, actor: ActorContext, size: int) -> None:
+        """Refuse an upload before any byte is stored (threat model T-D2).
+
+        `size` is the declared plaintext size, which equals the ciphertext size and is checked
+        against the bytes actually received, so it cannot be understated to slip past this.
+        Two uploads racing the same quota can each pass; the overshoot is at most one file each.
+        """
+        settings = self.settings
+        if settings.UPLOAD_MIN_FREE_DISK_BYTES and (
+            self.storage.free_bytes() - size < settings.UPLOAD_MIN_FREE_DISK_BYTES
+        ):
+            raise ServerStorageLowError()
+        if settings.USER_STORAGE_QUOTA_BYTES:
+            used = self.repository.stored_bytes_for_owner(actor.user_id)
+            if used + size > settings.USER_STORAGE_QUOTA_BYTES:
+                raise StorageQuotaExceededError(
+                    details={"used_bytes": used, "quota_bytes": settings.USER_STORAGE_QUOTA_BYTES}
+                )
+        if settings.USER_DAILY_UPLOAD_BYTES:
+            since = self._now() - timedelta(hours=24)
+            uploaded = self.repository.uploaded_bytes_since(actor.user_id, since)
+            if uploaded + size > settings.USER_DAILY_UPLOAD_BYTES:
+                raise UploadDailyLimitError(
+                    details={
+                        "uploaded_bytes": uploaded,
+                        "limit_bytes": settings.USER_DAILY_UPLOAD_BYTES,
+                    }
+                )
 
     def _now(self) -> datetime:
         return to_second_resolution_utc(self.clock())

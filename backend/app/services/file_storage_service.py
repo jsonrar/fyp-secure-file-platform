@@ -66,6 +66,13 @@ class FileStorageService:
         self.staging_root = settings.TEMP_FILE_DIR.resolve(strict=False)
         self.object_root = settings.ENCRYPTED_FILE_DIR.resolve(strict=False)
 
+    def free_bytes(self) -> int:
+        """Free space on the filesystem that holds the ciphertext objects."""
+        path = self.object_root
+        while not path.exists() and path != path.parent:
+            path = path.parent
+        return shutil.disk_usage(path).free
+
     @staticmethod
     def allocate_object_key(file_id: UUID, *, random_id: UUID | None = None) -> str:
         suffix = random_id or uuid4()

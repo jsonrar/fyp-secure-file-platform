@@ -47,6 +47,7 @@ _WATCHED = {
     "replay": "AUTH_REFRESH_REPLAY_DETECTED",
     "download": "FILE_DOWNLOAD_AUTHORIZED",
     "share": "FILE_SHARED",
+    "upload": "FILE_UPLOADED",
     "password": "AUTH_PASSWORD_CHANGE_FAILED",
     "recovery": "RECOVERY_REQUEST_EXECUTED",
 }
@@ -174,6 +175,7 @@ class SecurityAgentService:
             refresh_replays=by_action[_WATCHED["replay"]],
             downloads=by_action[_WATCHED["download"]],
             shares=by_action[_WATCHED["share"]],
+            uploads=by_action[_WATCHED["upload"]],
             password_failures=by_action[_WATCHED["password"]],
             recoveries_executed=by_action[_WATCHED["recovery"]],
             recoveries_pending_old=self.repository.count_recovery_requests_pending_before(

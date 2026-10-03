@@ -239,6 +239,20 @@ def test_sharing_bursts_and_password_guessing_have_their_own_grades() -> None:
     assert by_rule == {"SHARE_BURST": Priority.LOW, "PASSWORD_CHANGE_GUESSING": Priority.MEDIUM}
 
 
+def test_upload_bursts_are_graded_and_a_normal_pace_is_quiet() -> None:
+    normal = _events(29, every=timedelta(seconds=20), actor="grace")  # 29 in 10 min: under
+    medium = _events(30, every=timedelta(seconds=20), actor="heidi")
+    high = _events(100, every=timedelta(seconds=5), actor="ivan")
+
+    findings, _ = evaluate(_inputs(uploads=normal + medium + high))
+
+    by_actor = {f.title.split()[0]: (f.rule_id, f.priority) for f in findings}
+    assert by_actor == {
+        "heidi": ("UPLOAD_BURST", Priority.MEDIUM),
+        "ivan": ("UPLOAD_BURST", Priority.HIGH),
+    }
+
+
 def test_recovery_activity_is_reported_and_old_requests_are_a_low_notice() -> None:
     findings, _ = evaluate(
         _inputs(

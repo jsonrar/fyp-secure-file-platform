@@ -19,11 +19,17 @@ from app.domain.errors import (
     InputError,
     IntegrityVerificationError,
     ResourceNotFoundError,
+    ServerStorageLowError,
+    StorageQuotaExceededError,
     StorageUnavailableError,
+    UploadDailyLimitError,
 )
 
 _STATUS_BY_ERROR_TYPE: dict[type[AppError], int] = {
     AuthenticationRateLimitedError: 429,
+    UploadDailyLimitError: 429,
+    StorageQuotaExceededError: 413,
+    ServerStorageLowError: 507,
     AuthenticationError: 401,
     AuthorizationError: 403,
     ResourceNotFoundError: 404,

@@ -185,7 +185,7 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 | ID | Threat | Control | Status |
 |---|---|---|---|
 | T-D1 | Request flooding | nginx `secureview_api` at 10 requests per second per IP, burst 20 | Partial — per-IP only |
-| T-D2 | Upload abuse filling the disk | 500 MiB per upload in nginx and backend; per-user quota not enforced | Accepted — the 85 % filesystem alert is the only control. → F-09 |
+| T-D2 | Upload abuse filling the disk | 500 MiB per upload; per-account 2 GiB storage and 5 GiB per 24 h; uploads refused below a free-disk floor; 10 uploads in flight per IP in nginx; `UPLOAD_BURST` agent rule; 85 % filesystem alert | Mitigated — one account can no longer fill the disk; many accounts still could, slowly, and registration is gated by email verification. → F-09 |
 | T-D3 | Very large uploads exhaust the **browser** | — | Accepted — the in-memory design peaks near four times the file size; owned by the upload work, not this model → F-19 |
 | T-D4 | Lock-out by envelope overwrite | See T-T3 | Mitigated |
 
@@ -475,9 +475,17 @@ could take over sessions. This raises T-I6 from the low severity recorded in v0.
 ### 11.3 Upload abuse
 
 Each upload is capped at 500 MiB, in both nginx and the backend, and `/api/` is rate-limited to 10
-requests per second per IP with a burst of 20. There is **no per-user storage quota**, so one
-verified account can keep uploading until the disk fills. The filesystem alert at 85 % is the only
-control → F-09. Separately, in-browser encryption holds about four times the file size in memory
+requests per second per IP with a burst of 20. Since 2026-10-04 the backend also refuses an upload
+that would take an account over 2 GiB of stored ciphertext (`USER_STORAGE_QUOTA_BYTES`, 413
+`storage_quota_exceeded`) or over 5 GiB uploaded in the last 24 hours, deleted files included so
+that delete-and-reupload does not reset it (`USER_DAILY_UPLOAD_BYTES`, 429 `upload_daily_limit`),
+and refuses every upload that would leave the storage filesystem below a floor
+(`UPLOAD_MIN_FREE_DISK_BYTES`, 507 `server_storage_low`; 20 GiB on staging, which shares its disk
+with other services). The checks use the declared size, which is then verified against the bytes
+received, and run before anything is stored. nginx allows ten uploads in flight per address, and
+the security agent's `UPLOAD_BURST` rule reports 30+ uploads by one account in ten minutes. What
+remains is many accounts filling the disk together, which needs that many verified email
+addresses and is still caught by the floor and the 85 % alert → F-09. Separately, in-browser encryption holds about four times the file size in memory
 at its peak — measured at exactly 4.00× — which is ~2 GB for a 500 MiB file, and phones are
 likely to fail → F-19.
 
@@ -532,7 +540,7 @@ The owner column names one of the project's two defined roles, or *Unassigned* w
 | F-06 | Recipient and owner public keys can be substituted by a data writer | T-S5, T-S7 | Low | Accepted | Crypto & Security Lead | §10.2 |
 | F-07 | Access and refresh tokens are readable by any script on the origin | T-I4, T-S3 | **Medium** | Accepted, conditional on F-03 being fixed | Unassigned | §11.4 |
 | F-08 | Registration reveals whether a username or email exists, before checking the verification code | T-S2 | Low | Deferred — check the code first, and answer uniformly | Unassigned | §7.1 |
-| F-09 | No per-user storage quota; one account can fill the disk | T-D2 | Low | Accepted — 85 % filesystem alert | Testing & Deployment Lead | §11.3 |
+| F-09 | No per-user storage quota; one account can fill the disk | T-D2 | Low | Mitigated 2026-10-04 — per-account storage and daily limits, free-disk floor, per-IP upload connections, `UPLOAD_BURST` rule | Testing & Deployment Lead | §11.3 |
 | F-10 | External audit checkpoints are implemented but not operating on staging | T-T6, T-R2 | Low | **Resolved 2026-10-01** — checkpoints publish hourly and one was downloaded and HMAC-verified on a separate machine on 2026-09-25 (Issue #59) | Testing & Deployment Lead | Issue #59 closing comment; `mcs21-audit-checkpoint` journal, last run 2026-10-01 09:16 +08 |
 | F-11 | Other staging verifications pending: loopback bind, 30-day bucket lock, log-redaction check | TB2, TB7, T-I5 | Low | **Resolved 2026-10-01** — loopback bind and log redaction were verified on staging on 2026-09-25 (Issue #59); the 30-day bucket lock is recorded under #56 (TODO.md) | Testing & Deployment Lead | Issue #59 closing comment; TODO.md #56 |
 | F-12 | Backend transitive dependencies unpinned and unhashed; no automated vulnerability scanning; Actions pinned by tag | T-T5 | Low | **Partly resolved 2026-10-01** — `pip-audit` and `npm audit` now run in CI and the one high-severity axios advisory was fixed (#112). Still deferred: hash-locked backend dependencies and Actions pinned by commit SHA | Testing & Deployment Lead | §11.1; PR #112 |

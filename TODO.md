@@ -281,8 +281,8 @@ Strongly recommended (Award):
 - [ ] Fix the DB-pool bottleneck and re-run #140 at 100 users for a before/after chart
 - [ ] #115 usability study with SUS (needs the supervisor's ethics answer and a pilot first)
 - [ ] Confirm the recipient before sharing, with their key fingerprint (key verification)
-- [ ] Upload abuse limits and the shared-program warning (threat model F-09) — in review as
-  [PR #157](https://github.com/jsonrar/fyp-secure-file-platform/pull/157); not done until merged and deployed
+- [x] Upload abuse limits and the shared-program warning (threat model F-09) —
+  [PR #157](https://github.com/jsonrar/fyp-secure-file-platform/pull/157); deployed with the nginx and env changes its PR lists
 
 Optional:
 

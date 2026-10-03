@@ -94,6 +94,11 @@ Match User root
 
 **前提：** 服务器上没有别的负载；已通知团队；在 04:15 备份之前结束（否则备份会把测试文件也复制进去），也要在 05:30 完整性扫描之前结束。
 
+**上传限额：** 自 2026-10-04 起，每个账户最多存储 2 GiB、24 小时内最多上传 5 GiB，nginx 限制每个地址同时最多 10 个上传。
+光是 `sizes` 场景就会从一个账户上传约 5 GiB，soak 更多，所以做容量测试时要在 `/etc/fyp-secure-file-platform/backend.env`
+里设置 `USER_STORAGE_QUOTA_BYTES=0` 和 `USER_DAILY_UPLOAD_BYTES=0`，重启 `fyp-backend`，测完再改回来。SSH 隧道绕过了 nginx，
+所以连接数限制不影响测试。`UPLOAD_MIN_FREE_DISK_BYTES` 保持不变：它能防止压测把与其他服务共用的磁盘写满。
+
 1. 在服务器上创建测试账号（文件权限 0600，只含测试账号）：
 
    ```bash

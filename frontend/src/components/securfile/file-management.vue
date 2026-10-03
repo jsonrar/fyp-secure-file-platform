@@ -14,6 +14,7 @@ import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
 import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
 import { markSharesSeen, unseenSharedIds } from '@/utils/seen-shares'
 import { downloadEncryptedFile } from '@/utils/file-download'
+import { riskyFileKind } from '@/utils/risky-file'
 import UnlockDialog from '@/components/UnlockDialog.vue'
 import {
   downloadAndDecrypt,
@@ -500,12 +501,37 @@ const closePendingDelete = () => {
  * and remembers which file to resume. Nothing is written to disk until the AES-GCM tag has
  * authenticated: a file that fails to decrypt is never saved half-formed.
  */
+const pendingRiskyDownload = ref<EncryptedFile | null>(null)
+/** Files the viewer already chose to save despite the warning, so an unlock does not re-ask. */
+const riskyAcknowledged = new Set<string>()
+
+const riskyConsequence = computed(() => {
+  const file = pendingRiskyDownload.value
+  if (!file) return ''
+  // Whole sentences, not fragments, so the Chinese dictionary can translate each one.
+  return riskyFileKind(file.name) === 'macro'
+    ? `${file.ownerName} shared an Office file that can carry macros. SecureView cannot scan it for malware: the server only ever holds ciphertext. Save it only if you expected it from this person, and let your antivirus check it before opening.`
+    : `${file.ownerName} shared a program or script that can run on your computer. SecureView cannot scan it for malware: the server only ever holds ciphertext. Save it only if you expected it from this person, and let your antivirus check it before opening.`
+})
+
+const confirmRiskyDownload = async () => {
+  const file = pendingRiskyDownload.value
+  pendingRiskyDownload.value = null
+  if (!file) return
+  riskyAcknowledged.add(file.id)
+  await handleDownload(file.id)
+}
+
 const handleDownload = async (id: string) => {
   if (downloadBusy.value) return
   actionMessage.value = ''
   errorMessage.value = ''
   const row = files.value.find((file) => file.id === id)
   if (row?.accessError) return
+  if (row && !row.owned && riskyFileKind(row.name) && !riskyAcknowledged.has(id)) {
+    pendingRiskyDownload.value = row
+    return
+  }
   if (!isUnlocked()) {
     try {
       // A stale recipient tab can still show a row after its owner revokes access. Check
@@ -1054,6 +1080,15 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       :busy="isDeleting"
       @confirm="confirmDelete"
       @close="closePendingDelete"
+    />
+    <ConfirmActionDialog
+      v-if="pendingRiskyDownload"
+      title="This file could run code"
+      :detail="pendingRiskyDownload.name"
+      :consequence="riskyConsequence"
+      confirm-label="Download anyway"
+      @confirm="confirmRiskyDownload"
+      @close="pendingRiskyDownload = null"
     />
     <UnlockDialog
       v-if="showUnlock"
