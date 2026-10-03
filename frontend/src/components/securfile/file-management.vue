@@ -1,7 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
+import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, MoreHorizontal, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
@@ -244,11 +244,57 @@ watch(
   },
 )
 
+const moreMenuFileId = ref<string | null>(null)
+// The table scrolls sideways inside an overflow box, which would clip a menu positioned within
+// it. The menu is teleported to <body> and placed under its button instead.
+const moreMenuPosition = ref<{ top?: number; bottom?: number; right: number }>({ right: 0 })
+const MORE_MENU_HEIGHT = 136
+
+const closeMoreMenu = () => {
+  moreMenuFileId.value = null
+}
+
+const toggleMoreMenu = (id: string, event: MouseEvent) => {
+  if (moreMenuFileId.value === id) {
+    closeMoreMenu()
+    return
+  }
+  const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
+  const right = window.innerWidth - rect.right
+  // Open upwards when the row sits too close to the bottom of the window for the menu to fit.
+  moreMenuPosition.value =
+    rect.bottom + 4 + MORE_MENU_HEIGHT > window.innerHeight
+      ? { bottom: window.innerHeight - rect.top + 4, right }
+      : { top: rect.bottom + 4, right }
+  moreMenuFileId.value = id
+}
+
+const moreMenuFile = computed(() => files.value.find((file) => file.id === moreMenuFileId.value) ?? null)
+const PX = 'px'
+const moreMenuStyle = computed(() => {
+  const { top, bottom, right } = moreMenuPosition.value
+  return top === undefined
+    ? { bottom: bottom + PX, right: right + PX }
+    : { top: top + PX, right: right + PX }
+})
+
+/** A click anywhere outside the open More menu, or Escape, closes it. */
+const onDocumentPointer = (event: Event) => {
+  if (!(event.target as HTMLElement | null)?.closest('[data-more-actions]')) closeMoreMenu()
+}
+const onDocumentKey = (event: KeyboardEvent) => {
+  if (event.key === 'Escape') closeMoreMenu()
+}
+
 onMounted(() => {
   applyRouteQuery()
   void Promise.all([loadFiles(), loadFolders()])
   updateViewportColumns()
   window.addEventListener('resize', updateViewportColumns)
+  document.addEventListener('pointerdown', onDocumentPointer)
+  document.addEventListener('keydown', onDocumentKey)
+  window.addEventListener('scroll', closeMoreMenu, true)
+  window.addEventListener('resize', closeMoreMenu)
 })
 
 // The account key relocks itself after a spell of disuse. Nothing on screen depends on it
@@ -294,6 +340,10 @@ onBeforeUnmount(() => {
   if (searchTimer !== undefined) clearTimeout(searchTimer)
   stopRelockListener()
   window.removeEventListener('resize', updateViewportColumns)
+  document.removeEventListener('pointerdown', onDocumentPointer)
+  document.removeEventListener('keydown', onDocumentKey)
+  window.removeEventListener('scroll', closeMoreMenu, true)
+  window.removeEventListener('resize', closeMoreMenu)
 })
 
 // The server applies the search, the tab and the folder. The ownership check stays as a guard
@@ -783,7 +833,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <th class="hidden w-[14%] text-left py-3 pr-3 font-medium whitespace-nowrap lg:table-cell">Encrypted At</th>
                 <th class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Folder</th>
                 <th class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Status</th>
-                <th class="w-[8.5rem] text-right py-3 font-medium whitespace-nowrap">Actions</th>
+                <th class="w-[8.5rem] lg:w-[11rem] text-right py-3 font-medium whitespace-nowrap">Actions</th>
               </tr>
             </thead>
             <tbody class="block space-y-3 md:table-row-group md:space-y-0">
@@ -831,12 +881,10 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   </button>
                 </td>
                 <td class="col-span-2 border-t border-border pt-3 md:table-cell md:border-0 md:py-3 md:pt-3 md:text-right">
-                  <!-- A row of 40 px targets on a phone. From md up, an even block: your own files have
-                       six actions (3x2) and shared files four (2x2), never a ragged 3+1 wrap. -->
-                  <div
-                    class="flex flex-wrap gap-1 md:ml-auto md:grid md:w-fit md:justify-items-end"
-                    :class="file.owned ? 'md:grid-cols-3' : 'md:grid-cols-2'"
-                  >
+                  <!-- The three everyday actions stay visible; the rest sit under More. Sharing and
+                       deleting belong to the owner: a recipient's grant carries can_share=false and
+                       can_manage=false, so showing them would promise something the server refuses. -->
+                  <div class="relative flex items-center gap-1 md:justify-end">
                     <button
                       class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
@@ -848,41 +896,37 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                       <Download v-else class="h-4 w-4" />
                     </button>
                     <button
+                      v-if="file.owned"
                       type="button"
-                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
-                      title="Download encrypted file"
-                      aria-label="Download encrypted file"
-                      :disabled="downloadBusy || Boolean(file.accessError)"
-                      @click="handleEncryptedDownload(file)"
+                      class="h-10 md:h-8 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 md:w-8 md:px-0 lg:w-auto lg:px-2.5"
+                      title="Share"
+                      aria-label="Share"
+                      @click="openShare(file.id)"
                     >
-                      <Loader2 v-if="encryptedDownloadingId === file.id" class="h-4 w-4 shrink-0 animate-spin" />
-                      <FileLock2 v-else class="h-4 w-4 shrink-0" />
-                    </button>
-                    <!-- Sharing and deleting belong to the owner. A recipient's grant carries
-                         can_share=false and can_manage=false, so these would only ever return
-                         a 404 -- showing them promises something the server will refuse. -->
-                    <button
-                      type="button"
-                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
-                      title="Request recovery"
-                      aria-label="Request recovery"
-                      :disabled="Boolean(file.accessError)"
-                      @click="recoveryFileId = file.id"
-                    >
-                      <LifeBuoy class="h-4 w-4" />
+                      <Share2 class="h-4 w-4 shrink-0" />
+                      <span class="md:hidden lg:inline">Share</span>
                     </button>
                     <button
-                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
-                      title="Access history"
-                      @click="historyFileId = file.id"
+                      v-if="file.owned"
+                      type="button"
+                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive"
+                      title="Delete"
+                      aria-label="Delete"
+                      @click="handleDelete(file.id)"
                     >
-                      <Activity class="h-4 w-4" />
-                    </button>
-                    <button v-if="file.owned" class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" title="Share" @click="openShare(file.id)">
-                      <Share2 class="h-4 w-4" />
-                    </button>
-                    <button v-if="file.owned" class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive" title="Delete" @click="handleDelete(file.id)">
                       <Trash2 class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                      title="More actions"
+                      aria-label="More actions"
+                      aria-haspopup="menu"
+                      :aria-expanded="moreMenuFileId === file.id"
+                      data-more-actions
+                      @click="toggleMoreMenu(file.id, $event)"
+                    >
+                      <MoreHorizontal class="h-4 w-4" />
                     </button>
                   </div>
                 </td>
@@ -949,6 +993,46 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       @close="recoveryFileId = null"
       @requested="onRecoveryRequested"
     />
+    <Teleport to="body">
+      <div
+        v-if="moreMenuFile"
+        role="menu"
+        :aria-label="`More actions for ${moreMenuFile.name}`"
+        class="fixed z-50 w-56 rounded-lg border border-border bg-card p-1 text-left shadow-lg"
+        :style="moreMenuStyle"
+        data-more-actions
+      >
+        <button
+          role="menuitem"
+          type="button"
+          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary disabled:opacity-40"
+          :disabled="downloadBusy || Boolean(moreMenuFile.accessError)"
+          @click="handleEncryptedDownload(moreMenuFile); closeMoreMenu()"
+        >
+          <FileLock2 class="h-4 w-4 shrink-0" />
+          <span>Download encrypted file</span>
+        </button>
+        <button
+          role="menuitem"
+          type="button"
+          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary disabled:opacity-40"
+          :disabled="Boolean(moreMenuFile.accessError)"
+          @click="recoveryFileId = moreMenuFile.id; closeMoreMenu()"
+        >
+          <LifeBuoy class="h-4 w-4 shrink-0" />
+          <span>Request recovery</span>
+        </button>
+        <button
+          role="menuitem"
+          type="button"
+          class="flex w-full items-center gap-2 rounded-md px-3 py-2 text-sm text-foreground hover:bg-secondary"
+          @click="historyFileId = moreMenuFile.id; closeMoreMenu()"
+        >
+          <Activity class="h-4 w-4 shrink-0" />
+          <span>Access history</span>
+        </button>
+      </div>
+    </Teleport>
     <ConfirmActionDialog
       v-if="pendingFolderDelete"
       title="Delete this folder?"
