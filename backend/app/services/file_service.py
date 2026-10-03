@@ -8,6 +8,7 @@ from uuid import UUID, uuid4
 from fastapi import UploadFile
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
+from starlette.concurrency import run_in_threadpool
 
 from app.core.config import Settings
 from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
@@ -116,6 +117,37 @@ class FileService:
         ciphertext: UploadFile,
         context: RequestContext,
     ) -> FileOut:
+        """Check, stage, then record an encrypted upload.
+
+        The database work runs in the thread pool, never on the event loop, and no connection
+        is held while the ciphertext is staged. Before this split, an upload held a connection
+        from authentication to commit while repeatedly awaiting the thread pool to write the
+        staged file, and every pool thread could be waiting for a connection: at 100
+        concurrent users the pool timed out and uploads failed with HTTP 500 (#140).
+        """
+        owner_key, recovery_key = await run_in_threadpool(self._check_upload, actor, metadata)
+
+        staged: StagedCiphertext | None = None
+        try:
+            staged = await self.storage.stage_upload(
+                ciphertext,
+                max_size_bytes=self.settings.MAX_UPLOAD_SIZE_BYTES,
+            )
+        except StorageObjectError as exc:
+            # No transaction is open here; rollback only resets the session's state.
+            self.db.rollback()
+            self._compensate(staged=staged, object_key=None)
+            raise StorageUnavailableError() from exc
+        except Exception:
+            self.db.rollback()
+            self._compensate(staged=staged, object_key=None)
+            raise
+
+        return await run_in_threadpool(
+            self._record_upload, actor, metadata, context, staged, owner_key, recovery_key
+        )
+
+    def _check_upload(self, actor: ActorContext, metadata: FileUploadMetadata):
         self._validate_upload_metadata(metadata)
         owner_key = self.repository.get_active_user_key(actor.user_id, metadata.owner_key_id)
         if owner_key is None:
@@ -149,19 +181,24 @@ class FileService:
         if self.repository.file_uuid_exists(metadata.file_id):
             raise FileStateConflictError("file_id has already been used")
         self._enforce_upload_limits(actor, metadata.plaintext_size)
-        # Release the connection before awaiting the thread pool to stage the file, so an
-        # upload never holds one while threads queue for connections (#140).
+        # Nothing is pending; give the connection back before the request goes on to stage
+        # the file, so no connection is held while the upload waits for the thread pool.
         self.repository.release_connection()
+        return owner_key, recovery_key
 
-        staged: StagedCiphertext | None = None
+    def _record_upload(
+        self,
+        actor: ActorContext,
+        metadata: FileUploadMetadata,
+        context: RequestContext,
+        staged: StagedCiphertext,
+        owner_key,
+        recovery_key,
+    ) -> FileOut:
         object_key: str | None = None
         published = False
         commit_attempted = False
         try:
-            staged = await self.storage.stage_upload(
-                ciphertext,
-                max_size_bytes=self.settings.MAX_UPLOAD_SIZE_BYTES,
-            )
             if staged.size_bytes != metadata.plaintext_size:
                 raise FileEnvelopeInvalidError(
                     "AES-GCM ciphertext size must match plaintext_size when the tag is separate"
