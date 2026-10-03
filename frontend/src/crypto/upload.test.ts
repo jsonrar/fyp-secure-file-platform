@@ -12,6 +12,8 @@ import {
   prepareUpload,
   resolveMimeType,
   resolveUploadFilename,
+  SAMPLE_BYTES,
+  type UploadEvent,
   type UploadRecipients,
   type UploadableFile,
 } from './upload'
@@ -80,6 +82,39 @@ describe('resolveUploadFilename', () => {
 })
 
 describe('prepareUpload', () => {
+  it('reports each stage in order, and the byte sample is the real plaintext and ciphertext', async () => {
+    const { pem: ownerPem } = await newRsaPairAndPem()
+    const { pem: recoveryPem } = await newRsaPairAndPem()
+    const plaintext = new TextEncoder().encode('%PDF-1.7 a document long enough to sample')
+    const events: UploadEvent[] = []
+
+    const payload = await prepareUpload({
+      file: fakeFile('report.pdf', plaintext, 'application/pdf'),
+      recipients: await recipientsFor(ownerPem, recoveryPem),
+      onEvent: (event) => {
+        events.push(event)
+      },
+    })
+
+    expect(events.map((e) => ('stage' in e ? `${e.type}:${e.stage}` : e.type))).toEqual([
+      'stage:read',
+      'timed:read',
+      'stage:encrypt',
+      'timed:encrypt',
+      'sample',
+      'stage:wrap',
+      'timed:wrap',
+    ])
+    for (const event of events) {
+      if (event.type === 'timed') expect(event.ms).toBeGreaterThanOrEqual(0)
+    }
+    const sample = events.find((e) => e.type === 'sample')
+    if (sample?.type !== 'sample') throw new Error('no sample event')
+    expect(sample.plaintextHead).toEqual(plaintext.slice(0, SAMPLE_BYTES))
+    expect(sample.ciphertextHead).toEqual(payload.ciphertext.slice(0, SAMPLE_BYTES))
+    expect(sample.ciphertextHead).not.toEqual(sample.plaintextHead)
+  })
+
   it('produces metadata that satisfies every shape the upload contract checks', async () => {
     const { pem: ownerPem } = await newRsaPairAndPem()
     const { pem: recoveryPem } = await newRsaPairAndPem()
