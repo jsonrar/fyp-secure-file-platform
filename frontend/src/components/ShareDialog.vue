@@ -1,17 +1,25 @@
 <script setup lang="ts">
 import { computed, nextTick, onMounted, ref } from 'vue'
-import { Loader2, Share2, UserMinus } from 'lucide-vue-next'
+import { AlertTriangle, KeyRound, Loader2, Share2, UserMinus } from 'lucide-vue-next'
 
 import {
   FileKeyUnwrapError,
   KeyNotUnlockedError,
   NotUnlockedError,
 } from '@/crypto/download'
-import { RecipientNotFoundError, shareFileWithRecipient } from '@/crypto/share'
+import { formatFingerprint } from '@/crypto/fingerprint'
+import {
+  lookupRecipient,
+  RecipientKeyMismatchError,
+  RecipientNotFoundError,
+  shareFileWithRecipient,
+  type RecipientCandidate,
+} from '@/crypto/share'
 import { apiErrorMessage } from '@/api/http'
 import { shareApi, type SharedUser } from '@/api/share_api'
 import { unwrapData } from '@/api/types'
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
+import { knownFingerprint, rememberFingerprint } from '@/utils/known-keys'
 
 const props = defineProps<{
   fileId: string
@@ -90,13 +98,29 @@ function closePendingRevoke() {
   pendingRevoke.value = null
 }
 
+/**
+ * Step two of sharing: who it will go to and the fingerprint of the key it will be sealed to.
+ * A typo now stops here instead of sharing with a stranger, and the fingerprint can be checked
+ * against the one the recipient sees in their Settings.
+ */
+const candidate = ref<RecipientCandidate | null>(null)
+const previousFingerprint = ref<string | null>(null)
+const keyChanged = computed(
+  () =>
+    candidate.value !== null &&
+    previousFingerprint.value !== null &&
+    previousFingerprint.value !== candidate.value.fingerprint,
+)
+
 onMounted(async () => {
   loadRecipients()
   await nextTick()
-  field.value?.focus()
+  // Back from unlocking with a recipient already chosen: go straight to the confirmation.
+  if (props.initialRecipient) await findRecipient()
+  else field.value?.focus()
 })
 
-async function share() {
+async function findRecipient() {
   const name = targetUsername.value.trim()
   if (!name) {
     errorMessage.value = 'Enter the username or email address to share with'
@@ -105,7 +129,37 @@ async function share() {
   isSubmitting.value = true
   errorMessage.value = ''
   try {
-    await shareFileWithRecipient(props.fileId, name)
+    const found = await lookupRecipient(name)
+    previousFingerprint.value = knownFingerprint(found.userId)
+    candidate.value = found
+  } catch (error) {
+    errorMessage.value =
+      error instanceof RecipientNotFoundError
+        ? `No account matches "${name}". Check their exact SecureView username or email address.`
+        : error instanceof RecipientKeyMismatchError
+          ? 'The server described this person’s key inconsistently, so nothing was shared. Try again later, and tell the team if it keeps happening.'
+          : apiErrorMessage(error, 'Could not look up this person')
+  } finally {
+    isSubmitting.value = false
+  }
+}
+
+function backToRecipient() {
+  candidate.value = null
+  errorMessage.value = ''
+  void nextTick(() => field.value?.focus())
+}
+
+async function share() {
+  const chosen = candidate.value
+  if (!chosen) return
+  const name = chosen.identifier
+  isSubmitting.value = true
+  errorMessage.value = ''
+  try {
+    await shareFileWithRecipient(props.fileId, chosen)
+    rememberFingerprint(chosen.userId, chosen.fingerprint)
+    candidate.value = null
     targetUsername.value = ''
     await loadRecipients()
     emit('shared', name)
@@ -193,7 +247,60 @@ async function share() {
         </p>
       </div>
 
-      <form @submit.prevent="share">
+      <div v-if="candidate" data-testid="share-confirm">
+        <p class="text-sm text-foreground mb-3">
+          Share with <span translate="no" class="font-semibold [overflow-wrap:anywhere]">{{ candidate.identifier }}</span>?
+        </p>
+        <div class="rounded-lg border border-border bg-secondary/50 p-3">
+          <p class="flex items-center gap-1.5 text-xs text-muted-foreground">
+            <KeyRound class="h-3.5 w-3.5" />
+            Their key fingerprint
+          </p>
+          <p translate="no" class="mt-1 font-mono text-base tracking-wide text-foreground" data-testid="recipient-fingerprint">
+            {{ formatFingerprint(candidate.fingerprint) }}
+          </p>
+          <p class="mt-2 text-xs text-muted-foreground">
+            For a sensitive file, ask them to read out the fingerprint shown in their Settings. If
+            it matches, the file can only be opened by them. If it does not, do not share: the key
+            may not be theirs.
+          </p>
+        </div>
+        <p
+          v-if="keyChanged"
+          class="mt-3 flex items-start gap-2 rounded-lg border border-amber-500/50 bg-amber-500/10 p-3 text-xs text-amber-700 dark:text-amber-300"
+          data-testid="recipient-key-changed"
+        >
+          <AlertTriangle class="mt-0.5 h-4 w-4 shrink-0" />
+          <span>
+            Their key has changed since you last shared with them from this browser. That happens
+            when someone sets up a new key, but it is also what a swapped key looks like. Check the
+            fingerprint with them before sharing.
+          </span>
+        </p>
+
+        <p v-if="errorMessage" class="text-sm text-destructive mt-2">{{ errorMessage }}</p>
+
+        <div class="mt-4 flex gap-2">
+          <button
+            type="button"
+            class="flex-1 h-10 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+            :disabled="isSubmitting"
+            @click="share"
+          >
+            {{ isSubmitting ? 'Sharing...' : 'Confirm and share' }}
+          </button>
+          <button
+            type="button"
+            class="h-10 px-4 rounded-md border border-border hover:bg-secondary"
+            :disabled="isSubmitting"
+            @click="backToRecipient"
+          >
+            Back
+          </button>
+        </div>
+      </div>
+
+      <form v-else @submit.prevent="findRecipient">
         <label class="text-sm text-foreground mb-2 block">
           Share with someone else <span class="text-destructive">*</span>
         </label>
@@ -218,7 +325,7 @@ async function share() {
             class="flex-1 h-10 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
             :disabled="isSubmitting || !targetUsername.trim()"
           >
-            {{ isSubmitting ? 'Sharing...' : 'Share' }}
+            {{ isSubmitting ? 'Looking up...' : 'Share' }}
           </button>
           <button
             type="button"

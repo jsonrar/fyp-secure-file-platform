@@ -144,6 +144,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'Press its Share icon (the connected dots, next to Delete).',
       'If asked, unlock with your encryption passphrase.',
       'Enter their exact username or email address and press Share.',
+      'Check the name and key fingerprint shown, then press Confirm and share.',
       'They sign in and find it under My Files → Shared with me.',
     ],
     links: [{ label: 'My Files', to: '/files' }, VIDEO_SHARE],

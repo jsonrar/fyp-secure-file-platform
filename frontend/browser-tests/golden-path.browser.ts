@@ -224,6 +224,9 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await expect(owner.getByRole('heading', { name: 'Share this file' })).toBeVisible()
     await recipientField.fill(bob.username)
     await shareDialog.getByRole('button', { name: 'Share', exact: true }).click()
+    // A second step names the recipient and shows their key fingerprint before anything is sent.
+    await expect(owner.getByTestId('recipient-fingerprint')).toHaveText(/^([0-9A-F]{4} ){7}[0-9A-F]{4}$/)
+    await owner.getByRole('button', { name: 'Confirm and share' }).click()
     await expect(owner.getByText(`Shared with ${bob.username}`)).toBeVisible({ timeout: 30_000 })
     await expect(owner.getByRole('listitem').filter({ hasText: bob.username })).toBeVisible()
     await owner.getByRole('button', { name: 'Cancel' }).click()
