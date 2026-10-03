@@ -5,9 +5,10 @@
 2026-10-01 的会议上，导师要的是数字，而不是“支持多人同时使用”：服务器能承受多少用户、多少文件、多大的文件，
 以及在哪里开始出问题（会议行动项第 4、5、6 项）。本文是测试计划、测试工具、开测前就已知的上限，以及本地预演发现的问题。
 
-**状态（2026-10-02）：** 工具已完成，并在本地环境端到端跑通。针对 staging 服务器的正式测试**还没有进行**：
-服务器正在跑另一项任务，和别的负载抢 CPU 与网络时测出的数字是错的。下文没有任何一项是 staging 的测量结果。
-正式测试由 [#140](https://github.com/jsonrar/fyp-secure-file-platform/issues/140) 跟踪。
+**状态（2026-10-04）：** 完整测试矩阵已于 2026-10-03 至 04 夜间在 staging 上跑完。报告、图表、原始汇总、服务器采样
+CSV 和运行日志都在 [`performance/`](performance/REPORT-2026-10-03.md)，结论填在本页末尾。引用任何数字之前请先读报告里的
+“Test conditions”：所有传输类数字受限于压测端的家庭网络，而不是服务器。由
+[#140](https://github.com/jsonrar/fyp-secure-file-platform/issues/140) 跟踪。
 
 ## 测的是什么，服务器实际做了什么
 
@@ -60,6 +61,18 @@ SecureView 在浏览器里加密。服务器从不加密或解密文件：上传
 
 在 VPS 本机上跑压测工具虽然没有网络瓶颈，但会抢占被测服务器的 CPU，所以不推荐。
 
+**隧道需要 sshd 例外。** 服务器的 sshd 设置了 `AllowTcpForwarding no`，唯一的例外（`Match User jason,junyan,charter`）只放行
+`127.0.0.1:3306`，所以上面的隧道能在本地开出端口，但每个请求都会被重置。2026-10-03 那次测试临时在 `/etc/ssh/sshd_config`
+末尾加了一个只针对 root 的块（先备份，`sshd -t` 检查，`systemctl reload ssh` 生效），测完用备份还原：
+
+```text
+Match User root
+    AllowTcpForwarding local
+    PermitOpen 127.0.0.1:8000
+```
+
+长时间测试时给隧道加上 `-o ServerAliveInterval=15`。
+
 ## 测试矩阵
 
 对应会议纪要里的矩阵。时长只是建议；错误率超过约 5% 或 p95 涨到三倍以上时，就不要再继续加压。
@@ -85,9 +98,13 @@ SecureView 在浏览器里加密。服务器从不加密或解密文件：上传
 
    ```bash
    cd /opt/mcs21/current/backend && set -a && . /etc/fyp-secure-file-platform/backend.env && set +a
-   sudo -u fypapp env PYTHONPATH=$PWD .venv/bin/python scripts/seed_load_users.py \
+   sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_CA \
+     env PYTHONPATH=$PWD .venv/bin/python scripts/seed_load_users.py \
      --count 100 --out /tmp/loadtest-accounts.json
    ```
+
+   `sudo` 会重置环境变量，不加 `--preserve-env` 的话，脚本会退回使用别处的数据库配置，报
+   `Access denied for user 'fyp_user'`。
 
    把文件复制到压测机（`scp mcs21-vps:/tmp/loadtest-accounts.json .`），然后从服务器上删掉。
 2. 在服务器上启动采样：
@@ -120,13 +137,22 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=root DB_PASSWORD=... DB_NAME=fyp_loadtest
 
 工具自身的测试：`cd loadtest && .venv/bin/python -m pytest tests`。
 
-## 正式测试必须得出的结论
+## 结论（staging 实测，2026-10-03/04）
 
-来自会议纪要，等 staging 报告出来后填写：
+来自会议纪要，按 [staging 报告](performance/REPORT-2026-10-03.md) 填写：
 
-- **容量：** “在当前服务器（8 vCPU、16 GB）上，系统可稳定支持 ___ 个并发用户，每用户 ___ 个并行文件任务；在 ___ MB 文件规模下
-  p95 为 ___ 秒，错误率 ___%。”
-- **瓶颈：** “并发超过 ___ 后，主要瓶颈出现在 ___（CPU / 内存 / 磁盘 / 网络 / 数据库 / 单个 API 进程），因此扩展方式是 ___
-  （增加 worker、扩大连接池、限流）。”
-- **大文件：** “所有类型在 ___ MB 以内都能逐字节一致地往返（SHA-256 验证）；500 MB 在 ___ Mbit/s 的链路上上传 ___ 秒、下载 ___ 秒。”
-- **登录：** “服务器按设计同一时间只验证两个密码；___ 个同时登录中有 ___% 被拒绝并需要重试。”
+- **容量：** 在当前服务器（8 vCPU、16 GB）上，5 个并发用户的上传/下载/分享混合负载累计运行 108 分钟（19,372 次操作），
+  服务器端零错误；1 MiB 文件在测试链路上的上传 p95 为 2.1–4.9 秒、下载 p95 为 1.7–2.3 秒。50 个并发用户以内服务器没有返回
+  任何错误（10–50 用户时看到的失败来自压测端的 SSH 隧道，详见报告）。100 个并发用户时 65–78% 的上传返回 HTTP 500。
+  每用户 1/2/5/10 个并行任务均未引起服务器错误。
+- **瓶颈：** 超过 50 个用户后，瓶颈是单个 API 进程的数据库连接池（5 + 10 个连接，最多等待 30 秒）：100 个用户时请求因等不到
+  连接而超时，而服务器 CPU 平均只有 3%，内存平稳。扩展方式是：先看能否在长时间文件传输前释放数据库连接，再扩大连接池和/或
+  增加 uvicorn worker，并用本工具重新测量。在这之下，所有传输数字都受网络限制：VPS 网口约 100 Mbit/s，测试链路约上行
+  24 Mbit/s、下行 13 Mbit/s。
+- **大文件：** 所有类型（pdf、png、jpg、mp4、zip、exe）在 500 MiB 以内都能逐字节一致地往返（144/144 次操作，每次下载都做了
+  SHA-256 校验）；500 MiB 在约上行 24 Mbit/s、下行 13 Mbit/s 的链路上，上传 p50 为 146 秒、下载 p50 为 295 秒。整晚共校验
+  5,094 次下载，完整性失败 0 次。
+- **登录：** 服务器按设计同一时间只验证两个密码；4、8、16 个同时登录中分别有 50%、75%、71% 被立即以 HTTP 429 拒绝并需要
+  重试，没有任何一次返回 500 或死锁。
+- **恢复与监控：** 100 用户过载之后，紧接着的 5 用户阶段零错误，无需重启或人工干预；每次故意制造的过载都让 `mcs21-observe`
+  发出且只发出一封告警邮件，并在下一次检查时自动解除。
