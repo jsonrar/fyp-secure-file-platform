@@ -577,7 +577,7 @@ jobs:
   promote:
     name: promote
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend, mysql-gate, e2e-live, tamper-drill]
+    needs: [changes, backend, frontend, mysql-gate, e2e-live, tamper-drill]
     runs-on: [self-hosted, mcs21-ci]
     permissions:
       contents: write
