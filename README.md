@@ -138,7 +138,8 @@ What to say in the final presentation, with the evidence for each point, is in
 and what to do about it, by priority, is in
 [docs/presentation/REFLECTION.md](docs/presentation/REFLECTION.md). The live tamper demonstration
 (change the stored ciphertext on staging, and the recipient's download is refused) is scripted in
-[docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md).
+[docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md), and the whole four-minute demo in
+[docs/presentation/DEMO_SCRIPT.md](docs/presentation/DEMO_SCRIPT.md).
 
 ## Using the Website
 

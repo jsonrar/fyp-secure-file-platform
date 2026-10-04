@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Four-minute demo script and an honest usability statement / 4 分钟演示脚本与如实的可用性说明
+
+- The 12-minute presentation has four minutes of demo, and a live demo can lose the network or hang. `docs/presentation/DEMO_SCRIPT.md` gives a timed four-step script (upload with the real encryption steps, share with the key-fingerprint check, the recipient opens it, the live tamper), the lines to say, a day-before and 30-minutes-before checklist, what to do when each step fails, and how to record the backup video. The `demo-alice` / `demo-bob` accounts and the video are left to the user.
+- 12 分钟展示里只有 4 分钟演示，现场可能断网或卡住。`docs/presentation/DEMO_SCRIPT.md` 给出带时间的四步脚本（上传并展示真实的加密步骤、核对密钥指纹后分享、接收方打开、现场篡改）、讲解词、前一天和开始前 30 分钟的检查清单、每一步出问题时怎么办，以及怎么录备用视频。`demo-alice` / `demo-bob` 账号和视频由用户来准备。
+- NFR2 (usability) has no result because no study session has run. TALKING_POINTS §10 now gives the exact wording: not verified yet, the pass criteria were fixed in advance, and what the team walkthrough changed; and what must not be said (no "easy to use", no SUS number).
+- NFR2（可用性）还没有结果，因为一场研究都没跑。TALKING_POINTS 第 10 条现在写明了该怎么说：尚未验证、及格标准事先已定好，以及团队走查改进了什么；也写明了哪些话不能说（不能说“好用”，不能报 SUS 分数）。
+
 ### Language switch in the header bar, and a refreshed picture guide / 语言切换移到页头栏，首页图文指南截图更新
 
 - The language switch was inside the gear menu (signed out) or the avatar menu (signed in), so a visitor who cannot read the current language had to guess which icon hides it. It now sits in the header bar itself, to the left of the gear (signed out) or of Dashboard (signed in), and first in the phone menu; the gear and avatar menus keep only the theme. Checked at 1400, 1100 and 1024 px (the narrowest desktop layout, in Chinese) with no overflow, and at 375 px in the phone menu. The language-switch browser spec no longer opens the gear.

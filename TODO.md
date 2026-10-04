@@ -268,7 +268,8 @@ has its problem, fix and effort. What to say, with evidence, is in
 
 Must do:
 
-- [ ] Demo script for a 4-minute live demo, demo accounts created on staging, and a recorded backup video
+- [x] Demo script for a 4-minute live demo — [docs/presentation/DEMO_SCRIPT.md](docs/presentation/DEMO_SCRIPT.md)
+- [ ] Demo accounts `demo-alice` / `demo-bob` created on staging (the user), and a recorded backup video
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
 - [x] Re-capture the homepage picture guide: its screenshots still showed the old six-icon row
@@ -276,7 +277,7 @@ Must do:
 - [x] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails —
   `backend/scripts/demo_tamper.py` and [docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md)
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
-- [ ] State NFR2 (usability) honestly unless #115 has results
+- [x] State NFR2 (usability) honestly unless #115 has results — TALKING_POINTS §10
 
 Strongly recommended (Award):
 
