@@ -1,18 +1,28 @@
 #!/usr/bin/env bash
 set -Eeuo pipefail
 
-REPO_URL="https://github.com/jsonrar/fyp-secure-file-platform"
-RUNNER_USER="${RUNNER_USER:-github-runner}"
+# Bootstrap the repository's self-hosted GitHub Actions runner inside Docker.
+# This deliberately does NOT install or reconfigure packages on the MCS21 host:
+# production MySQL already runs there via Docker and host-level apt/dpkg changes
+# can interfere with the deployed stack.
+
+REPO_URL="${REPO_URL:-https://github.com/jsonrar/fyp-secure-file-platform}"
 RUNNER_NAME="${RUNNER_NAME:-mcs21-ci}"
-RUNNER_LABEL="${RUNNER_LABEL:-fyp-ci}"
-RUNNER_DIR="${RUNNER_DIR:-/opt/github-actions-runner}"
+RUNNER_LABELS="${RUNNER_LABELS:-fyp-ci}"
+BASE_DIR="${BASE_DIR:-/opt/mcs21-github-runner}"
+IMAGE_NAME="${IMAGE_NAME:-mcs21-github-runner:latest}"
+CONTAINER_NAME="${CONTAINER_NAME:-mcs21-github-runner}"
+WORK_VOLUME="${WORK_VOLUME:-mcs21-github-runner-work}"
 
-if [[ ${EUID} -ne 0 ]]; then
-  exec sudo -E bash "$0" "$@"
-fi
+for command in docker curl python3; do
+  if ! command -v "$command" >/dev/null 2>&1; then
+    echo "Required host command is missing: $command" >&2
+    exit 1
+  fi
+done
 
-if [[ "$(uname -m)" != "x86_64" ]]; then
-  echo "This bootstrap currently targets x86_64/X64 only."
+if ! docker info >/dev/null 2>&1; then
+  echo "Docker daemon is not available to the current user." >&2
   exit 1
 fi
 
@@ -21,101 +31,105 @@ if [[ -z "${RUNNER_TOKEN:-}" ]]; then
   echo
 fi
 
-export DEBIAN_FRONTEND=noninteractive
+install -d -m 0755 "${BASE_DIR}"
 
-apt-get update
-apt-get install -y --no-install-recommends \
-  ca-certificates curl git gnupg jq python3 python3-pip sudo unzip \
-  docker.io default-mysql-client
+cat > "${BASE_DIR}/Dockerfile" <<'DOCKERFILE'
+FROM ubuntu:24.04
 
-systemctl enable --now docker
+ARG RUNNER_VERSION
 
-# GitHub CLI is required by the promote job.
-if ! command -v gh >/dev/null 2>&1; then
-  install -m 0755 -d /etc/apt/keyrings
-  curl -fsSL https://cli.github.com/packages/githubcli-archive-keyring.gpg \
-    -o /etc/apt/keyrings/githubcli-archive-keyring.gpg
-  chmod go+r /etc/apt/keyrings/githubcli-archive-keyring.gpg
-  echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/githubcli-archive-keyring.gpg] https://cli.github.com/packages stable main" \
-    > /etc/apt/sources.list.d/github-cli.list
-  apt-get update
-  apt-get install -y gh
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RUNNER_ALLOW_RUNASROOT=1
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    curl \
+    git \
+    gh \
+    jq \
+    python3 \
+    python3-pip \
+    sudo \
+    unzip \
+    docker.io \
+    tar \
+    gzip \
+    zstd \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /actions-runner
+
+RUN curl -fL \
+    "https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz" \
+    -o runner.tar.gz \
+    && tar xzf runner.tar.gz \
+    && rm runner.tar.gz \
+    && ./bin/installdependencies.sh
+
+COPY entrypoint.sh /entrypoint.sh
+RUN chmod +x /entrypoint.sh
+
+ENTRYPOINT ["/entrypoint.sh"]
+DOCKERFILE
+
+cat > "${BASE_DIR}/entrypoint.sh" <<'ENTRYPOINT'
+#!/usr/bin/env bash
+set -Eeuo pipefail
+
+cd /actions-runner
+
+if [[ ! -f .runner ]]; then
+    : "${REPO_URL:?REPO_URL is required}"
+    : "${RUNNER_TOKEN:?RUNNER_TOKEN is required}"
+
+    ./config.sh \
+        --unattended \
+        --url "${REPO_URL}" \
+        --token "${RUNNER_TOKEN}" \
+        --name "${RUNNER_NAME:-mcs21-ci}" \
+        --labels "${RUNNER_LABELS:-fyp-ci}" \
+        --work "_work" \
+        --replace
 fi
 
-if ! id "${RUNNER_USER}" >/dev/null 2>&1; then
-  useradd --create-home --shell /bin/bash "${RUNNER_USER}"
-fi
+exec ./run.sh
+ENTRYPOINT
 
-usermod -aG docker "${RUNNER_USER}"
+chmod +x "${BASE_DIR}/entrypoint.sh"
 
-# The current workflow installs packages during CI (mysql-client and Playwright
-# system dependencies). Docker membership is already root-equivalent, so on a
-# dedicated CI host passwordless sudo does not materially widen the trust
-# boundary and keeps the workflow compatible with GitHub-hosted behavior.
-cat > "/etc/sudoers.d/${RUNNER_USER}-github-actions" <<EOF
-${RUNNER_USER} ALL=(ALL) NOPASSWD: ALL
-EOF
-chmod 0440 "/etc/sudoers.d/${RUNNER_USER}-github-actions"
+RUNNER_VERSION="$(
+  curl -fsSL https://api.github.com/repos/actions/runner/releases/latest |
+    python3 -c 'import json,sys; print(json.load(sys.stdin)["tag_name"].lstrip("v"))'
+)"
 
-mkdir -p "${RUNNER_DIR}"
-chown -R "${RUNNER_USER}:${RUNNER_USER}" "${RUNNER_DIR}"
+echo "Building GitHub Actions runner version ${RUNNER_VERSION}..."
+docker build \
+  --build-arg RUNNER_VERSION="${RUNNER_VERSION}" \
+  -t "${IMAGE_NAME}" \
+  "${BASE_DIR}"
 
-release_json="$(curl -fsSL https://api.github.com/repos/actions/runner/releases/latest)"
-tag="$(jq -r '.tag_name' <<<"${release_json}")"
-version="${tag#v}"
-asset="actions-runner-linux-x64-${version}.tar.gz"
-download_url="$(jq -r --arg asset "${asset}" '.assets[] | select(.name == $asset) | .browser_download_url' <<<"${release_json}")"
-digest="$(jq -r --arg asset "${asset}" '.assets[] | select(.name == $asset) | (.digest // empty)' <<<"${release_json}")"
+docker rm -f "${CONTAINER_NAME}" >/dev/null 2>&1 || true
 
-if [[ -z "${download_url}" || "${download_url}" == "null" ]]; then
-  echo "Could not locate runner asset ${asset}"
-  exit 1
-fi
+docker run -d \
+  --name "${CONTAINER_NAME}" \
+  --restart unless-stopped \
+  --network host \
+  -e RUNNER_ALLOW_RUNASROOT=1 \
+  -e REPO_URL="${REPO_URL}" \
+  -e RUNNER_TOKEN="${RUNNER_TOKEN}" \
+  -e RUNNER_NAME="${RUNNER_NAME}" \
+  -e RUNNER_LABELS="${RUNNER_LABELS}" \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v "${WORK_VOLUME}:/actions-runner/_work" \
+  "${IMAGE_NAME}" >/dev/null
 
-tmp="$(mktemp -d)"
-trap 'rm -rf "${tmp}"' EXIT
-curl -fL "${download_url}" -o "${tmp}/${asset}"
-
-if [[ "${digest}" == sha256:* ]]; then
-  expected="${digest#sha256:}"
-  actual="$(sha256sum "${tmp}/${asset}" | awk '{print $1}')"
-  if [[ "${expected}" != "${actual}" ]]; then
-    echo "Runner archive checksum verification failed."
-    exit 1
-  fi
-fi
-
-if [[ ! -f "${RUNNER_DIR}/config.sh" ]]; then
-  tar -xzf "${tmp}/${asset}" -C "${RUNNER_DIR}"
-  chown -R "${RUNNER_USER}:${RUNNER_USER}" "${RUNNER_DIR}"
-fi
-
-# Install native dependencies required by the GitHub runner itself.
-"${RUNNER_DIR}/bin/installdependencies.sh"
-
-if [[ ! -f "${RUNNER_DIR}/.runner" ]]; then
-  sudo -u "${RUNNER_USER}" -H bash -lc "
-    cd '${RUNNER_DIR}'
-    ./config.sh --unattended \
-      --url '${REPO_URL}' \
-      --token '${RUNNER_TOKEN}' \
-      --name '${RUNNER_NAME}' \
-      --labels '${RUNNER_LABEL}' \
-      --work '_work' \
-      --replace
-  "
-else
-  echo "Runner is already configured locally; leaving registration unchanged."
-fi
-
-cd "${RUNNER_DIR}"
-if [[ ! -f .service ]]; then
-  ./svc.sh install "${RUNNER_USER}"
-fi
-./svc.sh start
-./svc.sh status
+unset RUNNER_TOKEN
 
 echo
-echo "Self-hosted runner setup finished."
-echo "Expected labels: self-hosted, Linux, X64, ${RUNNER_LABEL}"
-echo "Repository: ${REPO_URL}"
+echo "Runner container started."
+echo "Container: ${CONTAINER_NAME}"
+echo "Expected labels: self-hosted, Linux, X64, ${RUNNER_LABELS}"
+echo
+docker ps --filter "name=^${CONTAINER_NAME}$"
+echo
+docker logs --tail=40 "${CONTAINER_NAME}"
