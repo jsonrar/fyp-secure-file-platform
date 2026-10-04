@@ -61,7 +61,7 @@ two open and six closed without merge (#2, #3, #17, #95, #97, #100). The recheck
 | 5.1 | Functional and end-to-end testing | Done | `e2e-live` runs every live-backend suite un-skipped and a Chromium golden-path test; `mysql-gate` runs the whole suite against MySQL 8.4 with concurrency and fault-injection and fails on any skip; a tamper drill runs in CI (Issues #53, #58, #90, #93). Still not a long-running chaos test |
 | 5.2 | Cryptographic correctness testing | Done | Primitive, envelope, tamper, upload/download and live integration tests |
 | 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, F-01 is mitigated by CI-gated deployment (#117) and three *Recommended* findings (F-02 to F-04) are open |
-| 5.4 | Non-expert usability testing | In progress | The study kit exists — plan, consent sheet, screener, ten task cards, SUS questionnaire, templates and a tested scoring script with pre-registered thresholds ([`docs/usability/`](usability/STUDY_PLAN.md), Issue #115). **No session has been run and there is no result**; it becomes Done only when `RESULTS.md` records real sessions |
+| 5.4 | Non-expert usability testing | In progress | Informal real use only: the supervisor, the four team members, the FIT3162 Teaching Team and other students used staging with their own accounts. The formal study was **not run** (Issue #115 closed as not planned on 2026-10-04): no SUS score, no per-task completion rate, `RESULTS.md` empty. The kit stays in [`docs/usability/`](usability/STUDY_PLAN.md). It would become Done only if `RESULTS.md` recorded real sessions |
 
 **WBS summary:** 22 Done, 1 In review, 1 In progress, 0 Backlog. The simple board completion
 average is 97.5% (22 × 100 + 90 + 50, over 24); this is a tracking indicator, not an assessment
@@ -78,7 +78,7 @@ mark or effort-weighted earned value. The 2026-09-07 summary of 20 Done, 3 In pr
 | M4 Core cryptographic modules | Done | AES, RSA, SHA/integrity, Argon2id and ChaCha20 implementations/tests |
 | M5 Feature freeze | Done | Browser MVP complete; remaining work explicitly classified as hardening/assurance |
 | M6 Full system integration | Done | Public HTTPS stack and live two-account MVP test |
-| M7 Final demo readiness | In progress | The P0 CI, MySQL and backup blockers are closed with evidence. Remaining: run the usability study (#115) and implement the AC7 progress pipeline |
+| M7 Final demo readiness | In progress | The P0 CI, MySQL and backup blockers are closed with evidence. Remaining: implement the AC7 progress pipeline. Usability has informal real use only; the formal study (#115) was closed as not planned |
 
 **Milestone summary:** 6 Done and 1 In progress. The supervisor's 70–80% assessment is evidence
 for the completed historical checkpoint, not a claim that the current repository has an exact
@@ -126,8 +126,8 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 
 ## Immediate evidence priorities
 
-1. Conduct and document non-expert usability testing (WBS 5.4, Issue #115), after the supervisor's
-   written answer on ethics review and the pilot session.
+1. Non-expert usability (WBS 5.4): the formal study (Issue #115) was closed as not planned on
+   2026-10-04. Describe NFR2 as supported by informal real use, never as formally verified.
 2. Implement the exact four-stage, dismissible processing feedback required by AC7.
 3. Decide the three open *Recommended* security findings (F-02 to F-04): move the recovery key into
    proposed custody, switch off `/docs` after the demo, reject known-weak passphrases. (F-01, CI-gated

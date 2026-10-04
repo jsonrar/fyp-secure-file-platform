@@ -8,7 +8,7 @@
 | **Requirement** | NFR2 Understanding & Usability, High: *users can complete all operations without any specialized knowledge* |
 | **Proposal verification** | "Functional testing with users lacking cryptography background" and a non-technical user demo review (RTM, Appendix A) |
 | **Owner** | Testing & Deployment Lead |
-| **Status** | **Plan and materials ready. No session has been run, so no result exists.** `RESULTS.md` is deliberately empty. |
+| **Status** | **Not run.** Issue #115 was closed as not planned on 2026-10-04: the team chose informal real use (supervisor, team, Teaching Team, other students) over this study. No session has been run, so no result exists, and `RESULTS.md` is deliberately empty. The plan stays here in case a formal study is wanted later. |
 
 This folder is the study kit: the plan (this file), the participant-facing materials in
 [`materials/`](materials/), two CSV templates, and

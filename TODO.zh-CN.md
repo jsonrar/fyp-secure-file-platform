@@ -12,8 +12,8 @@
 安全评审或部署证据。部分完成不会被误标为完成。
 
 提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：
-24 个 WBS 工作包中 22 个 Done、1 个 In review、1 个 In progress（非专业用户可用性研究：套件已就绪，尚未进行任何
-场次）；7 条产品验收标准中 6 条 Done，剩余的分阶段进度提示为 In progress。
+24 个 WBS 工作包中 22 个 Done、1 个 In review、1 个 In progress（非专业用户可用性：产品已有非正式的真实使用，
+但正式研究没有进行，#115 已按 not planned 关闭）；7 条产品验收标准中 6 条 Done，剩余的分阶段进度提示为 In progress。
 M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师所说的全项目约 70–80%
 是该历史检查点的判断，不是对当前完成度的精确测量。
 
@@ -145,10 +145,11 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   — 已在 [PR #154](https://github.com/jsonrar/fyp-secure-file-platform/pull/154) 中通过对 MySQL 1213/1205 重试修复；
   回归测试在修复前约 7/10 次复现死锁，修复后从未复现。#140 压测的 28,540 个请求中没有出现 1213 或 1205。
 
-- [ ] [#115 运行非专业用户可用性研究（WBS 5.4、NFR2）](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)
-  ——研究套件已在 [`docs/usability/`](docs/usability/STUDY_PLAN.zh-CN.md) 就绪：计划、同意书、筛选表、十张任务卡、
-  SUS 问卷、模板，以及带预先登记阈值的计分脚本。**尚未进行任何场次，没有任何结果。**开始前需要导师就伦理审查
-  给出书面答复、裁定“同时丢失两个秘密”的措辞问题，并先做一次预演。
+- [x] ~~[#115 运行非专业用户可用性研究（WBS 5.4、NFR2）](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)~~
+  ——**2026-10-04 按 not planned 关闭。**团队决定不做正式研究。取而代之的是：导师、团队 4 人、FIT3162 Teaching Team
+  和其他同学都用自己的账号在 staging 上实际使用过。这属于非正式的真实使用：没有 SUS 分数、没有各任务完成率，
+  [`docs/usability/RESULTS.md`](docs/usability/RESULTS.md) 保持为空。研究套件仍保留在
+  [`docs/usability/`](docs/usability/STUDY_PLAN.zh-CN.md)，以后需要正式研究时可用。
 
 ## P2 — 正式安全保障
 
@@ -224,14 +225,14 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 现场篡改演示：改掉服务器上密文的一个字节，接收者下载时报错——
   `backend/scripts/demo_tamper.py` 和 [docs/presentation/TAMPER_DEMO.zh-CN.md](docs/presentation/TAMPER_DEMO.zh-CN.md)
 - [ ] 幻灯片：架构图、加密流程图、需求完成表、局限（最后做）
-- [x] 除非 #115 已有结果，否则如实说明 NFR2（可用性）尚未验证——TALKING_POINTS 第 10 条
+- [x] 如实说明 NFR2（可用性）——TALKING_POINTS 第 10 条（非正式真实使用，没有正式研究）
 
 强烈推荐（冲 Award）：
 
 - [x] 修掉数据库连接池瓶颈，并在 100 用户下做修复前后对比（本地：失败率 80% → 0%，
   [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163)）
 - [ ] PR #163 部署后，在 staging 上重跑 #140 的 `steps`，做出 staging 的修复前后对比图
-- [ ] #115 可用性研究并计算 SUS 分数（开始前需要导师就伦理审查的书面答复，并先做一次预演）
+- [x] ~~#115 可用性研究并计算 SUS 分数~~——不再计划执行（#115 已于 2026-10-04 关闭）；改为非正式真实使用
 - [x] 分享前确认接收者，并显示对方的密钥指纹（密钥验证）——
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160)；威胁模型 T-S5 已针对数据写入者缓解
 - [x] 上传滥用限制和"他人分享程序"警告（威胁模型 F-09）——

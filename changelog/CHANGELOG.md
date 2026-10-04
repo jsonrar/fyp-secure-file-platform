@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Usability: informal real use instead of the formal study (#115 closed) / 可用性：以非正式真实使用代替正式研究（#115 已关闭）
+
+- The team decided not to run the formal non-expert usability study, and #115 was closed as not planned. The supervisor, the four team members, the FIT3162 Teaching Team and other students have used the live site with their own accounts instead. The documents that still said "study pending" now say this: TODO, the proposal traceability table (WBS 5.4 stays In progress, with informal use as its only evidence), the study plan's status, TALKING_POINTS §10 and the reflection table. They also say what must not be claimed: a usability study, a SUS score, a completion rate or a user count nobody measured. `RESULTS.md` stays empty and the study kit stays in `docs/usability/`.
+- 团队决定不做正式的非专业用户可用性研究，#115 已按 not planned 关闭。取而代之的是：导师、团队 4 人、FIT3162 Teaching Team 和其他同学都用自己的账号在线上站点用过。仍写着“研究待进行”的文档现已改为这一说法：TODO、提案对照表（WBS 5.4 仍为 In progress，唯一依据是非正式使用）、研究计划的状态、TALKING_POINTS 第 10 条和反思表。这些文档也写明了不能声称的内容：做过可用性研究、SUS 分数、完成率，以及没人统计过的使用人数。`RESULTS.md` 保持为空，研究套件仍保留在 `docs/usability/`。
+
 ### CI: a self-hosted runner on the VPS, and documentation-only changes skip the test jobs / CI：改用 VPS 上的自建 runner，只改文档时跳过测试任务
 
 - Every CI job now runs on the project's own runner on the VPS (`deployment/ci-runner/`), so CI no longer depends on GitHub's monthly minutes. It is isolated from the production stack on the same machine: its own Docker daemon (dind), so job containers never see the host's containers or ports; a firewall rule that stops the CI subnet opening connections to the host; CPU and memory caps with a low CPU weight, so production wins when both want the CPU; and no production path or secret mounted. Three independent runner pairs take jobs in parallel, so a full run still takes about 5 minutes. The remaining risk, a container escape from dind's privileged mode, is written down and was accepted for a private five-person repository.
