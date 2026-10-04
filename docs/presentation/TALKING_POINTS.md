@@ -219,4 +219,5 @@ first share on a new device trusts the first key it sees. The comparison is the 
 | How would you know something broke? | Monitoring emails an alert; each of the three overloads on test night sent one | 5 |
 | What if someone floods uploads? | Rate limits and email verification already; the quota gap was in the threat model and is now closed (PR #157) | 7 |
 | Could the server redirect a share to itself? | Not silently: the recipient's key fingerprint is computed in the browser, confirmed, and pinned with a warning on change | 9 |
+| Has anyone else checked it? | An OWASP ZAP scan of the live site: no High-risk issue; it caught missing headers on the static bundle, which we fixed. Dependency audits are clean ([scans](../security/scans-2026-10-04/README.md)) | REFLECTION 12 |
 | Can you scan for viruses? | Not on the server under zero-knowledge; sharing scope, a download warning and endpoint antivirus instead | 8 |

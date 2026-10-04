@@ -30,3 +30,23 @@ def test_generated_api_docs_receive_only_the_assets_they_need() -> None:
         assert "X-Content-Type-Options nosniff" in location
         assert "Strict-Transport-Security" in location
         assert "X-Frame-Options DENY" in location
+
+
+def test_every_location_that_adds_a_header_repeats_the_security_headers() -> None:
+    # nginx drops all server-level add_header directives in a location that has its own.
+    config = NGINX_CONFIG.read_text(encoding="utf-8")
+    https_server = config.split("listen 443 ssl", maxsplit=1)[0]
+    blocks = https_server.split("\n    location ")[1:]
+    with_headers = [block for block in blocks if "add_header" in block.split("\n    }")[0]]
+
+    assert with_headers, "expected at least /assets/, /docs and /redoc"
+    for block in with_headers:
+        body = block.split("\n    }")[0]
+        for header in (
+            "X-Content-Type-Options nosniff",
+            "Strict-Transport-Security",
+            "X-Frame-Options DENY",
+            "Referrer-Policy",
+            "Permissions-Policy",
+        ):
+            assert header in body, f"location {body.splitlines()[0]} drops {header}"

@@ -96,6 +96,10 @@ Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动�
 nginx 限制每个地址同时最多 10 个上传；安全 Agent 会报告上传突增。服务器始终只保存密文，无法扫描恶意软件，所以接收者在保存
 他人分享的程序或可能带宏的文件之前会看到警告。详见 [docs/THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md) 第 11.3 节。
 
+**第三方扫描（2026-10-04）：** 用 OWASP ZAP 对 staging 做基线扫描，没有高风险问题（0 FAIL、8 WARN、59 PASS）；它指出的静态代码包
+缺少安全响应头的问题已在 nginx 里修复。`pip-audit` 和 `npm audit` 在生产依赖里没有发现问题；仅测试用的 HTTP 客户端有 6 条公告，
+已通过升级修复。报告和原始输出见 [docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.zh-CN.md)。
+
 Final Presentation 要讲什么、每一点的证据在哪，见
 [docs/presentation/TALKING_POINTS.zh-CN.md](docs/presentation/TALKING_POINTS.zh-CN.md)；目前还有哪些不足、按优先级该怎么改，见
 [docs/presentation/REFLECTION.zh-CN.md](docs/presentation/REFLECTION.zh-CN.md)。
