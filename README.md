@@ -129,7 +129,9 @@ macro-capable file. See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §11.3.
 What to say in the final presentation, with the evidence for each point, is in
 [docs/presentation/TALKING_POINTS.md](docs/presentation/TALKING_POINTS.md); what is still missing
 and what to do about it, by priority, is in
-[docs/presentation/REFLECTION.md](docs/presentation/REFLECTION.md).
+[docs/presentation/REFLECTION.md](docs/presentation/REFLECTION.md). The live tamper demonstration
+(change the stored ciphertext on staging, and the recipient's download is refused) is scripted in
+[docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md).
 
 ## Using the Website
 
