@@ -19,11 +19,26 @@ const dist = path.resolve(__dirname, '../dist');
 const output = path.resolve(__dirname, '../public/walkthrough');
 const filename = 'Project notes.txt';
 const envelope = data => ({success:true, status:'success', message:'Demo fixture', code:200, data});
-const publicKey = generateKeyPairSync('rsa', {
+const passphrase = 'ExampleOnly-not-a-real-secret';
+const keyPair = generateKeyPairSync('rsa', {
   modulusLength:2048,
   publicKeyEncoding:{type:'spki', format:'pem'},
-  privateKeyEncoding:{type:'pkcs8', format:'pem'},
-}).publicKey;
+  privateKeyEncoding:{type:'pkcs8', format:'der'},
+});
+const publicKey = keyPair.publicKey;
+const keyId = '00000000-0000-4000-8000-000000000002';
+
+/** Seal the example private key with the app's own code, so the Unlock dialog really opens it. */
+async function sealedExampleKey() {
+  const { createJiti } = require(path.resolve(__dirname, '../node_modules/jiti'));
+  const jiti = createJiti(__filename, { alias: { '@': path.resolve(__dirname, '../src') } });
+  const { sealAccountKey } = await jiti.import(path.resolve(__dirname, '../src/utils/account-crypto.ts'));
+  return sealAccountKey({
+    privateKeyDer:new Uint8Array(keyPair.privateKey), passphrase, keyId,
+    profileId:'00000000-0000-4000-8000-000000000005',
+    bundleId:'00000000-0000-4000-8000-000000000006',
+  });
+}
 const exampleFile = {
   file_id:'00000000-0000-4000-8000-000000000001',
   original_filename:filename, plaintext_size:1024, ciphertext_size:1024,
@@ -74,6 +89,7 @@ async function capture(page, area, name, target, number) {
 
 (async () => {
   fs.mkdirSync(output,{recursive:true});
+  const sealed = await sealedExampleKey();
   const server = http.createServer((req,res) => {
     const name = path.resolve(dist, '.'+new URL(req.url,'http://localhost').pathname);
     if (!name.startsWith(dist+path.sep) && name!==dist) {res.writeHead(403).end();return;}
@@ -98,11 +114,18 @@ async function capture(page, area, name, target, number) {
         const api = url.pathname.split('/api/v1')[1];
         let data;
         if (api === '/auth/me') data = {user:{user_id:'demo-sam',username:recipient?'alex':'sam',email:'demo@example.invalid',roles:['USER']}};
-        else if (api === '/keys/me') data = {key:{key_id:'00000000-0000-4000-8000-000000000002',public_key_pem:publicKey}};
+        else if (api === '/keys/me') data = {key:{key_id:keyId,public_key_pem:publicKey}, ...sealed};
         else if (api === '/recovery/public-key') data = {key_id:'00000000-0000-4000-8000-000000000003',public_key_pem:publicKey,status:'ACTIVE'};
         else if (api === '/files/upload') data = {};
-        else if (api === '/files') data = {items:[{...exampleFile,owner:!recipient}],page:1,page_size:100,total:1};
+        else if (api === '/files') {
+          // sam owns the file and has nothing shared with him; alex sees it only as shared.
+          const shared = url.searchParams.get('scope') === 'shared';
+          const items = shared === recipient ? [{...exampleFile,owner:!recipient}] : [];
+          data = {items,page:1,page_size:100,total:items.length,owned_total:recipient?0:1,shared_total:recipient?1:0};
+        }
+        else if (api === '/files/folders') data = {items:[]};
         else if (api.endsWith('/shared-users')) data = {users:[]};
+        else if (api === '/keys/users/by-identifier/alex/active') data = {user_id:'demo-alex',key_id:'00000000-0000-4000-8000-000000000004',public_key_pem:publicKey};
         else {await route.fulfill({status:404,json:{message:'Unconfigured screenshot fixture'}});return;}
         await route.fulfill({status:200,json:envelope(data)});
       } else if (url.hostname==='127.0.0.1' && url.port===String(server.address().port)) await route.continue();
@@ -111,7 +134,7 @@ async function capture(page, area, name, target, number) {
     const page = await context.newPage();
     const base = 'http://127.0.0.1:'+server.address().port;
     await page.goto(base+'/upload');
-    const upload = page.locator('#encrypt .max-w-4xl');
+    const upload = page.locator('#encrypt .rounded-3xl').first();
     const columns = upload.locator(':scope > div > div');
     const select = page.locator('label').filter({hasText:'Select Files'});
     await capture(page,upload,'01-select',select,'1');
@@ -123,7 +146,7 @@ async function capture(page, area, name, target, number) {
     await encrypt.click();
     await page.getByRole('button',{name:'View Encrypted Files',exact:true}).click();
     await page.getByText(filename,{exact:true}).waitFor();
-    const files = page.locator('#manage .max-w-6xl');
+    const files = page.locator('#manage .rounded-3xl').first();
     const share = page.getByTitle('Share',{exact:true});
     await capture(page,files,'03-file',share,'3');
     await page.setViewportSize({width:600,height:1100});
@@ -132,7 +155,7 @@ async function capture(page, area, name, target, number) {
     await share.click();
     const modal = page.locator('.fixed.inset-0 > .max-w-md');
     await page.getByRole('heading',{name:'Unlock your files'}).waitFor();
-    await page.getByPlaceholder('Your encryption passphrase').fill('ExampleOnly-not-a-real-secret');
+    await page.getByPlaceholder('Your encryption passphrase').fill(passphrase);
     const unlock = page.getByRole('button',{name:'Unlock',exact:true});
     await capture(page,modal,'05-unlock',unlock,'4');
     await page.setViewportSize({width:600,height:1100});
@@ -141,7 +164,10 @@ async function capture(page, area, name, target, number) {
     await unlock.click();
     await page.getByText('Nobody yet — only you can open this file.').waitFor();
     await page.getByPlaceholder('Their username/ Email address on Secureview.').fill('alex');
-    const submitShare = modal.getByRole('button',{name:'Share',exact:true});
+    await modal.getByRole('button',{name:'Share',exact:true}).click();
+    // The share is confirmed against the recipient's key fingerprint before anything is sent.
+    await page.getByTestId('recipient-fingerprint').waitFor();
+    const submitShare = modal.getByRole('button',{name:'Confirm and share',exact:true});
     await capture(page,modal,'04-recipient',submitShare,'5');
     await page.setViewportSize({width:600,height:1100});
     await capture(page,modal,'04-recipient-mobile',submitShare,'5');

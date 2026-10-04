@@ -60,8 +60,9 @@ with demos and a knowledge base, `/help` points to the homepage picture guide an
 placeholders for longer clips, and `/team` (**Contact us**) shows a feedback form preview plus
 the development roster. `/benchmark/argon2`, linked from no menu, times the unlock key derivation
 on the visiting device; it is the evidence behind the threat model's passphrase analysis.
-Signed-in users get a header avatar menu with language and theme controls, `/profile`, and
-`/settings`; signed-out visitors open the same appearance controls from a header settings icon.
+The language switch sits in the header bar itself, never inside a menu. Signed-in users get a
+header avatar menu with theme controls, `/profile` and `/settings`; signed-out visitors open the
+theme controls from the settings icon to the right of the language switch.
 The active nav label uses the theme primary colour so the current tab is obvious. `/profile` can
 upload or remove a validated PNG/JPEG picture (initials remain the fallback).
 
@@ -74,8 +75,8 @@ questions are not sent or logged. Signed in, it also answers questions about you
 answers only read what My Files and Access Records already show, and change nothing. See
 [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 
-The interface can be switched between **English and 简体中文** (#74) from the account menu
-(signed in), the guest settings icon, the phone menu or Settings; the choice is remembered on
+The interface can be switched between **English and 简体中文** (#74) from the header bar,
+the phone menu or Settings; the choice is remembered on
 the device. File names, usernames and anything a user wrote are never translated. The Chinese is
 drafted at build time by Zhipu `glm-4-flash` and checked against a fixed security glossary; the
 browser never calls a translation service. See [docs/I18N.md](docs/I18N.md).

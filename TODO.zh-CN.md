@@ -220,7 +220,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 4 分钟现场演示的脚本——[docs/presentation/DEMO_SCRIPT.zh-CN.md](docs/presentation/DEMO_SCRIPT.zh-CN.md)
 - [ ] 在 staging 上建好演示账号 `demo-alice` / `demo-bob`（由用户来做），录一份备用视频
 - [x] 文件行操作：下载（解密）、分享、删除三个按钮带文字直接显示，其余收进"更多"；修掉约 800 px 宽度下助手按钮压住操作的问题（[PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159)）
-- [ ] 重新截取首页图文指南：截图里还是旧的六个图标
+- [x] 重新截取首页图文指南：截图里还是旧的六个图标（2026-10-04 已更新；第 5 步现在显示带密钥指纹的接收方确认）
 - [x] 现场篡改演示：改掉服务器上密文的一个字节，接收者下载时报错——
   `backend/scripts/demo_tamper.py` 和 [docs/presentation/TAMPER_DEMO.zh-CN.md](docs/presentation/TAMPER_DEMO.zh-CN.md)
 - [ ] 幻灯片：架构图、加密流程图、需求完成表、局限（最后做）

@@ -180,6 +180,9 @@ async function handleLogout() {
         </div>
 
         <div :class="`${responsive.desktop} items-center gap-3 shrink-0`">
+          <!-- Language stays in the bar, never inside a menu: someone who cannot read the
+               current language has to be able to find it at a glance. -->
+          <LanguageSwitcher compact />
           <!-- Signed in, the theme control lives in the avatar menu instead: one account
                dropdown rather than two adjacent dropdowns in the same corner. -->
           <div v-if="!auth.isAuthed" ref="desktopThemeRoot" class="relative shrink-0">
@@ -200,7 +203,6 @@ async function handleLogout() {
               :aria-label="t('nav.settings')"
               class="absolute right-0 top-full z-[60] mt-1 w-48 overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
             >
-              <div class="px-2 py-2"><LanguageSwitcher /></div>
               <div v-for="option in themeOptions" :key="option.value">
                 <button
                   type="button"
@@ -275,6 +277,7 @@ async function handleLogout() {
           {{ t(link.label) }}
         </RouterLink>
         <div class="flex flex-col gap-2 pt-4 border-t border-border">
+          <LanguageSwitcher class="self-start" />
           <UserMenu v-if="auth.isAuthed" :theme-preference="themePreference" @set-theme-preference="emit('set-theme-preference', $event)" />
           <div v-if="!auth.isAuthed" ref="mobileThemeRoot" class="relative w-[7.25rem] shrink-0">
             <button
@@ -294,7 +297,6 @@ async function handleLogout() {
               :aria-label="t('nav.settings')"
               class="absolute left-0 top-full z-[60] mt-1 w-48 overflow-hidden rounded-md border border-border bg-card py-1 shadow-lg"
             >
-              <div class="px-2 py-2"><LanguageSwitcher /></div>
               <div v-for="option in themeOptions" :key="`mobile-${option.value}`">
                 <button
                   type="button"
