@@ -397,6 +397,8 @@ npm run dev
 `.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行：先跑一个很小的 `changes` Job，再跑五个测试 Job。
 如果改动只包含 Markdown 文件，或只包含 `docs/` 下的文件（`docs/crypto/` 除外，测试会读取其中的测试向量），
 五个测试 Job 会被跳过：私有仓库的免费 Actions 额度每月只有 2,000 分钟，而完整跑一次约耗 13 分钟。
+推送到 `main` 时与 `deploy` 分支比较，而不是与上一次推送比较，所以即使代码那次 CI 被随后的纯文档推送取消，
+它仍会被测试并推进部署（[详见](docs/AUTOMATIC_DEPLOYMENT.zh-CN.md#ci-门禁)）。
 自 2026-10-04 起，所有 Job 都在 VPS 上项目自建、并与线上环境隔离的 runner 上运行
 （[deployment/ci-runner/](deployment/ci-runner/README.zh-CN.md)）；三台 runner 并行接任务，一次完整 CI 仍约 5 分钟。`backend` 与
 `frontend` 按约定是必需检查：仓库为免费套餐下的私有仓库，无法使用 GitHub 分支保护，所以 CI 变红时除了评审人

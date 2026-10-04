@@ -38,16 +38,19 @@ jobs:
         id: diff
         env:
           EVENT: ${{ github.event_name }}
-          BEFORE: ${{ github.event.before }}
         run: |
           set -uo pipefail
           # A pull_request run checks out the merge commit, whose first parent is the base.
+          # A push to main is compared with `deploy`, the last commit promote moved forward, and
+          # not with the previous push: a docs-only push can cancel the run of the code commit
+          # before it (cancel-in-progress), and comparing with that commit would skip the tests
+          # and leave the code never promoted. Against `deploy`, that code is still in the diff.
           if [ "$EVENT" = pull_request ]; then
             from="HEAD^1"
-          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
-            from="$BEFORE"
+          elif git fetch --no-tags --quiet origin deploy; then
+            from="FETCH_HEAD"
           else
-            echo "No earlier commit to compare with; running every job."
+            echo "No deploy branch to compare with; running every job."
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi

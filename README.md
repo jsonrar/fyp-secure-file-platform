@@ -475,6 +475,9 @@ Frontend: <http://localhost:5173>
 after a small `changes` job. A change made only of Markdown files, or only of files under `docs/`
 (except `docs/crypto/`, whose test vectors the suites read), skips the five test jobs: the
 repository's free Actions allowance is 2,000 minutes a month, and a full run costs about 13.
+A push to `main` is compared with the `deploy` branch, not with the previous push, so code whose
+own run was cancelled by a later docs-only push is still tested and promoted
+([details](docs/AUTOMATIC_DEPLOYMENT.md#the-ci-gate)).
 Since 2026-10-04 every job runs on the project's own runner on the VPS, isolated from production
 ([deployment/ci-runner/](deployment/ci-runner/README.md)); three runners take jobs in parallel, so a
 full run still takes about 5 minutes.

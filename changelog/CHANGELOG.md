@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### CI: judge a docs-only push against `deploy`, so it cannot strand a code commit / CI：纯文档推送相对 `deploy` 判断，不再让代码 commit 卡住不部署
+
+- A push to `main` cancels the run still in progress for `main`. On 2026-10-04 the docs-only #168 was merged three minutes after #169, cancelled #169's run, and then skipped the tests because it changed only documentation; `promote` was skipped with them, so `deploy` did not move to #169. Here no served code was involved, but the same order after a code merge would have left that code undeployed until the next code commit. The `changes` job now compares a push with the `deploy` branch (the last promoted commit) instead of the previous push, so unpromoted code is still in the diff and every job runs. A structural test in `test_deploy_gate.py` keeps it that way. Pull requests are unchanged.
+- 推送到 `main` 会取消 `main` 上仍在运行的 CI。2026-10-04，只改文档的 #168 在 #169 之后三分钟合并，取消了 #169 的运行，又因为只改了文档而跳过测试；`promote` 也随之跳过，`deploy` 没有推进到 #169。这次没有涉及线上代码，但如果是代码合并后紧接着出现同样的顺序，那段代码就要等下一个代码 commit 才会部署。现在 `changes` 作业把推送与 `deploy` 分支（上一次推进的 commit）比较，而不是与上一次推送比较，所以尚未推进的代码仍在差异里，全部作业都会运行。`test_deploy_gate.py` 中新增的结构测试保证这一点不被改回。PR 的判断方式不变。
+
 ### Usability: informal real use instead of the formal study (#115 closed) / 可用性：以非正式真实使用代替正式研究（#115 已关闭）
 
 - The team decided not to run the formal non-expert usability study, and #115 was closed as not planned. The supervisor, the four team members, the FIT3162 Teaching Team and other students have used the live site with their own accounts instead. The documents that still said "study pending" now say this: TODO, the proposal traceability table (WBS 5.4 stays In progress, with informal use as its only evidence), the study plan's status, TALKING_POINTS §10 and the reflection table. They also say what must not be claimed: a usability study, a SUS score, a completion rate or a user count nobody measured. `RESULTS.md` stays empty and the study kit stays in `docs/usability/`.

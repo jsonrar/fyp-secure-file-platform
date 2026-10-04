@@ -64,6 +64,11 @@ private on the free plan, so the gate is built from a branch instead.
 - A documentation-only commit (see `changes` in `ci.yml`) skips the test jobs, so `promote` is
   skipped too and `deploy` stays where it was. Nothing served changed, and the next code commit
   that passes moves `deploy` past it.
+- On a push to `main`, "documentation-only" means compared with `deploy`, not with the previous
+  push. Pushes cancel the run still in progress for the same branch, so a docs-only push right
+  after a code merge would otherwise cancel the code's run and then skip the tests itself, and
+  the code would wait for the next code commit to be deployed. Compared with `deploy`, that code
+  is still in the diff, so the docs push runs every job and promotes both ([#171](https://github.com/jsonrar/fyp-secure-file-platform/pull/171)).
 - A commit with red CI is simply never promoted, and the next green commit contains it. The
   price is latency: a merge now reaches staging after CI finishes (about five minutes) plus up to
   two more for the timer, not after two minutes.
