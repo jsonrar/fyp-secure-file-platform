@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Four-minute demo script and an honest usability statement / 4 分钟演示脚本与如实的可用性说明
+
+- The 12-minute presentation has four minutes of demo, and a live demo can lose the network or hang. `docs/presentation/DEMO_SCRIPT.md` gives a timed four-step script (upload with the real encryption steps, share with the key-fingerprint check, the recipient opens it, the live tamper), the lines to say, a day-before and 30-minutes-before checklist, what to do when each step fails, and how to record the backup video. The `demo-alice` / `demo-bob` accounts and the video are left to the user.
+- 12 分钟展示里只有 4 分钟演示，现场可能断网或卡住。`docs/presentation/DEMO_SCRIPT.md` 给出带时间的四步脚本（上传并展示真实的加密步骤、核对密钥指纹后分享、接收方打开、现场篡改）、讲解词、前一天和开始前 30 分钟的检查清单、每一步出问题时怎么办，以及怎么录备用视频。`demo-alice` / `demo-bob` 账号和视频由用户来准备。
+- NFR2 (usability) has no result because no study session has run. TALKING_POINTS §10 now gives the exact wording: not verified yet, the pass criteria were fixed in advance, and what the team walkthrough changed; and what must not be said (no "easy to use", no SUS number).
+- NFR2（可用性）还没有结果，因为一场研究都没跑。TALKING_POINTS 第 10 条现在写明了该怎么说：尚未验证、及格标准事先已定好，以及团队走查改进了什么；也写明了哪些话不能说（不能说“好用”，不能报 SUS 分数）。
+
 ### Third-party security scans and the headers they found missing / 第三方安全扫描及其发现的缺失响应头
 
 - "Secure" rested only on our own word. An OWASP ZAP baseline scan of `https://secureview.tech` (passive, 1-minute spider) found no High-risk issue: 0 FAIL, 8 WARN, 59 PASS. It did find a real gap: the hashed JS/CSS bundle under `/assets/` was served without `Strict-Transport-Security` or `X-Content-Type-Options`, because nginx drops every server-level `add_header` in a location that adds its own, and `/assets/` adds `Cache-Control`. The headers are now repeated there; `Permissions-Policy` (camera, microphone, location, payment, USB off) and `Cross-Origin-Opener-Policy` / `Cross-Origin-Resource-Policy: same-origin` are added; a unit test fails if any location that adds a header drops a security header. COEP and `style-src 'unsafe-inline'` are accepted with reasons.
