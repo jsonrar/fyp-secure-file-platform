@@ -187,7 +187,7 @@ From the meeting notes, filled from [the staging report](performance/REPORT-2026
   while awaiting the thread pool, whose threads were waiting for connections; the upload's database
   work now runs in the pool and holds no connection while staging. Locally the 100-user step went
   from 80% failed uploads to none at 56 ops/s ([details](performance/pool-fix-2026-10-04/README.md));
-  the staging re-run is still to do. Beyond that, scaling means more uvicorn workers and a larger
+  re-run on staging the same night: 102 of 102 uploads succeeded at 100 users, 0 integrity failures ([results](performance/pool-fix-2026-10-04/README.md#staging-re-run-2026-10-04-evening)). Beyond that, scaling means more uvicorn workers and a larger
   pool, re-measured with this tool. Below that, every transfer number was bounded by the network: the VPS port is ~100 Mbit/s,
   and the test link was ~24 Mbit/s up and ~13 Mbit/s down.
 - **Large files:** Every type (pdf, png, jpg, mp4, zip, exe) up to 500 MiB round-trips byte-exact

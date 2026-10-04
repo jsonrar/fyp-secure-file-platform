@@ -32,7 +32,16 @@ that is covered by our own tests and the threat model.
 | Re-examine Cache-control / Storable and cacheable content | Info | Expected: every flagged URL is a public page, `robots.txt`, `sitemap.xml` or the hashed, immutable bundle, all meant to be cached. Sign-in, error and file-download responses send `no-store` themselves. |
 | Modern web application | Info | Informational only: ZAP notes that the site is a single-page application. |
 
-## Applying the nginx change
+## After the fix (re-scan 2026-10-04)
+
+The updated nginx file was installed on the VPS and the scan repeated
+([`after-nginx/`](after-nginx/zap-baseline.md)): **0 FAIL, 5 WARN, 62 PASS** (before: 8 WARN, 59 PASS).
+The Strict-Transport-Security, X-Content-Type-Options, Permissions-Policy, Cross-Origin-Opener-Policy
+and Cross-Origin-Resource-Policy alerts are gone; the headers were also checked directly with `curl -I`
+on the bundle. The five left are the accepted ones above (COEP, `style-src 'unsafe-inline'`) and
+informational notes.
+
+## Applying the nginx change (done)
 
 The tracked file is `deployment/server/nginx-secureview.conf`, and the live copy on the VPS is
 `/etc/nginx/sites-available/fyp-secure-file-platform`. The automatic deploy does not install

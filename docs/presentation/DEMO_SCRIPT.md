@@ -15,8 +15,8 @@ staging, `https://secureview.tech`.
 | The colleague ("Bob") | Browser window B, right half, **a separate browser profile** so the two sessions do not share storage | `demo-bob` |
 | The attacker | A terminal, minimised until step 4 | root on the VPS |
 
-**The user creates `demo-alice` and `demo-bob` on staging** through the normal registration page
-(the assistant does not register accounts on the live site). The names must start with `demo-`,
+`demo-alice` and `demo-bob` already exist on staging (seeded 2026-10-04, so no email code is needed;
+login password `mcs21666`, passphrases kept by the project owner). The names must start with `demo-`,
 because the tamper tool refuses any other account. Use passphrases that differ from each other and
 from any real account.
 
