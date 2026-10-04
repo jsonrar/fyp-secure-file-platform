@@ -292,7 +292,9 @@ Optional:
 
 - [x] Two-step registration and signing in straight after registering ([PR #161](https://github.com/jsonrar/fyp-secure-file-platform/pull/161))
 - [x] First-login checklist (upload → share → recipient downloads) ([PR #162](https://github.com/jsonrar/fyp-secure-file-platform/pull/162))
-- [ ] OWASP ZAP baseline scan of staging plus `pip-audit` / `npm audit` report
+- [x] OWASP ZAP baseline scan of staging plus `pip-audit` / `npm audit` report —
+  [docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.md); headers fixed in the tracked nginx file
+- [ ] Install the updated `nginx-secureview.conf` on the VPS (root), reload nginx, and re-run the ZAP baseline
 
 Done for the presentation:
 

@@ -126,6 +126,12 @@ per address, and the security agent reports upload bursts. Because the server on
 ciphertext it cannot scan for malware, so a recipient is warned before saving a shared program or
 macro-capable file. See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §11.3.
 
+**Third-party scans (2026-10-04):** an OWASP ZAP baseline scan of staging found no High-risk issue
+(0 FAIL, 8 WARN, 59 PASS); the missing security headers it reported on the static bundle are fixed in
+nginx. `pip-audit` and `npm audit` found nothing in production dependencies; six advisories in a
+test-only HTTP client were fixed by upgrading it. Report and raw output:
+[docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.md).
+
 What to say in the final presentation, with the evidence for each point, is in
 [docs/presentation/TALKING_POINTS.md](docs/presentation/TALKING_POINTS.md); what is still missing
 and what to do about it, by priority, is in
