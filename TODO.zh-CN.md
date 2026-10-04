@@ -92,7 +92,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   [#117](https://github.com/jsonrar/fyp-secure-file-platform/pull/117)：预发布环境只部署由 CI 在某个 commit 上全部 Job
   通过后才向前推进的 `deploy` 分支（[文档](docs/AUTOMATIC_DEPLOYMENT.zh-CN.md#ci-门禁)）。2026-10-01 已核实：`promote`
   作业在合并提交上创建了 `deploy`，新脚本已安装到 VPS，并报告运行中的 release 已与最新通过 CI 的 commit 一致。它不
-  要求评审，`mcs21-deploy all main` 仍按设计绕过 CI。
+  要求评审，`mcs21-deploy all main` 仍按设计绕过 CI。自 [#171](https://github.com/jsonrar/fyp-secure-file-platform/pull/171) 起，推送到 `main` 的纯文档改动相对 `deploy` 判断，
+  不会再取消代码 commit 的 CI 运行、让那段代码一直得不到部署。
 - [x] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0007_file_folders` 的每一次迁移，
   运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，

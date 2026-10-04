@@ -108,7 +108,8 @@ not a release pass.
   that CI moves forward after every job has passed on a commit ([docs](docs/AUTOMATIC_DEPLOYMENT.md#the-ci-gate)).
   Verified 2026-10-01: the `promote` job created `deploy` on the merge commit, the new script was installed on
   the VPS, and it reported the running release already matches the latest CI-passed commit. It does not require
-  a review, and `mcs21-deploy all main` still bypasses CI by design.
+  a review, and `mcs21-deploy all main` still bypasses CI by design. Since [#171](https://github.com/jsonrar/fyp-secure-file-platform/pull/171) a docs-only push to `main` is
+  judged against `deploy`, so it can no longer cancel a code commit's run and leave that code unpromoted.
 - [x] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
   `0007_file_folders`, runs `alembic current`/`check`, runs the whole backend suite (coverage
