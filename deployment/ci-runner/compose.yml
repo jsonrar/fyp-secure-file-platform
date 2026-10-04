@@ -1,0 +1,114 @@
+# Self-hosted GitHub Actions runners for this repository, isolated from production on the
+# same VPS. See README.md for why each line is here.
+#
+# Three independent pairs, so the five test jobs of one CI run go in parallel. Each pair is a
+# runner plus its own Docker daemon (dind) in its own network namespace: two jobs that both
+# publish a MySQL service on 3306 never meet, and none of them meets production's 3306.
+name: mcs21-ci-runner
+
+x-dind: &dind
+  image: docker:29-dind
+  privileged: true
+  restart: unless-stopped
+  environment:
+    DOCKER_TLS_CERTDIR: ""
+  # Loopback only: the runner of the same pair shares this network namespace, nobody else does.
+  command: ["dockerd", "--host=tcp://127.0.0.1:2375"]
+  networks: [ci]
+  # Caps per pair, and a low CPU weight: when production and CI both want the CPU, production
+  # gets about four times the share.
+  cpus: 2
+  cpu_shares: 256
+  mem_limit: 2560m
+  pids_limit: 4096
+
+x-runner: &runner
+  build: .
+  image: mcs21-ci-runner:local
+  restart: unless-stopped
+  cpus: 2
+  cpu_shares: 256
+  mem_limit: 2560m
+  pids_limit: 4096
+
+x-runner-env: &runner-env
+  DOCKER_HOST: tcp://127.0.0.1:2375
+  RUNNER_REPO: jsonrar/fyp-secure-file-platform
+  RUNNER_LABELS: mcs21-ci
+  RUNNER_TOKEN: ${RUNNER_TOKEN:-}
+
+services:
+  dind1:
+    <<: *dind
+    volumes:
+      - dind1-data:/var/lib/docker
+      # Same path as in runner1, so a bind mount a job asks for exists for the daemon too.
+      - work1:/home/runner/_work
+
+  runner1:
+    <<: *runner
+    depends_on: [dind1]
+    # A service a job publishes on 3306 is 127.0.0.1:3306 to that job, as on GitHub's machines.
+    network_mode: "service:dind1"
+    environment:
+      <<: *runner-env
+      RUNNER_NAME: mcs21-vps-1
+    volumes:
+      - work1:/home/runner/_work
+      - runner1-state:/home/runner/state
+
+  dind2:
+    <<: *dind
+    volumes:
+      - dind2-data:/var/lib/docker
+      # Same path as in runner2, so a bind mount a job asks for exists for the daemon too.
+      - work2:/home/runner/_work
+
+  runner2:
+    <<: *runner
+    depends_on: [dind2]
+    # A service a job publishes on 3306 is 127.0.0.1:3306 to that job, as on GitHub's machines.
+    network_mode: "service:dind2"
+    environment:
+      <<: *runner-env
+      RUNNER_NAME: mcs21-vps-2
+    volumes:
+      - work2:/home/runner/_work
+      - runner2-state:/home/runner/state
+
+  dind3:
+    <<: *dind
+    volumes:
+      - dind3-data:/var/lib/docker
+      # Same path as in runner3, so a bind mount a job asks for exists for the daemon too.
+      - work3:/home/runner/_work
+
+  runner3:
+    <<: *runner
+    depends_on: [dind3]
+    # A service a job publishes on 3306 is 127.0.0.1:3306 to that job, as on GitHub's machines.
+    network_mode: "service:dind3"
+    environment:
+      <<: *runner-env
+      RUNNER_NAME: mcs21-vps-3
+    volumes:
+      - work3:/home/runner/_work
+      - runner3-state:/home/runner/state
+
+networks:
+  ci:
+    # Fixed so the firewall unit can stop this subnet from reaching any service on the host.
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+
+volumes:
+  dind1-data:
+  work1:
+  runner1-state:
+  dind2-data:
+  work2:
+  runner2-state:
+  dind3-data:
+  work3:
+  runner3-state:
