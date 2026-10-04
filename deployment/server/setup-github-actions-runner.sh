@@ -66,6 +66,13 @@ RUN curl -fL \
     && rm runner.tar.gz \
     && ./bin/installdependencies.sh
 
+RUN mkdir -p /root/.docker/cli-plugins \
+    && curl -fL \
+      https://github.com/docker/compose/releases/latest/download/docker-compose-linux-x86_64 \
+      -o /root/.docker/cli-plugins/docker-compose \
+    && chmod +x /root/.docker/cli-plugins/docker-compose \
+    && docker compose version
+
 COPY entrypoint.sh /entrypoint.sh
 RUN chmod +x /entrypoint.sh
 
