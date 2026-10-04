@@ -56,8 +56,10 @@ jobs:
             echo "code=true" >> "$GITHUB_OUTPUT"
             exit 0
           fi
+          # grep exits 1 when nothing matches, which is the usual case here; under the runner's
+          # `bash -e` that alone would fail the step, so the substitution never decides it.
           code="$(printf '%s\n' "$changed" | grep -v '^$' | grep -Ev '\.md$' | grep -Ev '^docs/' ; \
-                  printf '%s\n' "$changed" | grep -E '^docs/crypto/')"
+                  printf '%s\n' "$changed" | grep -E '^docs/crypto/')" || true
           if [ -z "$changed" ] || [ -n "$code" ]; then
             echo "code=true" >> "$GITHUB_OUTPUT"
             echo "Code or test inputs changed; running every job."
