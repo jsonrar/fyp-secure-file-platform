@@ -9,10 +9,71 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job runs on the project's own runner on the VPS (deployment/ci-runner/), not on
+# GitHub-hosted machines: the free allowance for a private repository is 2,000 minutes a month
+# and ran out on 2026-10-04. The runner is isolated from production by its own Docker daemon,
+# network and firewall rule. Three runners take three jobs at once, so a run takes about as
+# long as on GitHub's parallel machines. If they are down, jobs wait in the queue; to fall back, change
+# `[self-hosted, mcs21-ci]` back to `ubuntu-latest`.
+
 jobs:
+  # Decides whether this change can affect anything the tests check. A change made only of
+  # Markdown files, or only of files under docs/ (except docs/crypto/, whose test vectors the
+  # frontend and loadtest suites read), cannot, so the five test jobs are skipped for it and
+  # the run passes in about a minute instead of thirteen billed minutes. The free Actions
+  # allowance for a private repository is 2,000 minutes a month, and documentation PRs were
+  # using a large share of it. Anything uncertain (a range that cannot be diffed, a new
+  # branch) counts as code, so the full suite runs.
+  changes:
+    name: changes
+    runs-on: [self-hosted, mcs21-ci]
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Is this change documentation only?
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -uo pipefail
+          # A pull_request run checks out the merge commit, whose first parent is the base.
+          if [ "$EVENT" = pull_request ]; then
+            from="HEAD^1"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            from="$BEFORE"
+          else
+            echo "No earlier commit to compare with; running every job."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! changed="$(git diff --name-only "$from" HEAD)"; then
+            echo "Could not diff ${from}..HEAD; running every job."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # grep exits 1 when nothing matches, which is the usual case here; under the runner's
+          # `bash -e` that alone would fail the step, so the substitution never decides it.
+          code="$(printf '%s\n' "$changed" | grep -v '^$' | grep -Ev '\.md$' | grep -Ev '^docs/' ; \
+                  printf '%s\n' "$changed" | grep -E '^docs/crypto/')" || true
+          if [ -z "$changed" ] || [ -n "$code" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "Code or test inputs changed; running every job."
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "Documentation only; the test jobs are skipped:"
+            printf '  %s\n' $changed
+          fi
+
   backend:
     name: backend
-    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: [self-hosted, mcs21-ci]
     defaults:
       run:
         working-directory: backend
@@ -87,7 +148,9 @@ jobs:
 
   frontend:
     name: frontend
-    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: [self-hosted, mcs21-ci]
     defaults:
       run:
         working-directory: frontend
@@ -138,7 +201,9 @@ jobs:
 
   mysql-gate:
     name: mysql-gate
-    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: [self-hosted, mcs21-ci]
     defaults:
       run:
         working-directory: backend
@@ -328,7 +393,9 @@ jobs:
   # run the same thing locally; see docs/E2E_TESTING.md.
   e2e-live:
     name: e2e-live
-    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: [self-hosted, mcs21-ci]
     services:
       mysql:
         image: mysql:8.4
@@ -475,7 +542,9 @@ jobs:
   # mount. The report proves the visible integrity states and the SHA-256/AEAD trust boundary.
   tamper-drill:
     name: tamper-drill
-    runs-on: ubuntu-latest
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
+    runs-on: [self-hosted, mcs21-ci]
     steps:
       - uses: actions/checkout@v4
 
@@ -508,8 +577,8 @@ jobs:
   promote:
     name: promote
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-    needs: [backend, frontend, mysql-gate, e2e-live, tamper-drill]
-    runs-on: ubuntu-latest
+    needs: [changes, backend, frontend, mysql-gate, e2e-live, tamper-drill]
+    runs-on: [self-hosted, mcs21-ci]
     permissions:
       contents: write
     concurrency:

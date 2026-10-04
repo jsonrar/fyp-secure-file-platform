@@ -1,0 +1,16 @@
+[Unit]
+Description=MCS21 CI runner: stop the CI network from opening connections to the host
+# The runner's containers may reach the internet, but never a service on this machine
+# (the WeChat bot on the Docker bridge, sshd, anything bound to a host address). Replies to
+# connections the host itself opened are still allowed.
+Before=docker.service
+Wants=network-pre.target
+
+[Service]
+Type=oneshot
+RemainAfterExit=yes
+ExecStart=/bin/sh -c 'iptables -C INPUT -s 172.31.250.0/24 -m conntrack --ctstate NEW -j DROP 2>/dev/null || iptables -I INPUT 1 -s 172.31.250.0/24 -m conntrack --ctstate NEW -j DROP'
+ExecStop=/bin/sh -c 'while iptables -D INPUT -s 172.31.250.0/24 -m conntrack --ctstate NEW -j DROP 2>/dev/null; do :; done'
+
+[Install]
+WantedBy=multi-user.target
