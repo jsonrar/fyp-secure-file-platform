@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Usability: informal real use instead of the formal study (#115 closed) / 可用性：以非正式真实使用代替正式研究（#115 已关闭）
+
+- The team decided not to run the formal non-expert usability study, and #115 was closed as not planned. The supervisor, the four team members, the FIT3162 Teaching Team and other students have used the live site with their own accounts instead. The documents that still said "study pending" now say this: TODO, the proposal traceability table (WBS 5.4 stays In progress, with informal use as its only evidence), the study plan's status, TALKING_POINTS §10 and the reflection table. They also say what must not be claimed: a usability study, a SUS score, a completion rate or a user count nobody measured. `RESULTS.md` stays empty and the study kit stays in `docs/usability/`.
+- 团队决定不做正式的非专业用户可用性研究，#115 已按 not planned 关闭。取而代之的是：导师、团队 4 人、FIT3162 Teaching Team 和其他同学都用自己的账号在线上站点用过。仍写着“研究待进行”的文档现已改为这一说法：TODO、提案对照表（WBS 5.4 仍为 In progress，唯一依据是非正式使用）、研究计划的状态、TALKING_POINTS 第 10 条和反思表。这些文档也写明了不能声称的内容：做过可用性研究、SUS 分数、完成率，以及没人统计过的使用人数。`RESULTS.md` 保持为空，研究套件仍保留在 `docs/usability/`。
+
 ### Four-minute demo script and an honest usability statement / 4 分钟演示脚本与如实的可用性说明
 
 - The 12-minute presentation has four minutes of demo, and a live demo can lose the network or hang. `docs/presentation/DEMO_SCRIPT.md` gives a timed four-step script (upload with the real encryption steps, share with the key-fingerprint check, the recipient opens it, the live tamper), the lines to say, a day-before and 30-minutes-before checklist, what to do when each step fails, and how to record the backup video. The `demo-alice` / `demo-bob` accounts and the video are left to the user.

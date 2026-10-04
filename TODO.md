@@ -17,8 +17,8 @@ work is not marked complete.
 
 The proposal audit is recorded in
 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): 22 of 24 WBS packages are
-Done, one is In review and one is In progress (the non-expert usability study: the kit exists,
-no session has been run). Six of seven product acceptance criteria are Done; the remaining
+Done, one is In review and one is In progress (non-expert usability: the product has had informal
+real use, but the formal study was not run and #115 was closed as not planned). Six of seven product acceptance criteria are Done; the remaining
 progress-pipeline criterion is In progress. Milestone M3 is Done based on
 the supervisor-reviewed and signed MVP/UI checkpoint; the supervisor's 70–80% whole-project
 assessment describes that historical checkpoint rather than an exact current completion value.
@@ -175,11 +175,12 @@ not a release pass.
   1213/1205; the regression test reproduced the deadlock ~7/10 times before the fix and never after.
   The #140 run saw no 1213 or 1205 in 28,540 requests.
 
-- [ ] [#115 Run the non-expert usability study (WBS 5.4, NFR2)](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)
-  — the kit is ready in [`docs/usability/`](docs/usability/STUDY_PLAN.md): plan, consent sheet,
-  screener, ten task cards, SUS questionnaire, templates and a scoring script with pre-registered
-  thresholds. **No session has been run and there is no result.** It first needs the supervisor's
-  written answer on ethics review, an answer to the "lose both secrets" wording question, and a pilot.
+- [x] ~~[#115 Run the non-expert usability study (WBS 5.4, NFR2)](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)~~
+  — **closed as not planned on 2026-10-04.** The team chose not to run the formal study. Instead the
+  supervisor, the four team members, the FIT3162 Teaching Team and other students have used staging
+  with their own accounts. That is informal real use: there is no SUS score, no per-task completion
+  rate, and [`docs/usability/RESULTS.md`](docs/usability/RESULTS.md) stays empty. The kit stays in
+  [`docs/usability/`](docs/usability/STUDY_PLAN.md) in case a formal study is wanted later.
 
 ## P2 — formal security assurance
 
@@ -277,14 +278,14 @@ Must do:
 - [x] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails —
   `backend/scripts/demo_tamper.py` and [docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md)
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
-- [x] State NFR2 (usability) honestly unless #115 has results — TALKING_POINTS §10
+- [x] State NFR2 (usability) honestly — TALKING_POINTS §10 (informal real use, no formal study)
 
 Strongly recommended (Award):
 
 - [x] Fix the DB-pool bottleneck, with a before/after measurement at 100 users (locally:
   80 % failed → 0 %, [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163))
 - [ ] Re-run the #140 `steps` on staging after PR #163 deploys, for the staging before/after chart
-- [ ] #115 usability study with SUS (needs the supervisor's ethics answer and a pilot first)
+- [x] ~~#115 usability study with SUS~~ — not planned (#115 closed 2026-10-04); informal real use instead
 - [x] Confirm the recipient before sharing, with their key fingerprint (key verification) —
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160); threat model T-S5 now mitigated against a data writer
 - [x] Upload abuse limits and the shared-program warning (threat model F-09) —

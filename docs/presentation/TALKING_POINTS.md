@@ -211,25 +211,28 @@ first share on a new device trusts the first key it sees. The comparison is the 
 
 ---
 
-## 10. Usability (NFR2): not yet verified, said plainly
+## 10. Usability (NFR2): real use, but no formal study
 
-**Status:** the study kit is ready ([docs/usability/STUDY_PLAN.md](../usability/STUDY_PLAN.md), #115):
-consent sheet, ten task cards, SUS questionnaire and a scoring script whose pass criteria were fixed
-before any session (at least five participants; every task done unaided by at least 80 %; mean SUS at
-least 68). **No session has run**, so there is no result.
+**Status:** the supervisor, the four team members, the FIT3162 Teaching Team and other students have
+used the live site with their own accounts for the core flows (register, encrypt and upload, share,
+open, revoke). The formal study we planned ([docs/usability/STUDY_PLAN.md](../usability/STUDY_PLAN.md):
+task cards, observation sheets, SUS questionnaire, pass criteria fixed in advance) was **not run**;
+#115 was closed as not planned. So there is no SUS score and no per-task completion rate.
 
-**What to say:** "NFR2, usability for non-experts, is not verified yet. We wrote the study and its pass
-criteria down before running it, so the result cannot be bent to fit. What we did instead was a
+**What to say:** "NFR2 is supported by real use rather than a formal study. Our supervisor, the
+Teaching Team and other students have used the live site with their own accounts. We also did a
 first-time-user walkthrough, and it changed the product: two-step registration, labelled file actions,
-a getting-started checklist, and confirming who you share with."
+a getting-started checklist, and confirming who you share with. We had a formal study written, with
+pass criteria fixed in advance, but chose not to run it, so we do not quote a usability score."
 
-**Do not say:** "users find it easy", "usable", or any SUS number. The walkthrough was done by the team,
-not by participants, so it is not usability evidence.
+**Do not say:** "a usability study showed…", "users rated it…", or any SUS number or completion
+rate. Do not invent how many people used it: say who, not a count we did not measure.
 
-**Likely question:** why not run it?
-**Answer:** it involves people, so it waits for the supervisor's written answer on ethics review and a
-pilot session first; both are recorded on #115. If it runs before the presentation, replace this section
-with the script's verdict, whatever it is.
+**Likely question:** so how do you know non-experts can use it?
+**Answer:** people without a cryptography background (classmates, the Teaching Team) used it on the
+live site without help from us, and the walkthrough fixes came from where a first-time user got
+stuck. It is real but informal evidence; the planned study with pass criteria is in the repository if
+someone wants to run it.
 
 ## Quick answers for judges
 
@@ -243,5 +246,5 @@ with the script's verdict, whatever it is.
 | What if someone floods uploads? | Rate limits and email verification already; the quota gap was in the threat model and is now closed (PR #157) | 7 |
 | Could the server redirect a share to itself? | Not silently: the recipient's key fingerprint is computed in the browser, confirmed, and pinned with a warning on change | 9 |
 | Has anyone else checked it? | An OWASP ZAP scan of the live site: no High-risk issue; it caught missing headers on the static bundle, which we fixed. Dependency audits are clean ([scans](../security/scans-2026-10-04/README.md)) | REFLECTION 12 |
-| Is it easy to use? | Not verified yet (NFR2); the study and its pass criteria are written down, waiting on ethics approval; a team walkthrough already changed four things | 10 |
+| Is it easy to use? | Real use by the supervisor, the Teaching Team and other students, and a walkthrough that changed four things; no formal study, so no score (NFR2) | 10 |
 | Can you scan for viruses? | Not on the server under zero-knowledge; sharing scope, a download warning and endpoint antivirus instead | 8 |

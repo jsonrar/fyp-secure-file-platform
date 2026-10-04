@@ -55,14 +55,14 @@ Last updated: 2026-10-04
 | 3 | "We encrypt" has no moment the audience can see for themselves. | A tamper demonstration: change one byte of stored ciphertext and the recipient's download fails at once. The CI tamper drill already does this; it needs a demo script. | Must | Done: `backend/scripts/demo_tamper.py` and [TAMPER_DEMO.md](TAMPER_DEMO.md). Rehearsing it showed two things: a refused download only said "Download failed", because the error body arrived as bytes and was never read (fixed, the row now turns Modified); and rewriting the database digest as well is still caught by the audit-chain anchor, a second layer worth showing. |
 | 1 | Only about 4 of the 12 minutes are demo, and a live demo can lose the network, hang or be mis-clicked. | A 4-minute demo script; **demo accounts on staging must be created by the user** (the assistant does not register accounts on the live site); a recorded backup video. | Must | Script done: [DEMO_SCRIPT.md](DEMO_SCRIPT.md) (timed steps, lines to say, checklists, fallbacks). Still with the user: create `demo-alice` / `demo-bob` on staging and record the backup video. The picture guide was re-captured (PR #166). |
 | 4 | The slides have no diagrams yet. | Architecture diagram, encryption flow, requirements status table, limitations slide. Screenshots and numbers must come from the final version, so this is last. | Must | To do (9th) |
-| 5 | NFR2 (usability) is unverified: the study kit is ready but no session has run (#115). | Unless results exist by then, say plainly that it has not been verified. | Must | Done: the wording to use, and what not to say, is in TALKING_POINTS §10. Change it only if #115 produces real results. |
-| 7 | No real-user data. | 5–8 students who have never used it, scored with SUS. **The supervisor's written answer on ethics review and a pilot come first** (the prerequisites recorded on #115). Best run after items 2, 8, 10 and 11 so it tests the final version; with time, run once before and once after for a comparison. | Strongly recommended | The user is recruiting participants |
+| 5 | NFR2 (usability) has no formal result: the study was not run (#115, closed as not planned). | Say it is supported by informal real use, never that a study verified it. | Must | Done: the wording to use, and what not to say, is in TALKING_POINTS §10. |
+| 7 | No real-user data. | 5–8 students who have never used it, scored with SUS. **The supervisor's written answer on ethics review and a pilot come first** (the prerequisites recorded on #115). Best run after items 2, 8, 10 and 11 so it tests the final version; with time, run once before and once after for a comparison. | Strongly recommended | Not doing: #115 closed as not planned on 2026-10-04. The supervisor, the team, the Teaching Team and other students have used staging instead; that is informal use, with no SUS score. |
 
 ## Order (decided 2026-10-04)
 
 **2 → 8 → 10 → 11 → 6 → 3 → 12 → 1 → 4 → 5**
 
-- 2, 8, 10 and 11 first: they are the usability problems, and once they are done the usability study (item 7) can start.
+- 2, 8, 10 and 11 first: they are the usability problems. (The usability study, item 7, was later dropped; see its row.)
 - 6 needs an evening on staging for the re-run, so it follows the code changes.
 - 3 and 12 produce evidence and do not depend on the final UI.
 - 1, 4 and 5 last, because the demo script, screenshots and numbers must come from the final version.
