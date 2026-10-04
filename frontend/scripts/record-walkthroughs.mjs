@@ -19,12 +19,13 @@
  * explainer in present mode), each with a .jpg poster. Needs ffmpeg on PATH.
  */
 
-import { execFileSync } from 'node:child_process'
 import { mkdirSync, mkdtempSync, readFileSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 
 import { chromium } from '@playwright/test'
+
+import { OVERLAY, caption, click, encode, pause, point, signIn as signInAt, signOut, type, unlockIfAsked, unpoint } from './lib/video.mjs'
 
 const args = Object.fromEntries(
   process.argv.slice(2).reduce((pairs, value, i, all) => (value.startsWith('--') ? [...pairs, [value.slice(2), all[i + 1]]] : pairs), []),
@@ -41,100 +42,7 @@ const FILE_TEXT =
 
 mkdirSync(OUT, { recursive: true })
 const work = mkdtempSync(join(tmpdir(), 'sv-video-'))
-
-/** Injected into every page: a caption bar and an outline for the control about to be used. */
-const OVERLAY = `
-(() => {
-  const css = \`
-    #sv-cap { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647;
-      max-width: 1040px; width: calc(100% - 48px); display: flex; gap: 14px; align-items: center;
-      padding: 14px 20px; border-radius: 16px; background: rgba(15, 23, 42, 0.92); color: #fff;
-      font: 500 17px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.25);
-      transition: opacity .3s; }
-    #sv-cap[hidden] { display: none; }
-    #sv-cap b { flex: none; display: inline-flex; align-items: center; justify-content: center;
-      min-width: 34px; height: 34px; border-radius: 999px; background: rgb(0, 109, 199); font-size: 15px; }
-    #sv-cap small { display: block; font-weight: 400; color: #cbd5e1; font-size: 14px; margin-top: 2px; }
-    .sv-focus { outline: 3px solid rgb(0, 109, 199) !important; outline-offset: 4px !important;
-      border-radius: 8px; box-shadow: 0 0 0 9px rgba(0, 109, 199, .18) !important; transition: outline-color .2s; }
-  \`;
-  const install = () => {
-    if (document.getElementById('sv-cap')) return;
-    const style = document.createElement('style'); style.textContent = css; document.head.appendChild(style);
-    const cap = document.createElement('div'); cap.id = 'sv-cap'; cap.hidden = true; document.body.appendChild(cap);
-    const saved = sessionStorage.getItem('sv-cap');
-    if (saved) window.__svCaption(...JSON.parse(saved));
-  };
-  window.__svCaption = (step, text, sub) => {
-    sessionStorage.setItem('sv-cap', JSON.stringify([step, text, sub]));
-    const cap = document.getElementById('sv-cap'); if (!cap) return;
-    cap.hidden = !text;
-    cap.innerHTML = (step ? '<b>' + step + '</b>' : '') + '<div>' + (text || '') + (sub ? '<small>' + sub + '</small>' : '') + '</div>';
-  };
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', install); else install();
-})();
-`
-
-const pause = (page, ms) => page.waitForTimeout(ms)
-
-/** Show a caption and hold it long enough to be read: about 45 ms a character, 1.8–5 s. */
-async function caption(page, step, text, sub = '') {
-  await page.evaluate(([s, t, u]) => window.__svCaption?.(s, t, u), [step, text, sub])
-  await page.waitForTimeout(Math.min(5000, Math.max(1800, (text.length + sub.length) * 45)))
-}
-
-/** Outline a control, give the viewer a moment to see it, then act on it. */
-async function point(locator, ms = 900) {
-  // Centre it, so the caption bar along the bottom never covers what it is talking about.
-  await locator.evaluate((el) => {
-    el.scrollIntoView({ block: 'center', behavior: 'smooth' })
-    el.classList.add('sv-focus')
-  })
-  await locator.page().waitForTimeout(ms)
-}
-async function unpoint(locator) {
-  // The control is often gone by now (a click that navigates), so do not wait for it.
-  await locator.evaluate((el) => el.classList.remove('sv-focus'), null, { timeout: 500 }).catch(() => {})
-}
-async function click(locator, ms) {
-  await point(locator, ms)
-  await locator.click()
-  await unpoint(locator)
-}
-async function type(locator, text, { secret = false } = {}) {
-  await point(locator, 500)
-  await locator.click()
-  await locator.pressSequentially(text, { delay: secret ? 25 : 55 })
-  await unpoint(locator)
-}
-
-async function signIn(page, account, step) {
-  await page.goto(`${BASE}/login`)
-  await caption(page, step, `Sign in as ${account.username} with the account password`, 'The password only signs you in. It does not open your files.')
-  await type(page.getByRole('textbox', { name: 'Username' }), account.username)
-  await type(page.getByRole('textbox', { name: /^Password/ }), account.password, { secret: true })
-  await click(page.getByRole('button', { name: 'Login' }), 500)
-  await page.getByRole('heading', { name: 'Your Workspace' }).waitFor()
-  await pause(page, 900)
-}
-
-async function signOut(page) {
-  await page.getByRole('button', { name: /^Account menu for/ }).hover()
-  await pause(page, 500)
-  await page.getByRole('menuitem', { name: 'Log out' }).click()
-  await page.getByRole('heading', { name: 'Sign In' }).waitFor()
-}
-
-async function unlockIfAsked(page, account, step) {
-  const heading = page.getByRole('heading', { name: 'Unlock your files' })
-  if (!(await heading.isVisible().catch(() => false))) {
-    await heading.waitFor({ timeout: 4000 }).catch(() => {})
-  }
-  if (!(await heading.isVisible().catch(() => false))) return
-  await caption(page, step, 'Unlock your key with the encryption passphrase', 'It opens your private key here in the browser. It is never sent to the server.')
-  await type(page.getByRole('textbox', { name: /^Encryption passphrase/ }), account.passphrase, { secret: true })
-  await click(page.getByRole('button', { name: 'Unlock', exact: true }), 500)
-}
+const signIn = (page, account, step) => signInAt(page, BASE, account, step)
 
 async function recordFlow(name, flow) {
   if (ONLY && !ONLY.includes(name)) return
@@ -157,18 +65,8 @@ async function recordFlow(name, flow) {
     const raw = await video.path()
     const webm = join(work, `${name}.webm`)
     renameSync(raw, webm)
-    encode(webm, name)
+    encode(webm, OUT, name)
   }
-}
-
-/** H.264 MP4 that plays everywhere, with the first blank half-second trimmed, plus a poster. */
-function encode(webm, name) {
-  const mp4 = join(OUT, `${name}.mp4`)
-  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-ss', '0.6', '-i', webm, '-an', '-c:v', 'libx264',
-    '-preset', 'slow', '-crf', '30', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4])
-  execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-ss', '4', '-i', mp4, '-frames:v', '1',
-    '-q:v', '4', join(OUT, `${name}.jpg`)])
-  console.log(`wrote ${mp4}`)
 }
 
 // --- 1. Encrypt and upload -----------------------------------------------------------------
@@ -196,7 +94,10 @@ await recordFlow('encrypt-upload', async (page) => {
   await caption(page, 5, 'Start Encryption', 'Your browser encrypts the file with a new random key. Only the scrambled result is uploaded.')
   await click(page.getByRole('button', { name: 'Start Encryption' }), 1000)
   await page.getByRole('button', { name: 'Encryption Complete' }).waitFor({ timeout: 60_000 })
-  await pause(page, 1500)
+  const steps = page.getByTestId('encryption-progress')
+  await caption(page, 5, 'Every step is real and timed', 'Read, encrypt and self-check, wrap the key, upload. The bytes below are the file’s real first bytes and what the server received.')
+  await point(steps, 4500)
+  await unpoint(steps)
 
   await caption(page, 6, 'Your file is now stored encrypted')
   await click(page.getByRole('button', { name: 'View Encrypted Files' }))
@@ -234,8 +135,14 @@ await recordFlow('share-open', async (page) => {
   await caption(page, 4, `Enter the other person’s username: ${alex.username}`, 'They need a SecureView account. There is no public link that could leak.')
   await type(recipientField, alex.username)
   const dialog = page.locator('form').filter({ has: recipientField })
-  await caption(page, 5, 'Share', 'Your browser re-seals the file key for Alex’s public key. The file itself is not copied.')
   await click(dialog.getByRole('button', { name: 'Share', exact: true }), 900)
+  const fingerprint = page.getByTestId('recipient-fingerprint')
+  await fingerprint.waitFor()
+  await caption(page, 5, `Check who it goes to: ${alex.username}’s key fingerprint`, 'For a sensitive file, Alex reads out the fingerprint from Settings. If it matches, only Alex can open it.')
+  await point(fingerprint, 2600)
+  await unpoint(fingerprint)
+  await caption(page, 5, 'Confirm and share', 'Your browser re-seals the file key for that exact key. The file itself is not copied.')
+  await click(page.getByRole('button', { name: 'Confirm and share', exact: true }), 900)
   await page.getByText(`Shared with ${alex.username}`).first().waitFor({ timeout: 60_000 })
   await caption(page, 6, `Shared with ${alex.username}`, 'You can revoke this at any time from the same dialog.')
   await pause(page, 2600)

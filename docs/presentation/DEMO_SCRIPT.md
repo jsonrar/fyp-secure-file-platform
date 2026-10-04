@@ -68,7 +68,19 @@ Straight after the talk, run `restore` (TAMPER_DEMO.md) and click the file's sta
 
 ## The backup video
 
-Record the whole script once on staging with the same accounts, using the screen recorder of the
-presentation laptop (on macOS, QuickTime → New Screen Recording), full screen at the same zoom. Keep
-it about four minutes, with no sound, so the presenter can talk over it. Check it plays from the
-laptop without a network. Do not commit it to the repository; it shows the real staging site.
+Recorded: [`media/demo-backup.mp4`](media/demo-backup.mp4) (2 min 23 s, no sound, 1280×720). It follows
+this script step by step, labels whose screen is showing (Alice's or Bob's browser), and step 4 really
+changes the stored file: the card in the video shows the actual `demo_tamper.py flip` command and its
+output, and the file is restored afterwards. Copy it to the presentation laptop and check it plays
+without a network. If the presenter talks over it, pause it where needed; it is shorter than the slot
+on purpose.
+
+It was made on a disposable local stack running the same code as staging (the recording signs in
+automatically, which is only done on a local stack), so the screens are identical. To re-record after
+a UI change, from `frontend/` with a local stack and two local `demo-*` accounts:
+
+```bash
+node scripts/record-demo.mjs --base http://localhost:5173 --accounts accounts.json --tamper tamper.sh --out ../docs/presentation/media
+```
+
+`tamper.sh` runs `backend/scripts/demo_tamper.py "$@"` with the local stack's environment loaded.

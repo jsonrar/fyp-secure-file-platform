@@ -272,7 +272,8 @@ Must do:
 
 - [x] Demo script for a 4-minute live demo — [docs/presentation/DEMO_SCRIPT.md](docs/presentation/DEMO_SCRIPT.md)
 - [x] Demo accounts `demo-alice` / `demo-bob` created on staging (2026-10-04)
-- [ ] Pre-share `quarterly-results.txt` from alice to bob, and record the backup video
+- [x] Record the backup video — [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)
+- [ ] On staging, upload `quarterly-results.txt` as `demo-alice` and share it with `demo-bob` (the user; needed for the live tamper step)
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
 - [x] Re-capture the homepage picture guide: its screenshots still showed the old six-icon row

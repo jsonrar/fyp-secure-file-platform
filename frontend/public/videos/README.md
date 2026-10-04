@@ -5,11 +5,14 @@ Recorded from the real product, not mocked, by `frontend/scripts/record-walkthro
 | File | What it shows |
 | --- | --- |
 | `how-it-works.mp4` | The animated explainer (`/how-it-works?present`), seven scenes at eight seconds each |
-| `encrypt-upload.mp4` | Sign in, choose a file, pick the cipher, Start Encryption, the encrypted preview |
-| `share-open.mp4` | Share with another account, that account decrypts it with its own passphrase, then files it in a folder of its own |
+| `encrypt-upload.mp4` | Sign in, choose a file, pick the cipher, Start Encryption, the timed encryption steps and byte comparison, the encrypted preview |
+| `share-open.mp4` | Share with another account after checking their key fingerprint, that account decrypts it with its own passphrase, then files it in a folder of its own |
 
 Each has a `.jpg` poster. The accounts are made up (`sam`, `alex`, `@example.com`) on a disposable
 local stack; passwords and passphrases are masked by the page and were throwaway values.
+`encrypt-upload` and `share-open` were re-recorded on 2026-10-04 after the upload steps and the
+share confirmation changed. The caption, outline and sign-in helpers are shared with the
+presentation's backup video in `frontend/scripts/lib/video.mjs`.
 
 To re-record after a UI change, start a local stack (API, MySQL, `npx vite`), seed two accounts with
 `backend/scripts/seed_test_account.py`, put their credentials in a JSON file
