@@ -12,7 +12,7 @@ concurrency:
 jobs:
   backend:
     name: backend
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, fyp-ci]
     defaults:
       run:
         working-directory: backend
@@ -87,7 +87,7 @@ jobs:
 
   frontend:
     name: frontend
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, fyp-ci]
     defaults:
       run:
         working-directory: frontend
@@ -138,7 +138,7 @@ jobs:
 
   mysql-gate:
     name: mysql-gate
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, fyp-ci]
     defaults:
       run:
         working-directory: backend
@@ -148,7 +148,7 @@ jobs:
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'ci-disposable-root-password' }}
         ports:
-          - 3306:3306
+          - 3306/tcp
         options: >-
           --health-cmd="mysqladmin ping --silent"
           --health-interval=5s
@@ -203,9 +203,10 @@ jobs:
       - name: Wait for MySQL and extract its CA certificate
         env:
           ROOT_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          MYSQL_PORT: ${{ job.services.mysql.ports[3306] }}
         run: |
           for _ in $(seq 1 30); do
-            mysqladmin ping --host=127.0.0.1 --port=3306 --user=root --password="$ROOT_PASSWORD" --silent && break
+            mysqladmin ping --host=127.0.0.1 --port="$MYSQL_PORT" --user=root --password="$ROOT_PASSWORD" --silent && break
             sleep 2
           done
           container_id="$(docker ps --filter "ancestor=mysql:8.4" --format '{{.ID}}' | head -n1)"
@@ -214,14 +215,15 @@ jobs:
       - name: Create the disposable release-gate database
         env:
           ROOT_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          MYSQL_PORT: ${{ job.services.mysql.ports[3306] }}
         run: |
-          mysql --host=127.0.0.1 --port=3306 --user=root --password="$ROOT_PASSWORD" \
+          mysql --host=127.0.0.1 --port="$MYSQL_PORT" --user=root --password="$ROOT_PASSWORD" \
             --execute "CREATE DATABASE IF NOT EXISTS fyp_secure_file_platform_test CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;"
 
       - name: Run every migration 0001 through head, then alembic current/check
         env:
           DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
           DB_USER: root
           DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
           DB_NAME: fyp_secure_file_platform_test
@@ -235,7 +237,7 @@ jobs:
       - name: Verify the connection actually negotiated TLS
         env:
           DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
           DB_USER: root
           DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
           DB_NAME: fyp_secure_file_platform_test
@@ -245,7 +247,7 @@ jobs:
       - name: Verify runtime and backup account grant boundaries
         env:
           DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
           DB_NAME: fyp_secure_file_platform_test
           ADMIN_DB_USER: root
           ADMIN_DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
@@ -264,7 +266,7 @@ jobs:
       # so the coverage floor below measures everything the backend is tested by.
       - name: Run the full backend suite against MySQL, with coverage
         env:
-          AUTH_TEST_DATABASE_URL: mysql+pymysql://root:${{ steps.creds.outputs.root_password }}@127.0.0.1:3306/fyp_secure_file_platform_test
+          AUTH_TEST_DATABASE_URL: mysql+pymysql://root:${{ steps.creds.outputs.root_password }}@127.0.0.1:${{ job.services.mysql.ports[3306] }}/fyp_secure_file_platform_test
           SECRET_KEY: ci-mysql-gate-test-secret-key-at-least-32-chars
           APP_ENV: test
         run: >-
@@ -292,7 +294,7 @@ jobs:
       - name: Non-empty refusal, resume, lock races, checksummed restore, rollback, partial DDL
         env:
           DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
           ADMIN_DB_USER: root
           ADMIN_DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
           SECRET_KEY: ci-mysql-gate-test-secret-key-at-least-32-chars
@@ -306,7 +308,7 @@ jobs:
       - name: Encrypted backup, clean restore, and refusal drill
         env:
           DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
           ADMIN_DB_USER: root
           ADMIN_DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
           SECRET_KEY: ci-mysql-gate-test-secret-key-at-least-32-chars
@@ -328,14 +330,14 @@ jobs:
   # run the same thing locally; see docs/E2E_TESTING.md.
   e2e-live:
     name: e2e-live
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, fyp-ci]
     services:
       mysql:
         image: mysql:8.4
         env:
           MYSQL_ROOT_PASSWORD: ${{ secrets.CI_MYSQL_ROOT_PASSWORD || 'ci-disposable-root-password' }}
         ports:
-          - 3306:3306
+          - 3306/tcp
         options: >-
           --health-cmd="mysqladmin ping --silent"
           --health-interval=5s
@@ -404,6 +406,7 @@ jobs:
         working-directory: backend
         env:
           ROOT_PASSWORD: ${{ steps.creds.outputs.root_password }}
+          MYSQL_PORT: ${{ job.services.mysql.ports[3306] }}
         run: |
           .venv/bin/python - <<'PY'
           import os, time
@@ -411,7 +414,8 @@ jobs:
           for _ in range(30):
               try:
                   connection = pymysql.connect(
-                      host="127.0.0.1", port=3306, user="root", password=os.environ["ROOT_PASSWORD"]
+                      host="127.0.0.1", port=int(os.environ["MYSQL_PORT"]), user="root",
+                      password=os.environ["ROOT_PASSWORD"]
                   )
                   break
               except pymysql.err.OperationalError:
@@ -430,7 +434,7 @@ jobs:
       - name: Run every live-backend suite, un-skipped, with coverage, then the browser
         env:
           DB_HOST: 127.0.0.1
-          DB_PORT: "3306"
+          DB_PORT: ${{ job.services.mysql.ports[3306] }}
           DB_USER: root
           DB_PASSWORD: ${{ steps.creds.outputs.root_password }}
           DB_NAME: fyp_e2e_test
@@ -475,7 +479,7 @@ jobs:
   # mount. The report proves the visible integrity states and the SHA-256/AEAD trust boundary.
   tamper-drill:
     name: tamper-drill
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, fyp-ci]
     steps:
       - uses: actions/checkout@v4
 
@@ -509,7 +513,7 @@ jobs:
     name: promote
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [backend, frontend, mysql-gate, e2e-live, tamper-drill]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, Linux, X64, fyp-ci]
     permissions:
       contents: write
     concurrency:
