@@ -271,7 +271,8 @@ Must do:
 - [ ] Demo script for a 4-minute live demo, demo accounts created on staging, and a recorded backup video
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
-- [ ] Re-capture the homepage picture guide: its screenshots still show the old six-icon row
+- [x] Re-capture the homepage picture guide: its screenshots still showed the old six-icon row
+  (refreshed 2026-10-04; step 5 now shows the recipient confirmation with the key fingerprint)
 - [x] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails —
   `backend/scripts/demo_tamper.py` and [docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md)
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)

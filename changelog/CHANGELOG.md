@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Language switch in the header bar, and a refreshed picture guide / 语言切换移到页头栏，首页图文指南截图更新
+
+- The language switch was inside the gear menu (signed out) or the avatar menu (signed in), so a visitor who cannot read the current language had to guess which icon hides it. It now sits in the header bar itself, to the left of the gear (signed out) or of Dashboard (signed in), and first in the phone menu; the gear and avatar menus keep only the theme. Checked at 1400, 1100 and 1024 px (the narrowest desktop layout, in Chinese) with no overflow, and at 375 px in the phone menu. The language-switch browser spec no longer opens the gear.
+- 语言切换原来藏在齿轮菜单（未登录）或头像菜单（已登录）里，看不懂当前语言的访客只能猜哪个图标里有它。现在它直接放在页头栏上：未登录时在齿轮左边，登录后在“仪表盘”左边；手机菜单里排在第一位；齿轮和头像菜单只保留主题。已在 1400、1100 和 1024 px（最窄的桌面布局，中文界面）下检查，没有溢出；375 px 手机菜单也已检查。语言切换浏览器测试不再需要先打开齿轮。
+- The homepage picture guide still showed the old six-icon file row. All twelve screenshots are re-captured from the current build: the row with Share labelled, and step 5 now stops at the recipient confirmation showing the key fingerprint. `capture-workflow.cjs` had drifted from the UI and is fixed: new card selectors, fixtures for folders and the tab totals, a recipient-lookup fixture, and an example account key sealed with the app's own `sealAccountKey` (through `jiti`) so the Unlock dialog really opens it. Alt text for step 5 updated in English and Chinese.
+- 首页图文指南的截图还是旧的六个图标那一行。现在 12 张截图全部按当前版本重新截取：文件行里“分享”带文字，第 5 步改为停在显示密钥指纹的接收方确认。`capture-workflow.cjs` 已经跟不上界面，现已修好：更新卡片选择器，补上文件夹和标签页计数的模拟数据、接收方查找的模拟数据，并用应用自己的 `sealAccountKey`（通过 `jiti` 加载）封装示例账户密钥，让“解锁”对话框真的能打开它。第 5 步的替代文字中英文都已更新。
+
 ### A scripted live tamper demonstration / 可脚本化的现场篡改演示
 
 - "We encrypt and check every file" had no moment the audience could watch. `backend/scripts/demo_tamper.py` changes one byte of a demo account's stored ciphertext on the server (`flip`), or changes it and rewrites the recorded digest and size to match as an attacker with database access would (`forge`), and puts everything back (`restore`); `list` prints the account's files and ids. It only touches accounts named `demo-*`, checks the named owner really owns the file, keeps the original bytes and row values (mode 0600) until restore, and refuses a second tamper. `flip` is refused by the server's SHA-256 check before streaming; `forge` is refused by the upload digest recorded in the hash-chained audit log. Steps, lines to say and cautions are in `docs/presentation/TAMPER_DEMO.md` (English and 简体中文).

@@ -1,7 +1,6 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { LifeBuoy, LogOut, Monitor, Moon, Settings, Sun, UserRound } from 'lucide-vue-next'
-import LanguageSwitcher from '@/components/LanguageSwitcher.vue'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import { useAuthStore } from '@/stores/auth_store'
@@ -184,7 +183,6 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="border-t border-border px-4 py-2">
-        <LanguageSwitcher class="mb-2" />
         <p class="mb-1.5 text-[0.7rem] font-semibold uppercase tracking-[0.14em] text-muted-foreground">
           {{ t('theme.menuHeading', { current: t(currentTheme.label) }) }}
         </p>

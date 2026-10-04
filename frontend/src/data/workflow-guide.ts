@@ -52,7 +52,7 @@ export const workflowSlides = [
     action: 'Enter their exact SecureView username or email address and click Share. Check the name and key fingerprint, then click Confirm and share.',
     result: 'Their name appears under Currently shared with.',
     tip: 'They need their own SecureView account. Sharing uses their public key, never either person’s passphrase.',
-    alt: 'The actual Share this file window with the example username alex entered and Share marked 5.',
+    alt: 'The actual Share this file window asking to share with the example account alex, showing their key fingerprint, with Confirm and share marked 5.',
     mobile: '04-recipient-mobile',
   },
   {

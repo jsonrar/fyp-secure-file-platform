@@ -1455,7 +1455,7 @@
   "The",
   "The 24-byte nonce is split: the first 16 bytes are used to derive a key, the last 8 bytes become part of an ordinary ChaCha20 nonce.",
   "The account key is locked; a passphrase is required first",
-  "The actual Share this file window with the example username alex entered and Share marked 5.",
+  "The actual Share this file window asking to share with the example account alex, showing their key fingerprint, with Confirm and share marked 5.",
   "The actual Unlock your files dialog, with a masked example passphrase and Unlock marked 4.",
   "The browser makes a brand-new random key for this one file and encrypts it with AES-256-GCM (or another authenticated cipher she chose). The readable file never leaves her computer.",
   "The Caesar cipher shifts each letter by a fixed number of positions in the alphabet. Julius Caesar reportedly used a shift of 3 to protect military messages.\n\n**Why it fails today:**\n• Only 25 possible keys — exhaustive search takes milliseconds\n• **Frequency analysis** — in English, 'E' is the most common letter. If 'H' appears most often in ciphertext with shift 3, the key is likely 3.\n• Structure is preserved — word lengths and punctuation remain visible\n\n**Learning value:** Despite being insecure, the Caesar cipher teaches:\n• The concept of a key parameter\n• Substitution as an encryption technique\n• Why modern algorithms need large key spaces and diffusion\n\nTry breaking and creating Caesar ciphers in the Playground section of this page.",

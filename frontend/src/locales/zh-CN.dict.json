@@ -1295,7 +1295,7 @@
   "The Status badge in My Files says whether the stored ciphertext is still the file you uploaded. Verified means it is active and no check has found it changed. Modified means a download failed its authentication check or the daily scan found the bytes no longer match their SHA-256 fingerprint; it will not decrypt, and an administrator can restore it from the encrypted backup.": "我的文件中的状态徽章表示存储的密文是否仍然是你上传的文件。已验证表示它处于活动状态，并且没有检查发现它已更改。已修改表示下载失败其身份验证检查或每日扫描发现字节不再匹配其SHA-256指纹；它将无法解密，管理员可以从加密备份中恢复它。",
   "The account key data is not valid.": "账户密钥数据无效。",
   "The account key is locked; a passphrase is required first": "账户密钥已锁定；首先需要口令。",
-  "The actual Share this file window with the example username alex entered and Share marked 5.": "实际的分享此文件窗口，带有示例用户名alex输入和分享标记为5。",
+  "The actual Share this file window asking to share with the example account alex, showing their key fingerprint, with Confirm and share marked 5.": "实际的“分享此文件”窗口：询问是否分享给示例账号 alex，并显示对方的密钥指纹，“确认分享”按钮标记为 5。",
   "The actual Unlock your files dialog, with a masked example passphrase and Unlock marked 4.": "实际的解锁你的文件对话框，带有示例口令掩码和解锁标记为4。",
   "The browser makes a brand-new random key for this one file and encrypts it with AES-256-GCM (or another authenticated cipher she chose). The readable file never leaves her computer.": "浏览器为这个文件创建了一个全新的随机密钥，并使用AES-256-GCM（或她选择的另一个认证加密算法）对其进行加密。可读的文件永远不会离开她的电脑。",
   "The choice is recorded with the file and is covered by its authentication tag, so each file is always read back under the algorithm it was written with. Files already uploaded are unaffected.": "选择被记录在文件中，并受其认证标签的保护，因此每个文件总是以它被写入的算法读取。已上传的文件不受影响。",

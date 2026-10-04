@@ -16,7 +16,11 @@ To refresh them after a UI change:
 
 The script serves the local build and intercepts API calls in a disposable browser
 context. Upload encryption runs in the browser with ephemeral example public keys,
-but backend results and the recipient list are fixtures. This captures UI states;
+but backend results and the recipient list are fixtures. The example account key is
+sealed with the app's own `sealAccountKey` (loaded through `jiti`), so the Unlock dialog
+really opens it, and the Share step stops at the recipient confirmation with its key
+fingerprint. Last refreshed 2026-10-04, after the file-row and share-confirmation changes.
+This captures UI states;
 it is not an end-to-end backend sharing or decryption test.
 
 The home slideshow is in `src/components/securfile/workflow-section.vue`; text and
