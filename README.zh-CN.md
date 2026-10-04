@@ -398,7 +398,7 @@ npm run dev
 如果改动只包含 Markdown 文件，或只包含 `docs/` 下的文件（`docs/crypto/` 除外，测试会读取其中的测试向量），
 五个测试 Job 会被跳过：私有仓库的免费 Actions 额度每月只有 2,000 分钟，而完整跑一次约耗 13 分钟。
 自 2026-10-04 起，所有 Job 都在 VPS 上项目自建、并与线上环境隔离的 runner 上运行
-（[deployment/ci-runner/](deployment/ci-runner/README.zh-CN.md)）；任务逐个运行，一次完整 CI 约 15–20 分钟。`backend` 与
+（[deployment/ci-runner/](deployment/ci-runner/README.zh-CN.md)）；三台 runner 并行接任务，一次完整 CI 仍约 5 分钟。`backend` 与
 `frontend` 按约定是必需检查：仓库为免费套餐下的私有仓库，无法使用 GitHub 分支保护，所以 CI 变红时除了评审人
 之外没有任何机制阻止合并。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
 

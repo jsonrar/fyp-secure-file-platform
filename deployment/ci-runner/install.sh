@@ -20,27 +20,32 @@ systemctl daemon-reload
 systemctl enable --now mcs21-ci-runner-firewall.service
 
 cd "$DEST"
-docker compose build --pull runner
-# dind first: it creates the volumes and owns the network namespace the runner joins.
-docker compose up -d dind
+PAIRS="1 2 3"
+docker compose build --pull runner1
+# dind first: it creates the volumes and owns the network namespace its runner joins.
+docker compose up -d dind1 dind2 dind3
 
-# Volumes start root-owned; the runner works as uid 1001.
-docker compose run --rm --user 0:0 --entrypoint chown runner -R 1001:1001 /home/runner/state /home/runner/_work
-
-registered="$(docker compose run --rm --user 0:0 --entrypoint sh runner -c 'test -f /home/runner/state/.runner && echo yes || echo no' | tr -d '\r')"
+registered=yes
+for i in $PAIRS; do
+  # Volumes start root-owned; the runner works as uid 1001.
+  docker compose run --rm --user 0:0 --entrypoint chown "runner$i" -R 1001:1001 /home/runner/state /home/runner/_work
+  r="$(docker compose run --rm --user 0:0 --entrypoint sh "runner$i" -c 'test -f /home/runner/state/.runner && echo yes || echo no' | tr -d '\r')"
+  [ "$r" = yes ] || registered=no
+done
 if [ "$registered" = no ] && [ -z "${RUNNER_TOKEN:-}" ]; then
+  # One token registers all three; it is valid for an hour.
   read -r -s -p "Registration token: " RUNNER_TOKEN; echo
 fi
-RUNNER_TOKEN="${RUNNER_TOKEN:-}" docker compose up -d --force-recreate runner
+RUNNER_TOKEN="${RUNNER_TOKEN:-}" docker compose up -d --force-recreate runner1 runner2 runner3
 
-echo "== isolation checks"
-if docker compose exec -T runner curl -fsS -o /dev/null --max-time 10 https://api.github.com; then
+echo "== isolation checks (runner1; the pairs are identical)"
+if docker compose exec -T runner1 curl -fsS -o /dev/null --max-time 10 https://api.github.com; then
   echo "ok: the runner reaches GitHub"
 else
   echo "FAIL: the runner cannot reach GitHub" >&2
 fi
 for target in 172.17.0.1:8112 172.31.250.1:8288 127.0.0.1:3306; do
-  if docker compose exec -T runner bash -c "timeout 5 bash -c '</dev/tcp/${target%:*}/${target#*:}'" 2>/dev/null; then
+  if docker compose exec -T runner1 bash -c "timeout 5 bash -c '</dev/tcp/${target%:*}/${target#*:}'" 2>/dev/null; then
     echo "FAIL: the runner can open ${target}" >&2
   else
     echo "ok: ${target} is unreachable from the runner"
@@ -49,6 +54,6 @@ done
 
 sleep 10
 docker compose ps
-docker compose logs --tail 15 runner
+docker compose logs --tail 5 runner1 runner2 runner3
 echo
-echo "Check: GitHub -> Settings -> Actions -> Runners should list mcs21-vps as Idle."
+echo "Check: GitHub -> Settings -> Actions -> Runners should list mcs21-vps-1, -2 and -3 as Idle."

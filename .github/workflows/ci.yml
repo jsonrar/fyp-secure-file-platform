@@ -12,8 +12,8 @@ concurrency:
 # Every job runs on the project's own runner on the VPS (deployment/ci-runner/), not on
 # GitHub-hosted machines: the free allowance for a private repository is 2,000 minutes a month
 # and ran out on 2026-10-04. The runner is isolated from production by its own Docker daemon,
-# network and firewall rule. It takes one job at a time, so a full run is slower than on
-# GitHub's parallel machines. If it is down, jobs wait in the queue; to fall back, change
+# network and firewall rule. Three runners take three jobs at once, so a run takes about as
+# long as on GitHub's parallel machines. If they are down, jobs wait in the queue; to fall back, change
 # `[self-hosted, mcs21-ci]` back to `ubuntu-latest`.
 
 jobs:
