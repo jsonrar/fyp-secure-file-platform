@@ -471,7 +471,10 @@ Frontend: <http://localhost:5173>
 
 ## Continuous Integration
 
-`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with five jobs.
+`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with five test jobs
+after a small `changes` job. A change made only of Markdown files, or only of files under `docs/`
+(except `docs/crypto/`, whose test vectors the suites read), skips the five test jobs: the
+repository's free Actions allowance is 2,000 minutes a month, and a full run costs about 13.
 `backend` and `frontend` are required checks by convention: GitHub branch protection is not
 available while the repository is private on the free plan, so nothing stops a merge on red CI
 except the reviewer. Run the same commands locally before pushing so a failure never arrives

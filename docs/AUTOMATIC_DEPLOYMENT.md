@@ -60,6 +60,9 @@ private on the free plan, so the gate is built from a branch instead.
   diverged makes the job fail rather than force anything.
 - The timer fetches `main` and `deploy`, and deploys the `deploy` commit. The release command
   still requires that commit to be reachable from `main`, which it always is.
+- A documentation-only commit (see `changes` in `ci.yml`) skips the test jobs, so `promote` is
+  skipped too and `deploy` stays where it was. Nothing served changed, and the next code commit
+  that passes moves `deploy` past it.
 - A commit with red CI is simply never promoted, and the next green commit contains it. The
   price is latency: a merge now reaches staging after CI finishes (about five minutes) plus up to
   two more for the timer, not after two minutes.

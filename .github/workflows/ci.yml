@@ -10,8 +10,60 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
+  # Decides whether this change can affect anything the tests check. A change made only of
+  # Markdown files, or only of files under docs/ (except docs/crypto/, whose test vectors the
+  # frontend and loadtest suites read), cannot, so the five test jobs are skipped for it and
+  # the run passes in about a minute instead of thirteen billed minutes. The free Actions
+  # allowance for a private repository is 2,000 minutes a month, and documentation PRs were
+  # using a large share of it. Anything uncertain (a range that cannot be diffed, a new
+  # branch) counts as code, so the full suite runs.
+  changes:
+    name: changes
+    runs-on: ubuntu-latest
+    outputs:
+      code: ${{ steps.diff.outputs.code }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Is this change documentation only?
+        id: diff
+        env:
+          EVENT: ${{ github.event_name }}
+          BEFORE: ${{ github.event.before }}
+        run: |
+          set -uo pipefail
+          # A pull_request run checks out the merge commit, whose first parent is the base.
+          if [ "$EVENT" = pull_request ]; then
+            from="HEAD^1"
+          elif [ -n "$BEFORE" ] && [ "$BEFORE" != "0000000000000000000000000000000000000000" ]; then
+            from="$BEFORE"
+          else
+            echo "No earlier commit to compare with; running every job."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          if ! changed="$(git diff --name-only "$from" HEAD)"; then
+            echo "Could not diff ${from}..HEAD; running every job."
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          code="$(printf '%s\n' "$changed" | grep -v '^$' | grep -Ev '\.md$' | grep -Ev '^docs/' ; \
+                  printf '%s\n' "$changed" | grep -E '^docs/crypto/')"
+          if [ -z "$changed" ] || [ -n "$code" ]; then
+            echo "code=true" >> "$GITHUB_OUTPUT"
+            echo "Code or test inputs changed; running every job."
+          else
+            echo "code=false" >> "$GITHUB_OUTPUT"
+            echo "Documentation only; the test jobs are skipped:"
+            printf '  %s\n' $changed
+          fi
+
   backend:
     name: backend
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -87,6 +139,8 @@ jobs:
 
   frontend:
     name: frontend
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -138,6 +192,8 @@ jobs:
 
   mysql-gate:
     name: mysql-gate
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     defaults:
       run:
@@ -328,6 +384,8 @@ jobs:
   # run the same thing locally; see docs/E2E_TESTING.md.
   e2e-live:
     name: e2e-live
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     services:
       mysql:
@@ -475,6 +533,8 @@ jobs:
   # mount. The report proves the visible integrity states and the SHA-256/AEAD trust boundary.
   tamper-drill:
     name: tamper-drill
+    needs: changes
+    if: needs.changes.outputs.code == 'true'
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4

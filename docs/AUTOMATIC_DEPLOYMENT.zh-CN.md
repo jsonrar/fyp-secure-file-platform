@@ -53,6 +53,8 @@ MCS21 预发布 VPS 会在新提交合并到 GitHub `main` **并通过 CI** 后�
   作业会失败，而不是强制覆盖任何东西。
 - timer 同时拉取 `main` 与 `deploy`，并部署 `deploy` 的 commit。发布命令仍要求该 commit 可从 `main` 到达，
   而它总是满足这一点。
+- 只改文档的 commit（见 `ci.yml` 中的 `changes`）会跳过测试作业，`promote` 也随之跳过，`deploy` 保持不动。
+  对外提供的内容没有任何变化，下一个通过 CI 的代码 commit 会把 `deploy` 推进到它之后。
 - CI 为红的 commit 根本不会被推进，下一个绿色 commit 会包含它。代价是延迟：现在合并后要等 CI 结束（约五分钟）
   再加最多两分钟的 timer，而不是两分钟。
 - 在 CI 推进过任何 commit 之前，timer 会报告 `deploy` 不存在并且什么都不部署，同时不产生失败的 unit（失败即关闭）。

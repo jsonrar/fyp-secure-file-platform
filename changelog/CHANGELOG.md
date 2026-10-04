@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### CI: documentation-only changes skip the test jobs / CI：只改文档时跳过测试任务
+
+- The repository's free GitHub Actions allowance (2,000 minutes a month for a private repository) ran out on 2026-10-04 after 145 runs in four days, at about 13 billed minutes each, and the promote job for #166 could not start. A new `changes` job now looks at what a pull request or push changed: if every file is Markdown, or under `docs/` except `docs/crypto/` (whose test vectors the frontend and loadtest suites read), the five test jobs and `promote` are skipped and the run costs about a minute. Anything it cannot decide (no earlier commit, a failed diff) runs everything.
+- 仓库的 GitHub Actions 免费额度（私有仓库每月 2,000 分钟）在 2026-10-04 用完：四天里跑了 145 次，每次约 13 个计费分钟，#166 的 promote 作业因此没能启动。新增的 `changes` 作业会检查一次 PR 或推送改了什么：如果所有文件都是 Markdown，或都在 `docs/` 下（`docs/crypto/` 除外，前端和压测测试会读取其中的测试向量），就跳过五个测试作业和 `promote`，这次运行只花约一分钟。凡是判断不了的情况（没有可比较的上一个 commit、diff 失败）一律照常全跑。
+
 ### Four-minute demo script and an honest usability statement / 4 分钟演示脚本与如实的可用性说明
 
 - The 12-minute presentation has four minutes of demo, and a live demo can lose the network or hang. `docs/presentation/DEMO_SCRIPT.md` gives a timed four-step script (upload with the real encryption steps, share with the key-fingerprint check, the recipient opens it, the live tamper), the lines to say, a day-before and 30-minutes-before checklist, what to do when each step fails, and how to record the backup video. The `demo-alice` / `demo-bob` accounts and the video are left to the user.
