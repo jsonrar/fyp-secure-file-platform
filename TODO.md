@@ -272,7 +272,8 @@ Must do:
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
 - [ ] Re-capture the homepage picture guide: its screenshots still show the old six-icon row
-- [ ] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails
+- [x] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails —
+  `backend/scripts/demo_tamper.py` and [docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md)
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
 - [ ] State NFR2 (usability) honestly unless #115 has results
 

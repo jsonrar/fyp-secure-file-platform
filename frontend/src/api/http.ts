@@ -37,7 +37,7 @@ export function apiErrorMessage(error: unknown, fallback = 'Request failed'): st
     return t('errors.unreachable')
   }
 
-  const body = error.response.data as ApiFailureBody | undefined
+  const body = failureBody(error.response.data)
   // In Chinese, a known error code gets its translated message; the server's English is the
   // source of truth for English, so it is left exactly as sent.
   const code = body?.data?.error_code
@@ -71,8 +71,23 @@ function describeDetails(details: unknown[]): string {
 /** Read the stable backend error code without coupling callers to Axios response shapes. */
 export function apiErrorCode(error: unknown): string | undefined {
   if (!axios.isAxiosError(error)) return undefined
-  const body = error.response?.data as ApiFailureBody | undefined
-  return body?.data?.error_code
+  return failureBody(error.response?.data)?.data?.error_code
+}
+
+/**
+ * A request made with `responseType: 'arraybuffer'` (the downloads) gets its JSON error body as
+ * bytes too. Decoding it here is what lets a refused download say why, instead of "failed".
+ */
+function failureBody(data: unknown): ApiFailureBody | undefined {
+  if (data instanceof ArrayBuffer || ArrayBuffer.isView(data)) {
+    try {
+      const bytes = data instanceof ArrayBuffer ? new Uint8Array(data) : new Uint8Array(data.buffer, data.byteOffset, data.byteLength)
+      return JSON.parse(new TextDecoder().decode(bytes)) as ApiFailureBody
+    } catch {
+      return undefined
+    }
+  }
+  return data as ApiFailureBody | undefined
 }
 
 http.interceptors.request.use((config) => {

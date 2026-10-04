@@ -1510,6 +1510,7 @@
   "The Status badge in My Files says whether the stored ciphertext is still the file you uploaded. Verified means it is active and no check has found it changed. Modified means a download failed its authentication check or the daily scan found the bytes no longer match their SHA-256 fingerprint; it will not decrypt, and an administrator can restore it from the encrypted backup.",
   "The stored bytes no longer match the SHA-256 recorded when the file was uploaded.",
   "The stored copy no longer matched its fingerprint. Ask an administrator to restore it from the encrypted backup.",
+  "The stored copy of this file has been changed",
   "The stored object is {0} bytes {1} than the original, which these algorithms never produce. Run the integrity check.",
   "The tag and SHA-256 match, so it is exactly the uploaded file.",
   "The tag is computed from the message first, then used as the starting counter for encryption.",

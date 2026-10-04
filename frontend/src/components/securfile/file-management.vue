@@ -580,6 +580,13 @@ const handleDownload = async (id: string) => {
       errorMessage.value = error.message
       return
     }
+    if (apiErrorCode(error) === 'integrity_verification_failed') {
+      // The server's own check found the stored bytes changed and refused to send them.
+      const row = files.value.find((f) => f.id === id)
+      if (row) row.status = 'modified'
+      errorMessage.value = apiErrorMessage(error, 'The stored copy of this file has been changed')
+      return
+    }
     if (!markSharedFileUnavailable(id, error)) {
       errorMessage.value = apiErrorMessage(error, 'Download failed')
     }
