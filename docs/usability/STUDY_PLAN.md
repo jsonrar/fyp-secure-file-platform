@@ -38,12 +38,11 @@ comparative, not benchmarks. State these limits wherever the results are quoted.
 
 These are decisions the team has to make; they are not in this plan's gift.
 
-1. **Ethics and approval.** Running tasks with human participants may need approval or a
-   documented exemption. This plan does **not** assume the answer: ask the supervisor
-   (Dr. Asad Malik) in writing whether Monash requires ethics review for a usability evaluation
-   of the team's own software, and file the reply under `02 Project Documents/`. If review is
-   required, no session runs until it is granted. The consent sheet and screener assume the
-   answer is "exempt, with informed consent".
+1. ~~Ethics and approval.~~ **Dropped 2026-10-05 by the project owner.** The supervisor's remark about
+   ethics review was informal, not a Monash or unit requirement, and no document asks for it. The
+   study is run as a usability evaluation of the team's own software with informed consent and
+   anonymous data (the consent sheet says so). If a teacher or the unit later says otherwise, follow
+   that.
 2. ~~What the product tells a participant about losing everything.~~ **Settled 2026-10-01 by
    the project owner, and consistent with `docs/SECURITY_FLOWS.md`.** The registration copy is
    right: with the passphrase **or** the private key file the account can be reopened (the key
@@ -218,7 +217,7 @@ to look for, not findings. Each should be confirmed or dropped by the sessions.
 
 | When | What | Who |
 | --- | --- | --- |
-| Before anything | §2 decisions; written ethics answer | Testing Lead, Backend Lead (accounts), Crypto Lead (§2.2) |
+| Before anything | §2 decisions | Testing Lead, Backend Lead (accounts), Crypto Lead (§2.2) |
 | Week 0 | Pilot with a teammate; fix the kit | Testing Lead |
 | Week 1 | Recruit and screen; book sessions | Testing Lead |
 | Weeks 1–2 | Sessions (about 55 min each, at most three a day) | Facilitator + note-taker |

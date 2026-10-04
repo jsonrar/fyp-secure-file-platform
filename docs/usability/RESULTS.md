@@ -2,7 +2,7 @@
 
 **Status: not run.** No session has taken place, so this file holds no result, and no part of
 the project may quote one. The plan is [`STUDY_PLAN.md`](STUDY_PLAN.md); the §2 decisions
-(ethics answer, recovery wording, mailbox, pilot) come first.
+(recovery wording, mailbox, pilot) come first.
 
 Fill this in only from real sessions, using `backend/scripts/usability_analysis.py`:
 
@@ -10,7 +10,6 @@ Fill this in only from real sessions, using `backend/scripts/usability_analysis.
 | --- | --- |
 | Dates of sessions | |
 | Participants (n), platforms and browsers | |
-| Ethics / approval reference | |
 | Product commit under test | |
 
 ## Verdict against the pre-registered criteria

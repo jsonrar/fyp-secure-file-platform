@@ -1,11 +1,11 @@
 # Information and consent sheet / 信息与知情同意书
 
-Read this aloud, then hand it over. **Before use, the team must confirm with the supervisor
-whether ethics review or an exemption applies (plan §2.1) and adjust this sheet to the
-answer.** Do not run a session on an unconfirmed sheet.
+Read this aloud, then hand it over. No ethics review is being sought (plan §2.1: dropped
+2026-10-05), so this sheet is the whole consent step: read it in full and get a clear yes before
+starting.
 
-朗读后交给参与者。**使用前，团队必须与导师确认是否需要伦理审查或豁免（计划 §2.1），并按结论调整本表。**
-未经确认，不要开始任何场次。
+朗读后交给参与者。本研究不申请伦理审查（计划 §2.1：2026-10-05 已删除该条），所以这份同意书就是全部的同意环节：
+完整读给参与者听，得到明确的“同意”之后再开始。
 
 ## English
 

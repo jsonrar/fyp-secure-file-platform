@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Drop the ethics-review prerequisite from the usability study / 从可用性研究中删除伦理审查前提
+
+- The study plan made a written answer on ethics review a precondition for running any session. That came from an informal remark by the supervisor, not from Monash or the unit, and no document requires it, so the project owner dropped it on 2026-10-05. `STUDY_PLAN` §2.1 and its timeline row, the consent sheet's "confirm before use" warning and the empty "ethics reference" row in `RESULTS.md` are removed (both languages); REFLECTION item 7 no longer lists it. The consent sheet is now the whole consent step. If the unit says otherwise later, follow that.
+- 研究方案原来把“导师对伦理审查的书面答复”列为开始任何场次的前提。这个前提来自导师的一句随口的话，不是 Monash 或课程的要求，也没有任何文件规定，所以项目负责人在 2026-10-05 把它删除了。已删除（中英文）：`STUDY_PLAN` 第 2.1 条及时间表里对应的一行、同意书里“使用前先确认”的警告、`RESULTS.md` 里空着的“伦理编号”一行；REFLECTION 第 7 条也不再列出它。同意书现在就是全部的同意环节。如果课程之后另有说法，按其执行。
+
 ### Backup video for the live demo, and re-recorded Help videos / 现场演示备用视频，以及重录的帮助视频
 
 - The live demo had no backup if the network or staging failed. `frontend/scripts/record-demo.mjs` records it from the real product: Alice's and Bob's browsers are recorded side by side and cut together in the order of `DEMO_SCRIPT.md` (upload with the timed steps and byte comparison, share after checking the fingerprint, Bob decrypts, and the tamper step), with a label for whose screen it is. Step 4 really changes the stored file through `demo_tamper.py`, the card shows that command's real output, and the file is restored at the end. Result: `docs/presentation/media/demo-backup.mp4`, 2 min 23 s. It was recorded on a disposable local stack running the same code, because the recorder signs in automatically.
