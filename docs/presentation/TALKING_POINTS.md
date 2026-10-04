@@ -229,9 +229,9 @@ pass criteria fixed in advance, but chose not to run it, so we do not quote a us
 rate. Do not invent how many people used it: say who, not a count we did not measure.
 
 **Likely question:** so how do you know non-experts can use it?
-**Answer:** people without a cryptography background (classmates, the Teaching Team) used it on the
-live site without help from us, and the walkthrough fixes came from where a first-time user got
-stuck. It is real but informal evidence; the planned study with pass criteria is in the repository if
+**Answer:** people without a cryptography background (classmates, the Teaching Team) have used it on
+the live site with their own accounts, and our own first-time-user walkthrough changed four things
+where a new user would get stuck. It is real but informal evidence; the planned study with pass criteria is in the repository if
 someone wants to run it.
 
 ## Quick answers for judges
