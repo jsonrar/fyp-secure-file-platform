@@ -9,6 +9,13 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
+# Every job runs on the project's own runner on the VPS (deployment/ci-runner/), not on
+# GitHub-hosted machines: the free allowance for a private repository is 2,000 minutes a month
+# and ran out on 2026-10-04. The runner is isolated from production by its own Docker daemon,
+# network and firewall rule. It takes one job at a time, so a full run is slower than on
+# GitHub's parallel machines. If it is down, jobs wait in the queue; to fall back, change
+# `[self-hosted, mcs21-ci]` back to `ubuntu-latest`.
+
 jobs:
   # Decides whether this change can affect anything the tests check. A change made only of
   # Markdown files, or only of files under docs/ (except docs/crypto/, whose test vectors the
@@ -19,7 +26,7 @@ jobs:
   # branch) counts as code, so the full suite runs.
   changes:
     name: changes
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mcs21-ci]
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:
@@ -64,7 +71,7 @@ jobs:
     name: backend
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mcs21-ci]
     defaults:
       run:
         working-directory: backend
@@ -141,7 +148,7 @@ jobs:
     name: frontend
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mcs21-ci]
     defaults:
       run:
         working-directory: frontend
@@ -194,7 +201,7 @@ jobs:
     name: mysql-gate
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mcs21-ci]
     defaults:
       run:
         working-directory: backend
@@ -386,7 +393,7 @@ jobs:
     name: e2e-live
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mcs21-ci]
     services:
       mysql:
         image: mysql:8.4
@@ -535,7 +542,7 @@ jobs:
     name: tamper-drill
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mcs21-ci]
     steps:
       - uses: actions/checkout@v4
 
@@ -569,7 +576,7 @@ jobs:
     name: promote
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [backend, frontend, mysql-gate, e2e-live, tamper-drill]
-    runs-on: ubuntu-latest
+    runs-on: [self-hosted, mcs21-ci]
     permissions:
       contents: write
     concurrency:

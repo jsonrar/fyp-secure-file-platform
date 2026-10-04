@@ -1,0 +1,57 @@
+# A self-hosted GitHub Actions runner for this repository, isolated from production on the
+# same VPS. See README.md for why each line is here.
+name: mcs21-ci-runner
+
+services:
+  # The runner's own Docker daemon. Every container a CI job starts (MySQL services, the
+  # tamper-lab containers) lives inside it, so it never sees the host's containers, images,
+  # volumes or ports. Its CPU and memory limits cover everything it starts.
+  dind:
+    image: docker:29-dind
+    privileged: true
+    restart: unless-stopped
+    environment:
+      DOCKER_TLS_CERTDIR: ""
+    # Listens on loopback only: the runner shares this network namespace, nobody else does.
+    command: ["dockerd", "--host=tcp://127.0.0.1:2375"]
+    volumes:
+      - dind-data:/var/lib/docker
+      # Same path as in the runner, so a bind mount a job asks for exists for the daemon too.
+      - work:/home/runner/_work
+    networks: [ci]
+    cpus: 2.5
+    mem_limit: 5g
+    pids_limit: 4096
+
+  runner:
+    build: .
+    image: mcs21-ci-runner:local
+    restart: unless-stopped
+    depends_on: [dind]
+    # Shares dind's network namespace: a service a job publishes on 3306 is 127.0.0.1:3306 to
+    # the job, exactly as on a GitHub-hosted machine, and is invisible to the host's own 3306.
+    network_mode: "service:dind"
+    environment:
+      DOCKER_HOST: tcp://127.0.0.1:2375
+      RUNNER_REPO: jsonrar/fyp-secure-file-platform
+      RUNNER_NAME: mcs21-vps
+      RUNNER_LABELS: mcs21-ci
+      RUNNER_TOKEN: ${RUNNER_TOKEN:-}
+    volumes:
+      - work:/home/runner/_work
+      - runner-state:/home/runner/state
+    cpus: 3
+    mem_limit: 5g
+    pids_limit: 4096
+
+networks:
+  ci:
+    # Fixed so install.sh can stop this subnet from reaching any service on the host itself.
+    ipam:
+      config:
+        - subnet: 172.31.250.0/24
+
+volumes:
+  dind-data:
+  work:
+  runner-state:

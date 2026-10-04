@@ -60,6 +60,7 @@ private on the free plan, so the gate is built from a branch instead.
   diverged makes the job fail rather than force anything.
 - The timer fetches `main` and `deploy`, and deploys the `deploy` commit. The release command
   still requires that commit to be reachable from `main`, which it always is.
+- CI runs on the project's own runner on this VPS ([deployment/ci-runner/](../deployment/ci-runner/README.md)), isolated from production by its own Docker daemon, network and firewall rule. If the runner is down, nothing is promoted until it is back.
 - A documentation-only commit (see `changes` in `ci.yml`) skips the test jobs, so `promote` is
   skipped too and `deploy` stays where it was. Nothing served changed, and the next code commit
   that passes moves `deploy` past it.
