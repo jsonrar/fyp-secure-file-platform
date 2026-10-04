@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Backup video for the live demo, and re-recorded Help videos / 现场演示备用视频，以及重录的帮助视频
+
+- The live demo had no backup if the network or staging failed. `frontend/scripts/record-demo.mjs` records it from the real product: Alice's and Bob's browsers are recorded side by side and cut together in the order of `DEMO_SCRIPT.md` (upload with the timed steps and byte comparison, share after checking the fingerprint, Bob decrypts, and the tamper step), with a label for whose screen it is. Step 4 really changes the stored file through `demo_tamper.py`, the card shows that command's real output, and the file is restored at the end. Result: `docs/presentation/media/demo-backup.mp4`, 2 min 23 s. It was recorded on a disposable local stack running the same code, because the recorder signs in automatically.
+- 现场演示原来没有备份，断网或 staging 出问题就没办法。`frontend/scripts/record-demo.mjs` 从真实产品里录制：Alice 和 Bob 两个浏览器同时录，再按 `DEMO_SCRIPT.md` 的顺序剪在一起（上传并显示计时步骤和字节对比、核对指纹后分享、Bob 解密、篡改），并标明当前是谁的屏幕。第 4 步通过 `demo_tamper.py` 真的改动存储的文件，卡片里显示的是该命令的真实输出，录完自动还原。成品：`docs/presentation/media/demo-backup.mp4`，2 分 23 秒。因为录制脚本会自动登录，所以是在运行同样代码的本地一次性环境上录的。
+- The Help page's `encrypt-upload` and `share-open` videos still showed the old upload and the one-step share. They are re-recorded: the upload now shows the timed encryption steps and the byte comparison, and the share stops at the recipient's key fingerprint before "Confirm and share". The caption, outline and sign-in helpers moved to `frontend/scripts/lib/video.mjs`, shared by both recorders.
+- 帮助页的 `encrypt-upload` 和 `share-open` 视频还是旧的上传界面和一步分享。现已重录：上传会显示计时的加密步骤和字节对比，分享会先停在接收方的密钥指纹，再点“确认分享”。字幕、高亮框和登录这些辅助函数移到了 `frontend/scripts/lib/video.mjs`，两个录制脚本共用。
+
 ### Staging re-run of the 100-user step, the demo accounts and the post-fix ZAP scan / staging 重跑 100 用户压测、演示账号和修复后的 ZAP 复扫
 
 - Re-ran the #140 `steps` on staging after the pool fix (same parameters as 2026-10-03, with auto-deploy, CI runners and backups paused, the sshd tunnel rule reverted afterwards, test accounts deleted). At 100 concurrent users uploads went from 23 of 103 succeeded (78 % HTTP 500) to **102 of 102 succeeded**; 102 downloads were decrypted and SHA-256-matched with 0 failures; upload throughput rose from 0.19 to 0.86 per second. Latency is still bounded by the generator's home link, and four dropped connections in the first 5-user step were not investigated. Evidence in `docs/performance/pool-fix-2026-10-04/staging-rerun/`.

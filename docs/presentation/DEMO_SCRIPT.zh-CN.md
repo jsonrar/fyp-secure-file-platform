@@ -64,6 +64,16 @@ Verified。
 
 ## 备用视频
 
-用同样的账号在 staging 上把整个脚本完整录一遍，用演示电脑自带的录屏（macOS 上是 QuickTime →
-新建屏幕录制），全屏，缩放和现场一致。时长约 4 分钟，不录声音，方便演讲者边放边讲。确认在断网时也能
-从电脑本地播放。不要提交到仓库，因为里面是真实的 staging 站点。
+已录好：[`media/demo-backup.mp4`](media/demo-backup.mp4)（2 分 23 秒，无声音，1280×720）。它按本脚本逐步
+进行，并标明当前是谁的屏幕（Alice 或 Bob 的浏览器）；第 4 步真的改动了存储的文件：视频里的卡片显示的就是实际执行的
+`demo_tamper.py flip` 命令和它的输出，录完后文件已还原。把它拷到演示电脑上，确认断网也能播放。演讲者边放边讲时可以随时
+暂停；它故意比 4 分钟的时段短。
+
+它是在一个本地的一次性环境上录的，运行的代码和 staging 完全相同（录制脚本会自动登录，这只在本地环境上做），所以画面一样。
+界面改动后要重录，在 `frontend/` 下、本地环境跑着并有两个本地 `demo-*` 账号时执行：
+
+```bash
+node scripts/record-demo.mjs --base http://localhost:5173 --accounts accounts.json --tamper tamper.sh --out ../docs/presentation/media
+```
+
+`tamper.sh` 负责加载本地环境变量后执行 `backend/scripts/demo_tamper.py "$@"`。
