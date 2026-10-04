@@ -57,10 +57,26 @@ for up to 30 seconds. It was not shipped.
   now kills the connection at the commit that writes the file row; backend 633 passed on MySQL,
   85.28 % coverage.
 
+## Staging re-run (2026-10-04 evening)
+
+Same tool and parameters as the 2026-10-03 run (`steps --users 5,50,100,5 --duration 60 --size
+1MiB`), against staging through an SSH tunnel, with auto-deploy, CI runners, the account limits'
+effect and the backups out of the way. Raw data, server metrics and report:
+[`staging-rerun/`](staging-rerun/REPORT.md).
+
+| 100 concurrent users | Before (10-03) | After (10-04) |
+| --- | ---: | ---: |
+| Uploads succeeded | 23 / 103 (**78 % failed, HTTP 500**) | **102 / 102, 0 failed** |
+| Downloads decrypted and SHA-256-matched | 23 | 102, 0 integrity failures |
+| Upload throughput | 0.19 /s | 0.86 /s |
+
+The fix holds on the real server, not only on a laptop. Two caveats, stated plainly: the generator's
+home link still bounds every latency figure (a 100-user upload took ~61 s at p50), and the first
+5-user step had 4 dropped connections (`RemoteProtocolError`), as the 50-user step had last time,
+which the server log does not show; they are most likely the link or the tunnel and were not
+investigated further. The server log had no errors during the run.
+
 ## Still to do
 
-- Re-run the same `steps` on staging (it needs an evening and the account limits turned off, see
-  [PERFORMANCE_TESTING.md](../../PERFORMANCE_TESTING.md)). Staging's numbers will still be bounded
-  by the test link, but the 100-user step should no longer fail.
 - The avatar endpoints are `async` with database calls too. They are rarely used and were not
   changed here.

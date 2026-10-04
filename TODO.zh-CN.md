@@ -220,7 +220,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 一定要做：
 
 - [x] 4 分钟现场演示的脚本——[docs/presentation/DEMO_SCRIPT.zh-CN.md](docs/presentation/DEMO_SCRIPT.zh-CN.md)
-- [ ] 在 staging 上建好演示账号 `demo-alice` / `demo-bob`（由用户来做），录一份备用视频
+- [x] 在 staging 上建好演示账号 `demo-alice` / `demo-bob`（2026-10-04）
+- [ ] 用 alice 上传 `quarterly-results.txt` 并分享给 bob，录一份备用视频
 - [x] 文件行操作：下载（解密）、分享、删除三个按钮带文字直接显示，其余收进"更多"；修掉约 800 px 宽度下助手按钮压住操作的问题（[PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159)）
 - [x] 重新截取首页图文指南：截图里还是旧的六个图标（2026-10-04 已更新；第 5 步现在显示带密钥指纹的接收方确认）
 - [x] 现场篡改演示：改掉服务器上密文的一个字节，接收者下载时报错——
@@ -232,7 +233,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 - [x] 修掉数据库连接池瓶颈，并在 100 用户下做修复前后对比（本地：失败率 80% → 0%，
   [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163)）
-- [ ] PR #163 部署后，在 staging 上重跑 #140 的 `steps`，做出 staging 的修复前后对比图
+- [x] PR #163 部署后，在 staging 上重跑 #140 的 `steps`：100 用户从 78% 上传失败变为 102 次全部成功（[证据](docs/performance/pool-fix-2026-10-04/staging-rerun/REPORT.md)）
 - [x] ~~#115 可用性研究并计算 SUS 分数~~——不再计划执行（#115 已于 2026-10-04 关闭）；改为非正式真实使用
 - [x] 分享前确认接收者，并显示对方的密钥指纹（密钥验证）——
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160)；威胁模型 T-S5 已针对数据写入者缓解
@@ -245,7 +246,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 首次登录的新手清单（上传 → 分享 → 对方下载）（[PR #162](https://github.com/jsonrar/fyp-secure-file-platform/pull/162)）
 - [x] 对 staging 做 OWASP ZAP 基线扫描，并附 `pip-audit` / `npm audit` 报告——
   [docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.zh-CN.md)；响应头已在仓库的 nginx 文件里修复
-- [ ] 把更新后的 `nginx-secureview.conf` 装到 VPS 上（需要 root），重载 nginx，再跑一次 ZAP 基线扫描
+- [x] 把更新后的 `nginx-secureview.conf` 装到 VPS 上并重跑 ZAP 基线扫描（2026-10-04 已完成：8 个 WARN → 5 个，0 FAIL；[after-nginx](docs/security/scans-2026-10-04/after-nginx/zap-baseline.md)）
 
 已为展示完成：
 

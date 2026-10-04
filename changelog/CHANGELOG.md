@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Staging re-run of the 100-user step, the demo accounts and the post-fix ZAP scan / staging 重跑 100 用户压测、演示账号和修复后的 ZAP 复扫
+
+- Re-ran the #140 `steps` on staging after the pool fix (same parameters as 2026-10-03, with auto-deploy, CI runners and backups paused, the sshd tunnel rule reverted afterwards, test accounts deleted). At 100 concurrent users uploads went from 23 of 103 succeeded (78 % HTTP 500) to **102 of 102 succeeded**; 102 downloads were decrypted and SHA-256-matched with 0 failures; upload throughput rose from 0.19 to 0.86 per second. Latency is still bounded by the generator's home link, and four dropped connections in the first 5-user step were not investigated. Evidence in `docs/performance/pool-fix-2026-10-04/staging-rerun/`.
+- 修复连接池之后在 staging 上重跑了 #140 的 `steps`（参数与 2026-10-03 相同；期间暂停了自动部署、CI runner 和备份，结束后撤销了 sshd 隧道规则、删除了测试账号）。100 个并发用户时，上传从 103 次成功 23 次（78% 返回 HTTP 500）变为 **102 次全部成功**；102 次下载解密并与原文 SHA-256 比对，0 次失败；上传吞吐从每秒 0.19 次升到 0.86 次。延迟仍然受测试机家用网络限制；第一档 5 用户出现的 4 次连接中断没有深入排查。证据在 `docs/performance/pool-fix-2026-10-04/staging-rerun/`。
+- The updated nginx file was installed on the VPS by the user and ZAP re-run: 0 FAIL, 5 WARN, 62 PASS (was 8 WARN, 59 PASS); the missing-header alerts are gone. `demo-alice` and `demo-bob` were created on staging with the seeder (no email code needed) for the live demo.
+- 用户已把更新后的 nginx 文件装到 VPS，并重跑 ZAP：0 FAIL、5 WARN、62 PASS（之前 8 个 WARN、59 PASS），缺失响应头的告警已消失。另外用种子脚本在 staging 上建了 `demo-alice` 和 `demo-bob`（不需要邮箱验证码），供现场演示使用。
+
 ### CI: judge a docs-only push against `deploy`, so it cannot strand a code commit / CI：纯文档推送相对 `deploy` 判断，不再让代码 commit 卡住不部署
 
 - A push to `main` cancels the run still in progress for `main`. On 2026-10-04 the docs-only #168 was merged three minutes after #169, cancelled #169's run, and then skipped the tests because it changed only documentation; `promote` was skipped with them, so `deploy` did not move to #169. Here no served code was involved, but the same order after a code merge would have left that code undeployed until the next code commit. The `changes` job now compares a push with the `deploy` branch (the last promoted commit) instead of the previous push, so unpromoted code is still in the diff and every job runs. A structural test in `test_deploy_gate.py` keeps it that way. Pull requests are unchanged.

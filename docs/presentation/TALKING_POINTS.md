@@ -71,6 +71,10 @@ measured by the code around each step. The flip is only how the final value appe
 users". We wrote a load tool that encrypts exactly like the browser and ran the full matrix on staging
 on the night of 2026-10-03/04.
 
+**Fix verified on staging (2026-10-04 evening):** at 100 concurrent users, uploads went from 78 % failed
+(HTTP 500) to **102 of 102 succeeded**, with 0 integrity failures on 102 decrypted downloads
+([evidence](../performance/pool-fix-2026-10-04/README.md)).
+
 **Key numbers:**
 - 22,264 operations; 5,094 downloads decrypted and SHA-256-compared with the original, **0 integrity failures**
 - pdf/png/jpg/mp4/zip/exe from 1 MB to 500 MB all round-trip byte-exact (144/144)

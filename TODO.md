@@ -271,7 +271,8 @@ has its problem, fix and effort. What to say, with evidence, is in
 Must do:
 
 - [x] Demo script for a 4-minute live demo — [docs/presentation/DEMO_SCRIPT.md](docs/presentation/DEMO_SCRIPT.md)
-- [ ] Demo accounts `demo-alice` / `demo-bob` created on staging (the user), and a recorded backup video
+- [x] Demo accounts `demo-alice` / `demo-bob` created on staging (2026-10-04)
+- [ ] Pre-share `quarterly-results.txt` from alice to bob, and record the backup video
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
 - [x] Re-capture the homepage picture guide: its screenshots still showed the old six-icon row
@@ -285,7 +286,7 @@ Strongly recommended (Award):
 
 - [x] Fix the DB-pool bottleneck, with a before/after measurement at 100 users (locally:
   80 % failed → 0 %, [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163))
-- [ ] Re-run the #140 `steps` on staging after PR #163 deploys, for the staging before/after chart
+- [x] Re-run the #140 `steps` on staging after PR #163 deploys: 100 users went from 78 % failed uploads to 0 of 102 ([evidence](docs/performance/pool-fix-2026-10-04/staging-rerun/REPORT.md))
 - [x] ~~#115 usability study with SUS~~ — not planned (#115 closed 2026-10-04); informal real use instead
 - [x] Confirm the recipient before sharing, with their key fingerprint (key verification) —
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160); threat model T-S5 now mitigated against a data writer
@@ -298,7 +299,7 @@ Optional:
 - [x] First-login checklist (upload → share → recipient downloads) ([PR #162](https://github.com/jsonrar/fyp-secure-file-platform/pull/162))
 - [x] OWASP ZAP baseline scan of staging plus `pip-audit` / `npm audit` report —
   [docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.md); headers fixed in the tracked nginx file
-- [ ] Install the updated `nginx-secureview.conf` on the VPS (root), reload nginx, and re-run the ZAP baseline
+- [x] Install the updated `nginx-secureview.conf` on the VPS and re-run the ZAP baseline (done 2026-10-04: 8 WARN → 5, 0 FAIL; [after-nginx](docs/security/scans-2026-10-04/after-nginx/zap-baseline.md))
 
 Done for the presentation:
 

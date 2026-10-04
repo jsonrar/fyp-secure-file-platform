@@ -30,7 +30,14 @@
 | 重新检查 Cache-control / 可存储、可缓存的内容 | 信息 | 符合预期：被标出的 URL 都是公开页面、`robots.txt`、`sitemap.xml` 或带哈希的不可变代码包，本来就应该缓存。登录、错误和文件下载的响应自己会发送 `no-store`。 |
 | 现代 Web 应用 | 信息 | 仅提示：ZAP 识别出这是一个单页应用。 |
 
-## 应用 nginx 改动
+## 修复之后（2026-10-04 复扫）
+
+更新后的 nginx 文件已装到 VPS，并重新扫描（[`after-nginx/`](after-nginx/zap-baseline.md)）：**0 FAIL、5 WARN、62 PASS**
+（修复前：8 个 WARN、59 PASS）。Strict-Transport-Security、X-Content-Type-Options、Permissions-Policy、
+Cross-Origin-Opener-Policy 和 Cross-Origin-Resource-Policy 的告警都消失了，也用 `curl -I` 直接检查过代码包的响应头。
+剩下的 5 个就是上文已接受的（COEP、`style-src 'unsafe-inline'`）和信息级提示。
+
+## 应用 nginx 改动（已完成）
 
 仓库里的文件是 `deployment/server/nginx-secureview.conf`，VPS 上的线上副本是
 `/etc/nginx/sites-available/fyp-secure-file-platform`。自动部署不会安装 nginx 配置，需要有 VPS root
