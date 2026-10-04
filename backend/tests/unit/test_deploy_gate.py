@@ -36,6 +36,18 @@ def test_promote_waits_for_every_other_job() -> None:
     assert {item.strip() for item in needs.group(1).split(",")} == others
 
 
+def test_docs_only_check_compares_a_push_with_the_deploy_branch() -> None:
+    # A docs-only push can cancel the run of the code commit before it. If the push were
+    # compared with that commit, the tests would be skipped, promote with them, and the code
+    # would never reach deploy. Compared with deploy, the code is still part of the diff.
+    workflow = WORKFLOW.read_text(encoding="utf-8")
+    changes = workflow[workflow.index("\n  changes:\n") : workflow.index("\n  backend:\n")]
+
+    assert "git fetch --no-tags --quiet origin deploy" in changes
+    assert 'from="FETCH_HEAD"' in changes
+    assert "github.event.before" not in changes
+
+
 def test_promote_runs_only_for_pushes_to_main_and_only_moves_forward() -> None:
     block = _promote_block(WORKFLOW.read_text(encoding="utf-8"))
 

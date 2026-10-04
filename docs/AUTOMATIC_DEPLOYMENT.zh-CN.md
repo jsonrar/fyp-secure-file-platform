@@ -56,6 +56,10 @@ MCS21 预发布 VPS 会在新提交合并到 GitHub `main` **并通过 CI** 后�
 - CI 运行在本 VPS 上项目自建的 runner 上（[deployment/ci-runner/](../deployment/ci-runner/README.zh-CN.md)），通过独立的 Docker、网络和防火墙规则与线上环境隔离。runner 停止期间不会推进任何部署，恢复后继续。
 - 只改文档的 commit（见 `ci.yml` 中的 `changes`）会跳过测试作业，`promote` 也随之跳过，`deploy` 保持不动。
   对外提供的内容没有任何变化，下一个通过 CI 的代码 commit 会把 `deploy` 推进到它之后。
+- 推送到 `main` 时，"只改文档"是相对 `deploy` 判断的，而不是相对上一次推送。同一分支的新推送会取消仍在运行的
+  CI，所以如果代码合并后紧接着推送一个只改文档的 commit，它会先取消代码那次运行，再因为"只改文档"而跳过测试，
+  这段代码要等下一个代码 commit 才会被部署。相对 `deploy` 比较时，这段代码仍在差异里，所以这次文档推送会跑全部
+  作业，并把两者一起推进（[#171](https://github.com/jsonrar/fyp-secure-file-platform/pull/171)）。
 - CI 为红的 commit 根本不会被推进，下一个绿色 commit 会包含它。代价是延迟：现在合并后要等 CI 结束（约五分钟）
   再加最多两分钟的 timer，而不是两分钟。
 - 在 CI 推进过任何 commit 之前，timer 会报告 `deploy` 不存在并且什么都不部署，同时不产生失败的 unit（失败即关闭）。

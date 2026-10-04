@@ -36,6 +36,8 @@ Last updated: 2026-10-04
 | — | Load-test transfer speeds are bounded by the home link (~24 Mbit/s up), so the server's own port (~100 Mbit/s) was never the limit. | State it in the report; use a better-connected generator if one is available. | State it | Stated in the report |
 | — | `db_retry` does not log a retry, so we can show no deadlock reached a user but not whether a retry fired. | Log a warning on each retry. | Optional | To do (with #6) |
 | — | In-browser encryption peaks at about 4× the file size in memory, so 500 MB files likely fail on phones (threat model F-19). | A large-file warning exists; a real fix is chunked streaming encryption, beyond this semester. | State it | Recorded in the threat model |
+| — | A docs-only push could cancel the CI run of the code merged just before it and then skip the tests itself, so that code was never promoted to `deploy` (seen on 2026-10-04: #168 cancelled #169's run). | Judge a push to `main` against `deploy`, not against the previous push. | Must | Done: [#171](https://github.com/jsonrar/fyp-secure-file-platform/pull/171) |
+| — | On the self-hosted runners the `backend` job took about 33 minutes against 3–6 for every other job. Its uv cache had never been saved (the first run failed before the save step), so part of it may be a cold cache. Each runner pair is capped at 2 CPUs with a low CPU weight. | Measure where the time goes before raising the cap, since the cap protects production on the same VPS. | Should | To do |
 
 ## 3. Security
 
