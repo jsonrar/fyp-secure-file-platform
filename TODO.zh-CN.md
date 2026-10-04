@@ -240,7 +240,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 - [x] 注册拆成两步，注册后直接登录（[PR #161](https://github.com/jsonrar/fyp-secure-file-platform/pull/161)）
 - [x] 首次登录的新手清单（上传 → 分享 → 对方下载）（[PR #162](https://github.com/jsonrar/fyp-secure-file-platform/pull/162)）
-- [ ] 对 staging 做 OWASP ZAP 基线扫描，并附 `pip-audit` / `npm audit` 报告
+- [x] 对 staging 做 OWASP ZAP 基线扫描，并附 `pip-audit` / `npm audit` 报告——
+  [docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.zh-CN.md)；响应头已在仓库的 nginx 文件里修复
+- [ ] 把更新后的 `nginx-secureview.conf` 装到 VPS 上（需要 root），重载 nginx，再跑一次 ZAP 基线扫描
 
 已为展示完成：
 

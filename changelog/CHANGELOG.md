@@ -18,12 +18,21 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+<<<<<<< HEAD
 ### Language switch in the header bar, and a refreshed picture guide / 语言切换移到页头栏，首页图文指南截图更新
 
 - The language switch was inside the gear menu (signed out) or the avatar menu (signed in), so a visitor who cannot read the current language had to guess which icon hides it. It now sits in the header bar itself, to the left of the gear (signed out) or of Dashboard (signed in), and first in the phone menu; the gear and avatar menus keep only the theme. Checked at 1400, 1100 and 1024 px (the narrowest desktop layout, in Chinese) with no overflow, and at 375 px in the phone menu. The language-switch browser spec no longer opens the gear.
 - 语言切换原来藏在齿轮菜单（未登录）或头像菜单（已登录）里，看不懂当前语言的访客只能猜哪个图标里有它。现在它直接放在页头栏上：未登录时在齿轮左边，登录后在“仪表盘”左边；手机菜单里排在第一位；齿轮和头像菜单只保留主题。已在 1400、1100 和 1024 px（最窄的桌面布局，中文界面）下检查，没有溢出；375 px 手机菜单也已检查。语言切换浏览器测试不再需要先打开齿轮。
 - The homepage picture guide still showed the old six-icon file row. All twelve screenshots are re-captured from the current build: the row with Share labelled, and step 5 now stops at the recipient confirmation showing the key fingerprint. `capture-workflow.cjs` had drifted from the UI and is fixed: new card selectors, fixtures for folders and the tab totals, a recipient-lookup fixture, and an example account key sealed with the app's own `sealAccountKey` (through `jiti`) so the Unlock dialog really opens it. Alt text for step 5 updated in English and Chinese.
 - 首页图文指南的截图还是旧的六个图标那一行。现在 12 张截图全部按当前版本重新截取：文件行里“分享”带文字，第 5 步改为停在显示密钥指纹的接收方确认。`capture-workflow.cjs` 已经跟不上界面，现已修好：更新卡片选择器，补上文件夹和标签页计数的模拟数据、接收方查找的模拟数据，并用应用自己的 `sealAccountKey`（通过 `jiti` 加载）封装示例账户密钥，让“解锁”对话框真的能打开它。第 5 步的替代文字中英文都已更新。
+=======
+### Third-party security scans and the headers they found missing / 第三方安全扫描及其发现的缺失响应头
+
+- "Secure" rested only on our own word. An OWASP ZAP baseline scan of `https://secureview.tech` (passive, 1-minute spider) found no High-risk issue: 0 FAIL, 8 WARN, 59 PASS. It did find a real gap: the hashed JS/CSS bundle under `/assets/` was served without `Strict-Transport-Security` or `X-Content-Type-Options`, because nginx drops every server-level `add_header` in a location that adds its own, and `/assets/` adds `Cache-Control`. The headers are now repeated there; `Permissions-Policy` (camera, microphone, location, payment, USB off) and `Cross-Origin-Opener-Policy` / `Cross-Origin-Resource-Policy: same-origin` are added; a unit test fails if any location that adds a header drops a security header. COEP and `style-src 'unsafe-inline'` are accepted with reasons.
+- “安全”此前只有我们自己的说法。用 OWASP ZAP 对 `https://secureview.tech` 做了基线扫描（被动规则，爬取 1 分钟），没有高风险问题：0 FAIL、8 WARN、59 PASS。但它确实发现了一个真实漏洞：`/assets/` 下带哈希的 JS/CSS 代码包返回时没有 `Strict-Transport-Security` 和 `X-Content-Type-Options`。原因是 nginx 的规则：某个 location 只要自己写了 `add_header`，server 级别的 `add_header` 就全部失效，而 `/assets/` 加了 `Cache-Control`。现在在那里重复写了这些头；新增 `Permissions-Policy`（关闭摄像头、麦克风、定位、支付和 USB），以及 `Cross-Origin-Opener-Policy` / `Cross-Origin-Resource-Policy: same-origin`；新增单元测试：任何自己加响应头的 location 如果漏掉安全头，测试就会失败。COEP 和 `style-src 'unsafe-inline'` 写明理由后接受。
+- `pip-audit` found nothing in the runtime dependencies and `npm audit` found nothing in the frontend; the test-only `httpx2` 2.7.0 had six advisories and is upgraded to 2.12.0 (570 backend unit and API tests pass). Report and raw output in `docs/security/scans-2026-10-04/` (English and 简体中文). The tracked nginx file must still be installed on the VPS by someone with root, then the scan re-run.
+- `pip-audit` 在运行时依赖中没有发现问题，`npm audit` 在前端也没有发现问题；仅测试用的 `httpx2` 2.7.0 有 6 条公告，已升级到 2.12.0（后端 570 个单元和 API 测试通过）。报告和原始输出在 `docs/security/scans-2026-10-04/`（中英文）。仓库里的 nginx 文件还需要有 root 权限的人装到 VPS 上，然后重新扫描。
+>>>>>>> 7901068454f8e91226b0daae2866bbabd22c1477
 
 ### A scripted live tamper demonstration / 可脚本化的现场篡改演示
 
