@@ -377,6 +377,26 @@ without a scheme reaches `http://` once before the redirect. The `Strict-Transpo
 header then pins HTTPS for a year. Publish and share the URL as `https://secureview.tech` so
 that first hop never happens; some in-app browsers warn on it.
 
+## When the dependency install stalls
+
+`mcs21-deploy` builds every release in a fresh `.build-*` directory with its own virtual
+environment, so each deploy downloads the backend requirements. On 2026-10-05 one pip
+connection trickled at about 29 kB/s on a 4.7 MB wheel that the same host fetched in under a
+second, and the deploy sat there for over seven minutes; pip's own `--timeout` never fired
+because bytes kept arriving.
+
+Each `pip install` attempt now has a wall-clock limit (`MCS21_PIP_ATTEMPT_SECONDS`, default
+240) on top of pip's `--timeout 30 --retries 5`, and a stalled or failed attempt is started
+again up to `MCS21_PIP_ATTEMPTS` times (default 3, `MCS21_PIP_RETRY_PAUSE` seconds apart,
+default 10). A normal install takes under a minute. Only when every attempt fails does the
+deploy fail, and it then removes its `.build-*` directory instead of leaving it behind.
+`backend/tests/unit/test_ops_units.py` runs the real function against a fake pip that hangs
+once.
+
+`mcs21-deploy` itself lives in `/usr/local/sbin` and is installed by hand: after this file
+changes, copy it from the new release
+(`install -m 0755 /opt/mcs21/current/deployment/server/mcs21-deploy /usr/local/sbin/`).
+
 ## Applying a schema revision to a running deployment
 
 `mcs21-deploy` never changes the schema. It backs the database up and runs `03-verify.sql`

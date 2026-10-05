@@ -137,6 +137,30 @@ resolve_target() {
   printf '%s\n' "$target"
 }
 
+# One pip connection can trickle for many minutes (2026-10-05: ~29 kB/s on a 4.7 MB wheel the
+# same host fetched in under a second), and pip's own --timeout only fires when no bytes arrive
+# at all. So each attempt also has a wall-clock limit, and a stalled attempt is started again
+# before the deploy is given up. A normal install takes under a minute.
+pip_attempts="${MCS21_PIP_ATTEMPTS:-3}"
+pip_attempt_seconds="${MCS21_PIP_ATTEMPT_SECONDS:-240}"
+pip_retry_pause="${MCS21_PIP_RETRY_PAUSE:-10}"
+
+install_backend_requirements() {
+  local build_dir="$1" attempt
+  for ((attempt = 1; attempt <= pip_attempts; attempt++)); do
+    if as_deploy timeout --kill-after=15s "${pip_attempt_seconds}s" \
+      "$build_dir/backend/.venv/bin/python" -m pip install \
+      --disable-pip-version-check --no-cache-dir --timeout 30 --retries 5 \
+      -r "$build_dir/backend/requirements.txt" >&2; then
+      return 0
+    fi
+    printf 'pip install attempt %s of %s failed or ran past %ss\n' \
+      "$attempt" "$pip_attempts" "$pip_attempt_seconds" >&2
+    (( attempt < pip_attempts )) && sleep "$pip_retry_pause"
+  done
+  return 1
+}
+
 build_release() {
   local sha="$1"
   local release="$releases_dir/$sha"
@@ -165,8 +189,10 @@ build_release() {
   chmod 0644 "$build_dir/.mcs21-release"
 
   as_deploy python3 -m venv "$build_dir/backend/.venv"
-  as_deploy "$build_dir/backend/.venv/bin/python" -m pip install \
-    --disable-pip-version-check --no-cache-dir -r "$build_dir/backend/requirements.txt" >&2
+  if ! install_backend_requirements "$build_dir"; then
+    rm -rf "$build_dir"
+    die "could not install the backend requirements for $sha"
+  fi
   as_deploy "$build_dir/backend/.venv/bin/python" -m compileall -q "$build_dir/backend/app"
 
   docker run --rm \

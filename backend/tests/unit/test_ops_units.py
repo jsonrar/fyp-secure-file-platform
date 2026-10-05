@@ -255,3 +255,59 @@ def test_the_deploy_script_installs_only_the_closed_list_and_never_fails_a_good_
     assert deploy.index('audit success "commit=$sha') < deploy.index('install_ops_units "$release"')
     assert 'if ! install_ops_units "$release"; then' in deploy
     assert "systemd-analyze verify" in script and "cmp -s" in script
+
+
+def _pip_installer(tmp_path: Path, behaviour: str) -> tuple[Path, Path]:
+    """A shell that defines install_backend_requirements exactly as mcs21-deploy does, with a
+    fake venv python whose `pip install` follows `behaviour` ("hang" or "fail" per call, then succeed)."""
+    script = _read("mcs21-deploy")
+    body = script.split('pip_attempts="', 1)[1].split("build_release() {", 1)[0]
+    build = tmp_path / "build"
+    python = build / "backend" / ".venv" / "bin" / "python"
+    python.parent.mkdir(parents=True)
+    (build / "backend" / "requirements.txt").write_text("", encoding="utf-8")
+    calls = tmp_path / "calls"
+    python.write_text(
+        "#!/bin/bash\n"
+        f'n=$(( $(cat "{calls}" 2>/dev/null || echo 0) + 1 )); echo "$n" > "{calls}"\n'
+        f'step=$(echo "{behaviour}" | cut -d, -f"$n")\n'
+        'case "$step" in hang) sleep 30 ;; fail) exit 1 ;; *) exit 0 ;; esac\n',
+        encoding="utf-8",
+    )
+    python.chmod(0o755)
+    runner = tmp_path / "run.sh"
+    runner.write_text(
+        "set -Eeuo pipefail\n"
+        'as_deploy() { "$@"; }\n'
+        f'pip_attempts="{body}'
+        'install_backend_requirements "$1"\n',
+        encoding="utf-8",
+    )
+    return runner, calls
+
+
+@pytest.mark.skipif(shutil.which("timeout") is None, reason="needs coreutils timeout")
+def test_a_stalled_pip_install_is_cut_off_and_tried_again(tmp_path: Path) -> None:
+    runner, calls = _pip_installer(tmp_path, "hang,ok")
+    env = {"PATH": "/usr/bin:/bin", "MCS21_PIP_ATTEMPT_SECONDS": "1", "MCS21_PIP_RETRY_PAUSE": "0"}
+    result = subprocess.run(["bash", str(runner), str(tmp_path / "build")], env=env, capture_output=True, text=True, timeout=60)
+    assert result.returncode == 0, result.stderr
+    assert calls.read_text().strip() == "2"
+    assert "attempt 1 of 3 failed or ran past 1s" in result.stderr
+
+
+@pytest.mark.skipif(shutil.which("timeout") is None, reason="needs coreutils timeout")
+def test_pip_gives_up_after_its_attempts(tmp_path: Path) -> None:
+    runner, calls = _pip_installer(tmp_path, "fail,fail,fail,ok")
+    env = {"PATH": "/usr/bin:/bin", "MCS21_PIP_ATTEMPT_SECONDS": "5", "MCS21_PIP_RETRY_PAUSE": "0"}
+    result = subprocess.run(["bash", str(runner), str(tmp_path / "build")], env=env, capture_output=True, text=True, timeout=60)
+    assert result.returncode != 0
+    assert calls.read_text().strip() == "3"
+
+
+def test_a_failed_requirements_install_removes_its_build_directory() -> None:
+    build = _read("mcs21-deploy").split("build_release() {", 1)[1].split("backup_database() {", 1)[0]
+    assert 'if ! install_backend_requirements "$build_dir"; then' in build
+    guarded = build.split('if ! install_backend_requirements "$build_dir"; then', 1)[1].split("fi", 1)[0]
+    assert 'rm -rf "$build_dir"' in guarded and "die " in guarded
+    assert "pip install" not in build, "pip must only run through install_backend_requirements"

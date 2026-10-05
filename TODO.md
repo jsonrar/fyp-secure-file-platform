@@ -186,6 +186,9 @@ not a release pass.
   rate. The study kit (`docs/usability/` and the scoring script) was deleted on 2026-10-05; it is in the
   git history (PR #114) if a formal study is ever wanted.
 
+- [x] A stalled pip download no longer hangs a deploy: per-attempt time limit, three attempts, and the
+  build directory is removed on failure (PR_REF). `/usr/local/sbin/mcs21-deploy` is installed by hand.
+
 ## P2 — formal security assurance
 
 - [x] [#90 Add an isolated VPS adversarial tamper drill with integrity evidence](https://github.com/jsonrar/fyp-secure-file-platform/issues/90)
