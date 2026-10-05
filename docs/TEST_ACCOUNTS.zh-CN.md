@@ -31,8 +31,8 @@
 
 | 用户名 | 登录密码 | 加密口令 |
 | --- | --- | --- |
-| `demo-alice` | `mcs21666` | 由项目负责人保管 |
-| `demo-bob` | `mcs21666` | 由项目负责人保管，与 Alice 不同 |
+| `demo-alice` | `mcs21666` | demo-alice-passphrase-2026 |
+| `demo-bob` | `mcs21666` | demo-bob-other-passphrase-2026 |
 
 - 用户名必须以 `demo-` 开头，篡改工具（`backend/scripts/demo_tamper.py`）会拒绝其他账号。
 - 不要用浏览器在 staging 上自行登录或注册来做界面检查，巡检和录制都在本地跑。
