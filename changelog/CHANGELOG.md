@@ -18,7 +18,7 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
-### Home page: a comparison table that reads as questions and answers, and a footer without a gap / 首页：对比表读起来是“问题—两种回答”，页脚中间不再空一块 (PR_REF)
+### Home page: a comparison table that reads as questions and answers, and a footer without a gap / 首页：对比表读起来是“问题—两种回答”，页脚中间不再空一块 ([PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194))
 
 - The comparison with ordinary cloud storage had an empty top-left cell, and the question column looked like a third answer. It now has a small monospace "Question" label, numbered questions (01–05) in semibold, and a rule between the questions and the two answer columns. The column headings stay left-aligned so the cloud and shield icons line up with the ✗ and ✓ below them; centring them would leave the headings floating over left-aligned answers. The phone cards are unchanged.
 - 与普通网盘的对比表原来左上角是空的，问题那一列看上去像第三列答案。现在左上角有一个小号等宽的“Question”标签，问题加粗并编号（01–05），问题列和两列答案之间加了一条竖线。列标题保持左对齐，这样云朵和盾牌图标正好对齐下面的 ✗ 和 ✓；居中的话，标题会悬在左对齐的答案上方。手机上的卡片不变。
