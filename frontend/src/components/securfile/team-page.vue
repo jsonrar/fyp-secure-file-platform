@@ -191,7 +191,7 @@ onBeforeUnmount(() => {
 
     <div class="container relative mx-auto max-w-6xl px-4">
       <header class="mb-12 max-w-3xl md:mb-14">
-        <p class="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-primary">SecureView</p>
+        <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">SecureView</p>
         <h1 class="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
           Contact <span class="text-primary">us</span>
         </h1>
@@ -290,7 +290,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="mb-8 max-w-3xl md:mb-10">
-        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.32em] text-primary">Supervisor and development team · Group MCS21</p>
+        <p class="mb-2 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Supervisor and development team · Group MCS21</p>
         <h2 class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           The people behind
           <span class="text-primary">SecureView</span>

@@ -9,7 +9,7 @@ import { COMPARISON } from '@/data/security-story'
 <template>
   <div data-testid="why-secureview">
     <!-- Wide screens: a comparison table -->
-    <div class="hidden overflow-hidden rounded-2xl border border-border bg-card md:block">
+    <div class="hidden overflow-hidden rounded-xl border border-border bg-card md:block">
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="border-b border-border">
@@ -21,8 +21,8 @@ import { COMPARISON } from '@/data/security-story'
                 <Cloud class="h-4 w-4" /> Ordinary cloud storage
               </span>
             </th>
-            <th class="w-[38%] bg-primary/5 px-5 py-4" scope="col">
-              <span class="inline-flex items-center gap-2 font-semibold text-primary">
+            <th class="w-[38%] bg-secondary px-5 py-4" scope="col">
+              <span class="inline-flex items-center gap-2 font-semibold text-foreground">
                 <ShieldCheck class="h-4 w-4" /> SecureView
               </span>
             </th>
@@ -32,10 +32,10 @@ import { COMPARISON } from '@/data/security-story'
           <tr v-for="row in COMPARISON" :key="row.question" class="border-b border-border last:border-0 align-top">
             <th scope="row" class="px-5 py-4 font-medium text-foreground">{{ row.question }}</th>
             <td class="px-5 py-4 text-muted-foreground">
-              <span class="flex gap-2"><X class="mt-0.5 h-4 w-4 shrink-0 text-destructive/80" />{{ row.ordinary }}</span>
+              <span class="flex gap-2"><X class="mt-0.5 h-4 w-4 shrink-0 text-destructive" />{{ row.ordinary }}</span>
             </td>
-            <td class="bg-primary/5 px-5 py-4 text-foreground">
-              <span class="flex gap-2"><Check class="mt-0.5 h-4 w-4 shrink-0 text-primary" />{{ row.secureview }}</span>
+            <td class="bg-secondary px-5 py-4 text-foreground">
+              <span class="flex gap-2"><Check class="mt-0.5 h-4 w-4 shrink-0 text-success" />{{ row.secureview }}</span>
             </td>
           </tr>
         </tbody>
@@ -47,12 +47,12 @@ import { COMPARISON } from '@/data/security-story'
       <li v-for="row in COMPARISON" :key="row.question" class="rounded-xl border border-border bg-card p-4">
         <p class="font-medium text-foreground">{{ row.question }}</p>
         <p class="mt-2 flex gap-2 text-sm text-muted-foreground">
-          <X class="mt-0.5 h-4 w-4 shrink-0 text-destructive/80" />
+          <X class="mt-0.5 h-4 w-4 shrink-0 text-destructive" />
           <span><span class="font-medium">Ordinary cloud:</span> {{ row.ordinary }}</span>
         </p>
         <p class="mt-1.5 flex gap-2 text-sm text-foreground">
-          <Check class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
-          <span><span class="font-medium text-primary">SecureView:</span> {{ row.secureview }}</span>
+          <Check class="mt-0.5 h-4 w-4 shrink-0 text-success" />
+          <span><span class="font-medium text-foreground">SecureView:</span> {{ row.secureview }}</span>
         </p>
       </li>
     </ul>
