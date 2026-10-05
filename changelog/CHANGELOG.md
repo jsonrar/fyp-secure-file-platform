@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### UI redesign, step 3b: the upload page and the seal receipt / 界面改版第 3b 步：上传页和封存回执
+
+- The encryption progress panel is now a "Seal receipt": the file name with a SEALED (or Sealing…) badge, the four real steps with their measured times and green ticks, and the first bytes of the file next to what the server receives in a dark panel with the ciphertext in mint. It is the same data and the same animation as before (`data-testid`s, step titles and the "Your file" and "What the server receives" labels are unchanged); only the look changes. The upload page itself gets a larger drop zone with a dashed outline, a monospace cipher selector, a calmer heading size on every product page (`.product-heading`), smaller corner radii and a success tick instead of the brand colour.
+- 加密进度面板现在是一张“封存回执”：文件名加上“SEALED（或 Sealing…）”徽章，四个真实步骤带着实测耗时和绿色对勾，以及文件开头的字节与服务器收到的内容的对比，放在深色面板里，密文用薄荷绿显示。数据和动画都和以前完全一样（`data-testid`、各步骤标题以及“Your file”“What the server receives”两个标签都没变），只换了外观。上传页本身的拖放区更大，用虚线轮廓，算法选择器改用等宽字体，所有产品页的标题（`.product-heading`）字号更克制，圆角更小，成功状态用绿色对勾而不是品牌色。
+- Checked against a local stack in light and dark with a real upload. Typecheck and 812 unit tests pass. The upload page's other parts (the "Under the hood" animation below, the progress logic) are untouched. Workspace cards and the access-record and settings pages are still to restyle.
+- 已在本地环境用真实上传在浅色和深色下检查。类型检查和 812 个单元测试通过。上传页的其他部分（下方的“Under the hood”动画、进度逻辑）没有改动。工作区卡片、访问记录页和设置页仍待改。
+
 ### UI redesign, step 3a: a sidebar for the signed-in app and a file detail panel / 界面改版第 3a 步：登录后应用的侧边栏和文件详情栏
 
 - Signed in, the app pages (`/dashboard`, `/upload`, `/files`, `/audit-logs`, `/admin`, `/profile`, `/settings`) now have a left sidebar from the lg breakpoint up, instead of the marketing header with its links. It carries the same links in the same words (Dashboard, Upload, My Files, Access Records, the recovery or admin console, Help, Education, Contact us), highlights the current page, and shows at the bottom whether this browser currently holds the account key ("Key unlocked in this browser" or "Key locked") with the first four groups of its fingerprint, plus the user name and log out. The header keeps the language switch and the account menu and, below lg, the menu button, so phones are unchanged; the large footer is hidden beside the sidebar. Public pages and the home page keep the header.
