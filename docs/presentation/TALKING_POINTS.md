@@ -254,7 +254,7 @@ and gives numbers, and a change is not finished until squeezed headings and over
 
 **Do not say:** that this replaces usability testing (see §10).
 
-## 12. The file details panel: the evidence one click from the list (PR_REF)
+## 12. The file details panel: the evidence one click from the list ([PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193))
 
 **What it shows:** click any row in My Files and a panel opens beside the list with the cipher, the exact
 original and stored sizes, the ciphertext SHA-256 recorded at upload, who can open the file (and that the

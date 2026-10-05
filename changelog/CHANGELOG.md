@@ -18,7 +18,7 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
-### My Files: an obvious way into the details panel, and a panel that sits beside the list / 我的文件：详情入口更明显，详情栏改为贴在列表旁边 (PR_REF)
+### My Files: an obvious way into the details panel, and a panel that sits beside the list / 我的文件：详情入口更明显，详情栏改为贴在列表旁边 ([PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193))
 
 - The details panel (cipher, exact sizes, ciphertext SHA-256, who can open the file, every action) was only reachable through a small grey "Details" link under the file name, which read as a caption. Now the whole row opens it (blank space in the row; its own controls keep their jobs), the file name is a button that opens it, and the Actions column has a bordered Details button: labelled from 1400 px, icon-only between 768 and 1399 px, and a full-width button under the actions on a phone. The open file's row stays highlighted. The old link is gone.
 - 详情栏（算法、精确大小、密文 SHA-256、谁能打开、全部操作）原来只能通过文件名下面一行灰色小字“Details”打开，看上去像说明文字。现在点整行的空白处就能打开（行里自己的控件照常工作），文件名本身也是打开详情的按钮，操作列多了一个带边框的 Details 按钮：1400 px 及以上带文字，768–1399 px 只显示图标，手机上是操作按钮下面一整行的按钮。打开的那一行保持高亮。原来的小字链接删掉了。
