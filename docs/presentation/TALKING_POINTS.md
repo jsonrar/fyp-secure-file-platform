@@ -289,3 +289,4 @@ it becomes a bottom sheet.
 | Has anyone else checked it? | An OWASP ZAP scan of the live site: no High-risk issue; it caught missing headers on the static bundle, which we fixed. Dependency audits are clean ([scans](../security/scans-2026-10-04/README.md)) | REFLECTION 12 |
 | Is it easy to use? | Real use by the supervisor, the Teaching Team and other students, and a walkthrough that changed four things; no formal study, so no score (NFR2) | 10 |
 | Can you scan for viruses? | Not on the server under zero-knowledge; sharing scope, a download warning and endpoint antivirus instead | 8 |
+| What if a deploy gets stuck? | The live site keeps running the previous release; a stalled dependency download is cut off and retried, and a failed build rolls back and is quarantined ([PR #196](https://github.com/jsonrar/fyp-secure-file-platform/pull/196)) | — |

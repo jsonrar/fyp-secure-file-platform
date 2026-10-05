@@ -151,6 +151,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   和其他同学都用自己的账号在 staging 上实际使用过。这属于非正式的真实使用：没有 SUS 分数、没有各任务完成率，
   研究套件（`docs/usability/` 和计分脚本）已于 2026-10-05 删除；以后如果需要正式研究，可以在 git 历史（PR #114）里找回。
 
+- [x] pip 下载卡住不再拖住部署：每次安装有时间上限、最多三次，失败时删除构建目录（[PR #196](https://github.com/jsonrar/fyp-secure-file-platform/pull/196)）。`/usr/local/sbin/mcs21-deploy` 需手工安装。
+
 ## P2 — 正式安全保障
 
 - [x] [#90 增加带完整性证据的隔离 VPS 对抗性篡改演练](https://github.com/jsonrar/fyp-secure-file-platform/issues/90)

@@ -313,6 +313,21 @@ HTTPS 地址，因为 TLS 证书验证的是域名，而不是该 IP 地址。
 分享链接时请一律写作 `https://secureview.tech`，即可完全避免这一跳——部分应用内置浏览器会
 在该跳转期间提示不安全。
 
+## 依赖安装卡住时
+
+`mcs21-deploy` 每次都在新的 `.build-*` 目录里构建发布、建独立的虚拟环境，所以每次部署都要下载后端依赖。
+2026-10-05 有一个 pip 连接以约 29 kB/s 的速度慢慢下载一个 4.7 MB 的 wheel（同一台机器单独下载不到一秒），
+部署因此卡了七分多钟；因为一直有字节进来，pip 自己的 `--timeout` 始终没有触发。
+
+现在每次 `pip install` 除了 pip 的 `--timeout 30 --retries 5`，还有一个总时长上限
+（`MCS21_PIP_ATTEMPT_SECONDS`，默认 240 秒）；卡住或失败的一次会重新开始，最多 `MCS21_PIP_ATTEMPTS` 次
+（默认 3 次，间隔 `MCS21_PIP_RETRY_PAUSE` 秒，默认 10 秒）。正常安装不到一分钟。只有每一次都失败，部署才算失败，
+并且会删掉自己的 `.build-*` 目录，不再留在服务器上。`backend/tests/unit/test_ops_units.py` 会用一个“卡一次”的假 pip
+实际运行这个函数。
+
+`mcs21-deploy` 本身放在 `/usr/local/sbin`，是手工安装的：这个文件改动后，要从新的发布里复制过去
+（`install -m 0755 /opt/mcs21/current/deployment/server/mcs21-deploy /usr/local/sbin/`）。
+
 ## 对运行中的部署应用 Schema Revision
 
 `mcs21-deploy` 从不修改 Schema。它只做数据库备份并以只读方式运行 `03-verify.sql`——脚本自己的
