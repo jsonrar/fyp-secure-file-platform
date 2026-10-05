@@ -154,7 +154,7 @@ async function handleLogout() {
 </script>
 
 <template>
-  <header :class="`border-b border-border bg-card/50 backdrop-blur-sm sticky z-50 transition-all duration-500 ${isScrolled ? 'top-4 mx-4 rounded-2xl shadow-lg' : 'top-0'}`">
+  <header :class="`sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur transition-shadow ${isScrolled ? 'shadow-sm' : ''}`">
     <div class="w-full py-4 pl-2 pr-4 sm:pl-3 sm:pr-5 lg:pl-4 lg:pr-6">
       <div class="flex items-center justify-between gap-4">
         <div class="flex min-w-0 items-center gap-5 md:gap-8">

@@ -9,7 +9,7 @@ import SecurityStory from '@/components/explainers/SecurityStory.vue'
   <section id="security-story" class="py-20" aria-labelledby="story-heading">
     <div class="container mx-auto max-w-6xl px-4">
       <div class="mx-auto mb-10 max-w-3xl text-center">
-        <p class="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-primary">Under the hood</p>
+        <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Under the hood</p>
         <h2 id="story-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           What happens to your file
         </h2>

@@ -76,7 +76,7 @@ const steps = [
     >
       <X class="h-4 w-4" />
     </RouterLink>
-    <p class="mb-4 text-xs font-semibold uppercase tracking-[0.32em] text-primary">SecureView · how your file stays private</p>
+    <p class="mb-4 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">SecureView · how your file stays private</p>
     <div class="w-full max-w-5xl">
       <SecurityStory autoplay compact :scene-ms="'fast' in route.query ? 6000 : 8000" />
     </div>
@@ -85,7 +85,7 @@ const steps = [
     <section class="py-16 md:py-20">
       <div class="container mx-auto max-w-6xl px-4">
         <div class="mx-auto mb-10 max-w-3xl text-center">
-          <p class="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-primary">How it works</p>
+          <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">How it works</p>
           <h1 class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-5xl">
             Your files are locked before they leave your computer
           </h1>
@@ -108,7 +108,7 @@ const steps = [
     <section class="bg-secondary/30 py-16 md:py-20" aria-labelledby="why-heading">
       <div class="container mx-auto max-w-6xl px-4">
         <div class="mx-auto mb-10 max-w-3xl text-center">
-          <p class="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-primary">Why it is different</p>
+          <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Why it is different</p>
           <h2 id="why-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             What ordinary cloud storage cannot promise
           </h2>
@@ -124,7 +124,7 @@ const steps = [
     <section class="py-16 md:py-20" aria-labelledby="start-heading">
       <div class="container mx-auto max-w-6xl px-4">
         <div class="mx-auto mb-10 max-w-3xl text-center">
-          <p class="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-primary">Get started</p>
+          <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Get started</p>
           <h2 id="start-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             Four steps to your first secure share
           </h2>

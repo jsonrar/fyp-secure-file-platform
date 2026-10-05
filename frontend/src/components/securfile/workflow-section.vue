@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
   <section id="how-it-works" ref="section" class="guide-section py-20 md:py-28" aria-labelledby="guide-heading">
     <div class="container mx-auto px-4">
       <div class="mx-auto mb-9 max-w-3xl text-center">
-        <p class="mb-3 text-xs font-semibold uppercase tracking-[0.32em] text-primary">How it works</p>
+        <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">How it works</p>
         <h2 id="guide-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           See exactly what to click.
         </h2>
