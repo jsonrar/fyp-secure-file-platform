@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Home page: "Three moves" heading on one line / 首页“三步”标题改为一行
+
+- The heading above the Seal, Share and Verify cards sat in a box capped at 56 rem, so it broke onto two lines with empty space on its right. The cap is removed; it now takes the full width and is one line at desktop widths (checked in a browser at 1440 px).
+- “封存、分享、验证”三张卡片上方的标题放在一个最大宽度 56 rem 的容器里，所以被折成两行，右边空出一大块。现已去掉这个限制，标题占满整行，桌面宽度下是一行（已在 1440 px 的真实浏览器里确认）。
+
 ### UI redesign, step 3c: workspace and access records / 界面改版第 3c 步：工作区和访问记录
 
 - Workspace: the heading is left-aligned with the cards instead of centred, the four destination cards lose the tinted icon tile and the drop shadow on hover (a darker border instead), the recent-files rows show sizes in the monospace face, and the page is less tall. Access records: the heading, refresh button and "Hash chain verified" line are left-aligned, the verified line is a green badge, the four statistics lose their coloured tiles, the file groups use the full width instead of a centred column, event rows use monospace for who and when, and "Failed" uses the destructive tint. All texts, buttons and test ids are unchanged.

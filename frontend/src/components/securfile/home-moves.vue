@@ -35,7 +35,7 @@ const alsoIncluded = [
     </div>
 
     <div class="container mx-auto px-4 py-24">
-      <div class="mb-12 flex max-w-4xl flex-col gap-4">
+      <div class="mb-12 flex flex-col gap-4">
         <p class="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">How it works</p>
         <h2 id="moves-heading" class="text-4xl font-semibold leading-[1.1] md:text-5xl">
           Three moves. The server is trusted with none of them.
