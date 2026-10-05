@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed } from 'vue'
+import SentenceLines from '@/components/SentenceLines.vue'
 
 /**
  * The one page header every page uses: centred, on the same centre line as the content below it.
@@ -8,6 +9,7 @@ import { computed } from 'vue'
  * - `title`: the h1 (`as="h2"` where the page already has an h1 elsewhere). About 48px on a
  *   desktop, 32px on a phone, tight tracking, balanced wrapping.
  * - `subtitle`: one sentence takes all the width it needs and stays on one line when it fits.
+ *   Two sentences that do not fit together break between the sentences (SentenceLines).
  *   A paragraph (over about 120 characters, or `long`) keeps a readable measure of about 70ch, still centred.
  * - `actions` slot: centred under the subtitle (a refresh button, a status badge).
  *
@@ -36,7 +38,7 @@ const isLong = computed(() => props.long ?? (props.subtitle?.length ?? 0) > 120)
     <p v-if="eyebrow" class="page-header-eyebrow">{{ eyebrow }}</p>
     <component :is="as" :id="titleId" class="page-header-title"><slot name="title">{{ title }}</slot></component>
     <p v-if="subtitle || $slots.subtitle" class="page-header-subtitle" :class="isLong ? 'page-header-long' : ''">
-      <slot name="subtitle">{{ subtitle }}</slot>
+      <slot name="subtitle"><SentenceLines v-if="subtitle" :text="subtitle" /></slot>
     </p>
     <div v-if="$slots.actions" class="page-header-actions"><slot name="actions" /></div>
   </header>

@@ -63,7 +63,7 @@ WhatsApp / 邮件”类问题，给出简短摘要、步骤和产品内链接；
 以及用户自己写的内容一律不翻译。中文在构建阶段由智谱 `glm-4-flash` 起草，并按固定的安全术语表校验；浏览器从不
 调用翻译服务。见 [docs/I18N.md](docs/I18N.md)。
 
-Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动、鼠标拖动与键盘浏览（不显示原生滚动条）；偏好减少动态效果时静态展示全部功能卡片。文件生命周期说明位于上传区下方；上传、教育、帮助、访问记录与我的文件统一采用联系我们页风格。首页用五个编号问题、每题两种回答来对比 SecureView 和普通网盘；页脚在 Product、Learn 链接旁列出项目信息（莫纳什大学、FIT3161 / FIT3162、MCS21 团队、指导老师）。详见
+Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动、鼠标拖动与键盘浏览（不显示原生滚动条）；偏好减少动态效果时静态展示全部功能卡片。文件生命周期说明位于上传区下方；上传、教育、帮助、访问记录与我的文件统一采用联系我们页风格。首页用五个编号问题、每题两种回答来对比 SecureView 和普通网盘；页脚在 Product、Learn 链接旁列出项目信息（莫纳什大学、FIT3161 / FIT3162、MCS21 团队、指导老师）。标题能放一行就放一行，两句话的简介只在句与句之间换行（`SentenceLines`）；`frontend/scripts/text-audit.mjs` 会在每个页面上检查这一点。详见
 [changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9)。
 
 首页 How it works（`/#how-it-works`）提供六张带定位标记的真实界面截图，涵盖选文件、加密、分享、

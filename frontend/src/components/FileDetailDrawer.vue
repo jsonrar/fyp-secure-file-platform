@@ -148,9 +148,10 @@ watch(() => props.file.id, loadPeople, { immediate: true })
         <dt class="text-muted-foreground">Cipher</dt>
         <dd translate="no" class="font-mono text-[0.8rem]">{{ file.algorithm }}</dd>
         <dt class="text-muted-foreground">Original size</dt>
-        <dd>{{ file.originalSize }} <span class="font-mono text-xs text-muted-foreground">{{ exactBytes(file.originalBytes) }}</span></dd>
+        <!-- Under 1 KB the readable size already is the byte count, so it is not repeated. -->
+        <dd>{{ file.originalSize }} <span v-if="file.originalBytes >= 1024" class="font-mono text-xs text-muted-foreground">{{ exactBytes(file.originalBytes) }}</span></dd>
         <dt class="text-muted-foreground">Stored size</dt>
-        <dd>{{ file.encryptedSize }} <span class="font-mono text-xs text-muted-foreground">{{ exactBytes(file.encryptedBytes) }}</span></dd>
+        <dd>{{ file.encryptedSize }} <span v-if="file.encryptedBytes >= 1024" class="font-mono text-xs text-muted-foreground">{{ exactBytes(file.encryptedBytes) }}</span></dd>
         <dt v-if="file.mimeType" class="text-muted-foreground">Type</dt>
         <dd v-if="file.mimeType" translate="no" class="font-mono text-[0.8rem]">{{ file.mimeType }}</dd>
         <dt class="text-muted-foreground">Uploaded</dt>

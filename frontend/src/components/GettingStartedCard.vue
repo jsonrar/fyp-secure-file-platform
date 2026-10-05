@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SentenceLines from '@/components/SentenceLines.vue'
 import { Check, ChevronRight, X } from 'lucide-vue-next'
 import { computed, ref, watch } from 'vue'
 import { auditApi } from '@/api/audit_api'
@@ -109,7 +110,7 @@ function hide() {
         </span>
         <div class="min-w-0">
           <p class="text-sm font-medium text-foreground">{{ STEP_TEXT[step].title }}</p>
-          <p class="mt-0.5 text-sm text-muted-foreground">{{ STEP_TEXT[step].body }}</p>
+          <p class="mt-0.5 text-sm text-muted-foreground"><SentenceLines :text="STEP_TEXT[step].body" /></p>
           <RouterLink
             v-if="!progress[step]"
             :to="STEP_TEXT[step].to"
@@ -122,8 +123,7 @@ function hide() {
       </li>
     </ol>
     <p v-if="allDone" class="mt-4 text-sm text-muted-foreground">
-      That is the whole idea: encrypted on your device, shared by key, checked on the way out.
-      You can hide this now.
+      <SentenceLines text="That is the whole idea: encrypted on your device, shared by key, checked on the way out. You can hide this now." />
     </p>
   </div>
 </template>

@@ -86,7 +86,9 @@ scrolling (no native scrollbar), and a static complete-card layout for reduced-m
 preferences. The file lifecycle explainer sits below Upload; Upload, Education, Help, Access
 Records and My Files share Contact us page styling. The home page compares SecureView with ordinary
 cloud storage as five numbered questions with two answers each, and the footer lists the project facts
-(Monash University, FIT3161 / FIT3162, team MCS21, supervisor) beside the Product and Learn links. See
+(Monash University, FIT3161 / FIT3162, team MCS21, supervisor) beside the Product and Learn links.
+Headings fit on one line where they can, and two-sentence intros break only between sentences
+(`SentenceLines`); `frontend/scripts/text-audit.mjs` checks this on every page. See
 [changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9).
 
 The homepage's How it works section offers six annotated screenshots from the real UI under

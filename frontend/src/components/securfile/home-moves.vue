@@ -33,13 +33,13 @@ const alsoIncluded = [
       <div class="mb-12 flex flex-col items-center gap-4 text-center">
         <p class="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">How it works</p>
         <h2 id="moves-heading" class="text-balance text-4xl font-semibold leading-[1.1] md:text-5xl">
-          Three moves. The server is trusted with none of them.
+          Three steps, no trust in the server.
         </h2>
       </div>
-      <div class="grid gap-6 md:grid-cols-3">
+      <div class="grid gap-6 lg:grid-cols-3">
         <article class="flex flex-col gap-5 rounded-xl border border-border bg-card p-7">
           <span class="font-mono text-xs text-muted-foreground">01 — Seal</span>
-          <h3 class="text-2xl font-semibold">Encrypted before it leaves</h3>
+          <h3 class="text-xl font-semibold xl:text-2xl">Sealed before it leaves</h3>
           <p class="leading-relaxed text-muted-foreground">
             A new random key for every file, up to 500 MB. Your passphrase unlocks your private key here, in
             the browser, through Argon2id, and never travels.
@@ -50,18 +50,18 @@ const alsoIncluded = [
         </article>
         <article class="flex flex-col gap-5 rounded-xl border border-border bg-card p-7">
           <span class="font-mono text-xs text-muted-foreground">02 — Share</span>
-          <h3 class="text-2xl font-semibold">Only to a key you have checked</h3>
+          <h3 class="text-xl font-semibold xl:text-2xl">Only to a checked key</h3>
           <p class="leading-relaxed text-muted-foreground">
             Share with a named account by re-sealing the file key for them. Before anything is sent you see
             their key fingerprint; no public link exists to leak, and access can be revoked.
           </p>
           <p class="mt-auto rounded-lg bg-secondary px-4 py-3 font-mono text-xs tracking-[0.06em]">
-            3C06 B3AC DFEA A038 CDFB 3784 CC7D A99B
+            3C06 B3AC DFEA A038 …
           </p>
         </article>
         <article class="flex flex-col gap-5 rounded-xl border border-border bg-card p-7">
           <span class="font-mono text-xs text-muted-foreground">03 — Verify</span>
-          <h3 class="text-2xl font-semibold">Changed means refused</h3>
+          <h3 class="text-xl font-semibold xl:text-2xl">Changed means refused</h3>
           <p class="leading-relaxed text-muted-foreground">
             Every download is checked against its recorded SHA-256 and the audit chain, then by the cipher
             itself in your browser. A daily scan checks every stored file.

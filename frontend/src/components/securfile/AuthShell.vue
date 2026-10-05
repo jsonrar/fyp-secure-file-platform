@@ -19,9 +19,9 @@ const results = proof.slice(0, 3)
       <div class="relative flex h-full flex-col justify-between gap-12 p-12 xl:p-16">
         <p class="font-mono text-xs uppercase tracking-[0.16em] text-[#7ce0b5]">Zero-knowledge file sharing</p>
         <div class="flex flex-col gap-10">
-          <h2 class="text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-white xl:text-5xl">
-            Sealed in your browser.
-            <span class="block text-[#8a92a3]">Unreadable to everyone else.</span>
+          <h2 class="text-4xl font-semibold leading-[1.05] tracking-[-0.04em] text-white 2xl:text-5xl">
+            Sealed in your browser,
+            <span class="block text-[#8a92a3]">unreadable to others.</span>
           </h2>
           <ul class="flex flex-col gap-5 border-t border-white/10 pt-8">
             <li v-for="item in results" :key="item.value" class="flex flex-col gap-1">

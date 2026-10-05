@@ -146,6 +146,14 @@
     letter-spacing: -0.02em;
     text-wrap: balance;
   }
+  /* A heading that has to wrap splits into even lines; running text avoids leaving one or two
+     words alone on its last line. Two-sentence intros use SentenceLines to break between sentences. */
+  h4 {
+    text-wrap: balance;
+  }
+  p, li, dd, figcaption, blockquote {
+    text-wrap: pretty;
+  }
   code, kbd, pre, samp {
     font-family: var(--font-mono);
   }

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SentenceLines from '@/components/SentenceLines.vue'
 import { computed, onMounted, ref } from 'vue'
 import {
   BadgeCheck,
@@ -186,7 +187,7 @@ async function removeAvatar() {
             />
             <h2 class="text-lg font-semibold text-foreground">Profile picture</h2>
             <p class="mt-1 text-sm text-muted-foreground">
-              PNG or JPEG, up to 512 KB. Your initials are shown when no picture is set.
+              <SentenceLines text="PNG or JPEG, up to 512 KB. Your initials are shown when no picture is set." />
             </p>
             <div class="mt-4 flex flex-wrap items-center gap-2">
               <button

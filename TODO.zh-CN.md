@@ -49,7 +49,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   以及含 `/profile` 与 `/settings` 的头像菜单。证据与理由见
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 的 `[Unreleased]`。
 - [x] 面向新用户的讲解（2026-10-02）：`/how-it-works` 和首页的可逐步查看的原理动画，Help 页三段从真实产品录制、
-  带字幕的视频，与普通网盘的对比，以及四步快速上手。各自内容见更新日志。对比表的问题列已加标签和编号，页脚中间不再空一块（[PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)）。
+  带字幕的视频，与普通网盘的对比，以及四步快速上手。各自内容见更新日志。对比表的问题列已加标签和编号，页脚中间不再空一块（[PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)）。全站标题和简介：放得下就一行，只在句与句之间换行，不再有两句话的标题，由 `text-audit.mjs` 检查（PR_REF）。
 
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。

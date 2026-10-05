@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SentenceLines from '@/components/SentenceLines.vue'
 import { ArrowLeft, Compass } from 'lucide-vue-next'
 import { RouterLink, useRoute } from 'vue-router'
 
@@ -14,10 +15,12 @@ const route = useRoute()
         </div>
         <p class="text-sm uppercase tracking-[0.22em] text-muted-foreground">Error 404</p>
         <h1 class="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">We can't find that page</h1>
-        <p class="mt-4 text-pretty text-muted-foreground">
+        <p class="mt-4 text-muted-foreground">
           There is nothing at
           <code class="break-all rounded bg-secondary px-1.5 py-0.5 text-sm text-foreground">{{ route.path }}</code>.
-          The link may be mistyped or out of date. Your files and keys are not affected.
+        </p>
+        <p class="mt-1 text-muted-foreground">
+          <SentenceLines text="The link may be mistyped or out of date. Your files and keys are not affected." />
         </p>
         <div class="mt-8 flex flex-col items-center justify-center gap-3 sm:flex-row">
           <RouterLink
