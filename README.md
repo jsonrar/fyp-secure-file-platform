@@ -554,6 +554,15 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_t
 See [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md) for what each suite proves, `backend/scripts/`
 for the individual check scripts, and `TODO.md` for what remains deferred.
 
+### Accounts in the admin console
+
+Admin → **Users** lists accounts with their email; **Details** shows one account's status, sign-in and
+password-change times and counts (files, bytes stored, shares, open sessions). **Reset login password**
+sets a random temporary password shown once, signs the account out everywhere and emails the holder;
+the holder then chooses their own under Settings → Login password. No screen ever shows a password:
+the login password is stored only as a one-way hash, and the encryption passphrase never reaches the
+server, so a reset cannot open or lose anyone's files.
+
 ### Security agent
 
 Admin → **Security agent** ranks what needs an administrator's attention from the audit log, integrity

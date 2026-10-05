@@ -273,6 +273,8 @@ account's private-key bundle.
 | GET | `/admin/stats` | ADMIN | Counts-only platform summary: users by status, files by status and algorithm, bytes stored, active shares, 24-hour integrity checks and failures, pending recovery requests, audit totals and the five newest failed events (action, time, actor only) |
 | POST | `/admin/users/{user_id}/disable` | ADMIN | Soft-disable an account and revoke active sessions |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | Re-enable a disabled account |
+| GET | `/admin/users/{user_id}` | ADMIN | One account: email and whether it is verified, role, status, created, last sign-in, password changed, and counts only (files, stored bytes, shares sent and received, sessions open). Never a password, hash or key |
+| POST | `/admin/users/{user_id}/reset-password` | ADMIN | Set a new random login password, returned once (`no-store`); only its hash is stored. Signs the account out everywhere, audits `ADMIN_PASSWORD_RESET` without the password and emails the holder. Not for the caller's own account or another administrator. The encryption passphrase and files are untouched |
 
 Admin list endpoints use `limit` (`1..100`) and `offset`. Status changes are conditional and
 audited; hard deletion is not used for identities referenced by the audit chain.

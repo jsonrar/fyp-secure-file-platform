@@ -98,6 +98,10 @@ export const authApi = {
   resetPassword(payload: ResetPasswordPayload) {
     return http.post<ApiEnvelope<ResetPasswordData>>('/auth/password-reset', payload)
   },
+  /** Signed in: change the login password. The server then signs out every session, this one too. */
+  changePassword(payload: { current_password: string; new_password: string }) {
+    return http.post<ApiEnvelope<{ revoked_sessions: number }>>('/auth/change-password', payload)
+  },
   login(payload: LoginPayload) {
     return http.post('/auth/login', payload)
   },
