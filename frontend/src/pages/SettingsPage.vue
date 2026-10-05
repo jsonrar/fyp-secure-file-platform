@@ -3,6 +3,7 @@ import { ref } from 'vue'
 import { LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
 import KeyFingerprintCard from '@/components/KeyFingerprintCard.vue'
 import ResetPassphraseCard from '@/components/ResetPassphraseCard.vue'
@@ -40,102 +41,107 @@ function onDeleted() {
 </script>
 
 <template>
-  <section class="py-16 md:py-24">
-    <div class="container mx-auto max-w-3xl px-4">
-      <h1 class="text-2xl font-bold text-foreground md:text-3xl">{{ t('settings.title') }}</h1>
-      <p class="mt-2 text-sm text-muted-foreground">
-        {{ t('settings.intro', { name: auth.displayName }) }}
-      </p>
+  <section class="product-page">
+    <div class="page-container">
+      <PageHeader :title="t('settings.title')" :subtitle="t('settings.intro', { name: auth.displayName })" />
 
-      <div class="mt-8 rounded-xl border border-border bg-card p-6">
-        <h2 class="text-lg font-semibold text-foreground">{{ t('settings.appearance') }}</h2>
-        <p class="mt-1 text-sm text-muted-foreground">
-          {{ t('settings.appearanceHint') }}
-        </p>
+      <div class="grid items-start gap-6 lg:grid-cols-2">
+        <div class="flex flex-col gap-6">
+          <div class="rounded-xl border border-border bg-card p-6">
+            <h2 class="text-lg font-semibold text-foreground">{{ t('settings.appearance') }}</h2>
+            <p class="mt-1 text-sm text-muted-foreground">
+              {{ t('settings.appearanceHint') }}
+            </p>
 
-        <div class="mt-4 grid gap-3 sm:grid-cols-3">
-          <button
-            v-for="option in themeOptions"
-            :key="option.value"
-            type="button"
-            role="radio"
-            :aria-checked="preference === option.value"
-            class="rounded-lg border p-4 text-left transition-colors"
-            :class="
-              preference === option.value
-                ? 'border-primary bg-primary/10'
-                : 'border-border hover:border-primary/40'
-            "
-            @click="setPreference(option.value)"
-          >
-            <component
-              :is="option.icon"
-              class="mb-2 h-5 w-5"
-              :class="preference === option.value ? 'text-primary' : 'text-muted-foreground'"
-            />
-            <p class="text-sm font-semibold text-foreground">{{ t(option.label) }}</p>
-            <p class="mt-1 text-xs text-muted-foreground">{{ t(option.hint) }}</p>
-          </button>
+            <div class="mt-4 grid gap-3 sm:grid-cols-3">
+              <button
+                v-for="option in themeOptions"
+                :key="option.value"
+                type="button"
+                role="radio"
+                :aria-checked="preference === option.value"
+                class="rounded-lg border p-4 text-left transition-colors"
+                :class="
+                  preference === option.value
+                    ? 'border-primary bg-primary/10'
+                    : 'border-border hover:border-primary/40'
+                "
+                @click="setPreference(option.value)"
+              >
+                <component
+                  :is="option.icon"
+                  class="mb-2 h-5 w-5"
+                  :class="preference === option.value ? 'text-primary' : 'text-muted-foreground'"
+                />
+                <p class="text-sm font-semibold text-foreground">{{ t(option.label) }}</p>
+                <p class="mt-1 text-sm text-muted-foreground">{{ t(option.hint) }}</p>
+              </button>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-border bg-card p-6">
+            <h2 id="settings-language" class="text-lg font-semibold text-foreground">{{ t('settings.language') }}</h2>
+            <p class="mt-1 text-sm text-muted-foreground">{{ t('settings.languageHint') }}</p>
+            <div class="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-labelledby="settings-language">
+              <button
+                v-for="option in LOCALES"
+                :key="option.code"
+                type="button"
+                role="radio"
+                :lang="option.code"
+                :aria-checked="locale === option.code"
+                class="rounded-lg border p-4 text-left text-sm font-semibold text-foreground transition-colors"
+                :class="locale === option.code ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'"
+                @click="setLocale(option.code)"
+              >
+                {{ option.label }}
+              </button>
+            </div>
+          </div>
+        </div>
+
+        <div class="flex flex-col gap-6">
+          <div class="rounded-xl border border-border bg-card p-6">
+            <h2 class="text-lg font-semibold text-foreground">{{ t('settings.account') }}</h2>
+            <div class="mt-4 flex flex-wrap gap-3">
+              <RouterLink
+                to="/profile"
+                class="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm text-foreground transition-colors hover:bg-secondary"
+              >
+                <UserRound class="h-4 w-4" />
+                {{ t('settings.viewProfile') }}
+              </RouterLink>
+              <button
+                type="button"
+                class="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm text-foreground transition-colors hover:bg-secondary"
+                @click="handleLogout"
+              >
+                <LogOut class="h-4 w-4" />
+                {{ t('nav.logOut') }}
+              </button>
+            </div>
+          </div>
+
+          <KeyFingerprintCard />
         </div>
       </div>
 
-      <div class="mt-6 rounded-xl border border-border bg-card p-6">
-        <h2 id="settings-language" class="text-lg font-semibold text-foreground">{{ t('settings.language') }}</h2>
-        <p class="mt-1 text-sm text-muted-foreground">{{ t('settings.languageHint') }}</p>
-        <div class="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-labelledby="settings-language">
-          <button
-            v-for="option in LOCALES"
-            :key="option.code"
-            type="button"
-            role="radio"
-            :lang="option.code"
-            :aria-checked="locale === option.code"
-            class="rounded-lg border p-4 text-left text-sm font-semibold text-foreground transition-colors"
-            :class="locale === option.code ? 'border-primary bg-primary/10' : 'border-border hover:border-primary/40'"
-            @click="setLocale(option.code)"
-          >
-            {{ option.label }}
-          </button>
-        </div>
-      </div>
+      <div class="mt-6 flex flex-col gap-6">
+        <ResetPassphraseCard />
 
-      <div class="mt-6 rounded-xl border border-border bg-card p-6">
-        <h2 class="text-lg font-semibold text-foreground">{{ t('settings.account') }}</h2>
-        <div class="mt-4 flex flex-wrap gap-3">
-          <RouterLink
-            to="/profile"
-            class="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm text-foreground transition-colors hover:bg-secondary"
-          >
-            <UserRound class="h-4 w-4" />
-            {{ t('settings.viewProfile') }}
-          </RouterLink>
+        <div class="rounded-xl border border-destructive/40 bg-card p-6">
+          <h2 class="text-lg font-semibold text-foreground">{{ t('settings.deleteTitle') }}</h2>
+          <p class="mt-2 reading-measure text-sm text-muted-foreground">
+            {{ t('settings.deleteBody') }}
+          </p>
           <button
             type="button"
-            class="inline-flex h-10 items-center gap-2 rounded-md border border-border px-4 text-sm text-foreground transition-colors hover:bg-secondary"
-            @click="handleLogout"
+            class="mt-4 h-10 rounded-md border border-destructive/50 px-4 text-sm text-destructive transition-colors hover:bg-destructive/10"
+            @click="showDelete = true"
           >
-            <LogOut class="h-4 w-4" />
-            {{ t('nav.logOut') }}
+            {{ t('settings.deleteButton') }}
           </button>
         </div>
-      </div>
-
-      <KeyFingerprintCard />
-
-      <ResetPassphraseCard />
-
-      <div class="mt-6 rounded-xl border border-destructive/40 bg-card p-6">
-        <h2 class="text-lg font-semibold text-foreground">{{ t('settings.deleteTitle') }}</h2>
-        <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
-          {{ t('settings.deleteBody') }}
-        </p>
-        <button
-          type="button"
-          class="mt-4 h-10 rounded-md border border-destructive/50 px-4 text-sm text-destructive transition-colors hover:bg-destructive/10"
-          @click="showDelete = true"
-        >
-          {{ t('settings.deleteButton') }}
-        </button>
       </div>
     </div>
 

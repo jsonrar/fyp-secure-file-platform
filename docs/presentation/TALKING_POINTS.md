@@ -237,6 +237,20 @@ the live site with their own accounts, and our own first-time-user walkthrough c
 where a new user would get stuck. It is real but informal evidence; the planned study with pass criteria is in the repository if
 someone wants to run it.
 
+## 11. We audited our own interface with a script, not by eye (#183)
+
+**What happened:** after the "Sealed" restyle the pages looked fine one at a time and wrong together
+(headings left or centred, widths all different, the sidebar disappearing on Help). We wrote
+`frontend/scripts/layout-audit.mjs`: it opens every page in five configurations (1440 light, 1440 dark,
+768, 390 phone, 1440 Chinese), takes full-page screenshots and measures squeezed headings, horizontal
+overflow, clipped text, small tap targets, untranslated English and console or HTTP errors.
+
+**What to say:** "We do not judge the interface by eye. One script measures about a hundred page views
+and gives numbers, and a change is not finished until squeezed headings and overflow are zero." Say what it
+**cannot** do: it measures layout, it does not decide whether a page is good.
+
+**Do not say:** that this replaces usability testing (see §10).
+
 ## Quick answers for judges
 
 | Question | One-line answer | See |

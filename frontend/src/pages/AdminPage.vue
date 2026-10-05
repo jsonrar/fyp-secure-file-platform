@@ -12,6 +12,7 @@ import {
 } from 'lucide-vue-next'
 import { RouterLink, useRoute, useRouter } from 'vue-router'
 
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import AdminAgentPanel from '@/components/admin/AdminAgentPanel.vue'
 import AdminAuditPanel from '@/components/admin/AdminAuditPanel.vue'
 import AdminFilesPanel from '@/components/admin/AdminFilesPanel.vue'
@@ -111,16 +112,11 @@ onMounted(async () => {
 </script>
 
 <template>
-  <section class="py-16 md:py-20">
-    <div class="container mx-auto max-w-6xl px-4">
-      <div class="mb-8 text-center">
-        <h1 class="min-h-[2.25rem] text-3xl font-bold text-foreground md:min-h-[2.5rem] md:text-4xl">
-          <template v-if="ready">{{ heading.title }}</template>
-        </h1>
-        <p v-if="ready" class="mx-auto mt-3 max-w-2xl text-muted-foreground">
-          {{ heading.subtitle }}
-        </p>
-      </div>
+  <section class="product-page">
+    <div class="page-container">
+      <PageHeader v-if="ready" :title="heading.title" :subtitle="heading.subtitle" />
+      <!-- Holds the header's place while the account loads, so the page does not jump. -->
+      <div v-else class="mb-10 h-28 md:mb-14" aria-hidden="true" />
 
       <div v-if="!ready" class="py-16 text-center text-sm text-muted-foreground">
         Loading account…
@@ -128,7 +124,6 @@ onMounted(async () => {
 
       <div
         v-else-if="!auth.isRecoveryReviewer && auth.user"
-        class="mx-auto max-w-2xl"
       >
         <div class="rounded-xl border border-border bg-card p-6">
           <h2 class="text-lg font-semibold text-foreground">Your recovery requests</h2>

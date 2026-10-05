@@ -70,7 +70,7 @@ function hide() {
 <template>
   <div
     v-if="!hidden && progress"
-    class="mx-auto mb-10 max-w-5xl rounded-xl border border-primary/30 bg-card p-6"
+    class="mb-10 rounded-xl border border-primary/30 bg-card p-6"
     data-testid="getting-started"
   >
     <div class="mb-4 flex items-start justify-between gap-4">
@@ -109,7 +109,7 @@ function hide() {
         </span>
         <div class="min-w-0">
           <p class="text-sm font-medium text-foreground">{{ STEP_TEXT[step].title }}</p>
-          <p class="mt-0.5 text-xs text-muted-foreground">{{ STEP_TEXT[step].body }}</p>
+          <p class="mt-0.5 text-sm text-muted-foreground">{{ STEP_TEXT[step].body }}</p>
           <RouterLink
             v-if="!progress[step]"
             :to="STEP_TEXT[step].to"

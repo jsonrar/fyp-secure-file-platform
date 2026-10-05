@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import { ArrowUpRight, Bug, Code, Github, GraduationCap, Lightbulb, LockKeyhole, Mail, Maximize2, MessageSquare, Palette, Send, Server, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
@@ -189,16 +190,12 @@ onBeforeUnmount(() => {
 <template>
   <section class="relative overflow-hidden py-14 md:py-20">
 
-    <div class="container relative mx-auto max-w-6xl px-4">
-      <header class="mb-12 max-w-3xl md:mb-14">
-        <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">SecureView</p>
-        <h1 class="text-4xl font-bold tracking-tight text-foreground sm:text-5xl">
-          Contact <span class="text-primary">us</span>
-        </h1>
-        <p class="mt-4 text-base text-muted-foreground md:text-lg">
-          Send us feedback, then meet the supervisor and the team behind SecureView.
-        </p>
-      </header>
+    <div class="page-container">
+      <PageHeader
+        eyebrow="SecureView"
+        title="Contact us"
+        subtitle="Send us feedback, then meet the supervisor and the team behind SecureView."
+      />
 
       <!-- Feedback: the pitch on the left, the form on the right, so a wide screen is used and not left half empty. -->
       <div class="mb-16 grid gap-8 md:mb-20 lg:grid-cols-5 lg:gap-12" data-testid="team-feedback">

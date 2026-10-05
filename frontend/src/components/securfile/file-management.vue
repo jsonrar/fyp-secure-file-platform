@@ -1,6 +1,7 @@
 <script setup lang="ts">
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, MoreHorizontal, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
@@ -715,13 +716,10 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
 
 <template>
   <section id="manage" class="product-page">
-    <div class="container relative mx-auto max-w-6xl px-4">
-      <div class="product-heading">
-        <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Manage Encrypted Files</h2>
-        <p class="text-muted-foreground max-w-2xl text-pretty">View, download, share, and verify all your encrypted files</p>
-      </div>
+    <div class="page-container">
+      <PageHeader title="Manage Encrypted Files" subtitle="View, download, share, and verify all your encrypted files" />
 
-      <div class="bg-card border border-border rounded-3xl max-w-6xl mx-auto p-6">
+      <div class="bg-card border border-border rounded-3xl p-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div class="inline-flex rounded-lg border border-border p-1 mb-2">

@@ -1,6 +1,6 @@
 <script setup lang="ts">
 import { onMounted, ref } from 'vue'
-import { Download, Loader2, RefreshCw } from 'lucide-vue-next'
+import { Download, LifeBuoy, Loader2, RefreshCw } from 'lucide-vue-next'
 
 import { apiErrorMessage } from '@/api/http'
 import {
@@ -201,8 +201,16 @@ onMounted(() => {
     <div v-if="isLoading && !requests.length" class="py-10 text-center text-sm text-muted-foreground">
       Loading recovery requests…
     </div>
-    <div v-else-if="!requests.length" class="py-10 text-center text-sm text-muted-foreground">
-      No recovery requests yet.
+    <div
+      v-else-if="!requests.length"
+      class="flex flex-col items-center gap-3 rounded-xl border border-dashed border-border bg-card px-6 py-16 text-center"
+      data-testid="recovery-empty"
+    >
+      <LifeBuoy class="h-8 w-8 text-muted-foreground" aria-hidden="true" />
+      <p class="text-base font-medium text-foreground">No recovery requests yet</p>
+      <p class="text-sm text-muted-foreground">
+        When a file needs to be recovered, the request appears here with its status.
+      </p>
     </div>
 
     <ul v-else class="space-y-4">

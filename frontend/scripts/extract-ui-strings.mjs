@@ -31,7 +31,7 @@ const SKIP_FILE = /\.(test|spec)\.ts$|\.d\.ts$/
 // Attributes whose static value a person reads or hears.
 const TEXT_ATTRIBUTES = new Set([
   'placeholder', 'title', 'aria-label', 'alt', 'label', 'hint', 'description', 'heading',
-  'consequence', 'detail', 'confirm-label', 'busy-label', 'caption', 'text', 'summary',
+  'consequence', 'detail', 'confirm-label', 'busy-label', 'caption', 'text', 'summary', 'eyebrow', 'subtitle',
 ])
 
 export function normalize(text) {

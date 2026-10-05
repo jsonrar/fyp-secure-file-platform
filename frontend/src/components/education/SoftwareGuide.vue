@@ -45,7 +45,7 @@ watch(
       <div class="border-b border-border px-5 py-4">
         <p class="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary">{{ active.tag }}</p>
         <h3 class="text-xl font-bold text-foreground">{{ active.title }}</h3>
-        <p class="mt-2 max-w-2xl text-sm text-muted-foreground">{{ active.summary }}</p>
+        <p class="mt-2 text-sm text-muted-foreground">{{ active.summary }}</p>
       </div>
 
       <div class="grid gap-0 lg:grid-cols-[minmax(0,1fr)_18rem]">

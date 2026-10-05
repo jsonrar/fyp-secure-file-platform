@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import { Clipboard, Loader2, Play } from 'lucide-vue-next'
 import { DEFAULT_ARGON2_COST, deriveKek, type Argon2Cost } from '@/utils/account-crypto'
 
@@ -137,17 +138,15 @@ async function copyReport() {
 </script>
 
 <template>
-  <section class="py-16 md:py-24">
-    <div class="container mx-auto max-w-3xl px-4">
-      <h1 class="text-2xl font-bold text-foreground md:text-3xl">Argon2id benchmark</h1>
-      <p class="mt-2 text-sm text-muted-foreground">
-        Measures how long this device takes to derive the key that unlocks an account, using
-        exactly the code the unlock dialog uses. It does not touch any account. Keep this tab in
-        the foreground and do not use the device while it runs; it takes up to a minute on a
-        phone.
-      </p>
+  <section class="product-page">
+    <div class="page-container">
+      <PageHeader
+        eyebrow="Threat-model evidence"
+        title="Argon2id benchmark"
+        subtitle="Measures how long this device takes to derive the key that unlocks an account, using exactly the code the unlock dialog uses. It does not touch any account. Keep this tab in the foreground and do not use the device while it runs; it takes up to a minute on a phone."
+      />
 
-      <div class="mt-6 rounded-xl border border-border bg-card p-6">
+      <div class="rounded-xl border border-border bg-card p-6">
         <dl class="grid gap-2 text-sm">
           <div><dt class="inline text-muted-foreground">Logical CPUs: </dt><dd class="inline text-foreground">{{ device.hardwareConcurrency ?? 'unknown' }}</dd></div>
           <div><dt class="inline text-muted-foreground">Device memory: </dt><dd class="inline text-foreground">{{ device.deviceMemoryGiB ? `${device.deviceMemoryGiB} GiB (approximate)` : 'not reported by this browser' }}</dd></div>

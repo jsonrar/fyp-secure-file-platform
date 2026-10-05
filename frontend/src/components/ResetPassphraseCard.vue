@@ -100,12 +100,12 @@ async function submit() {
 </script>
 
 <template>
-  <div class="mt-6 rounded-xl border border-border bg-card p-6">
+  <div class="rounded-xl border border-border bg-card p-6">
     <h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
       <KeyRound class="h-5 w-5 text-primary" />
       {{ t('resetPassphrase.title') }}
     </h2>
-    <p class="mt-2 max-w-2xl text-sm text-muted-foreground">
+    <p class="mt-2 reading-measure text-sm text-muted-foreground">
       {{ t('resetPassphrase.intro') }}
     </p>
 
