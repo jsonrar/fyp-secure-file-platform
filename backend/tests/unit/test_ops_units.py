@@ -290,7 +290,13 @@ def _pip_installer(tmp_path: Path, behaviour: str) -> tuple[Path, Path]:
 def test_a_stalled_pip_install_is_cut_off_and_tried_again(tmp_path: Path) -> None:
     runner, calls = _pip_installer(tmp_path, "hang,ok")
     env = {"PATH": "/usr/bin:/bin", "MCS21_PIP_ATTEMPT_SECONDS": "1", "MCS21_PIP_RETRY_PAUSE": "0"}
-    result = subprocess.run(["bash", str(runner), str(tmp_path / "build")], env=env, capture_output=True, text=True, timeout=60)
+    result = subprocess.run(
+        ["bash", str(runner), str(tmp_path / "build")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     assert result.returncode == 0, result.stderr
     assert calls.read_text().strip() == "2"
     assert "attempt 1 of 3 failed or ran past 1s" in result.stderr
@@ -300,14 +306,24 @@ def test_a_stalled_pip_install_is_cut_off_and_tried_again(tmp_path: Path) -> Non
 def test_pip_gives_up_after_its_attempts(tmp_path: Path) -> None:
     runner, calls = _pip_installer(tmp_path, "fail,fail,fail,ok")
     env = {"PATH": "/usr/bin:/bin", "MCS21_PIP_ATTEMPT_SECONDS": "5", "MCS21_PIP_RETRY_PAUSE": "0"}
-    result = subprocess.run(["bash", str(runner), str(tmp_path / "build")], env=env, capture_output=True, text=True, timeout=60)
+    result = subprocess.run(
+        ["bash", str(runner), str(tmp_path / "build")],
+        env=env,
+        capture_output=True,
+        text=True,
+        timeout=60,
+    )
     assert result.returncode != 0
     assert calls.read_text().strip() == "3"
 
 
 def test_a_failed_requirements_install_removes_its_build_directory() -> None:
-    build = _read("mcs21-deploy").split("build_release() {", 1)[1].split("backup_database() {", 1)[0]
+    build = (
+        _read("mcs21-deploy").split("build_release() {", 1)[1].split("backup_database() {", 1)[0]
+    )
     assert 'if ! install_backend_requirements "$build_dir"; then' in build
-    guarded = build.split('if ! install_backend_requirements "$build_dir"; then', 1)[1].split("fi", 1)[0]
+    guarded = build.split('if ! install_backend_requirements "$build_dir"; then', 1)[1].split(
+        "fi", 1
+    )[0]
     assert 'rm -rf "$build_dir"' in guarded and "die " in guarded
     assert "pip install" not in build, "pip must only run through install_backend_requirements"
