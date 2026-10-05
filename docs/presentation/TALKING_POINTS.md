@@ -249,6 +249,8 @@ overflow, clipped text, small tap targets, untranslated English and console or H
 and gives numbers, and a change is not finished until squeezed headings and overflow are zero." Say what it
 **cannot** do: it measures layout, it does not decide whether a page is good.
 
+**A colour rule the audit checks:** green means only "verified" or "sealed", red only "changed" or "dangerous". In dark mode the primary buttons are near-white, and a scan of every control on every page found none in the success green (#184).
+
 **Do not say:** that this replaces usability testing (see §10).
 
 ## Quick answers for judges
