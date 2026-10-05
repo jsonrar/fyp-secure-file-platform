@@ -78,27 +78,52 @@ function onKeydown(event: KeyboardEvent) {
   if (event.key === 'Escape') emit('close')
 }
 
+/*
+ * From the md breakpoint up the panel sits beside the list rather than over a dimmed page: the
+ * rows stay readable and clickable, so another file can be opened without closing this one first.
+ * A click on the page outside the panel and outside the file rows closes it, as the backdrop did.
+ * On a phone it is a bottom sheet over a backdrop, and modal.
+ */
+const panel = ref<HTMLElement | null>(null)
+const narrowQuery = window.matchMedia('(max-width: 767.98px)')
+const narrow = ref(narrowQuery.matches)
+const onNarrowChange = (event: MediaQueryListEvent) => (narrow.value = event.matches)
+
+function onPointerDown(event: PointerEvent) {
+  if (narrow.value) return
+  const target = event.target as Element | null
+  if (!target || panel.value?.contains(target)) return
+  if (target.closest('[data-file-row], [role="dialog"], [role="menu"]')) return
+  emit('close')
+}
+
 onMounted(async () => {
   document.addEventListener('keydown', onKeydown)
+  document.addEventListener('pointerdown', onPointerDown)
+  narrowQuery.addEventListener('change', onNarrowChange)
   await nextTick()
   closeButton.value?.focus()
 })
 onBeforeUnmount(() => {
   document.removeEventListener('keydown', onKeydown)
+  document.removeEventListener('pointerdown', onPointerDown)
+  narrowQuery.removeEventListener('change', onNarrowChange)
   window.clearTimeout(copiedTimer)
 })
 watch(() => props.file.id, loadPeople, { immediate: true })
 </script>
 
 <template>
-  <div class="fixed inset-0 z-50" data-testid="file-detail">
-    <div class="absolute inset-0 bg-black/30" @click="emit('close')" />
+  <div class="pointer-events-none fixed inset-0 z-50" data-testid="file-detail">
+    <div class="pointer-events-auto absolute inset-0 bg-black/30 md:hidden" @click="emit('close')" />
     <aside
-      class="absolute inset-y-0 right-0 flex w-full max-w-md flex-col gap-6 overflow-y-auto border-l border-border bg-card p-6 shadow-xl"
+      ref="panel"
+      class="pointer-events-auto absolute inset-x-0 bottom-0 flex max-h-[88dvh] flex-col gap-6 overflow-y-auto rounded-t-2xl border-t border-border bg-card p-6 shadow-xl animate-in slide-in-from-bottom duration-200 motion-reduce:animate-none md:inset-y-0 md:left-auto md:right-0 md:max-h-none md:w-full md:max-w-md md:rounded-none md:border-l md:border-t-0 md:slide-in-from-right md:slide-in-from-bottom-0"
       role="dialog"
-      aria-modal="true"
+      :aria-modal="narrow"
       :aria-label="`Details of ${file.name}`"
     >
+      <div class="-mt-2 mx-auto h-1 w-10 shrink-0 rounded-full bg-border md:hidden" aria-hidden="true" />
       <div class="flex items-start justify-between gap-4">
         <div class="flex min-w-0 flex-col gap-2">
           <p class="font-mono text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground">File</p>

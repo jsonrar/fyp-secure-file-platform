@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/securfile/PageHeader.vue'
-import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, MoreHorizontal, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
+import { Activity, AlertCircle, Check, CheckCircle, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Download, FileIcon, FileLock2, Folder, FolderPlus, LifeBuoy, Loader2, MoreHorizontal, PanelRightOpen, Pencil, RefreshCw, Search, Shield, Share2, Trash2, X } from 'lucide-vue-next'
 import { fileApi } from '@/api/file_api'
 import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { formatFileSize, mapFileLifecycle, mapFileStatus, unwrapData } from '@/api/types'
@@ -80,6 +80,12 @@ const recoveryFileId = ref<string | null>(null)
 const historyFileId = ref<string | null>(null)
 const detailFileId = ref<string | null>(null)
 const detailFile = computed(() => files.value.find((file) => file.id === detailFileId.value))
+/** A click on the row's blank space opens (or closes) its details; its own controls keep their jobs. */
+function openDetailsFromRow(fileId: string, event: MouseEvent) {
+  if ((event.target as HTMLElement).closest('button,a,select,input,label')) return
+  if (window.getSelection()?.toString()) return
+  detailFileId.value = detailFileId.value === fileId ? null : fileId
+}
 /** The one file whose encrypted preview is open beneath its row. */
 const previewFileId = ref<string | null>(null)
 const togglePreview = (file: EncryptedFile) => {
@@ -95,8 +101,8 @@ const viewportColumns = ref(7)
 const updateViewportColumns = () => {
   if (typeof window === 'undefined' || !window.matchMedia) return
   const medium = window.matchMedia('(min-width: 768px)').matches
-  const large = window.matchMedia('(min-width: 1024px)').matches
-  viewportColumns.value = 3 + (medium ? 2 : 0) + (large ? 1 : 0)
+  const wide = window.matchMedia('(min-width: 1280px)').matches
+  viewportColumns.value = 3 + (medium ? 2 : 0) + (wide ? 1 : 0)
 }
 // The Folder column is shown on both tabs: shared files can be filed too.
 const columnCount = computed(() => viewportColumns.value + 1)
@@ -875,32 +881,42 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 <th class="w-[26%] px-2 py-3 text-center font-medium">File Name</th>
                 <th class="hidden w-[10%] px-2 py-3 text-center font-medium whitespace-nowrap md:table-cell">Original</th>
                 <th class="hidden w-[10%] px-2 py-3 text-center font-medium whitespace-nowrap md:table-cell">Encrypted</th>
-                <th class="hidden w-[14%] px-2 py-3 text-center font-medium whitespace-nowrap lg:table-cell">Encrypted At</th>
+                <th class="hidden w-[14%] px-2 py-3 text-center font-medium whitespace-nowrap xl:table-cell">Encrypted At</th>
                 <th class="w-[13%] px-2 py-3 text-center font-medium whitespace-nowrap">Folder</th>
                 <th class="w-[11%] px-2 py-3 text-center font-medium whitespace-nowrap">Status</th>
-                <th class="w-[11.5rem] px-2 py-3 text-center font-medium whitespace-nowrap lg:w-[14.5rem]">Actions</th>
+                <th class="w-[11.5rem] px-2 py-3 text-center font-medium whitespace-nowrap lg:w-[14rem] xl:w-[17rem] min-[87.5rem]:w-[21rem]">Actions</th>
               </tr>
             </thead>
             <tbody class="block space-y-3 md:table-row-group md:space-y-0">
               <template v-for="file in filteredFiles" :key="file.id">
-              <tr class="grid grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-border bg-card p-4 md:table-row md:rounded-none md:border-0 md:border-b md:border-border/60 md:bg-transparent md:p-0 md:align-middle">
+              <!-- The whole row opens the details panel; clicks on its own controls (download, folder,
+                   status, preview) are left to those controls. The open file's row stays highlighted
+                   so the panel can be matched to it, and clicking another row switches the panel. -->
+              <tr
+                data-file-row
+                class="grid cursor-pointer grid-cols-2 gap-x-3 gap-y-3 rounded-xl border p-4 transition-colors md:table-row md:rounded-none md:border-0 md:border-b md:border-border/60 md:p-0 md:align-middle"
+                :class="detailFileId === file.id ? 'border-foreground/40 bg-secondary md:bg-secondary' : 'border-border bg-card md:bg-transparent md:hover:bg-secondary/50'"
+                :aria-selected="detailFileId === file.id"
+                @click="openDetailsFromRow(file.id, $event)"
+              >
                 <td class="col-span-2 md:table-cell md:px-2 md:py-3">
                   <div class="flex items-start gap-3 md:justify-center">
                     <div class="mt-0.5 shrink-0 rounded-lg bg-secondary p-2 md:hidden"><FileIcon class="h-4 w-4 text-primary" /></div>
                     <div class="min-w-0 md:text-center">
-                      <p translate="no" class="text-foreground font-medium [overflow-wrap:anywhere]">
-                        <FileIcon class="mr-1.5 hidden h-4 w-4 text-muted-foreground align-[-3px] md:inline" aria-hidden="true" />{{ file.name }}
+                      <p class="text-foreground font-medium [overflow-wrap:anywhere]">
+                        <button
+                          type="button"
+                          translate="no"
+                          class="text-left font-medium underline-offset-4 hover:underline focus-visible:underline md:text-center"
+                          :title="`Details of ${file.name}`"
+                          @click="detailFileId = file.id"
+                        >
+                          <FileIcon class="mr-1.5 hidden h-4 w-4 text-muted-foreground align-[-3px] md:inline" aria-hidden="true" />{{ file.name }}
+                        </button>
                       </p>
                       <p v-if="!file.owned" class="text-xs text-muted-foreground">Shared by {{ file.ownerName }}</p>
                       <p v-if="file.accessError" class="mt-1 text-xs text-destructive">{{ file.accessError }}</p>
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
-                      <button
-                        type="button"
-                        class="mr-4 mt-1 inline-flex min-h-10 items-center gap-1 text-xs text-primary hover:underline md:min-h-0"
-                        @click="detailFileId = file.id"
-                      >
-                        Details
-                      </button>
                       <button
                         type="button"
                         class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs text-primary hover:underline md:min-h-0"
@@ -916,7 +932,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                 </td>
                 <td class="px-2 py-3 text-center text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.originalBytes)">{{ file.originalSize }}</td>
                 <td class="px-2 py-3 text-center text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.encryptedBytes)">{{ file.encryptedSize }}</td>
-                <td class="px-2 py-3 text-center text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
+                <td class="px-2 py-3 text-center text-muted-foreground hidden xl:table-cell">{{ file.encryptedAt }}</td>
                 <td class="md:table-cell md:px-2 md:py-3 md:text-center">
                   <select
                     :value="file.folderId ?? ''"
@@ -953,13 +969,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <button
                       v-if="file.owned"
                       type="button"
-                      class="h-10 shrink-0 md:h-8 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 md:w-8 md:px-0 lg:w-auto lg:px-2.5"
+                      class="h-10 shrink-0 md:h-8 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 md:w-8 md:px-0 xl:w-auto xl:px-2.5"
                       title="Share"
                       aria-label="Share"
                       @click="openShare(file.id)"
                     >
                       <Share2 class="h-4 w-4 shrink-0" />
-                      <span class="md:hidden lg:inline">Share</span>
+                      <span class="md:hidden xl:inline">Share</span>
                     </button>
                     <button
                       v-if="file.owned"
@@ -971,14 +987,28 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     >
                       <Trash2 class="h-4 w-4" />
                     </button>
+                    <!-- On a tablet the column has room for five buttons: Access history waits in Details there. -->
                     <button
                       type="button"
-                      class="h-10 w-10 shrink-0 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                      class="h-10 w-10 shrink-0 md:hidden md:h-8 md:w-8 lg:inline-flex inline-flex items-center justify-center rounded-md hover:bg-secondary"
                       title="Access history"
                       aria-label="Access history"
                       @click="historyFileId = file.id"
                     >
                       <Activity class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="order-last h-10 basis-full shrink-0 md:order-none md:basis-auto md:h-8 inline-flex items-center justify-center gap-1.5 rounded-md border border-border px-2.5 text-sm font-medium hover:bg-secondary md:w-8 md:px-0 min-[87.5rem]:w-auto min-[87.5rem]:px-2.5"
+                      :class="detailFileId === file.id ? 'border-foreground/50 bg-background' : ''"
+                      title="Details"
+                      aria-label="Details"
+                      :aria-expanded="detailFileId === file.id"
+                      data-testid="file-details-button"
+                      @click="detailFileId = file.id"
+                    >
+                      <PanelRightOpen class="h-4 w-4 shrink-0" />
+                      <span class="md:hidden min-[87.5rem]:inline">Details</span>
                     </button>
                     <button
                       type="button"

@@ -254,6 +254,23 @@ and gives numbers, and a change is not finished until squeezed headings and over
 
 **Do not say:** that this replaces usability testing (see §10).
 
+## 12. The file details panel: the evidence one click from the list (PR_REF)
+
+**What it shows:** click any row in My Files and a panel opens beside the list with the cipher, the exact
+original and stored sizes, the ciphertext SHA-256 recorded at upload, who can open the file (and that the
+recovery key can too), and every action. Click another row and the panel switches; nothing is dimmed.
+
+**What to say:** "The list tells you a file is Verified; one click shows you why: the fingerprint every
+download and the nightly scan are checked against, and exactly who holds a key." In the demo, open the
+panel on the file you just shared to show the recipient listed with "can open".
+
+**If asked why not a pop-up:** it describes one row and the list is its context, so it sits beside the
+list and is not modal; pop-ups are kept for steps that need an answer (unlock, confirm share). On a phone
+it becomes a bottom sheet.
+
+**Do not say:** that the panel checks integrity by itself. The Verified badge reflects the last check;
+"Check integrity" runs a new one.
+
 ## Quick answers for judges
 
 | Question | One-line answer | See |
