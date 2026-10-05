@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   auditActionCategory,
   auditActionLabel,
+  auditFileLabel,
   auditSubjectFileId,
   isDownloadAction,
   isShareAction,
@@ -56,6 +57,30 @@ describe('audit action labels', () => {
   it('groups sharing actions together', () => {
     expect(auditActionCategory('FILE_SHARED')).toBe('share')
     expect(auditActionCategory('FILE_ACCESS_REVOKED')).toBe('share')
+  })
+})
+
+describe('auditFileLabel', () => {
+  it('uses the name the API sent, with no lookup', () => {
+    expect(auditFileLabel({ file_name: 'plan.pdf', file_deleted: false })).toEqual({
+      name: 'plan.pdf',
+      deleted: false,
+      named: true,
+    })
+  })
+
+  it('keeps the name of a deleted file and marks it deleted', () => {
+    expect(auditFileLabel({ file_name: 'old.txt', file_deleted: true })).toEqual({
+      name: 'old.txt',
+      deleted: true,
+      named: true,
+    })
+  })
+
+  it('still shows a row whose file is gone entirely', () => {
+    const gone = { name: 'Deleted file', deleted: true, named: false }
+    expect(auditFileLabel({ file_name: null })).toEqual(gone)
+    expect(auditFileLabel({})).toEqual(gone)
   })
 })
 

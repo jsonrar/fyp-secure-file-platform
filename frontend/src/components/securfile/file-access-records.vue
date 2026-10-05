@@ -4,14 +4,15 @@ import PageHeader from '@/components/securfile/PageHeader.vue'
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Clock, Download, FileIcon, RefreshCw, Share2, User } from 'lucide-vue-next'
 import { auditApi } from '@/api/audit_api'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
+import { useAuthStore } from '@/stores/auth_store'
 import {
   auditActionLabel,
+  auditFileLabel,
   auditSubjectFileId,
   isDownloadAction,
   isShareAction,
 } from '@/utils/audit-actions'
 import { fetchAuditTrail } from '@/utils/audit-trail'
-import { fallbackFileLabel, resolveFileNames } from '@/utils/file-names'
 
 interface AccessEvent {
   id: string
@@ -32,6 +33,10 @@ interface AccessEvent {
 interface AuditGroup {
   id: string
   name: string
+  /** The file was deleted since; its name is still known (a soft delete). */
+  isDeleted: boolean
+  /** `name` is the person's own file name, which is never translated. */
+  named: boolean
   /** Account-level rows (sign-in, key changes) belong to no file and say so. */
   isAccount: boolean
   sharedAt: string
@@ -54,7 +59,7 @@ const errorMessage = ref('')
 const expanded = ref<string[]>([])
 const chainState = ref<'unknown' | 'valid' | 'invalid' | 'unavailable'>('unknown')
 const chainCheckedEntries = ref(0)
-const fileNames = ref<Map<string, string>>(new Map())
+const auth = useAuthStore()
 
 const ACCOUNT_GROUP = 'account'
 
@@ -101,9 +106,9 @@ const groups = computed<AuditGroup[]>(() => {
     } else {
       grouped.set(key, {
         id: key,
-        name: fileId
-          ? (fileNames.value.get(fileId) ?? fallbackFileLabel(fileId))
-          : 'Account activity',
+        name: fileId ? auditFileLabel(log).name : 'Account activity',
+        isDeleted: fileId ? auditFileLabel(log).deleted : false,
+        named: fileId ? auditFileLabel(log).named : false,
         isAccount: fileId === null,
         sharedAt: formatTimestamp(log.created_at),
         totalDownloads: event.isDownload ? 1 : 0,
@@ -142,20 +147,6 @@ const loadLogs = async () => {
     const trail = await fetchAuditTrail()
     logs.value = trail.logs
     trailIsPartial.value = trail.partial
-
-    // The audit response carries file_id and no filename, so the names are resolved here.
-    // Deliberately after the rows are on screen and not awaited into the loading state: the
-    // history is readable without them, and a slow lookup should not hold it back.
-    const ids = logs.value
-      .map(auditSubjectFileId)
-      .filter((id): id is string => id !== null)
-    resolveFileNames(ids)
-      .then((names) => {
-        fileNames.value = names
-      })
-      .catch(() => {
-        // Labels stay as ids. Not worth an error banner over the history itself loading.
-      })
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Failed to load audit logs'
   } finally {
@@ -164,13 +155,12 @@ const loadLogs = async () => {
 }
 
 /**
- * Verify the tamper-evident chain, when the caller is allowed to.
+ * Verify the tamper-evident chain, for administrators only.
  *
- * `POST /audit-logs/verify-chain` is ADMIN-only and recomputes every hash in the table, so
- * restricting it is right. The page called it for everyone and printed the refusal as red
- * text, which meant an ordinary user opening their own history was met with what looked like
- * a broken audit log. Not being permitted to run the check is not a finding: the line is
- * hidden instead.
+ * `POST /audit-logs/verify-chain` is ADMIN-only and recomputes every hash in the table. The page
+ * used to call it for everyone and hide the refusal, but the refusal was still a 403 in the
+ * console on every visit. It is now not called at all for anyone else, so an ordinary user's
+ * history loads with no failed request.
  *
  * An actual INVALID result is the opposite -- it is the single most important thing this
  * page can say -- so it is kept distinct from both.
@@ -185,9 +175,11 @@ const verifyChain = async () => {
   }
 }
 
-onMounted(() => {
+onMounted(async () => {
   loadLogs()
-  verifyChain()
+  // The role is known once the account has loaded; it may not be on a first visit.
+  await auth.loadUser().catch(() => undefined)
+  if (auth.isAdmin) verifyChain()
 })
 
 const toggle = (id: string) => {
@@ -265,7 +257,14 @@ const toggle = (id: string) => {
                   <FileIcon v-else class="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
-                  <h3 translate="no" class="text-base text-foreground">{{ file.name }}</h3>
+                  <h3 class="text-base text-foreground">
+                    <span :translate="file.named ? 'no' : undefined">{{ file.name }}</span>
+                    <span
+                      v-if="file.isDeleted && !file.isAccount"
+                      class="ml-2 rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground"
+                      data-testid="records-deleted"
+                    >Deleted</span>
+                  </h3>
                   <p class="text-sm text-muted-foreground flex items-center gap-2 mt-1"><Clock class="h-3 w-3" /> Last activity {{ file.sharedAt }}</p>
                 </div>
               </div>

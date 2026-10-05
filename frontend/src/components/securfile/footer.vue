@@ -40,7 +40,7 @@ function backToTop() {
   <footer class="border-t border-border bg-card/50">
     <div class="container mx-auto px-4 py-14">
       <div class="grid gap-10 md:grid-cols-12">
-        <div class="md:col-span-5">
+        <div class="min-w-0 md:col-span-5">
           <RouterLink
             to="/"
             class="mb-4 inline-flex w-fit items-center text-foreground"
@@ -61,7 +61,7 @@ function backToTop() {
           </ul>
         </div>
 
-        <nav class="md:col-span-2 md:col-start-7" :aria-label="t('footer.productAria')">
+        <nav class="min-w-0 md:col-span-2 md:col-start-7" :aria-label="t('footer.productAria')">
           <h4 class="mb-3 text-sm font-semibold text-foreground">{{ t('footer.product') }}</h4>
           <ul class="text-sm">
             <li v-for="link in productLinks" :key="link.label">
@@ -70,7 +70,7 @@ function backToTop() {
           </ul>
         </nav>
 
-        <nav class="md:col-span-2" :aria-label="t('footer.learnAria')">
+        <nav class="min-w-0 md:col-span-2" :aria-label="t('footer.learnAria')">
           <h4 class="mb-3 text-sm font-semibold text-foreground">{{ t('footer.learn') }}</h4>
           <ul class="text-sm">
             <li v-for="link in learnLinks" :key="link.label">
@@ -79,7 +79,9 @@ function backToTop() {
           </ul>
         </nav>
 
-        <div class="md:col-span-2">
+        <!-- min-w-0 and break-words: at 768px this column is two grid tracks wide, and the unbreakable
+             "(FIT3161/FIT3162)" in the project text pushed the whole page 12px sideways. -->
+        <div class="min-w-0 break-words md:col-span-2">
           <h4 class="mb-3 text-sm font-semibold text-foreground">{{ t('footer.projectHeading') }}</h4>
           <p class="text-sm leading-relaxed text-muted-foreground">
             {{ t('footer.projectBlurb') }}

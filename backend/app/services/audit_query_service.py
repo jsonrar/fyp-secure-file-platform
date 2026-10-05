@@ -65,6 +65,20 @@ class AuditQueryService:
             resource_id=str(file_id) if file_id is not None else None,
         )
 
+    def file_labels(self, rows) -> dict[str, tuple[str, bool]]:
+        """Names for the files that rows already visible to the caller are about.
+
+        Only rows about a file (a FILE, SHARE or INTEGRITY entry) are looked up, and only the ids
+        in rows this caller was already allowed to read: no new row becomes visible, a row that
+        was about a file just says which one.
+        """
+        ids = {
+            log.resource_id
+            for log, _actor, _target in rows
+            if log.resource_type in ("FILE", "SHARE", "INTEGRITY") and log.resource_id
+        }
+        return self.repository.file_labels(ids)
+
     def verify_chain(self, *, actor: ActorContext) -> dict[str, int | bool | None | str]:
         if actor.role is not SystemRole.ADMIN:
             raise AuthorizationError()

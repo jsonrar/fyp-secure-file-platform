@@ -348,7 +348,9 @@ watch(index, () => {
           <button type="button" class="ctl" :disabled="atEnd" aria-label="Next step" @click="go(index + 1)">
             <ChevronRight class="h-4 w-4" />
           </button>
-          <div class="ml-auto flex gap-1.5" role="tablist" aria-label="Steps">
+          <!-- The visible dot stays small; the button around it is 32px tall and at least 24px wide,
+               so it can be hit with a thumb. -->
+          <div class="ml-auto flex" role="tablist" aria-label="Steps">
             <button
               v-for="(s, i) in scenes"
               :key="s.id"
@@ -356,10 +358,15 @@ watch(index, () => {
               role="tab"
               :aria-selected="i === index"
               :aria-label="`Step ${i + 1}: ${s.title}`"
-              class="h-2.5 rounded-full transition-all"
-              :class="i === index ? 'w-6 bg-primary' : 'w-2.5 bg-border hover:bg-muted-foreground'"
+              :data-testid="`story-step-${i + 1}`"
+              class="group flex h-8 min-w-6 items-center justify-center px-1"
               @click="go(i)"
-            />
+            >
+              <span
+                class="block h-2.5 rounded-full transition-all"
+                :class="i === index ? 'w-6 bg-primary' : 'w-2.5 bg-border group-hover:bg-muted-foreground'"
+              />
+            </button>
           </div>
         </div>
       </div>

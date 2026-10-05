@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from collections.abc import Iterable
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select
@@ -77,6 +78,25 @@ class AuditRepository:
             .limit(limit)
         )
         return [row._tuple() for row in rows]
+
+    def file_labels(self, file_uuids: Iterable[str]) -> dict[str, tuple[str, bool]]:
+        """Original filename and whether it was deleted, for the files these audit rows are about.
+
+        Deleting a file is a soft delete: the row, and so its name, stays. That is what lets the
+        access-records page say which file a row was about after the file is gone, without asking
+        for every deleted file one by one (each of those lookups answered 404).
+        """
+        wanted = {file_uuid for file_uuid in file_uuids if file_uuid}
+        if not wanted:
+            return {}
+        rows = self.db.execute(
+            select(File.file_uuid, File.original_filename, File.status).where(
+                File.file_uuid.in_(wanted)
+            )
+        )
+        return {
+            str(file_uuid): (str(name), status == "DELETED") for file_uuid, name, status in rows
+        }
 
     def can_access_file(self, user_id: int, file_uuid: UUID) -> bool:
         return (

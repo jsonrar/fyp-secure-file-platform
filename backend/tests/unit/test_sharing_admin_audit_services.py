@@ -745,6 +745,60 @@ def test_file_audit_returns_complete_trail_only_after_live_access_check() -> Non
     assert denied_repository.list_calls == []
 
 
+def test_file_labels_come_back_with_the_deleted_flag_in_one_query() -> None:
+    class _Db:
+        def __init__(self) -> None:
+            self.statements = []
+
+        def execute(self, statement):
+            self.statements.append(statement)
+            return [
+                (str(FILE_ID), "report.pdf", "ACTIVE"),
+                ("22222222-2222-4222-8222-222222222222", "old.txt", "DELETED"),
+            ]
+
+    db = _Db()
+    repository = AuditRepository(db)  # type: ignore[arg-type]
+
+    labels = repository.file_labels([str(FILE_ID), "22222222-2222-4222-8222-222222222222", ""])
+
+    assert labels == {
+        str(FILE_ID): ("report.pdf", False),
+        "22222222-2222-4222-8222-222222222222": ("old.txt", True),
+    }
+    # One query for the whole page of rows, never one per file.
+    assert len(db.statements) == 1
+    assert repository.file_labels([]) == {}
+    assert len(db.statements) == 1
+
+
+def test_only_rows_about_a_file_are_looked_up_for_a_name() -> None:
+    asked = []
+
+    class _Repository:
+        def file_labels(self, ids):
+            asked.append(set(ids))
+            return {}
+
+    service = AuditQueryService(db=SimpleNamespace(), repository=_Repository())  # type: ignore[arg-type]
+
+    def row(resource_type: str, resource_id: str | None):
+        return (SimpleNamespace(resource_type=resource_type, resource_id=resource_id), None, None)
+
+    service.file_labels(
+        [
+            row("FILE", "a"),
+            row("SHARE", "b"),
+            row("INTEGRITY", "c"),
+            row("USER", "d"),
+            row("RECOVERY", "e"),
+            row("FILE", None),
+        ]
+    )
+
+    assert asked == [{"a", "b", "c"}]
+
+
 def test_admin_list_status_filters_compile_to_the_right_where_clauses() -> None:
     from sqlalchemy.dialects import mysql
 

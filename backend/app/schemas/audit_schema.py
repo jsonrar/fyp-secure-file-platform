@@ -26,6 +26,11 @@ class AuditLogOut(_StrictModel):
     description: str | None = None
     metadata: dict[str, Any]
     created_at: datetime
+    # For a row about a file: its original name, and whether the file has since been deleted. A
+    # deleted file is a soft delete, so the name is still known; the page labels it "Deleted"
+    # instead of asking the file endpoint (which answers 404 for it) one file at a time.
+    file_name: str | None = None
+    file_deleted: bool = False
 
 
 class AuditLogListResponse(_StrictModel):
