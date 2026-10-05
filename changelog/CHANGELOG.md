@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Home page: a comparison table that reads as questions and answers, and a footer without a gap / 首页：对比表读起来是“问题—两种回答”，页脚中间不再空一块 (PR_REF)
+
+- The comparison with ordinary cloud storage had an empty top-left cell, and the question column looked like a third answer. It now has a small monospace "Question" label, numbered questions (01–05) in semibold, and a rule between the questions and the two answer columns. The column headings stay left-aligned so the cloud and shield icons line up with the ✗ and ✓ below them; centring them would leave the headings floating over left-aligned answers. The phone cards are unchanged.
+- 与普通网盘的对比表原来左上角是空的，问题那一列看上去像第三列答案。现在左上角有一个小号等宽的“Question”标签，问题加粗并编号（01–05），问题列和两列答案之间加了一条竖线。列标题保持左对齐，这样云朵和盾牌图标正好对齐下面的 ✗ 和 ✓；居中的话，标题会悬在左对齐的答案上方。手机上的卡片不变。
+- The footer left an empty grid track between the brand block and the link columns (the blurb was also capped at `max-w-md`), and "The project" squeezed one sentence into five lines. The brand block and the three columns now fill all twelve tracks, the cap is gone, and "The project" lists short facts in the same rhythm as Product and Learn: Monash University, FIT3161 / FIT3162, Team MCS21, the supervisor, and "Meet the team →". On a tablet the brand block has its own row and the three columns share the next one. English and Chinese strings are in `en.json` and `zh-CN.json`.
+- 页脚在品牌介绍和链接栏之间空着一整列网格（介绍文字还被 `max-w-md` 限了宽），“The project”一栏把一句话挤成了五行。现在品牌区和三栏铺满十二列，去掉了限宽；“The project”改成和 Product、Learn 同样节奏的短条目：莫纳什大学、FIT3161 / FIT3162、MCS21 团队、指导老师，以及“Meet the team →”。平板上品牌区独占一行，三栏在下一行。中英文文案在 `en.json` 和 `zh-CN.json` 里。
+- Checked with screenshots at 1440 (light, dark, Chinese), 768 and 390 px: no horizontal overflow, no console errors. Typecheck, the translation check and 806 unit tests pass.
+- 在 1440（浅色、深色、中文）、768 和 390 px 下截图检查：没有横向溢出，控制台没有报错。类型检查、中文词典检查和 806 个单元测试都通过。
+
 ### My Files: an obvious way into the details panel, and a panel that sits beside the list / 我的文件：详情入口更明显，详情栏改为贴在列表旁边 ([PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193))
 
 - The details panel (cipher, exact sizes, ciphertext SHA-256, who can open the file, every action) was only reachable through a small grey "Details" link under the file name, which read as a caption. Now the whole row opens it (blank space in the row; its own controls keep their jobs), the file name is a button that opens it, and the Actions column has a bordered Details button: labelled from 1400 px, icon-only between 768 and 1399 px, and a full-width button under the actions on a phone. The open file's row stays highlighted. The old link is gone.

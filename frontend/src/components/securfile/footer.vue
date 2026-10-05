@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ArrowUp, FileCheck2, LockKeyhole, Mail, ServerOff, Users } from 'lucide-vue-next'
+import { ArrowRight, ArrowUp, FileCheck2, LockKeyhole, Mail, ServerOff, Users } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
 import { useI18n } from 'vue-i18n'
 import SecureViewMark from '@/components/brand/SecureViewMark.vue'
@@ -40,7 +40,7 @@ function backToTop() {
   <footer class="border-t border-border bg-card/50">
     <div class="container mx-auto px-4 py-14">
       <div class="grid gap-10 md:grid-cols-12">
-        <div class="min-w-0 md:col-span-5">
+        <div class="min-w-0 md:col-span-12 lg:col-span-5">
           <RouterLink
             to="/"
             class="mb-4 inline-flex w-fit items-center text-foreground"
@@ -48,7 +48,7 @@ function backToTop() {
           >
             <SecureViewMark variant="logo" class="h-8" />
           </RouterLink>
-          <p class="max-w-md text-sm leading-relaxed text-muted-foreground">
+          <p class="text-sm leading-relaxed text-muted-foreground">
             {{ t('footer.blurb') }}
           </p>
           <ul class="mt-5 space-y-2.5">
@@ -61,7 +61,7 @@ function backToTop() {
           </ul>
         </div>
 
-        <nav class="min-w-0 md:col-span-2 md:col-start-7" :aria-label="t('footer.productAria')">
+        <nav class="min-w-0 md:col-span-4 lg:col-span-2" :aria-label="t('footer.productAria')">
           <h4 class="mb-3 text-sm font-semibold text-foreground">{{ t('footer.product') }}</h4>
           <ul class="text-sm">
             <li v-for="link in productLinks" :key="link.label">
@@ -70,7 +70,7 @@ function backToTop() {
           </ul>
         </nav>
 
-        <nav class="min-w-0 md:col-span-2" :aria-label="t('footer.learnAria')">
+        <nav class="min-w-0 md:col-span-4 lg:col-span-2" :aria-label="t('footer.learnAria')">
           <h4 class="mb-3 text-sm font-semibold text-foreground">{{ t('footer.learn') }}</h4>
           <ul class="text-sm">
             <li v-for="link in learnLinks" :key="link.label">
@@ -79,16 +79,23 @@ function backToTop() {
           </ul>
         </nav>
 
-        <!-- min-w-0 and break-words: at 768px this column is two grid tracks wide, and the unbreakable
-             "(FIT3161/FIT3162)" in the project text pushed the whole page 12px sideways. -->
-        <div class="min-w-0 break-words md:col-span-2">
+        <!-- Short facts in the same rhythm as the link lists beside it, instead of a sentence squeezed
+             into a narrow column. The brand block and three columns fill all twelve tracks, so no empty
+             track is left in the middle. On a tablet the brand block takes the first row and the three columns share the second. -->
+        <div class="min-w-0 md:col-span-4 lg:col-span-3">
           <h4 class="mb-3 text-sm font-semibold text-foreground">{{ t('footer.projectHeading') }}</h4>
-          <p class="text-sm leading-relaxed text-muted-foreground">
-            {{ t('footer.projectBlurb') }}
-          </p>
-          <RouterLink to="/team" class="mt-3 inline-flex min-h-9 items-center gap-1.5 text-sm font-medium text-primary hover:underline">
-            <Users class="h-4 w-4" /> {{ t('footer.meetTeam') }}
-          </RouterLink>
+          <ul class="text-sm">
+            <li class="flex min-h-9 items-center text-muted-foreground">{{ t('footer.projectUniversity') }}</li>
+            <li class="flex min-h-9 items-center font-mono text-xs tracking-wide text-muted-foreground">FIT3161 / FIT3162</li>
+            <li class="flex min-h-9 items-center text-muted-foreground">{{ t('footer.projectTeam') }}</li>
+            <li class="flex min-h-9 items-center text-muted-foreground">{{ t('footer.projectSupervisor') }}</li>
+            <li>
+              <RouterLink to="/team" class="group inline-flex min-h-9 items-center gap-1.5 font-medium text-foreground hover:underline underline-offset-4">
+                <Users class="h-4 w-4" /> {{ t('footer.meetTeam') }}
+                <ArrowRight class="h-3.5 w-3.5 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden="true" />
+              </RouterLink>
+            </li>
+          </ul>
         </div>
       </div>
 
