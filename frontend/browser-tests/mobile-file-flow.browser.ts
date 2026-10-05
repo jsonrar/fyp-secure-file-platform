@@ -85,7 +85,7 @@ test('a phone user can upload, inspect, share and download a file', async ({ pag
   // On a phone each file is a card; the table's row role does not apply, so select the element.
   const card = page.locator('tr', { hasText: fileName })
 
-  // Download, Share and Delete stay on the card; the rest are under More.
+  // Download, Share, Delete and Access history stay on the card; the rest are under More.
   const moreItem = async (name: string) => {
     await card.getByRole('button', { name: 'More actions' }).click()
     return page.getByRole('menuitem', { name })
@@ -94,10 +94,10 @@ test('a phone user can upload, inspect, share and download a file', async ({ pag
   await test.step('My Files shows the file as a card whose actions can all be tapped', async () => {
     await expect(card).toBeVisible()
     await expectFitsScreen(page, 'My Files')
-    for (const name of ['Download and decrypt', 'Share', 'Delete', 'More actions']) {
+    for (const name of ['Download and decrypt', 'Share', 'Delete', 'Access history', 'More actions']) {
       await expectReachable(page, card.getByRole('button', { name, exact: true }), name)
     }
-    for (const name of ['Download encrypted file', 'Request recovery', 'Access history']) {
+    for (const name of ['Download encrypted file', 'Request recovery']) {
       await expectReachable(page, await moreItem(name), name)
       await page.keyboard.press('Escape')
     }
@@ -123,7 +123,7 @@ test('a phone user can upload, inspect, share and download a file', async ({ pag
     await expectDialogFits(page, panel, 'recovery dialog')
     await page.getByRole('button', { name: 'Cancel' }).click()
 
-    await (await moreItem('Access history')).click()
+    await card.getByRole('button', { name: 'Access history', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Access history' })).toBeVisible()
     await expectDialogFits(page, panel, 'access history dialog')
     await page.getByRole('button', { name: 'Close', exact: true }).click()
