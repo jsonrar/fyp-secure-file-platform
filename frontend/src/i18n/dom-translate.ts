@@ -19,6 +19,8 @@
  * the observer sees that write and translates it, before the browser paints.
  */
 
+import { splitSentences } from '@/utils/sentences'
+
 type Dictionary = Record<string, string>
 
 interface Pattern {
@@ -160,8 +162,12 @@ function translateInlineBlock(element: Element): boolean {
     return false
   }
   const host = nodes.find((node) => node.parentNode === element && /\S/.test(englishOf(node))) ?? nodes[0]!
+  // SentenceLines: one Chinese sentence per English sentence block, when the counts agree.
+  const sentenceNodes = nodes.filter((node) => /\S/.test(englishOf(node)))
+  const zhSentences = element.hasAttribute('data-sentence-lines') ? splitSentences(zh) : []
+  const perSentence = zhSentences.length > 1 && zhSentences.length === sentenceNodes.length
   nodes.forEach((node, index) => {
-    const shown = node === host ? zh : ''
+    const shown = perSentence ? (zhSentences[sentenceNodes.indexOf(node)] ?? '') : node === host ? zh : ''
     textRecords.set(node, { en: english[index]!, zh: shown })
     blockMembers.set(node, element)
     if (node.nodeValue !== shown) node.nodeValue = shown

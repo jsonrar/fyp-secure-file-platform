@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SentenceLines from '@/components/SentenceLines.vue'
 import { useI18n } from 'vue-i18n'
 import {
   ArrowLeft,
@@ -174,8 +175,8 @@ onBeforeUnmount(() => {
         <h2 id="guide-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           See exactly what to click.
         </h2>
-        <p class="reading-measure mx-auto mt-4 text-pretty text-muted-foreground">
-          Your first secure share in six screenshots. Follow at your own pace, from picking a file to your teammate downloading it.
+        <p class="mx-auto mt-4 text-muted-foreground">
+          <SentenceLines text="Your first secure share in six screenshots. Follow at your own pace, from picking a file to your teammate downloading it." />
         </p>
       </div>
 
@@ -264,8 +265,7 @@ onBeforeUnmount(() => {
                 <span class="guide-zoom"><Expand class="h-3.5 w-3.5" /> Enlarge</span>
               </button>
               <p class="guide-image-note">
-                Look for the blue numbered outline. Screenshots use example data and Light mode.
-                On a phone you can also swipe between steps.
+                <SentenceLines text="Look for the blue numbered outline. Screenshots use example data and Light mode. On a phone you can also swipe between steps." />
               </p>
             </div>
 
@@ -278,7 +278,7 @@ onBeforeUnmount(() => {
                   <h3 class="mt-3 text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground">
                     {{ active.title }}
                   </h3>
-                  <p class="mt-5 text-sm leading-7 text-foreground">{{ active.action }}</p>
+                  <p class="mt-5 text-sm leading-7 text-foreground"><SentenceLines :text="active.action" /></p>
                   <div class="guide-result">
                     <CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
                     <div>
@@ -286,7 +286,7 @@ onBeforeUnmount(() => {
                       <p class="mt-1.5 text-sm leading-6 text-muted-foreground">{{ active.result }}</p>
                     </div>
                   </div>
-                  <p class="guide-tip">{{ active.tip }}</p>
+                  <p class="guide-tip"><SentenceLines :text="active.tip" /></p>
                 </div>
               </Transition>
             </div>
@@ -326,7 +326,7 @@ onBeforeUnmount(() => {
         <div class="guide-footer">
           <div>
             <p class="font-semibold text-foreground">Ready to try your first file?</p>
-            <p class="mt-1 text-sm text-muted-foreground">This is a picture guide. Start in Upload when you’re ready.</p>
+            <p class="mt-1 text-sm text-muted-foreground"><SentenceLines text="This is a picture guide. Start in Upload when you’re ready." /></p>
           </div>
           <RouterLink
             to="/upload"
@@ -354,7 +354,7 @@ onBeforeUnmount(() => {
         <div class="guide-lightbox-image">
           <img :src="shot(active.id)" :alt="active.alt" />
         </div>
-        <p class="p-4 text-sm leading-relaxed text-foreground">{{ active.action }}</p>
+        <p class="p-4 text-sm leading-relaxed text-foreground"><SentenceLines :text="active.action" /></p>
       </dialog>
     </Teleport>
   </section>

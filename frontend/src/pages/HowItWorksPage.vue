@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SentenceLines from '@/components/SentenceLines.vue'
 import { ArrowRight, FileLock2, KeyRound, LockKeyhole, Maximize2, Share2, UserPlus, X } from 'lucide-vue-next'
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
@@ -87,7 +88,7 @@ const steps = [
       <div class="page-container">
         <PageHeader
           eyebrow="How it works"
-          title="Your files are locked before they leave your computer"
+          title="Locked before it leaves your computer"
           subtitle="Follow one file from Alice to Bob. Press play, or step through at your own pace."
         />
         <SecurityStory />
@@ -145,7 +146,7 @@ const steps = [
               <h3 class="font-semibold text-foreground">{{ step.title }}</h3>
             </div>
             <p class="mt-3 text-sm leading-relaxed text-muted-foreground">{{ step.body }}</p>
-            <p class="mt-2 text-sm text-foreground"><span class="font-medium text-primary">Tip:</span> {{ step.tip }}</p>
+            <p class="mt-2 text-sm text-foreground"><span class="font-medium text-primary">Tip:</span> <SentenceLines :text="step.tip" /></p>
             <RouterLink
               v-if="step.to !== '/register' || !auth.isAuthed"
               :to="step.to"

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SentenceLines from '@/components/SentenceLines.vue'
 import GettingStartedCard from '@/components/GettingStartedCard.vue'
 import PageHeader from '@/components/securfile/PageHeader.vue'
 import { ChevronRight, FileIcon, LifeBuoy, Shield, Upload } from 'lucide-vue-next'
@@ -95,7 +96,7 @@ const destinations = computed(() => {
 
       <GettingStartedCard />
 
-      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid gap-6 sm:grid-cols-2 xl:grid-cols-4">
         <RouterLink
           v-for="item in destinations"
           :key="item.to"
@@ -104,7 +105,7 @@ const destinations = computed(() => {
         >
           <component :is="item.icon" class="mb-5 h-5 w-5 text-muted-foreground" />
           <h3 class="text-lg font-medium text-foreground mb-2">{{ item.title }}</h3>
-          <p class="text-sm text-muted-foreground text-pretty flex-1">{{ item.body }}</p>
+          <p class="text-sm text-muted-foreground flex-1"><SentenceLines :text="item.body" /></p>
           <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium text-foreground">
             {{ item.cta }}
             <ChevronRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />

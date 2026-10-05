@@ -237,10 +237,12 @@ const goToFiles = () => {
         <!-- minmax(0, 1fr): a grid track otherwise never gets narrower than its widest unbreakable
              content, and the cipher dropdown's longest option pushed a phone sideways. -->
         <div class="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8">
-          <div>
+          <!-- The drop zone grows to the height of the Encryption column, so its bottom edge lines
+               up with the Start Encryption button instead of stopping short of it. -->
+          <div class="flex flex-col">
             <label class="text-foreground mb-4 block text-lg font-medium">Upload Files</label>
             <div
-              :class="`flex min-h-[18rem] flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragActive ? 'border-foreground bg-secondary' : 'border-input bg-background hover:border-foreground/50'}`"
+              :class="`flex min-h-[18rem] flex-1 flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragActive ? 'border-foreground bg-secondary' : 'border-input bg-background hover:border-foreground/50'}`"
               @dragenter="handleDrag"
               @dragleave="handleDrag"
               @dragover="handleDrag"

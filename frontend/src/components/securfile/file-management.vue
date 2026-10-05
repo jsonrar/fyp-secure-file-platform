@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import SentenceLines from '@/components/SentenceLines.vue'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import PageHeader from '@/components/securfile/PageHeader.vue'
@@ -851,7 +852,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
           <span>{{ downloadProgressMessage }}</span>
         </div>
         <p class="text-sm text-muted-foreground mb-4">
-          Download encrypted saves a .ciphertext file without your passphrase. Use Download and decrypt to save the original file.
+          <SentenceLines text="Download encrypted saves a .ciphertext file without your passphrase. Use Download and decrypt to save the original file." />
         </p>
 
         <div v-if="isLoading && !files.length" class="text-center py-12 text-muted-foreground">

@@ -254,6 +254,8 @@ and gives numbers, and a change is not finished until squeezed headings and over
 
 **Not everything is measurable:** the script cannot see that a table's question column reads as a third answer, or that a footer has an empty column; those came from looking at the page as a visitor would and were fixed by hand ([PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)). Say both: numbers for layout, eyes for meaning.
 
+**Then we turned the eye-findings into a second script:** after the third "this heading wraps badly" from the project lead, `frontend/scripts/text-audit.mjs` measures every heading and short paragraph at six widths in both languages for capped text, sentences broken mid-way, two-sentence headings and lonely last words. Two-sentence intros now break only at the full stop (a `SentenceLines` component), in Chinese too ([PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195)). Good answer to "how do you keep the UI consistent?": a rule, a component that enforces it, and a script that checks it.
+
 **Do not say:** that this replaces usability testing (see §10).
 
 ## 12. The file details panel: the evidence one click from the list ([PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193))
