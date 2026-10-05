@@ -2,6 +2,7 @@
 import { ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { BookOpen, FlaskConical, GraduationCap, Layers } from 'lucide-vue-next'
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import AlgorithmExplorer from '@/components/education/AlgorithmExplorer.vue'
 import CryptoPlayground from '@/components/education/CryptoPlayground.vue'
 import KnowledgeSearch from '@/components/education/KnowledgeSearch.vue'
@@ -46,19 +47,14 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
 
 <template>
   <section class="product-page">
-    <div class="container relative mx-auto max-w-6xl px-4">
-      <div class="product-heading">
-        <div class="inline-flex items-center gap-2 px-4 py-2 rounded-full bg-primary/10 border border-primary/20 mb-5">
-          <!-- <GraduationCap class="h-4 w-4 text-primary" /> -->
-          <span class="text-sm text-primary font-medium">Encryption Education</span>
-        </div>
-        <h1 class="text-3xl md:text-5xl font-bold text-foreground mb-4 text-balance">Learn How Encryption Works</h1>
-        <p class="text-muted-foreground text-lg text-pretty">
-          Explore algorithms, try hands-on demos, and search the knowledge library.
-        </p>
-      </div>
+    <div class="page-container">
+      <PageHeader
+        eyebrow="Encryption Education"
+        title="Learn How Encryption Works"
+        subtitle="Explore algorithms, try hands-on demos, and search the knowledge library."
+      />
 
-      <div class="max-w-6xl mx-auto mb-10">
+      <div class="mb-10">
         <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-3">
           <button
             v-for="section in sections"
@@ -78,12 +74,12 @@ const sections: { id: SectionId; label: string; description: string; icon: typeo
               :class="activeSection === section.id ? 'text-primary' : 'text-muted-foreground'"
             />
             <p class="font-semibold text-foreground">{{ section.label }}</p>
-            <p class="text-xs text-muted-foreground mt-1 leading-relaxed">{{ section.description }}</p>
+            <p class="text-sm text-muted-foreground mt-1 leading-relaxed">{{ section.description }}</p>
           </button>
         </div>
       </div>
 
-      <div class="max-w-6xl mx-auto">
+      <div>
         <AlgorithmExplorer v-if="activeSection === 'algorithms'" />
         <CryptoPlayground v-else-if="activeSection === 'playground'" />
         <KnowledgeSearch v-else-if="activeSection === 'knowledge'" />

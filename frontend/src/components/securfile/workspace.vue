@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import GettingStartedCard from '@/components/GettingStartedCard.vue'
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import { ChevronRight, FileIcon, LifeBuoy, Shield, Upload } from 'lucide-vue-next'
 import { computed, onMounted, ref } from 'vue'
 import { RouterLink, useRouter } from 'vue-router'
@@ -85,19 +86,16 @@ const destinations = computed(() => {
 </script>
 
 <template>
-  <section id="workspace" class="py-14 md:py-16">
-    <div class="container mx-auto px-4">
-      <div class="mx-auto mb-10 max-w-5xl">
-        <h2 class="mb-3 text-3xl font-semibold text-foreground md:text-4xl">Your Workspace</h2>
-        <p class="max-w-2xl text-pretty text-muted-foreground">
-          Pick up where you left off. Encrypt something new, or manage and share the files you
-          have already uploaded.
-        </p>
-      </div>
+  <section id="workspace" class="product-page">
+    <div class="page-container">
+      <PageHeader
+        title="Your Workspace"
+        subtitle="Pick up where you left off. Encrypt something new, or manage and share the files you have already uploaded."
+      />
 
       <GettingStartedCard />
 
-      <div class="grid gap-6 max-w-5xl mx-auto sm:grid-cols-2 lg:grid-cols-4">
+      <div class="grid gap-6 sm:grid-cols-2 lg:grid-cols-4">
         <RouterLink
           v-for="item in destinations"
           :key="item.to"
@@ -114,7 +112,7 @@ const destinations = computed(() => {
         </RouterLink>
       </div>
 
-      <div v-if="!isLoading && total !== null" class="max-w-5xl mx-auto mt-12">
+      <div v-if="!isLoading && total !== null" class="mt-12">
         <div class="rounded-xl bg-card border border-border p-6">
           <div class="flex items-center justify-between gap-4 mb-4">
             <h3 class="text-lg font-medium text-foreground">
@@ -145,14 +143,14 @@ const destinations = computed(() => {
         </div>
       </div>
 
-      <div class="max-w-5xl mx-auto mt-12">
+      <div class="mt-12">
         <details class="rounded-xl border border-border bg-card/50 p-4">
           <summary class="text-sm text-muted-foreground cursor-pointer select-none">
             Account options
           </summary>
           <div class="mt-4 pt-4 border-t border-border">
             <p class="text-sm text-foreground mb-1">Delete this account</p>
-            <p class="text-xs text-muted-foreground mb-3 max-w-2xl text-pretty">
+            <p class="text-sm text-muted-foreground mb-3 reading-measure text-pretty">
               Removes the account and every file uploaded from it. There is no way to reverse
               this and no way to recover the files afterwards. If you are locked out by a
               forgotten passphrase, unlocking with your saved private key file is the thing to

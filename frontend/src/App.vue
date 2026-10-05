@@ -10,8 +10,12 @@ import { useAuthStore } from '@/stores/auth_store'
 
 const route = useRoute()
 const auth = useAuthStore()
-/** Signed in and on one of the app's own pages: those get the sidebar instead of the marketing header. */
-const inApp = computed(() => auth.isAuthed && route.meta.requiresAuth === true)
+/**
+ * Signed in and anywhere except the home page and the sign-in pages: those get the sidebar instead of
+ * the marketing header. Help, Education and Contact us used to swap the sidebar for the marketing
+ * header, which felt like jumping to another site.
+ */
+const inApp = computed(() => auth.isAuthed && route.path !== '/' && route.meta.guestOnly !== true)
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
 const { preference, setPreference } = useTheme()

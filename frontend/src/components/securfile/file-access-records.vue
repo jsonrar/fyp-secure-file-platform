@@ -1,5 +1,6 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Clock, Download, FileIcon, RefreshCw, Share2, User } from 'lucide-vue-next'
 import { auditApi } from '@/api/audit_api'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
@@ -198,29 +199,26 @@ const toggle = (id: string) => {
 
 <template>
   <section id="access-records" class="product-page">
-    <div class="container relative mx-auto max-w-6xl px-4">
-      <div class="product-heading">
-        <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">File Access Records</h2>
-        <p class="text-muted-foreground max-w-2xl text-pretty">Track security-sensitive actions recorded by the audit log service</p>
-      </div>
-
-      <div class="flex flex-wrap items-center gap-3 mb-8">
-        <button class="h-10 px-4 inline-flex items-center gap-2 rounded-md border border-border hover:bg-secondary" @click="loadLogs">
-          <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
-          Refresh
-        </button>
-        <span v-if="chainState === 'valid'" class="inline-flex items-center gap-1.5 rounded-md bg-success-soft px-2.5 py-1 font-mono text-xs text-success">
-          <span aria-hidden="true">●</span>
-          Hash chain verified · {{ chainCheckedEntries }} entries
-        </span>
-        <span
-          v-else-if="chainState === 'invalid'"
-          class="text-sm font-medium text-destructive inline-flex items-center gap-1"
-        >
-          <AlertTriangle class="h-4 w-4" />
-          Hash chain broken — this log has been altered
-        </span>
-      </div>
+    <div class="page-container">
+      <PageHeader title="File Access Records" subtitle="Track security-sensitive actions recorded by the audit log service">
+        <template #actions>
+          <button class="h-10 px-4 inline-flex items-center gap-2 rounded-md border border-border bg-card hover:bg-secondary" @click="loadLogs">
+            <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
+            Refresh
+          </button>
+          <span v-if="chainState === 'valid'" class="inline-flex items-center gap-1.5 rounded-md bg-success-soft px-2.5 py-1 font-mono text-xs text-success">
+            <span aria-hidden="true">●</span>
+            Hash chain verified · {{ chainCheckedEntries }} entries
+          </span>
+          <span
+            v-else-if="chainState === 'invalid'"
+            class="text-sm font-medium text-destructive inline-flex items-center gap-1"
+          >
+            <AlertTriangle class="h-4 w-4" />
+            Hash chain broken — this log has been altered
+          </span>
+        </template>
+      </PageHeader>
 
       <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div v-for="card in statCards" :key="card.key" class="bg-card border border-border rounded-xl p-4">

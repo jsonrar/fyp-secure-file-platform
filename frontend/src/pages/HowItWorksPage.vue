@@ -3,6 +3,7 @@ import { ArrowRight, FileLock2, KeyRound, LockKeyhole, Maximize2, Share2, UserPl
 import { computed } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 
+import PageHeader from '@/components/securfile/PageHeader.vue'
 import SecurityStory from '@/components/explainers/SecurityStory.vue'
 import WhySecureView from '@/components/explainers/WhySecureView.vue'
 import { useAuthStore } from '@/stores/auth_store'
@@ -83,16 +84,12 @@ const steps = [
   </div>
   <div v-else>
     <section class="py-16 md:py-20">
-      <div class="container mx-auto max-w-6xl px-4">
-        <div class="mx-auto mb-10 max-w-3xl text-center">
-          <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">How it works</p>
-          <h1 class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-5xl">
-            Your files are locked before they leave your computer
-          </h1>
-          <p class="mx-auto mt-4 max-w-2xl text-pretty text-lg text-muted-foreground">
-            Follow one file from Alice to Bob. Press play, or step through at your own pace.
-          </p>
-        </div>
+      <div class="page-container">
+        <PageHeader
+          eyebrow="How it works"
+          title="Your files are locked before they leave your computer"
+          subtitle="Follow one file from Alice to Bob. Press play, or step through at your own pace."
+        />
         <SecurityStory />
         <div class="mt-4 text-center">
           <RouterLink
@@ -106,7 +103,7 @@ const steps = [
     </section>
 
     <section class="bg-secondary/30 py-16 md:py-20" aria-labelledby="why-heading">
-      <div class="container mx-auto max-w-6xl px-4">
+      <div class="page-container">
         <div class="mx-auto mb-10 max-w-3xl text-center">
           <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Why it is different</p>
           <h2 id="why-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
@@ -122,7 +119,7 @@ const steps = [
     </section>
 
     <section class="py-16 md:py-20" aria-labelledby="start-heading">
-      <div class="container mx-auto max-w-6xl px-4">
+      <div class="page-container">
         <div class="mx-auto mb-10 max-w-3xl text-center">
           <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Get started</p>
           <h2 id="start-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">

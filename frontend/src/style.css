@@ -164,10 +164,21 @@
   }
 }
 
-/* Shared Contact us visual treatment for the product pages. */
+/* Page scaffolding shared by every page: one container width, one centred header. */
 .product-page { position: relative; padding-block: 3.5rem; }
-.product-heading { max-width: 48rem; margin-bottom: 3rem; }
-.product-heading h1, .product-heading h2 { font-size: 2rem; font-weight: 700; letter-spacing: -.025em; line-height: 1.15; margin-bottom: 1rem; }
-.product-heading > p { font-size: 1rem; line-height: 1.75; }
-@media (min-width: 640px) { .product-heading h1, .product-heading h2 { font-size: 2.5rem; } }
-@media (min-width: 768px) { .product-page { padding-block: 5rem; } .product-heading { margin-bottom: 3.5rem; } .product-heading > p { font-size: 1.125rem; } }
+@media (min-width: 768px) { .product-page { padding-block: 4.5rem; } }
+.page-container { margin-inline: auto; width: 100%; max-width: 72rem; padding-inline: 1rem; position: relative; }
+
+.page-header { display: flex; flex-direction: column; align-items: center; text-align: center; margin: 0 auto 2.5rem; }
+@media (min-width: 768px) { .page-header { margin-bottom: 3.5rem; } }
+.page-header-eyebrow { margin-bottom: .75rem; font-family: var(--font-mono); font-size: .75rem; line-height: 1; text-transform: uppercase; letter-spacing: .14em; color: var(--muted-foreground); }
+.page-header-title { font-size: 2rem; font-weight: 700; line-height: 1.1; letter-spacing: -.03em; text-wrap: balance; color: var(--foreground); }
+@media (min-width: 768px) { .page-header-title { font-size: 3rem; } }
+.page-header-subtitle { margin-top: 1rem; font-size: 1rem; line-height: 1.6; color: var(--muted-foreground); text-wrap: pretty; }
+@media (min-width: 768px) { .page-header-subtitle { font-size: 1.125rem; } }
+/* Only a paragraph keeps a reading measure, and it stays on the centre line. */
+.page-header-long, .reading-measure { max-width: 70ch; }
+/* 70ch is a measure for Latin text. Chinese is set at about half as many characters per line width, so
+   the cap would only push a short paragraph onto a second line beside empty space. */
+:lang(zh) .page-header-long, :lang(zh) .reading-measure { max-width: none; }
+.page-header-actions { margin-top: 1.5rem; display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: .75rem; }

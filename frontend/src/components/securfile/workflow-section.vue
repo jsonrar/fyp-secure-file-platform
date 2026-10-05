@@ -169,7 +169,7 @@ onBeforeUnmount(() => {
         <h2 id="guide-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           See exactly what to click.
         </h2>
-        <p class="mx-auto mt-4 max-w-xl text-pretty text-muted-foreground">
+        <p class="reading-measure mx-auto mt-4 text-pretty text-muted-foreground">
           Your first secure share in six screenshots. Follow at your own pace, from picking a file to your teammate downloading it.
         </p>
       </div>

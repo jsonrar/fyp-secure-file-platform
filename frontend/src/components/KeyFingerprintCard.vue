@@ -23,12 +23,12 @@ onMounted(async () => {
 </script>
 
 <template>
-  <div class="mt-6 rounded-xl border border-border bg-card p-6" data-testid="own-key-fingerprint">
+  <div class="rounded-xl border border-border bg-card p-6" data-testid="own-key-fingerprint">
     <h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
       <KeyRound class="h-5 w-5 text-primary" />
       {{ t('settings.fingerprintTitle') }}
     </h2>
-    <p class="mt-2 max-w-2xl text-sm text-muted-foreground">{{ t('settings.fingerprintBody') }}</p>
+    <p class="mt-2 reading-measure text-sm text-muted-foreground">{{ t('settings.fingerprintBody') }}</p>
     <p v-if="fingerprint" translate="no" class="mt-4 font-mono text-lg tracking-wide text-foreground">{{ fingerprint }}</p>
     <p v-else-if="failed" class="mt-4 text-sm text-destructive">{{ t('settings.fingerprintError') }}</p>
     <p v-else class="mt-4 text-sm text-muted-foreground">{{ t('settings.fingerprintLoading') }}</p>
