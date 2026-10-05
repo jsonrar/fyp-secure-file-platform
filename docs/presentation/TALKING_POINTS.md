@@ -252,6 +252,8 @@ and gives numbers, and a change is not finished until squeezed headings and over
 **A colour rule the audit checks:** green means only "verified" or "sealed", red only "changed" or "dangerous". In dark mode the primary buttons are near-white, and a scan of every control on every page found none in the success green (#184).
 **A real find:** the audit's console column showed that every visit to Access Records made a request the user was not allowed to make (a 403 on the chain check) and one failing request per deleted file (404). The fix sends file names with the audit rows and runs the chain check only for administrators; the same script now reports zero errors on all 100 page views (#185).
 
+**Not everything is measurable:** the script cannot see that a table's question column reads as a third answer, or that a footer has an empty column; those came from looking at the page as a visitor would and were fixed by hand ([PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)). Say both: numbers for layout, eyes for meaning.
+
 **Do not say:** that this replaces usability testing (see §10).
 
 ## 12. The file details panel: the evidence one click from the list ([PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193))

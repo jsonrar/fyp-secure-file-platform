@@ -84,7 +84,9 @@ browser never calls a translation service. See [docs/I18N.md](docs/I18N.md).
 Core Features uses a dual-row `FeatureLane` with autoplay plus touch, mouse-drag and keyboard
 scrolling (no native scrollbar), and a static complete-card layout for reduced-motion
 preferences. The file lifecycle explainer sits below Upload; Upload, Education, Help, Access
-Records and My Files share Contact us page styling. See
+Records and My Files share Contact us page styling. The home page compares SecureView with ordinary
+cloud storage as five numbered questions with two answers each, and the footer lists the project facts
+(Monash University, FIT3161 / FIT3162, team MCS21, supervisor) beside the Product and Learn links. See
 [changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9).
 
 The homepage's How it works section offers six annotated screenshots from the real UI under

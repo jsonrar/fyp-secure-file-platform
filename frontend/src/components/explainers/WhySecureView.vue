@@ -13,8 +13,10 @@ import { COMPARISON } from '@/data/security-story'
       <table class="w-full text-left text-sm">
         <thead>
           <tr class="border-b border-border">
-            <th class="w-[28%] px-5 py-4 font-medium text-muted-foreground" scope="col">
-              <span class="sr-only">Question</span>
+            <!-- The question column is a row header: its own eyebrow, numbered questions and a firmer
+                 rule on its right, so it does not read as a third answer column. -->
+            <th class="w-[28%] border-r border-border px-5 py-4 align-middle" scope="col">
+              <span class="font-mono text-[0.7rem] font-medium uppercase tracking-[0.14em] text-muted-foreground">Question</span>
             </th>
             <th class="w-[34%] px-5 py-4" scope="col">
               <span class="inline-flex items-center gap-2 font-semibold text-muted-foreground">
@@ -29,8 +31,13 @@ import { COMPARISON } from '@/data/security-story'
           </tr>
         </thead>
         <tbody>
-          <tr v-for="row in COMPARISON" :key="row.question" class="border-b border-border last:border-0 align-top">
-            <th scope="row" class="px-5 py-4 font-medium text-foreground">{{ row.question }}</th>
+          <tr v-for="(row, index) in COMPARISON" :key="row.question" class="border-b border-border last:border-0 align-top">
+            <th scope="row" class="border-r border-border px-5 py-4 font-semibold text-foreground">
+              <span class="flex gap-3">
+                <span class="mt-px font-mono text-xs font-medium text-muted-foreground" aria-hidden="true">{{ String(index + 1).padStart(2, '0') }}</span>
+                <span>{{ row.question }}</span>
+              </span>
+            </th>
             <td class="px-5 py-4 text-muted-foreground">
               <span class="flex gap-2"><X class="mt-0.5 h-4 w-4 shrink-0 text-destructive" />{{ row.ordinary }}</span>
             </td>
