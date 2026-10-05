@@ -77,7 +77,7 @@ const steps = [
     >
       <X class="h-4 w-4" />
     </RouterLink>
-    <p class="mb-4 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">SecureView · how your file stays private</p>
+    <p class="mb-4 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">SecureView · how your file stays private</p>
     <div class="w-full max-w-5xl">
       <SecurityStory autoplay compact :scene-ms="'fast' in route.query ? 6000 : 8000" />
     </div>
@@ -105,7 +105,7 @@ const steps = [
     <section class="bg-secondary/30 py-16 md:py-20" aria-labelledby="why-heading">
       <div class="page-container">
         <div class="mx-auto mb-10 max-w-3xl text-center">
-          <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Why it is different</p>
+          <p class="mb-3 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">Why it is different</p>
           <h2 id="why-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             What ordinary cloud storage cannot promise
           </h2>
@@ -121,7 +121,7 @@ const steps = [
     <section class="py-16 md:py-20" aria-labelledby="start-heading">
       <div class="page-container">
         <div class="mx-auto mb-10 max-w-3xl text-center">
-          <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Get started</p>
+          <p class="mb-3 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">Get started</p>
           <h2 id="start-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
             Four steps to your first secure share
           </h2>

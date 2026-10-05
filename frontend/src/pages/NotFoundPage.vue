@@ -12,7 +12,7 @@ const route = useRoute()
         <div class="mx-auto mb-6 flex h-14 w-14 items-center justify-center rounded-2xl bg-primary/10 text-primary">
           <Compass class="h-7 w-7" />
         </div>
-        <p class="text-sm font-semibold uppercase tracking-[0.22em] text-primary">Error 404</p>
+        <p class="text-sm uppercase tracking-[0.22em] text-muted-foreground">Error 404</p>
         <h1 class="mt-3 text-balance text-3xl font-bold text-foreground md:text-4xl">We can't find that page</h1>
         <p class="mt-4 text-pretty text-muted-foreground">
           There is nothing at

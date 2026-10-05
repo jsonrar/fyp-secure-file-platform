@@ -200,7 +200,7 @@ onBeforeUnmount(() => {
       <!-- Feedback: the pitch on the left, the form on the right, so a wide screen is used and not left half empty. -->
       <div class="mb-16 grid gap-8 md:mb-20 lg:grid-cols-5 lg:gap-12" data-testid="team-feedback">
         <div class="lg:col-span-2">
-          <p class="text-xs font-semibold uppercase tracking-[0.22em] text-primary">Feedback</p>
+          <p class="text-xs uppercase tracking-[0.22em] text-muted-foreground">Feedback</p>
           <h2 class="mt-2 text-2xl font-semibold tracking-tight text-foreground md:text-3xl">
             Share a note with the team
           </h2>
@@ -287,7 +287,7 @@ onBeforeUnmount(() => {
       </div>
 
       <div class="mb-8 max-w-3xl md:mb-10">
-        <p class="mb-2 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Supervisor and development team · Group MCS21</p>
+        <p class="mb-2 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">Supervisor and development team · Group MCS21</p>
         <h2 class="text-3xl font-bold tracking-tight text-foreground sm:text-4xl">
           The people behind
           <span class="text-primary">SecureView</span>
@@ -440,7 +440,7 @@ onBeforeUnmount(() => {
               </div>
 
               <div class="team-profile__body">
-                <span class="inline-flex w-fit items-center gap-2 rounded-full bg-primary px-3 py-1 text-xs font-semibold uppercase tracking-wide text-primary-foreground">
+                <span class="inline-flex w-fit items-center gap-2 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
                   <component :is="activeMember.icon" class="h-3.5 w-3.5" />
                   {{ activeMember.role }}
                 </span>

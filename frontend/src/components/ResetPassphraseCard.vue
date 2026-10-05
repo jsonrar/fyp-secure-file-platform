@@ -109,8 +109,8 @@ async function submit() {
       {{ t('resetPassphrase.intro') }}
     </p>
 
-    <div v-if="done" class="mt-4 flex items-start gap-2 rounded-lg border border-primary/40 bg-primary/5 p-3">
-      <CheckCircle class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+    <div v-if="done" class="mt-4 flex items-start gap-2 rounded-lg border border-success/40 bg-success-soft p-3">
+      <CheckCircle class="mt-0.5 h-4 w-4 shrink-0 text-success" />
       <p class="text-sm text-foreground">
         {{ t('resetPassphrase.done') }}
       </p>

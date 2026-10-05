@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AuthShell from '@/components/securfile/AuthShell.vue'
 import { computed, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { CheckCircle2, Info, KeyRound } from 'lucide-vue-next'
@@ -179,8 +180,8 @@ async function resetPassword() {
 </script>
 
 <template>
-  <section class="min-h-[80vh] flex items-center justify-center px-4 py-20">
-    <div class="w-full max-w-md rounded-xl border border-border bg-card p-8">
+  <AuthShell>
+    <div class="w-full rounded-xl border border-border bg-card p-8">
       <template v-if="!isComplete">
         <div class="flex items-center gap-2 mb-6">
           <div class="p-2 rounded-lg bg-primary/10">
@@ -313,7 +314,7 @@ async function resetPassword() {
       <template v-else>
         <div class="flex items-center gap-2 mb-4">
           <div class="p-2 rounded-lg bg-primary/10">
-            <CheckCircle2 class="h-5 w-5 text-primary" />
+            <CheckCircle2 class="h-5 w-5 text-success" />
           </div>
           <h1 class="text-2xl font-bold text-foreground">{{ t('forgot.doneTitle') }}</h1>
         </div>
@@ -331,5 +332,5 @@ async function resetPassword() {
         </RouterLink>
       </template>
     </div>
-  </section>
+  </AuthShell>
 </template>

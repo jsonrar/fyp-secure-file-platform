@@ -73,7 +73,7 @@ const roundsHint = computed(() => {
 
       <template v-for="entry in sidebar" :key="entry.kind === 'family' ? entry.family : entry.algo.id">
         <div v-if="entry.kind === 'family'" class="rounded-lg border border-border bg-card overflow-hidden">
-          <p class="px-4 pt-3 pb-1 text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+          <p class="px-4 pt-3 pb-1 text-xs uppercase tracking-[0.18em] text-muted-foreground">
             {{ entry.label }}
           </p>
           <button
@@ -113,7 +113,7 @@ const roundsHint = computed(() => {
     <article id="algorithm-detail" class="flex min-w-0 scroll-mt-24 flex-col rounded-xl border border-border bg-card p-4 sm:p-6 md:p-8">
       <div class="flex flex-wrap items-start justify-between gap-4 mb-6">
         <div>
-          <span class="inline-flex items-center gap-1.5 text-xs font-medium text-primary bg-primary/10 px-2.5 py-1 rounded-full mb-3">
+          <span class="mb-3 inline-flex items-center gap-1.5 font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
             <Shield class="h-3.5 w-3.5" />
             {{ typeBadge[selected.type] }}
             <template v-if="selected.family"> · {{ algorithmFamilyLabels[selected.family] }}</template>
@@ -160,7 +160,7 @@ const roundsHint = computed(() => {
           <p class="text-xs font-medium text-primary mb-2">Use Cases</p>
           <ul class="space-y-1.5">
             <li v-for="item in selected.useCases" :key="item" class="text-sm text-muted-foreground flex gap-2">
-              <CheckCircle2 class="h-4 w-4 text-primary flex-shrink-0 mt-0.5" />
+              <CheckCircle2 class="h-4 w-4 text-success flex-shrink-0 mt-0.5" />
               {{ item }}
             </li>
           </ul>

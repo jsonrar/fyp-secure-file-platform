@@ -105,7 +105,7 @@ const coverage = computed(() => report.value?.coverage ?? null)
         </div>
         <div class="rounded-lg border border-border bg-card p-3">
           <dt class="text-xs text-muted-foreground">Never checked</dt>
-          <dd class="text-xl font-semibold" :class="coverage.never_checked ? 'text-foreground' : 'text-primary'">
+          <dd class="text-xl font-semibold" :class="coverage.never_checked ? 'text-foreground' : 'text-success'">
             {{ coverage.never_checked.toLocaleString('en-US') }}
           </dd>
         </div>
@@ -124,7 +124,7 @@ const coverage = computed(() => report.value?.coverage ?? null)
         class="flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-3 text-sm text-foreground"
         data-testid="integrity-clean"
       >
-        <CheckCircle class="h-4 w-4 text-primary" /> No damaged files on record.
+        <CheckCircle class="h-4 w-4 text-success" /> No damaged files on record.
       </p>
 
       <ul v-else class="space-y-3" data-testid="integrity-damaged">

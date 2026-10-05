@@ -4,12 +4,7 @@
  * information, said as the three things the product does, each with the real artefact it produces.
  * Keep id="features": the header and footer "Product" links point at it.
  */
-const proof = [
-  { value: '0 / 5,094', label: 'downloads failed their integrity check' },
-  { value: '102 / 102', label: 'uploads succeeded at 100 concurrent users on the live server' },
-  { value: '0 FAIL', label: 'in an OWASP ZAP scan of this site' },
-  { value: '500 MB', label: 'per file and round-tripped byte-exact in testing' },
-]
+import { proof } from '@/data/proof'
 const alsoIncluded = [
   'Folders and search',
   'Who opened a file',

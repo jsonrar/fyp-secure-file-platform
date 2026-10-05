@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AuthShell from '@/components/securfile/AuthShell.vue'
 import { computed, nextTick, onUnmounted, reactive, ref } from 'vue'
 import { RouterLink, useRoute } from 'vue-router'
 import { ArrowLeft, Download, KeyRound, ShieldCheck, UserPlus } from 'lucide-vue-next'
@@ -305,8 +306,8 @@ function downloadPrivateKey() {
 </script>
 
 <template>
-  <section class="min-h-[80vh] flex items-center justify-center px-4 py-20">
-    <div class="w-full max-w-md rounded-xl border border-border bg-card p-8">
+  <AuthShell>
+    <div class="w-full rounded-xl border border-border bg-card p-8">
       <template v-if="!privateKeyPem">
         <div class="flex items-center gap-2 mb-6">
           <div class="p-2 rounded-lg bg-primary/10">
@@ -532,5 +533,5 @@ function downloadPrivateKey() {
         </RouterLink>
       </template>
     </div>
-  </section>
+  </AuthShell>
 </template>

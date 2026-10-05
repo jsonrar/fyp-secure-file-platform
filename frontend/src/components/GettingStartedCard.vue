@@ -97,12 +97,12 @@ function hide() {
         v-for="(step, index) in GETTING_STARTED_STEPS"
         :key="step"
         class="flex gap-3 rounded-lg border border-border p-3"
-        :class="progress[step] ? 'bg-primary/5' : ''"
+        :class="progress[step] ? 'bg-success-soft' : ''"
         :data-done="progress[step] ? 'true' : 'false'"
       >
         <span
           class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border text-xs"
-          :class="progress[step] ? 'border-primary bg-primary text-primary-foreground' : 'border-border text-muted-foreground'"
+          :class="progress[step] ? 'border-success bg-success text-success-foreground' : 'border-border text-muted-foreground'"
         >
           <Check v-if="progress[step]" class="h-3.5 w-3.5" />
           <span v-else>{{ index + 1 }}</span>

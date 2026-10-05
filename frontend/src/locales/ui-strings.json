@@ -659,6 +659,7 @@
   "from {0}",
   "from {0} · {1}",
   "From our own test runs on the live site; the reports are in the project documentation.",
+  "From our own test runs on the live site.",
   "From the 256-bit key and the 96-bit nonce, AES derives two fresh keys for this message: one to authenticate it and one to encrypt it.",
   "Frontend and Interface",
   "Full screen, for presenting",

@@ -86,7 +86,7 @@ onMounted(async () => {
         class="mt-3 flex items-start gap-2 rounded-md px-3 py-2 text-xs"
         :class="describeSizes(preview).sameLength ? 'bg-primary/5 text-muted-foreground' : 'bg-destructive/10 text-destructive'"
       >
-        <CheckCircle v-if="describeSizes(preview).sameLength" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+        <CheckCircle v-if="describeSizes(preview).sameLength" class="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
         <AlertTriangle v-else class="mt-0.5 h-3.5 w-3.5 shrink-0" />
         <span>{{ describeSizes(preview).explanation }}</span>
       </p>
@@ -108,7 +108,7 @@ onMounted(async () => {
 
       <template v-for="check in [checkFileHeader(fileName, preview.sample_hex)]" :key="check.kind">
         <p v-if="check.kind === 'hidden'" class="mt-3 flex items-start gap-2 text-xs text-muted-foreground" data-testid="preview-header-hidden">
-          <CheckCircle class="mt-0.5 h-3.5 w-3.5 shrink-0 text-primary" />
+          <CheckCircle class="mt-0.5 h-3.5 w-3.5 shrink-0 text-success" />
           <span>
             An unencrypted file of this type begins with <span class="font-mono">{{ check.expected }}</span> ({{ check.label }}).
             These bytes do not, so the original's header is not visible in storage.

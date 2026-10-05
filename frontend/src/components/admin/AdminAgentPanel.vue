@@ -100,7 +100,7 @@ const asOf = (value: string) => new Date(value).toLocaleString()
         class="mb-4 flex items-start gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-3 text-sm text-foreground"
         data-testid="agent-clean"
       >
-        <CheckCircle class="mt-0.5 h-4 w-4 shrink-0 text-primary" />
+        <CheckCircle class="mt-0.5 h-4 w-4 shrink-0 text-success" />
         <span>
           No finding from any of the {{ report.rules.length }} rules.
           <span class="text-muted-foreground">{{ coverageLine(report) }} A quiet report is not proof that nothing happened: the agent can only see what the platform recorded.</span>
