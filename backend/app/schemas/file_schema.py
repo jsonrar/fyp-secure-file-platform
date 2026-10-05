@@ -193,6 +193,10 @@ class FileSummaryOut(StrictFileModel):
     original_filename: str
     plaintext_size: int
     ciphertext_size: int
+    # SHA-256 of the stored ciphertext, as recorded at upload. Not a secret: the ciphertext
+    # preview already returns it to anyone with view access, and the integrity checks compare
+    # against it. Showing it lets a person compare the file's fingerprint by eye or by tool.
+    ciphertext_sha256: str
     mime_type: str | None
     encryption_algorithm: str
     status: str

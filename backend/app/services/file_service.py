@@ -628,6 +628,7 @@ class FileService:
             original_filename=record.file.original_filename,
             plaintext_size=record.file.file_size_bytes,
             ciphertext_size=record.file.encrypted_size_bytes,
+            ciphertext_sha256=record.file.encrypted_sha256,
             mime_type=record.file.mime_type,
             encryption_algorithm=record.file.encryption_algorithm,
             status=record.file.status,
