@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### UI redesign, step 3c: workspace and access records / 界面改版第 3c 步：工作区和访问记录
+
+- Workspace: the heading is left-aligned with the cards instead of centred, the four destination cards lose the tinted icon tile and the drop shadow on hover (a darker border instead), the recent-files rows show sizes in the monospace face, and the page is less tall. Access records: the heading, refresh button and "Hash chain verified" line are left-aligned, the verified line is a green badge, the four statistics lose their coloured tiles, the file groups use the full width instead of a centred column, event rows use monospace for who and when, and "Failed" uses the destructive tint. All texts, buttons and test ids are unchanged.
+- 工作区：标题改为与卡片左对齐，不再居中；四张入口卡片去掉了带底色的图标块，悬停时不再出现阴影而是边框变深；最近文件的大小改用等宽字体；页面更矮。访问记录：标题、刷新按钮和“Hash chain verified”一行都左对齐，“已验证”那一行改成绿色徽章，四项统计去掉彩色底块，文件分组占满宽度而不是居中窄栏，事件行里“谁”和“何时”改用等宽字体，“Failed”使用危险色底。所有文字、按钮和 test id 都没有变。
+- Settings already follows the global style and was left as it is. Checked in light and dark with the demo account's real activity (including the blocked downloads from the tamper demo). Typecheck and 812 unit tests pass. The last redesign step, re-capturing the picture-guide screenshots and the videos, follows once these PRs are on `main`.
+- 设置页已经符合全局风格，保持不变。已在浅色和深色下用演示账号的真实记录检查（包括篡改演示产生的被拦截下载）。类型检查和 812 个单元测试通过。改版的最后一步，重拍图文指南截图和视频，等这些 PR 合并进 `main` 之后再做。
+
 ### UI redesign, step 3b: the upload page and the seal receipt / 界面改版第 3b 步：上传页和封存回执
 
 - The encryption progress panel is now a "Seal receipt": the file name with a SEALED (or Sealing…) badge, the four real steps with their measured times and green ticks, and the first bytes of the file next to what the server receives in a dark panel with the ciphertext in mint. It is the same data and the same animation as before (`data-testid`s, step titles and the "Your file" and "What the server receives" labels are unchanged); only the look changes. The upload page itself gets a larger drop zone with a dashed outline, a monospace cipher selector, a calmer heading size on every product page (`.product-heading`), smaller corner radii and a success tick instead of the brand colour.

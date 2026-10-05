@@ -283,7 +283,7 @@ Must do:
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
 - [ ] UI redesign ("Sealed" style: warm paper, near-black ink, mint accent, Geist fonts), all features kept. Step 1 global
   style: done ([PR #176](https://github.com/jsonrar/fyp-secure-file-platform/pull/176)). Step 2 public pages: done ([PR #177](https://github.com/jsonrar/fyp-secure-file-platform/pull/177); dark hero, replace the Core Features card wall, keep Under the hood and the
-  six-step guide). Step 3 app shell: sidebar and file detail panel done in this PR; upload receipt, workspace and the remaining app pages still to restyle. Step 4 re-record screenshots and videos
+  six-step guide). Step 3 app pages: sidebar, file detail panel, upload seal receipt, workspace and access records restyled (PRs #178, #180 and the next one). Step 4 re-record screenshots and videos
 - [x] State NFR2 (usability) honestly — TALKING_POINTS §10 (informal real use, no formal study)
 
 Strongly recommended (Award):
