@@ -373,3 +373,29 @@ def test_upload_translates_internal_storage_failure_to_public_domain_error() -> 
 
     assert "path details" not in raised.value.message
     assert db.rollbacks == 1
+
+
+def test_summary_carries_the_recorded_ciphertext_digest() -> None:
+    """The list and detail views show the stored object's SHA-256 exactly as recorded at upload."""
+    now = datetime(2026, 10, 5, 8, 0, tzinfo=UTC)
+    file_record = SimpleNamespace(
+        file_uuid="11111111-1111-4111-8111-111111111111",
+        original_filename="notes.txt",
+        file_size_bytes=5,
+        encrypted_size_bytes=5,
+        encrypted_sha256="ab" * 32,
+        mime_type="text/plain",
+        encryption_algorithm="AES-256-GCM",
+        status="ACTIVE",
+        owner_id=7,
+        owner=SimpleNamespace(username="alice"),
+        folder=None,
+        created_at=now,
+        updated_at=now,
+    )
+    record = SimpleNamespace(file=file_record, grant=SimpleNamespace(folder=None))
+
+    summary = FileService._summary(object.__new__(FileService), record, actor_user_id=7)
+
+    assert summary.ciphertext_sha256 == "ab" * 32
+    assert summary.model_dump(mode="json")["ciphertext_sha256"] == "ab" * 32

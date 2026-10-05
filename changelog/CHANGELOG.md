@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### The file list returns each file's ciphertext SHA-256 / 文件列表返回每个文件的密文 SHA-256
+
+- `FileSummaryOut` (the rows of `GET /files` and the head of `GET /files/{id}`) gains `ciphertext_sha256`: the SHA-256 of the stored ciphertext as recorded at upload. It is not a secret: the ciphertext preview endpoint already returns it to anyone with view access, and the integrity checks compare against it. It lets the file detail panel show the fingerprint of what the server holds, so a person can compare it with the audit record or hash the downloaded ciphertext themselves. One field, no new endpoint, no new query (the column is already loaded), covered by a unit test; the frontend type is updated and the panel follows in the UI redesign PR.
+- `FileSummaryOut`（`GET /files` 的每一行以及 `GET /files/{id}` 的头部）新增 `ciphertext_sha256`：上传时记录的、已存储密文的 SHA-256。它不是秘密：密文预览接口早已把它返回给任何有查看权限的人，完整性检查也是拿它来对比的。有了它，文件详情栏就能显示服务器所存内容的指纹，让人可以与审计记录对照，或自己对下载下来的密文做哈希。只加一个字段，没有新接口，也没有新查询（这一列本来就会被读出），有单元测试；前端类型已同步，详情栏的显示随界面改版 PR 一起提交。
+
 ### UI redesign, step 2: the home page and the public chrome / 界面改版第 2 步：首页和公开页的外壳
 
 - Home hero: a dark scene (the only dark section; it stays dark in both themes) with a wall of flickering ciphertext, a scan line and a floating "SEALED" card that shows the real first bytes of a PDF next to what the server receives, plus a key fingerprint. The headline is now "Sealed in your browser. Unreadable to everyone else." Motion stops under `prefers-reduced-motion`. The two calls to action keep their text ("Get started" or "Encrypt a file", "See how it works").
