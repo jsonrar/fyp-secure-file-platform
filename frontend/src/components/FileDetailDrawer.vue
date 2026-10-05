@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { AlertCircle, CheckCircle, Download, Activity, Loader2, Share2, Shield, Trash2, X } from 'lucide-vue-next'
+import { Activity, AlertCircle, Check, CheckCircle, Copy, Download, Loader2, Share2, Shield, Trash2, X } from 'lucide-vue-next'
 import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { shareApi } from '@/api/share_api'
 import type { SharedUser } from '@/api/share_api'
@@ -25,6 +25,7 @@ interface DetailFile {
   ownerName: string
   algorithm: string
   mimeType: string | null
+  sha256?: string
 }
 
 const props = defineProps<{ file: DetailFile; downloadBusy: boolean; downloading: boolean }>()
@@ -46,6 +47,20 @@ const statusView = {
 const people = ref<SharedUser[]>([])
 const peopleState = ref<'idle' | 'loading' | 'error'>('idle')
 const closeButton = ref<HTMLButtonElement | null>(null)
+const copied = ref(false)
+let copiedTimer = 0
+
+async function copyDigest() {
+  if (!props.file.sha256) return
+  try {
+    await navigator.clipboard.writeText(props.file.sha256)
+    copied.value = true
+    window.clearTimeout(copiedTimer)
+    copiedTimer = window.setTimeout(() => (copied.value = false), 2000)
+  } catch {
+    // Clipboard access can be refused; the digest is on screen and can be selected by hand.
+  }
+}
 
 async function loadPeople() {
   people.value = []
@@ -68,7 +83,10 @@ onMounted(async () => {
   await nextTick()
   closeButton.value?.focus()
 })
-onBeforeUnmount(() => document.removeEventListener('keydown', onKeydown))
+onBeforeUnmount(() => {
+  document.removeEventListener('keydown', onKeydown)
+  window.clearTimeout(copiedTimer)
+})
 watch(() => props.file.id, loadPeople, { immediate: true })
 </script>
 
@@ -115,6 +133,18 @@ watch(() => props.file.id, loadPeople, { immediate: true })
         <dt class="text-muted-foreground">Owner</dt>
         <dd translate="no">{{ file.owned ? 'You' : file.ownerName }}</dd>
       </dl>
+
+      <section v-if="file.sha256" class="flex flex-col gap-2.5 border-t border-border pt-5" data-testid="file-sha256">
+        <div class="flex items-center justify-between gap-3">
+          <h3 class="text-sm font-semibold">Ciphertext SHA-256</h3>
+          <button type="button" class="inline-flex h-8 items-center gap-1.5 rounded-md px-2 text-xs text-muted-foreground hover:bg-secondary hover:text-foreground" @click="copyDigest">
+            <component :is="copied ? Check : Copy" class="h-3.5 w-3.5" aria-hidden="true" />
+            {{ copied ? 'Copied' : 'Copy' }}
+          </button>
+        </div>
+        <code translate="no" class="break-all rounded-lg bg-secondary px-3.5 py-3 font-mono text-xs leading-relaxed">{{ file.sha256 }}</code>
+        <p class="text-xs leading-relaxed text-muted-foreground">The fingerprint of the stored ciphertext as recorded at upload. Every download and the daily scan are checked against it.</p>
+      </section>
 
       <section class="flex flex-col gap-3 border-t border-border pt-5">
         <h3 class="text-sm font-semibold">Who can open it</h3>

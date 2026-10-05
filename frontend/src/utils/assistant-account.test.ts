@@ -11,6 +11,7 @@ function file(name: string, extra: Partial<FileSummaryOut> = {}): FileSummaryOut
     original_filename: name,
     plaintext_size: 10,
     ciphertext_size: 10,
+    ciphertext_sha256: 'a'.repeat(64),
     mime_type: null,
     encryption_algorithm: 'AES-256-GCM',
     status: 'ACTIVE',

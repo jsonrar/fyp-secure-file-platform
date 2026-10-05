@@ -45,6 +45,8 @@ interface EncryptedFile {
   folderId: string | null
   algorithm: string
   mimeType: string | null
+  /** Absent from a server that predates the field, so the panel only shows it when present. */
+  sha256?: string
   /** Set when a stale shared row is no longer authorized on the server. */
   accessError?: string
 }
@@ -145,6 +147,7 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   folderId: file.folder_id,
   algorithm: file.encryption_algorithm,
   mimeType: file.mime_type,
+  sha256: file.ciphertext_sha256,
 })
 
 /**
