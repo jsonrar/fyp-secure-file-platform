@@ -24,8 +24,13 @@ ActorDependency = Annotated[ActorContext, Depends(get_current_actor)]
 AuditServiceDependency = Annotated[AuditQueryService, Depends(get_audit_query_service)]
 
 
-def _output(service: AuditQueryService, row) -> AuditLogOut:
+def _output(
+    service: AuditQueryService,
+    row,
+    labels: dict[str, tuple[str, bool]] | None = None,
+) -> AuditLogOut:
     log, actor_user, target_user = row
+    file_name, file_deleted = (labels or {}).get(log.resource_id or "", (None, False))
     return AuditLogOut(
         action=log.action,
         resource_type=log.resource_type,
@@ -38,6 +43,8 @@ def _output(service: AuditQueryService, row) -> AuditLogOut:
         description=log.description,
         metadata=service.safe_metadata(log.metadata_json),
         created_at=to_api_utc(log.created_at),
+        file_name=file_name,
+        file_deleted=file_deleted,
     )
 
 
@@ -50,8 +57,9 @@ def list_audit_logs(
 ) -> JSONResponse:
     rows = service.list_logs(actor=actor, limit=limit, offset=offset)
     has_more = len(rows) > limit
+    labels = service.file_labels(rows[:limit])
     data = AuditLogListResponse(
-        logs=[_output(service, row) for row in rows[:limit]],
+        logs=[_output(service, row, labels) for row in rows[:limit]],
         limit=limit,
         offset=offset,
         has_more=has_more,
@@ -72,9 +80,10 @@ def file_audit_logs(
 ) -> JSONResponse:
     rows = service.list_logs(actor=actor, limit=limit, offset=offset, file_id=file_id)
     has_more = len(rows) > limit
+    labels = service.file_labels(rows[:limit])
     data = FileAuditLogListResponse(
         file_id=file_id,
-        logs=[_output(service, row) for row in rows[:limit]],
+        logs=[_output(service, row, labels) for row in rows[:limit]],
         limit=limit,
         offset=offset,
         has_more=has_more,

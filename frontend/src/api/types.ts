@@ -97,6 +97,10 @@ export interface AuditLogOut {
   description: string | null
   metadata: Record<string, unknown>
   created_at: string
+  /** For a row about a file: its original name. Deleted files keep theirs (a soft delete). */
+  file_name?: string | null
+  /** The file has since been deleted. */
+  file_deleted?: boolean
 }
 
 /**

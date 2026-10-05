@@ -2044,5 +2044,6 @@
   "Threat-model evidence": "威胁模型佐证",
   "Account details": "账户详情",
   "No recovery requests yet": "还没有恢复请求",
-  "From our own test runs on the live site.": "来自我们在线上站点自己做的测试。"
+  "From our own test runs on the live site.": "来自我们在线上站点自己做的测试。",
+  "Deleted file": "已删除的文件"
 }

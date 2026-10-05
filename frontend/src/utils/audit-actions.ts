@@ -100,6 +100,24 @@ export function auditSubjectFileId(log: AuditSubject): string | null {
   return log.resource_id || null
 }
 
+/**
+ * How to label the file a row is about, from what the audit response already carries.
+ *
+ * The page used to ask `GET /files/{id}` for every file it did not know, and each deleted file
+ * answered 404. The API now sends the name (a deleted file keeps its row), so nothing is asked.
+ * A row with no name at all is a file that no longer exists in any form: it is still shown, as
+ * a deleted file, because what happened to a file is worth keeping once the file is gone.
+ */
+export function auditFileLabel(log: { file_name?: string | null; file_deleted?: boolean }): {
+  name: string
+  deleted: boolean
+  /** The name is the person's own file name (never translated), not our fallback wording. */
+  named: boolean
+} {
+  if (log.file_name) return { name: log.file_name, deleted: log.file_deleted === true, named: true }
+  return { name: 'Deleted file', deleted: true, named: false }
+}
+
 /** Whether this action changed who can reach the file. */
 export function isShareAction(action: string | undefined): boolean {
   return action === 'FILE_SHARED' || action === 'FILE_ACCESS_REVOKED'

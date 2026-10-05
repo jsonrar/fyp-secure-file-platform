@@ -52,6 +52,7 @@ from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_key import RecoveryKey
 from app.models.user import User
 from app.models.user_key import UserKey
+from app.repositories.audit_repository import AuditRepository
 from app.schemas.file_schema import FileUploadMetadata
 from app.services.audit_log_service import AuditLogService
 from app.services.file_service import FileService
@@ -600,6 +601,25 @@ def test_deleting_a_file_revokes_its_rows_and_takes_the_directory_with_it(
         select(FileKeyWrapping.status).where(FileKeyWrapping.file_id == row.id)
     ).all()
     assert set(wrapping_statuses) == {"REVOKED"}
+
+
+def test_a_deleted_file_keeps_its_name_for_the_access_records(
+    lifecycle: LifecycleEnvironment,
+) -> None:
+    # The records page used to ask for each deleted file's name and got a 404 every time. The
+    # name is a column of the soft-deleted row, so one query returns it with the deleted flag.
+    kept = lifecycle.upload()
+    gone = lifecycle.upload()
+    lifecycle.service.delete(actor=lifecycle.actor, file_id=gone.file_id, context=RequestContext())
+
+    labels = AuditRepository(lifecycle.session).file_labels(
+        [str(kept.file_id), str(gone.file_id), str(uuid4())]
+    )
+
+    assert set(labels) == {str(kept.file_id), str(gone.file_id)}
+    assert labels[str(kept.file_id)][1] is False
+    assert labels[str(gone.file_id)][1] is True
+    assert labels[str(gone.file_id)][0] == lifecycle.file_row(gone.file_id).original_filename
 
 
 def test_deleting_twice_is_idempotent_and_the_file_stays_gone(
