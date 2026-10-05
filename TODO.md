@@ -180,8 +180,8 @@ not a release pass.
   — **closed as not planned on 2026-10-04.** The team chose not to run the formal study. Instead the
   supervisor, the four team members, the FIT3162 Teaching Team and other students have used staging
   with their own accounts. That is informal real use: there is no SUS score, no per-task completion
-  rate, and [`docs/usability/RESULTS.md`](docs/usability/RESULTS.md) stays empty. The kit stays in
-  [`docs/usability/`](docs/usability/STUDY_PLAN.md) in case a formal study is wanted later.
+  rate. The study kit (`docs/usability/` and the scoring script) was deleted on 2026-10-05; it is in the
+  git history (PR #114) if a formal study is ever wanted.
 
 ## P2 — formal security assurance
 
