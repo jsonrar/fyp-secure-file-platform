@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### My Files: centred table, Access history beside Delete / 我的文件：表格居中、访问历史放到删除旁边
+
+- The My Files table is centred from md up: the column headings and every cell, including the file name block (a small file icon before the name, with Details and Encrypted preview centred under it). The Actions column is wider so five controls fit. On a phone the card layout is unchanged.
+- 我的文件的表格从 md 起居中：列标题和每个单元格都居中，包括文件名那一块（名字前有一个小文件图标，Details 和 Encrypted preview 在下面居中）。操作列变宽，放得下五个控件。手机上的卡片布局不变。
+- "Access history" moved out of the More menu into its own icon button between Delete and More, so one file's history is a single click; the menu keeps Download encrypted file and Request recovery. The phone browser test now taps the button on the card instead of opening the menu.
+- “Access history”从“更多”菜单里移出来，成为删除和更多之间的一个图标按钮，查看某个文件的历史只需点一下；菜单里保留 Download encrypted file 和 Request recovery。手机浏览器测试改为点卡片上的这个按钮，不再打开菜单。
+
 ### UI fixes P2: near-white primary in dark mode, no pill labels, split sign-in layout / 界面修正 P2：深色主色改近白、去掉胶囊标签、登录页分栏 ([#184](https://github.com/jsonrar/fyp-secure-file-platform/issues/184))
 
 - Dark mode `--primary` is now near-white (`#EEF0F3`, text `#07090D`) instead of mint, so Login, Start Encryption, Share and every other primary button is no longer green; mint stays on `--success` (verified, sealed, done). Uses of primary that meant "success" (the check marks in the passphrase reset, the ciphertext preview, the admin panels, the getting-started steps and the algorithm list, the integrity coverage figure) now use the success tokens. A scan of every interactive element on all pages in dark mode finds no mint-coloured control. The home hero keeps its own colours.
