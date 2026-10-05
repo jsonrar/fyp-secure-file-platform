@@ -314,7 +314,7 @@ watch(index, () => {
       <!-- Caption -->
       <div class="border-t border-border px-5 py-4 md:px-6">
         <div class="flex flex-wrap items-baseline justify-between gap-2">
-          <p class="text-xs font-semibold uppercase tracking-[0.2em] text-primary">
+          <p class="text-xs uppercase tracking-[0.2em] text-muted-foreground">
             Step {{ index + 1 }} of {{ scenes.length }}
           </p>
           <div class="h-1 w-32 overflow-hidden rounded-full bg-secondary" aria-hidden="true">

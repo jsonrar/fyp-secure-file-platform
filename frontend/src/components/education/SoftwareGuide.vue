@@ -37,13 +37,13 @@ watch(
       >
         <Clapperboard class="h-3.5 w-3.5 text-primary" />
         <span>{{ guide.title }}</span>
-        <span class="text-xs font-semibold uppercase tracking-[0.14em] text-primary/80">{{ guide.tag }}</span>
+        <span class="text-xs uppercase tracking-[0.14em] text-muted-foreground/80">{{ guide.tag }}</span>
       </button>
     </div>
 
     <article class="overflow-hidden rounded-xl border border-border bg-card" data-testid="help-video">
       <div class="border-b border-border px-5 py-4">
-        <p class="mb-2 text-xs font-semibold uppercase tracking-[0.22em] text-primary">{{ active.tag }}</p>
+        <p class="mb-2 text-xs uppercase tracking-[0.22em] text-muted-foreground">{{ active.tag }}</p>
         <h3 class="text-xl font-bold text-foreground">{{ active.title }}</h3>
         <p class="mt-2 text-sm text-muted-foreground">{{ active.summary }}</p>
       </div>

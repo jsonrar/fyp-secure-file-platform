@@ -90,7 +90,7 @@ const number = (value: number) => value.toLocaleString('en-US')
         </li>
       </ul>
       <p v-else class="mb-4 flex items-center gap-2 rounded-lg border border-border bg-secondary/50 px-3 py-2 text-sm text-foreground" data-testid="admin-all-clear">
-        <CheckCircle class="h-4 w-4 text-primary" /> Nothing needs attention: no damaged files, no failed integrity checks, no pending recovery requests.
+        <CheckCircle class="h-4 w-4 text-success" /> Nothing needs attention: no damaged files, no failed integrity checks, no pending recovery requests.
       </p>
 
       <div class="grid gap-4 md:grid-cols-2">

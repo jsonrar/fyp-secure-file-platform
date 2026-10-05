@@ -1,25 +1,10 @@
 <script setup lang="ts">
 import { ArrowRight } from 'lucide-vue-next'
 import { RouterLink } from 'vue-router'
+import CipherWall from '@/components/brand/CipherWall.vue'
 import { useAuthStore } from '@/stores/auth_store'
 
 const auth = useAuthStore()
-
-/** Decorative ciphertext: fixed pseudo-random bytes, so the wall looks the same on every visit. */
-function byteRows(count: number, width: number): string[] {
-  let seed = 1337
-  const rows: string[] = []
-  for (let r = 0; r < count; r++) {
-    const row: string[] = []
-    for (let c = 0; c < width; c++) {
-      seed = (seed * 1103515245 + 12345) & 0x7fffffff
-      row.push(((seed >> 16) & 255).toString(16).padStart(2, '0'))
-    }
-    rows.push(row.join(' '))
-  }
-  return rows
-}
-const wall = byteRows(16, 22)
 const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chained audit']
 </script>
 
@@ -63,16 +48,7 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
       </div>
 
       <div class="relative h-[26rem] w-full min-w-0 lg:h-[34rem] lg:w-auto lg:flex-1 lg:basis-[26rem]" data-testid="hero-scene">
-        <div class="hero-wall absolute inset-0 flex flex-col justify-center gap-3.5 overflow-hidden" aria-hidden="true">
-          <div
-            v-for="(row, i) in wall"
-            :key="i"
-            class="hero-hex whitespace-nowrap font-mono text-[0.95rem] tracking-[0.18em] text-[#7ce0b5]"
-            :style="{ animationDelay: `${(i * 0.37) % 3}s` }"
-          >
-            {{ row }}
-          </div>
-        </div>
+        <CipherWall />
         <div class="hero-scan pointer-events-none absolute inset-x-0 top-0 h-24" aria-hidden="true" />
         <div class="hero-card absolute left-1/2 top-1/2 w-[min(24rem,92%)] overflow-hidden rounded-2xl border border-white/10 bg-[#0e1117]/90 backdrop-blur">
           <div class="flex items-center justify-between border-b border-white/10 px-5 py-4">
@@ -113,15 +89,9 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
   background-size: 48px 48px;
   mask-image: radial-gradient(ellipse 90% 80% at 60% 45%, #000 30%, transparent 85%);
 }
-.hero-wall {
-  mask-image: radial-gradient(ellipse 80% 70% at 50% 50%, #000 40%, transparent 85%);
-}
 .hero-scan {
   background: linear-gradient(180deg, transparent, rgb(124 224 181 / 0.14), transparent);
   animation: hero-scan 6s linear infinite;
-}
-.hero-hex {
-  animation: hero-flicker 3.2s ease-in-out infinite;
 }
 .hero-card {
   transform: translate(-50%, -50%);
@@ -130,11 +100,6 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
 }
 .hero-dot {
   animation: hero-pulse 2.4s ease-out infinite;
-}
-@keyframes hero-flicker {
-  0%, 100% { opacity: 0.18; }
-  45% { opacity: 0.55; }
-  55% { opacity: 0.3; }
 }
 @keyframes hero-scan {
   0% { transform: translateY(-120px); }
@@ -149,6 +114,6 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
   70% { box-shadow: 0 0 0 10px rgb(124 224 181 / 0); }
 }
 @media (prefers-reduced-motion: reduce) {
-  .hero-scan, .hero-hex, .hero-card, .hero-dot { animation: none; }
+  .hero-scan, .hero-card, .hero-dot { animation: none; }
 }
 </style>

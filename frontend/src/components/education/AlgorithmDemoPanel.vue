@@ -17,7 +17,7 @@ const hasVideo = computed(() => Boolean(props.demo.videoSrc))
     <div class="mb-4 flex flex-wrap items-center justify-center gap-2 text-center">
       <Clapperboard class="h-4 w-4 text-primary shrink-0" />
       <p class="text-sm font-semibold text-foreground">{{ demo.title }}</p>
-      <span class="text-[0.65rem] font-semibold uppercase tracking-[0.18em] text-primary bg-primary/10 px-2 py-1 rounded-full">
+      <span class="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">
         {{ hasVideo ? 'Video' : 'Animation' }}
       </span>
     </div>

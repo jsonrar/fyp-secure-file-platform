@@ -15,7 +15,7 @@ import WhySecureView from '@/components/explainers/WhySecureView.vue'
   <section class="bg-secondary/30 py-20" aria-labelledby="why-home-heading">
     <div class="page-container">
       <div class="mx-auto mb-10 max-w-3xl text-center">
-        <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">Why SecureView</p>
+        <p class="mb-3 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">Why SecureView</p>
         <h2 id="why-home-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           Compared with ordinary cloud storage
         </h2>

@@ -165,7 +165,7 @@ onBeforeUnmount(() => {
   <section id="how-it-works" ref="section" class="guide-section py-20 md:py-28" aria-labelledby="guide-heading">
     <div class="container mx-auto px-4">
       <div class="mx-auto mb-9 max-w-3xl text-center">
-        <p class="mb-3 text-xs font-semibold uppercase font-mono tracking-[0.14em] text-primary">How it works</p>
+        <p class="mb-3 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">How it works</p>
         <h2 id="guide-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
           See exactly what to click.
         </h2>
@@ -267,7 +267,7 @@ onBeforeUnmount(() => {
             <div class="guide-copy" :aria-live="playing ? 'off' : 'polite'" aria-atomic="true">
               <Transition name="guide-fade" mode="out-in">
                 <div :key="active.id" class="flex h-full flex-col">
-                  <p class="text-xs font-semibold uppercase tracking-[0.18em] text-primary">
+                  <p class="text-xs uppercase tracking-[0.18em] text-muted-foreground">
                     Step {{ current + 1 }} / {{ slides.length }}
                   </p>
                   <h3 class="mt-3 text-balance text-2xl font-semibold leading-tight tracking-tight text-foreground">
@@ -275,7 +275,7 @@ onBeforeUnmount(() => {
                   </h3>
                   <p class="mt-5 text-sm leading-7 text-foreground">{{ active.action }}</p>
                   <div class="guide-result">
-                    <CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-primary" aria-hidden="true" />
+                    <CheckCircle2 class="mt-0.5 h-4 w-4 shrink-0 text-success" aria-hidden="true" />
                     <div>
                       <p class="text-xs font-semibold text-foreground">What happens next</p>
                       <p class="mt-1.5 text-sm leading-6 text-muted-foreground">{{ active.result }}</p>

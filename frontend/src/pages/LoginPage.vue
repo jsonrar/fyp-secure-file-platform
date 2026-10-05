@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import AuthShell from '@/components/securfile/AuthShell.vue'
 import { computed, ref } from 'vue'
 import { RouterLink } from 'vue-router'
 import { useRoute, useRouter } from 'vue-router'
@@ -46,8 +47,8 @@ async function login() {
 </script>
 
 <template>
-  <section class="min-h-[80vh] flex items-center justify-center px-4 py-20">
-    <div class="w-full max-w-md rounded-xl border border-border bg-card p-8">
+  <AuthShell>
+    <div class="w-full rounded-xl border border-border bg-card p-8">
       <div class="flex items-center gap-2 mb-6">
         <div class="p-2 rounded-lg bg-primary/10">
           <Lock class="h-5 w-5 text-primary" />
@@ -103,5 +104,5 @@ async function login() {
         <RouterLink to="/register" class="inline-flex min-h-10 items-center text-primary hover:underline">{{ t('login.register') }}</RouterLink>
       </p>
     </div>
-  </section>
+  </AuthShell>
 </template>

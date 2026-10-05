@@ -46,14 +46,15 @@
 }
 
 .dark {
-  /* Near-black with a cool cast; mint is the single accent and also means verified. */
+  /* Near-black with a cool cast. Primary actions are near-white; mint is reserved for success
+     (verified, sealed) and never marks a button. */
   --background: #0b0d12;
   --foreground: #eef0f3;
   --card: #12151c;
   --card-foreground: #eef0f3;
   --popover: #12151c;
   --popover-foreground: #eef0f3;
-  --primary: #7ce0b5;
+  --primary: #eef0f3;
   --primary-foreground: #07090d;
   --secondary: #1a1e27;
   --secondary-foreground: #eef0f3;
@@ -70,14 +71,14 @@
   --border: #252a35;
   --input: #303644;
   --ring: #8fa8ff;
-  --chart-1: #7ce0b5;
+  --chart-1: #eef0f3;
   --chart-2: #8fa8ff;
   --chart-3: #f5b942;
   --chart-4: #c4a4ff;
   --chart-5: #ff8a80;
   --sidebar: #12151c;
   --sidebar-foreground: #eef0f3;
-  --sidebar-primary: #7ce0b5;
+  --sidebar-primary: #eef0f3;
   --sidebar-primary-foreground: #07090d;
   --sidebar-accent: #1a1e27;
   --sidebar-accent-foreground: #eef0f3;
