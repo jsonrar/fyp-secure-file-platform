@@ -72,19 +72,40 @@ async function mark(page, locator, number) {
   }, {box, number});
 }
 
+/** Switch the interface language in place, so the page keeps its state (open dialogs, selected tab). */
+async function setLanguage(page, code) {
+  await page.evaluate(code => {
+    const select = document.querySelector('[data-testid=language-switcher]');
+    select.value = code;
+    select.dispatchEvent(new Event('change', {bubbles:true}));
+  }, code);
+  await page.waitForTimeout(400);
+}
+
+/**
+ * Capture one state twice: in English as `<name>.webp` and in Chinese as `<name>-zh.webp`. The
+ * element handles are taken first, because the English locators (by role name) do not exist
+ * once the page is in Chinese; the elements themselves stay the same.
+ */
 async function capture(page, area, name, target, number) {
-  await area.scrollIntoViewIfNeeded();
-  await page.mouse.move(0,0);
-  await mark(page, target, number);
-  const box = await area.boundingBox();
-  const scroll = await page.evaluate(() => ({x:scrollX, y:scrollY}));
-  const padding = 22;
-  const png = await page.screenshot({clip:{
-    x:Math.max(0,box.x+scroll.x-padding), y:Math.max(0,box.y+scroll.y-padding),
-    width:box.width+padding*2, height:box.height+padding*2,
-  }, animations:'disabled'});
-  await sharp(png).webp({quality:88}).toFile(path.join(output, name+'.webp'));
-  console.log('Captured '+name);
+  const areaHandle = await area.elementHandle();
+  const targetHandle = await target.elementHandle();
+  for (const [code, suffix] of [['en', ''], ['zh-CN', '-zh']]) {
+    if (code !== 'en') await setLanguage(page, code);
+    await areaHandle.scrollIntoViewIfNeeded();
+    await page.mouse.move(0,0);
+    await mark(page, targetHandle, number);
+    const box = await areaHandle.boundingBox();
+    const scroll = await page.evaluate(() => ({x:scrollX, y:scrollY}));
+    const padding = 22;
+    const png = await page.screenshot({clip:{
+      x:Math.max(0,box.x+scroll.x-padding), y:Math.max(0,box.y+scroll.y-padding),
+      width:box.width+padding*2, height:box.height+padding*2,
+    }, animations:'disabled'});
+    await sharp(png).webp({quality:88}).toFile(path.join(output, name+suffix+'.webp'));
+    console.log('Captured '+name+suffix);
+  }
+  await setLanguage(page, 'en');
 }
 
 (async () => {
@@ -134,7 +155,7 @@ async function capture(page, area, name, target, number) {
     const page = await context.newPage();
     const base = 'http://127.0.0.1:'+server.address().port;
     await page.goto(base+'/upload');
-    const upload = page.locator('#encrypt .rounded-3xl').first();
+    const upload = page.getByTestId('encrypt-card');
     const columns = upload.locator(':scope > div > div');
     const select = page.locator('label').filter({hasText:'Select Files'});
     await capture(page,upload,'01-select',select,'1');
@@ -146,7 +167,7 @@ async function capture(page, area, name, target, number) {
     await encrypt.click();
     await page.getByRole('button',{name:'View Encrypted Files',exact:true}).click();
     await page.getByText(filename,{exact:true}).waitFor();
-    const files = page.locator('#manage .rounded-3xl').first();
+    const files = page.getByTestId('files-card');
     const share = page.getByTitle('Share',{exact:true});
     await capture(page,files,'03-file',share,'3');
     await page.setViewportSize({width:600,height:1100});

@@ -1,4 +1,5 @@
 <script setup lang="ts">
+import { useI18n } from 'vue-i18n'
 import {
   ArrowLeft,
   ArrowRight,
@@ -44,6 +45,10 @@ function stopTimers() {
   progress.value = 0
 }
 
+const { locale } = useI18n()
+/** The screenshots exist in English and Chinese (`<name>-zh.webp`): show the set for the chosen language. */
+const shot = (name: string) => `/walkthrough/${name}${locale.value === 'zh-CN' ? '-zh' : ''}.webp`
+
 function warmSlide(index: number) {
   const slide = slides[index]
   if (!slide) return
@@ -51,7 +56,7 @@ function warmSlide(index: number) {
     if (warmedImages.has(name)) continue
     warmedImages.add(name)
     const image = new Image()
-    image.src = `/walkthrough/${name}.webp`
+    image.src = shot(name)
   }
 }
 
@@ -244,9 +249,9 @@ onBeforeUnmount(() => {
               >
                 <Transition name="guide-fade" mode="out-in">
                   <picture :key="active.id">
-                    <source media="(max-width: 767px)" :srcset="`/walkthrough/${active.mobile}.webp`" />
+                    <source media="(max-width: 767px)" :srcset="shot(active.mobile)" />
                     <img
-                      :src="`/walkthrough/${active.id}.webp`"
+                      :src="shot(active.id)"
                       :alt="active.alt"
                       width="1410"
                       height="1000"
@@ -347,7 +352,7 @@ onBeforeUnmount(() => {
           </button>
         </div>
         <div class="guide-lightbox-image">
-          <img :src="`/walkthrough/${active.id}.webp`" :alt="active.alt" />
+          <img :src="shot(active.id)" :alt="active.alt" />
         </div>
         <p class="p-4 text-sm leading-relaxed text-foreground">{{ active.action }}</p>
       </dialog>

@@ -233,7 +233,7 @@ const goToFiles = () => {
         title="Encrypt Your Files"
         subtitle="Files are encrypted in your browser with the algorithm you choose below (AES-256-GCM by default). Only ciphertext is uploaded; the server never receives your readable file or its key."
       />
-      <div class="rounded-xl bg-card border border-border p-6">
+      <div class="rounded-xl bg-card border border-border p-6" data-testid="encrypt-card">
         <!-- minmax(0, 1fr): a grid track otherwise never gets narrower than its widest unbreakable
              content, and the cipher dropdown's longest option pushed a phone sideways. -->
         <div class="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8">
@@ -322,7 +322,9 @@ const goToFiles = () => {
                 </div>
               </div>
               <p class="text-sm text-muted-foreground">
-                {{ ALGORITHM_NOTES[algorithm] }} A fresh key is generated per file and wrapped, with
+                <!-- The note is its own element so it is translated on its own: joined to the sentence
+                     below it was one text node that matched nothing in the dictionary. -->
+                <span>{{ ALGORITHM_NOTES[algorithm] }}</span> A fresh key is generated per file and wrapped, with
                 RSA-OAEP, to your public key and to the recovery key. (SHA-256 appears in that name
                 because OAEP uses it inside its padding; it is not a checksum of your file.) Neither
                 the file key nor your readable file leaves this browser unprotected.

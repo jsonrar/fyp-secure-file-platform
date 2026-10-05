@@ -141,7 +141,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'their own account first.',
     steps: [
       'Open My Files and find a file you own.',
-      'Press its blue Share button, next to Delete.',
+      'Press its black Share button, next to Delete.',
       'If asked, unlock with your encryption passphrase.',
       'Enter their exact username or email address and press Share.',
       'Check the name and key fingerprint shown, then press Confirm and share.',
