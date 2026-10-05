@@ -231,14 +231,14 @@ const goToFiles = () => {
         <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Encrypt Your Files</h2>
         <p class="text-muted-foreground max-w-2xl text-pretty">Files are encrypted in your browser with the algorithm you choose below (AES-256-GCM by default). Only ciphertext is uploaded; the server never receives your readable file or its key.</p>
       </div>
-      <div class="max-w-6xl mx-auto rounded-3xl bg-card border border-border p-6">
+      <div class="max-w-6xl mx-auto rounded-xl bg-card border border-border p-6">
         <!-- minmax(0, 1fr): a grid track otherwise never gets narrower than its widest unbreakable
              content, and the cipher dropdown's longest option pushed a phone sideways. -->
         <div class="grid grid-cols-[minmax(0,1fr)] lg:grid-cols-[minmax(0,1fr)_minmax(0,1fr)] gap-8">
           <div>
             <label class="text-foreground mb-4 block text-lg font-medium">Upload Files</label>
             <div
-              :class="`border-2 border-dashed rounded-lg p-8 text-center transition-colors ${dragActive ? 'border-primary bg-primary/5' : 'border-border hover:border-primary/50'}`"
+              :class="`flex min-h-[18rem] flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragActive ? 'border-foreground bg-secondary' : 'border-input bg-background hover:border-foreground/50'}`"
               @dragenter="handleDrag"
               @dragleave="handleDrag"
               @dragover="handleDrag"
@@ -255,7 +255,7 @@ const goToFiles = () => {
             <div v-if="files.length" class="mt-4 space-y-2">
               <div v-for="(file, index) in files" :key="`${file.name}-${index}`" class="flex items-center justify-between gap-2 p-3 rounded-lg bg-secondary/50">
                 <div class="flex min-w-0 items-center gap-3">
-                  <FileIcon class="h-5 w-5 shrink-0 text-primary" />
+                  <FileIcon class="h-5 w-5 shrink-0 text-muted-foreground" />
                   <div class="min-w-0">
                     <p translate="no" class="text-sm text-foreground [overflow-wrap:anywhere]">{{ file.name }}</p>
                     <p class="text-xs text-muted-foreground">{{ formatFileSize(file.size) }}</p>
@@ -279,7 +279,7 @@ const goToFiles = () => {
                 </div>
                 <div class="flex items-center gap-2">
                   <RefreshCw v-if="file.status === 'encrypting'" class="h-4 w-4 animate-spin text-primary" />
-                  <Check v-else-if="file.status === 'done'" class="h-4 w-4 text-primary" />
+                  <Check v-else-if="file.status === 'done'" class="h-4 w-4 text-success" />
                   <button v-else class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" @click="removeFile(index)">
                     <X class="h-4 w-4" />
                   </button>
@@ -300,7 +300,7 @@ const goToFiles = () => {
                     id="content-algorithm"
                     v-model="algorithm"
                     :disabled="isEncrypting"
-                    class="h-10 min-w-0 max-w-full font-semibold text-primary bg-transparent border border-border rounded-md px-2 py-1 disabled:opacity-50"
+                    class="h-10 min-w-0 max-w-full font-mono text-sm text-foreground bg-transparent border border-input rounded-md px-2 py-1 disabled:opacity-50"
                   >
                     <option v-for="choice in algorithmChoices" :key="choice" :value="choice">
                       {{ choice }}
@@ -310,7 +310,7 @@ const goToFiles = () => {
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">File key wrapping</span>
                   <span
-                    class="cursor-help font-semibold text-primary underline decoration-dotted decoration-primary/40 underline-offset-4"
+                    class="cursor-help font-mono text-foreground underline decoration-dotted decoration-muted-foreground underline-offset-4"
                     title="RSA public-key encryption with OAEP padding. SHA-256 is the hash OAEP uses inside that padding; it is not a checksum of your file."
                   >RSA-OAEP (SHA-256)</span>
                 </div>
@@ -341,7 +341,7 @@ const goToFiles = () => {
             <EncryptionProgress v-if="progress" class="mt-6" v-bind="progress" />
 
             <div class="mt-8">
-              <button :disabled="!files.length || isEncrypting || hasOversizeFile" class="w-full h-11 inline-flex items-center justify-center gap-2 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="handleEncrypt">
+              <button :disabled="!files.length || isEncrypting || hasOversizeFile" class="w-full h-12 inline-flex items-center justify-center gap-2 rounded-lg bg-primary font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="handleEncrypt">
                 <template v-if="isEncrypting"><RefreshCw class="h-4 w-4 animate-spin" /> Encrypting...</template>
                 <template v-else-if="isEncrypted"><Check class="h-4 w-4" /> Encryption Complete</template>
                 <template v-else><Lock class="h-4 w-4" /> Start Encryption</template>

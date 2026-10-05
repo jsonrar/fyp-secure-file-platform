@@ -85,18 +85,27 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <template>
-  <div class="rounded-lg border border-border bg-secondary/30 p-4" data-testid="encryption-progress" aria-live="polite">
-    <p class="mb-3 text-sm font-medium text-foreground">
-      <span translate="no" class="[overflow-wrap:anywhere]">{{ fileName }}</span>
-    </p>
+  <div class="rounded-xl border border-border bg-card p-5" data-testid="encryption-progress" aria-live="polite">
+    <div class="mb-4 flex items-start justify-between gap-3">
+      <div class="min-w-0">
+        <p class="font-mono text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground">Seal receipt</p>
+        <p class="mt-1 text-base font-semibold text-foreground">
+          <span translate="no" class="[overflow-wrap:anywhere]">{{ fileName }}</span>
+        </p>
+      </div>
+      <span
+        class="shrink-0 rounded-md px-2.5 py-1 font-mono text-xs uppercase"
+        :class="done ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground'"
+      >{{ done ? 'Sealed' : 'Sealing…' }}</span>
+    </div>
 
     <ol class="space-y-3">
       <li v-for="step in steps" :key="step.stage" class="flex items-start gap-3">
         <span
           class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors"
           :class="{
-            'border-primary bg-primary text-primary-foreground': stateOf(step.stage) === 'done',
-            'border-primary text-primary': stateOf(step.stage) === 'active',
+            'border-success bg-success text-success-foreground': stateOf(step.stage) === 'done',
+            'border-foreground text-foreground': stateOf(step.stage) === 'active',
             'border-border text-muted-foreground': stateOf(step.stage) === 'waiting',
           }"
         >
@@ -122,22 +131,22 @@ onBeforeUnmount(() => clearInterval(timer))
             v-if="step.stage === 'upload' && stateOf('upload') === 'active'"
             class="mt-2 h-1.5 overflow-hidden rounded-full bg-border"
           >
-            <div class="h-full bg-primary transition-[width] duration-200" :style="{ width: `${Math.round(uploadFraction * 100)}%` }" />
+            <div class="h-full bg-success transition-[width] duration-200" :style="{ width: `${Math.round(uploadFraction * 100)}%` }" />
           </div>
         </div>
       </li>
     </ol>
 
-    <div v-if="plaintextHead && ciphertextHead" class="mt-4 space-y-2 border-t border-border pt-3" data-testid="byte-comparison">
-      <p class="text-xs text-muted-foreground">The first {{ plainHex.length }} bytes, before and after encryption:</p>
+    <div v-if="plaintextHead && ciphertextHead" class="mt-5 space-y-3 rounded-lg bg-[#0a0c10] p-4" data-testid="byte-comparison">
+      <p class="text-xs text-[#8a92a3]">The first {{ plainHex.length }} bytes, before and after encryption:</p>
       <div>
-        <p class="text-xs text-muted-foreground">Your file</p>
-        <p translate="no" class="break-all font-mono text-xs text-foreground">{{ plainHex.join(' ') }}</p>
-        <p translate="no" class="font-mono text-xs text-muted-foreground">{{ toText(plaintextHead) }}</p>
+        <p class="text-xs text-[#8a92a3]">Your file</p>
+        <p translate="no" class="break-all font-mono text-xs text-[#f2f3f5]">{{ plainHex.join(' ') }}</p>
+        <p translate="no" class="font-mono text-xs text-[#8a92a3]">{{ toText(plaintextHead) }}</p>
       </div>
       <div>
-        <p class="flex items-center gap-1 text-xs text-primary"><Lock class="h-3 w-3" /> What the server receives</p>
-        <p translate="no" class="break-all font-mono text-xs text-primary">{{ shownCipher.join(' ') }}</p>
+        <p class="flex items-center gap-1 text-xs text-[#7ce0b5]"><Lock class="h-3 w-3" /> What the server receives</p>
+        <p translate="no" class="break-all font-mono text-xs text-[#7ce0b5]">{{ shownCipher.join(' ') }}</p>
       </div>
     </div>
   </div>

@@ -126,10 +126,10 @@ const stats = computed(() => ({
 }))
 
 const statCards: StatCard[] = [
-  { key: 'totalFiles', label: 'Tracked Files', icon: FileIcon, wrapperClass: 'bg-primary/10', iconClass: 'text-primary' },
-  { key: 'totalDownloads', label: 'Downloads', icon: Download, wrapperClass: 'bg-primary/10', iconClass: 'text-primary' },
-  { key: 'totalShares', label: 'Shares', icon: Share2, wrapperClass: 'bg-blue-500/10', iconClass: 'text-blue-500' },
-  { key: 'uniqueUsers', label: 'Unique Users', icon: User, wrapperClass: 'bg-amber-500/10', iconClass: 'text-amber-500' },
+  { key: 'totalFiles', label: 'Tracked Files', icon: FileIcon, wrapperClass: 'bg-secondary', iconClass: 'text-foreground' },
+  { key: 'totalDownloads', label: 'Downloads', icon: Download, wrapperClass: 'bg-secondary', iconClass: 'text-foreground' },
+  { key: 'totalShares', label: 'Shares', icon: Share2, wrapperClass: 'bg-secondary', iconClass: 'text-foreground' },
+  { key: 'uniqueUsers', label: 'Unique Users', icon: User, wrapperClass: 'bg-secondary', iconClass: 'text-foreground' },
 ]
 
 const trailIsPartial = ref(false)
@@ -204,12 +204,13 @@ const toggle = (id: string) => {
         <p class="text-muted-foreground max-w-2xl text-pretty">Track security-sensitive actions recorded by the audit log service</p>
       </div>
 
-      <div class="flex items-center justify-center gap-3 mb-8">
+      <div class="flex flex-wrap items-center gap-3 mb-8">
         <button class="h-10 px-4 inline-flex items-center gap-2 rounded-md border border-border hover:bg-secondary" @click="loadLogs">
           <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
           Refresh
         </button>
-        <span v-if="chainState === 'valid'" class="text-sm text-muted-foreground">
+        <span v-if="chainState === 'valid'" class="inline-flex items-center gap-1.5 rounded-md bg-success-soft px-2.5 py-1 font-mono text-xs text-success">
+          <span aria-hidden="true">●</span>
           Hash chain verified · {{ chainCheckedEntries }} entries
         </span>
         <span
@@ -221,14 +222,14 @@ const toggle = (id: string) => {
         </span>
       </div>
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8 max-w-4xl mx-auto">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
         <div v-for="card in statCards" :key="card.key" class="bg-card border border-border rounded-xl p-4">
           <div class="flex items-center gap-3">
             <div class="p-2 rounded-lg" :class="card.wrapperClass">
               <component :is="card.icon" class="h-5 w-5" :class="card.iconClass" />
             </div>
             <div>
-              <p class="text-2xl font-bold text-foreground">{{ stats[card.key] }}</p>
+              <p class="text-2xl font-semibold tracking-tight text-foreground">{{ stats[card.key] }}</p>
               <p class="text-xs text-muted-foreground">{{ card.label }}</p>
             </div>
           </div>
@@ -236,8 +237,8 @@ const toggle = (id: string) => {
       </div>
 
       <p v-if="errorMessage" class="text-center text-sm text-destructive mb-4">{{ errorMessage }}</p>
-      <p v-if="groups.length" class="mx-auto mb-4 flex max-w-4xl items-center justify-center gap-2 text-center text-sm text-muted-foreground" data-testid="records-hint">
-        <ChevronDown class="h-4 w-4 shrink-0 text-primary" />
+      <p v-if="groups.length" class="mb-4 flex items-center gap-2 text-sm text-muted-foreground" data-testid="records-hint">
+        <ChevronDown class="h-4 w-4 shrink-0" />
         Select a file below to open its full access history: who uploaded, shared or downloaded it, and when.
       </p>
       <p v-if="trailIsPartial" class="text-center text-xs text-muted-foreground mb-4">
@@ -252,7 +253,7 @@ const toggle = (id: string) => {
         No audit logs yet. Actions such as upload, download, and share will appear here.
       </div>
 
-      <div v-else class="max-w-4xl mx-auto space-y-4">
+      <div v-else class="space-y-3">
         <article v-for="file in groups" :key="file.id" class="bg-card border border-border rounded-xl overflow-hidden">
           <button
             class="w-full p-4 text-left hover:bg-secondary/40 transition-colors"
@@ -262,8 +263,8 @@ const toggle = (id: string) => {
             <div class="flex items-center justify-between gap-4">
               <div class="flex items-center gap-4">
                 <div class="p-3 rounded-lg bg-secondary">
-                  <User v-if="file.isAccount" class="h-5 w-5 text-primary" />
-                  <FileIcon v-else class="h-5 w-5 text-primary" />
+                  <User v-if="file.isAccount" class="h-5 w-5 text-muted-foreground" />
+                  <FileIcon v-else class="h-5 w-5 text-muted-foreground" />
                 </div>
                 <div>
                   <h3 translate="no" class="text-base text-foreground">{{ file.name }}</h3>
@@ -273,7 +274,7 @@ const toggle = (id: string) => {
               <div class="flex shrink-0 items-center gap-4 text-sm text-muted-foreground">
                 <span class="hidden items-center gap-1 md:inline-flex" title="Downloads"><Download class="h-4 w-4" /> {{ file.totalDownloads }}</span>
                 <span class="hidden items-center gap-1 md:inline-flex" title="People involved"><User class="h-4 w-4" /> {{ new Set(file.accessHistory.map((e) => e.actor)).size }}</span>
-                <span class="inline-flex items-center gap-1 text-xs font-medium text-primary" data-testid="records-toggle">
+                <span class="inline-flex items-center gap-1 text-xs font-medium text-foreground" data-testid="records-toggle">
                   <span class="hidden sm:inline">{{ expanded.includes(file.id) ? 'Hide history' : 'View history' }}</span>
                   <component :is="expanded.includes(file.id) ? ChevronUp : ChevronDown" class="h-4 w-4" />
                 </span>
@@ -296,13 +297,13 @@ const toggle = (id: string) => {
                       {{ event.detail }}
                     </span>
                   </p>
-                  <p translate="no" class="text-xs text-muted-foreground mt-0.5">
+                  <p translate="no" class="mt-0.5 font-mono text-xs text-muted-foreground">
                     {{ event.actor }} · {{ event.accessTime }}
                   </p>
                 </div>
                 <span
                   v-if="!event.succeeded"
-                  class="shrink-0 text-xs px-2 py-0.5 rounded-md bg-destructive/10 text-destructive"
+                  class="shrink-0 rounded-md bg-destructive-soft px-2 py-0.5 text-xs text-destructive"
                 >
                   Failed
                 </span>
