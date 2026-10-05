@@ -85,11 +85,11 @@ const destinations = computed(() => {
 </script>
 
 <template>
-  <section id="workspace" class="py-20">
+  <section id="workspace" class="py-14 md:py-16">
     <div class="container mx-auto px-4">
-      <div class="text-center mb-16">
-        <h2 class="text-3xl md:text-4xl font-bold text-foreground mb-4">Your Workspace</h2>
-        <p class="text-muted-foreground max-w-2xl mx-auto text-pretty">
+      <div class="mx-auto mb-10 max-w-5xl">
+        <h2 class="mb-3 text-3xl font-semibold text-foreground md:text-4xl">Your Workspace</h2>
+        <p class="max-w-2xl text-pretty text-muted-foreground">
           Pick up where you left off. Encrypt something new, or manage and share the files you
           have already uploaded.
         </p>
@@ -102,14 +102,12 @@ const destinations = computed(() => {
           v-for="item in destinations"
           :key="item.to"
           :to="item.to"
-          class="group flex flex-col rounded-xl bg-card border border-border p-6 hover:border-primary/50 hover:shadow-lg transition-all"
+          class="group flex flex-col rounded-xl bg-card border border-border p-6 transition-colors hover:border-foreground/40"
         >
-          <div class="p-2 rounded-lg bg-primary/10 w-fit mb-4">
-            <component :is="item.icon" class="h-6 w-6 text-primary" />
-          </div>
+          <component :is="item.icon" class="mb-5 h-5 w-5 text-muted-foreground" />
           <h3 class="text-lg font-medium text-foreground mb-2">{{ item.title }}</h3>
           <p class="text-sm text-muted-foreground text-pretty flex-1">{{ item.body }}</p>
-          <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium text-primary">
+          <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium text-foreground">
             {{ item.cta }}
             <ChevronRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
           </span>
@@ -139,9 +137,9 @@ const destinations = computed(() => {
 
           <ul v-else class="divide-y divide-border">
             <li v-for="file in recent" :key="file.file_id" class="flex items-center gap-3 py-3">
-              <FileIcon class="h-4 w-4 text-primary shrink-0" />
+              <FileIcon class="h-4 w-4 text-muted-foreground shrink-0" />
               <span translate="no" class="text-sm text-foreground truncate flex-1">{{ file.original_filename }}</span>
-              <span class="text-xs text-muted-foreground shrink-0">{{ formatFileSize(file.plaintext_size) }}</span>
+              <span class="shrink-0 font-mono text-xs text-muted-foreground">{{ formatFileSize(file.plaintext_size) }}</span>
             </li>
           </ul>
         </div>

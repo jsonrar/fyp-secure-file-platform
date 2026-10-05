@@ -2033,5 +2033,8 @@
   "Who can open it": "谁能打开它",
   "Ciphertext SHA-256": "密文 SHA-256",
   "Copy": "复制",
-  "The fingerprint of the stored ciphertext as recorded at upload. Every download and the daily scan are checked against it.": "上传时记录的已存储密文的指纹。每次下载和每日扫描都会拿它来核对。"
+  "The fingerprint of the stored ciphertext as recorded at upload. Every download and the daily scan are checked against it.": "上传时记录的已存储密文的指纹。每次下载和每日扫描都会拿它来核对。",
+  "Seal receipt": "封存回执",
+  "Sealed": "已封存",
+  "Sealing…": "封存中…"
 }

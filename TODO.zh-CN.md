@@ -228,7 +228,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   `backend/scripts/demo_tamper.py` 和 [docs/presentation/TAMPER_DEMO.zh-CN.md](docs/presentation/TAMPER_DEMO.zh-CN.md)
 - [ ] 幻灯片：架构图、加密流程图、需求完成表、局限（最后做）
 - [ ] 界面改版（“Sealed”风格：暖白纸色、近黑墨色、薄荷绿强调、Geist 字体），所有功能保留。第 1 步全局风格：已完成（[PR #176](https://github.com/jsonrar/fyp-secure-file-platform/pull/176)）。
-  第 2 步公开页：已完成（[PR #177](https://github.com/jsonrar/fyp-secure-file-platform/pull/177)；深色首屏（深色首屏、替换 Core Features 卡片墙，保留“Under the hood”和六步指南）。第 3 步应用外壳：侧边栏和文件详情栏本 PR 完成；上传回执、工作区等其余应用页仍待改。
+  第 2 步公开页：已完成（[PR #177](https://github.com/jsonrar/fyp-secure-file-platform/pull/177)；深色首屏（深色首屏、替换 Core Features 卡片墙，保留“Under the hood”和六步指南）。第 3 步应用页：侧边栏、文件详情栏、上传封存回执、工作区和访问记录已改（PR #178、#180 和下一个 PR）。
   第 4 步重拍截图和视频
 - [x] 如实说明 NFR2（可用性）——TALKING_POINTS 第 10 条（非正式真实使用，没有正式研究）
 
