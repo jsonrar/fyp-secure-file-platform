@@ -275,7 +275,7 @@ it becomes a bottom sheet.
 **Do not say:** that the panel checks integrity by itself. The Verified badge reflects the last check;
 "Check integrity" runs a new one.
 
-## 13. An administrator can reset a password but can never see one (PR_REF)
+## 13. An administrator can reset a password but can never see one ([PR #197](https://github.com/jsonrar/fyp-secure-file-platform/pull/197))
 
 **What it shows:** Admin → Users → Details shows an account's email, status, sign-in times and counts.
 "Reset login password" gives a random temporary password, shown once, signs the account out everywhere

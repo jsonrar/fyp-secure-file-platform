@@ -189,7 +189,7 @@ not a release pass.
 - [x] A stalled pip download no longer hangs a deploy: per-attempt time limit, three attempts, and the
   build directory is removed on failure ([PR #196](https://github.com/jsonrar/fyp-secure-file-platform/pull/196)). `/usr/local/sbin/mcs21-deploy` is installed by hand.
 - [x] Admin account details and login-password reset (temporary password shown once, sessions revoked,
-  holder emailed), and a Settings card to change the login password (PR_REF).
+  holder emailed), and a Settings card to change the login password ([PR #197](https://github.com/jsonrar/fyp-secure-file-platform/pull/197)).
 
 ## P2 — formal security assurance
 

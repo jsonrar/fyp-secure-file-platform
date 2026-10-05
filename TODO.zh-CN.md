@@ -152,7 +152,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   研究套件（`docs/usability/` 和计分脚本）已于 2026-10-05 删除；以后如果需要正式研究，可以在 git 历史（PR #114）里找回。
 
 - [x] pip 下载卡住不再拖住部署：每次安装有时间上限、最多三次，失败时删除构建目录（[PR #196](https://github.com/jsonrar/fyp-secure-file-platform/pull/196)）。`/usr/local/sbin/mcs21-deploy` 需手工安装。
-- [x] 管理员查看账户详情、重置登录密码（临时密码只显示一次、撤销会话、邮件通知本人），设置页可修改登录密码（PR_REF）。
+- [x] 管理员查看账户详情、重置登录密码（临时密码只显示一次、撤销会话、邮件通知本人），设置页可修改登录密码（[PR #197](https://github.com/jsonrar/fyp-secure-file-platform/pull/197)）。
 
 ## P2 — 正式安全保障
 

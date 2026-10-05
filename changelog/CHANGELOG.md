@@ -18,7 +18,7 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
-### Admin: account details and login-password reset; change your login password in Settings / 管理员：查看账户信息、重置登录密码；设置页可修改登录密码 (PR_REF)
+### Admin: account details and login-password reset; change your login password in Settings / 管理员：查看账户信息、重置登录密码；设置页可修改登录密码 ([PR #197](https://github.com/jsonrar/fyp-secure-file-platform/pull/197))
 
 - The admin console's user list now shows email, and a Details dialog shows one account: email and whether it is verified, role, status, created, last sign-in, when the password last changed, and counts only (files, stored bytes, shares sent and received, sessions open) from `GET /admin/users/{id}`. No password is ever shown: the login password is stored only as a one-way hash, and the encryption passphrase never reaches the server, so there is nothing to show.
 - 管理后台的用户列表新增邮箱一列；“详情”对话框显示单个账户：邮箱及是否验证、角色、状态、创建时间、最近登录、密码最近修改时间，以及只含数字的统计（文件数、占用空间、分享出去和收到的数量、在线会话数），数据来自 `GET /admin/users/{id}`。界面上永远不显示密码：登录密码只以单向哈希保存，加密口令从来不会到达服务器，所以本来就没有可以显示的东西。
