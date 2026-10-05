@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Test accounts recorded in `docs/TEST_ACCOUNTS.md` / 测试账号记录在 `docs/TEST_ACCOUNTS.md`
+
+- The local test-database accounts used for UI audits and video recording, and the staging demo accounts, are now written down in one place (private repo, local-only credentials), so a new session can pick the work up without the old scratch folder.
+- 界面巡检和录视频用的本地测试库账号，以及 staging 上的演示账号，现在都记录在同一份文档里（私有仓库，本地专用凭据），新的会话不用再找旧的临时目录就能接着做。
+
 ### Home page: "Three moves" heading on one line / 首页“三步”标题改为一行
 
 - The heading above the Seal, Share and Verify cards sat in a box capped at 56 rem, so it broke onto two lines with empty space on its right. The cap is removed; it now takes the full width and is one line at desktop widths (checked in a browser at 1440 px).
