@@ -20,7 +20,6 @@ const highlights = [
 <template>
   <!-- Fill the first viewport so Core Features stays below the fold. -->
   <section class="relative flex min-h-svh items-center overflow-hidden py-24 md:py-28">
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_50%_36%,color-mix(in_oklab,var(--primary)_18%,transparent),transparent_62%)]" />
 
     <div class="container relative mx-auto px-4">
       <div class="mx-auto flex max-w-4xl flex-col items-center text-center">

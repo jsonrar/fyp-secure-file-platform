@@ -281,6 +281,9 @@ Must do:
 - [x] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails —
   `backend/scripts/demo_tamper.py` and [docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md)
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
+- [ ] UI redesign ("Sealed" style: warm paper, near-black ink, mint accent, Geist fonts), all features kept. Step 1 global
+  style: done in this PR. Step 2 public pages (dark hero, replace the Core Features card wall, keep Under the hood and the
+  six-step guide). Step 3 app pages (upload receipt, file detail panel, sidebar). Step 4 re-record screenshots and videos
 - [x] State NFR2 (usability) honestly — TALKING_POINTS §10 (informal real use, no formal study)
 
 Strongly recommended (Award):

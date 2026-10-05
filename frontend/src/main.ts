@@ -6,6 +6,8 @@ import { setSessionExpiredHandler } from './api/session'
 import { LOGIN_PATH } from './router/guard'
 import { useAuthStore } from './stores/auth_store'
 import { i18n, initLocale } from './i18n'
+import '@fontsource-variable/geist'
+import '@fontsource-variable/geist-mono'
 import './style.css'
 
 const app = createApp(App)

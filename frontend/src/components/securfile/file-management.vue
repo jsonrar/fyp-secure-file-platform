@@ -697,8 +697,8 @@ const shareFilename = computed(
 )
 
 const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
-  verified: { label: 'Verified', icon: CheckCircle, className: 'bg-primary/10 text-primary' },
-  modified: { label: 'Modified', icon: AlertCircle, className: 'bg-destructive/10 text-destructive' },
+  verified: { label: 'Verified', icon: CheckCircle, className: 'bg-success-soft text-success' },
+  modified: { label: 'Modified', icon: AlertCircle, className: 'bg-destructive-soft text-destructive' },
   pending: { label: 'Pending', icon: Shield, className: 'bg-muted text-muted-foreground' },
 }
 </script>

@@ -505,7 +505,7 @@ onBeforeUnmount(() => {
   width: 100%;
   min-height: 330px;
   background: #fff;
-  border: 1px solid #e5e7eb;
+  border: 1px solid var(--border);
   border-radius: 0.875rem;
   padding: 0.5rem;
   cursor: zoom-in;
@@ -539,9 +539,9 @@ onBeforeUnmount(() => {
   gap: 0.35rem;
   padding: 0.4rem 0.65rem;
   border-radius: 2rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--border);
   background: #fff;
-  color: #334155;
+  color: var(--foreground);
   font-size: 0.75rem;
 }
 
