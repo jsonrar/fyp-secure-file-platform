@@ -227,6 +227,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 现场篡改演示：改掉服务器上密文的一个字节，接收者下载时报错——
   `backend/scripts/demo_tamper.py` 和 [docs/presentation/TAMPER_DEMO.zh-CN.md](docs/presentation/TAMPER_DEMO.zh-CN.md)
 - [ ] 幻灯片：架构图、加密流程图、需求完成表、局限（最后做）
+- [ ] 界面改版（“Sealed”风格：暖白纸色、近黑墨色、薄荷绿强调、Geist 字体），所有功能保留。第 1 步全局风格：本 PR 完成。
+  第 2 步公开页（深色首屏、替换 Core Features 卡片墙，保留“Under the hood”和六步指南）。第 3 步应用页（上传回执、文件详情栏、侧边栏）。
+  第 4 步重拍截图和视频
 - [x] 如实说明 NFR2（可用性）——TALKING_POINTS 第 10 条（非正式真实使用，没有正式研究）
 
 强烈推荐（冲 Award）：

@@ -59,7 +59,7 @@ const members: TeamMember[] = [
     bio: 'Backlog, server and deployment, MySQL, testing and documentation.',
     detail:
       'Runs the backlog and the release process, owns the staging server and its deployment, the MySQL database, and the testing and documentation that show the platform does what it claims.',
-    accent: 'from-[rgb(0,109,199)]/25 via-transparent to-[rgb(0,109,199)]/5',
+    accent: 'from-foreground/5 via-transparent to-transparent',
     stickerTone: 'sticker-blue',
     github: { url: 'https://github.com/Waldo0926', handle: 'Waldo0926' },
     email: 'swen0027@student.monash.edu',
@@ -188,7 +188,6 @@ onBeforeUnmount(() => {
 
 <template>
   <section class="relative overflow-hidden py-14 md:py-20">
-    <div class="pointer-events-none absolute inset-0 bg-[radial-gradient(circle_at_18%_12%,color-mix(in_oklab,var(--primary)_14%,transparent),transparent_42%),radial-gradient(circle_at_88%_78%,color-mix(in_oklab,var(--primary)_10%,transparent),transparent_46%)]" />
 
     <div class="container relative mx-auto max-w-6xl px-4">
       <header class="mb-12 max-w-3xl md:mb-14">
@@ -645,31 +644,31 @@ onBeforeUnmount(() => {
 .sticker-blue {
   background:
     linear-gradient(145deg, color-mix(in oklab, white 20%, transparent), transparent 50%),
-    linear-gradient(160deg, color-mix(in oklab, rgb(0, 109, 199) 18%, var(--card)), var(--card));
+    var(--card);
 }
 
 .sticker-emerald {
   background:
     linear-gradient(145deg, color-mix(in oklab, white 20%, transparent), transparent 50%),
-    linear-gradient(160deg, color-mix(in oklab, rgb(16, 185, 129) 16%, var(--card)), var(--card));
+    var(--card);
 }
 
 .sticker-sky {
   background:
     linear-gradient(145deg, color-mix(in oklab, white 20%, transparent), transparent 50%),
-    linear-gradient(160deg, color-mix(in oklab, rgb(14, 165, 233) 16%, var(--card)), var(--card));
+    var(--card);
 }
 
 .sticker-slate {
   background:
     linear-gradient(145deg, color-mix(in oklab, white 20%, transparent), transparent 50%),
-    linear-gradient(160deg, color-mix(in oklab, rgb(100, 116, 139) 16%, var(--card)), var(--card));
+    var(--card);
 }
 
 .sticker-amber {
   background:
     linear-gradient(145deg, color-mix(in oklab, white 20%, transparent), transparent 50%),
-    linear-gradient(160deg, color-mix(in oklab, rgb(217, 119, 6) 16%, var(--card)), var(--card));
+    var(--card);
 }
 
 .team-links {

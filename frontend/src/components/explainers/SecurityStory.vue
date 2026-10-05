@@ -431,9 +431,9 @@ watch(index, () => {
 .bubble { fill: var(--card); stroke: var(--border); }
 
 .field { fill: var(--card); stroke: var(--border); }
-.ok { fill: #16a34a; }
+.ok { fill: var(--success); }
 .ok-stroke { fill: none; stroke: #fff; stroke-width: 3; stroke-linecap: round; stroke-linejoin: round; }
-.ok-text { fill: #16a34a; font-weight: 600; }
+.ok-text { fill: var(--success); font-weight: 600; }
 .bad-bg { fill: color-mix(in oklab, var(--destructive) 15%, var(--card)); stroke: var(--destructive); stroke-width: 2; }
 .bad-stroke { fill: none; stroke: var(--destructive); stroke-width: 4; stroke-linecap: round; }
 

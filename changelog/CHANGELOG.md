@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### UI redesign, step 1: a global "Sealed" style / 界面改版第 1 步：全局“Sealed”风格
+
+- The interface read as a generic AI-made site. Step 1 changes only the look, in one place (`src/style.css`) plus a few components, and no feature: warm-paper background, near-black ink for buttons and text, a restrained 8 px radius, and one colour per meaning, so green now only says verified/sealed and red only says changed. The dark theme is near-black with a single mint accent. New tokens `success`, `success-soft` and `destructive-soft` back the Verified and Modified badges in My Files, which used to borrow the brand colour. The soft radial glows behind the home hero, the Contact us / team pages and every product page, and the tinted team-card gradients, are removed.
+- 界面看起来像一个套了模板的 AI 网站。第 1 步只改外观，集中在 `src/style.css` 加少数几个组件，不动任何功能：暖白纸色背景、按钮和文字用近黑墨色、更克制的 8 px 圆角，并且“一种颜色只表示一种含义”——绿色现在只表示已验证/已封存，红色只表示被改动。深色主题改为近黑底加唯一的薄荷绿强调色。新增 `success`、`success-soft`、`destructive-soft` 三个颜色变量，供 My Files 的“Verified/Modified”徽章使用（此前它借用品牌色）。首页首屏、Contact us/团队页和各产品页背后的柔和径向光晕，以及团队卡片的彩色渐变，都已去掉。
+- Fonts: the stylesheet named Geist but never loaded it, so the site used the system font. `@fontsource-variable/geist` and `geist-mono` are now bundled and served from our own origin, which the production CSP (`font-src 'self'`) allows; Google Fonts would have been blocked. Headings get tighter tracking and balanced wrapping; code, hashes and fingerprints use Geist Mono. Checked in light and dark, English, at 1440 and 390 px; typecheck, 812 unit tests and the build pass. Steps 2–4 (public pages, app pages, re-recorded screenshots and videos) follow.
+- 字体：样式表里写了 Geist，但从来没有加载，所以网站一直在用系统字体。现在打包了 `@fontsource-variable/geist` 和 `geist-mono`，从我们自己的域名提供，生产环境的 CSP（`font-src 'self'`）允许这样做；如果引用 Google Fonts 会被拦截。标题的字距更紧并均衡换行；代码、哈希和指纹用 Geist Mono。已在浅色和深色、英文、1440 和 390 px 下检查；类型检查、812 个单元测试和构建通过。第 2–4 步（公开页、应用页、重拍截图和视频）随后进行。
+
 ### Remove the usability study kit / 删除可用性研究套件
 
 - The project owner decided not to run a formal usability study (#115 was already closed as not planned), so the kit that supported it is deleted: `docs/usability/` (study plan in both languages, consent sheet, screener, task cards, SUS questionnaire, CSV templates, `RESULTS.md`), `backend/scripts/usability_analysis.py` and its test. It remains in the git history (PR #114). NFR2 is still described as informal real use with no usability score; TODO, `PROPOSAL_TRACEABILITY`, REFLECTION and TALKING_POINTS (both languages) no longer link to the deleted files.
