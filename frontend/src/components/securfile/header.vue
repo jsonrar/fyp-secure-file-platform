@@ -10,6 +10,8 @@ import { useAuthStore } from '@/stores/auth_store'
 import type { ThemePreference } from '@/composables/useTheme'
 
 const props = defineProps<{
+  /** Signed in on an app page: from lg up the sidebar carries the logo and links. */
+  inApp?: boolean
   isScrolled: boolean
   isMobileMenuOpen: boolean
   themePreference: ThemePreference
@@ -157,7 +159,7 @@ async function handleLogout() {
   <header :class="`sticky top-0 z-50 border-b border-border bg-background/90 backdrop-blur transition-shadow ${isScrolled ? 'shadow-sm' : ''}`">
     <div class="w-full py-4 pl-2 pr-4 sm:pl-3 sm:pr-5 lg:pl-4 lg:pr-6">
       <div class="flex items-center justify-between gap-4">
-        <div class="flex min-w-0 items-center gap-5 md:gap-8">
+        <div class="flex min-w-0 items-center gap-5 md:gap-8" :class="inApp ? 'lg:invisible' : ''">
           <RouterLink
             to="/"
             :class="`inline-flex shrink-0 items-center ${headerText}`"
@@ -234,6 +236,7 @@ async function handleLogout() {
           </RouterLink>
           <template v-else>
             <RouterLink
+              v-if="!inApp"
               to="/dashboard"
               class="h-9 px-4 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 transition-colors inline-flex items-center"
             >
