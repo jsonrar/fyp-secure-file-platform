@@ -723,7 +723,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
     <div class="page-container">
       <PageHeader title="Manage Encrypted Files" subtitle="View, download, share, and verify all your encrypted files" />
 
-      <div class="bg-card border border-border rounded-3xl p-4 sm:p-6">
+      <div class="bg-card border border-border rounded-3xl p-4 sm:p-6" data-testid="files-card">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div class="inline-flex rounded-lg border border-border p-1 mb-2">
@@ -750,7 +750,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
             </div>
             <p class="text-muted-foreground text-sm">
               <template v-if="searchQuery.trim()">{{ total }} {{ total === 1 ? 'match' : 'matches' }} for "{{ searchQuery.trim() }}"</template>
-              <template v-else>Total {{ total }} encrypted {{ total === 1 ? 'file' : 'files' }}</template><span v-if="total > files.length">, showing {{ firstOnPage }}-{{ lastOnPage }}</span>
+              <template v-else-if="total === 1">Total 1 encrypted file</template><template v-else>Total {{ total }} encrypted files</template><span v-if="total > files.length">, showing {{ firstOnPage }}-{{ lastOnPage }}</span>
             </p>
           </div>
           <div class="flex items-center gap-2">
@@ -929,7 +929,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   </select>
                 </td>
                 <td class="md:table-cell md:px-2 md:py-3 md:text-center">
-                  <button class="inline-flex min-h-10 items-center gap-1 rounded-md px-3 py-1 md:min-h-0 md:px-2" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
+                  <button class="inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-md px-3 py-1 md:min-h-0 md:px-2" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
                     <component :is="statusConfig[file.status].icon" class="h-3 w-3" />
                     {{ statusConfig[file.status].label }}
                   </button>

@@ -1,6 +1,6 @@
 # Homepage walkthrough screenshots
 
-These WebP files show the real Vue interface in Light mode with fictitious accounts
+Each image exists twice: `<name>.webp` in English and `<name>-zh.webp` in Simplified Chinese; the home page shows the set for the language chosen in the header. These WebP files show the real Vue interface in Light mode with fictitious accounts
 (`sam`, `alex`) and `Project notes.txt`. Blue outlines and numbers identify the controls.
 Mobile crops show the relevant upload column or the narrower real file-list layout.
 Share and Unlock dialogs also have dedicated `*-mobile.webp` captures (same modal crop at
@@ -19,7 +19,7 @@ context. Upload encryption runs in the browser with ephemeral example public key
 but backend results and the recipient list are fixtures. The example account key is
 sealed with the app's own `sealAccountKey` (loaded through `jiti`), so the Unlock dialog
 really opens it, and the Share step stops at the recipient confirmation with its key
-fingerprint. Last refreshed 2026-10-04, after the file-row and share-confirmation changes.
+fingerprint. The script takes both languages from the same page state (it switches the interface language in place, so open dialogs and tabs stay as they are) and finds the upload and file cards by `data-testid` (`encrypt-card`, `files-card`), not by class names. Last refreshed 2026-10-05, after the "Sealed" redesign and the P1-P3 layout fixes.
 This captures UI states;
 it is not an end-to-end backend sharing or decryption test.
 

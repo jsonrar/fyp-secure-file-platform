@@ -18,6 +18,15 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### UI redesign step 4: re-shot picture guide, Help videos and the demo backup video / 界面改版第 4 步：重拍图文指南、帮助页视频和演示备用视频 ([#186](https://github.com/jsonrar/fyp-secure-file-platform/issues/186))
+
+- The home page's six-step picture guide is re-captured from the new interface, in English and in Simplified Chinese (`<name>.webp` and `<name>-zh.webp`; the guide shows the set for the language chosen in the header). The capture script now finds the upload and file cards by test id (`encrypt-card`, `files-card`) instead of the old `rounded-3xl` class, and takes both languages from one page state by switching the language in place. The guide's text no longer calls the Share button blue (it is black), and the same fix is made in the Help assistant's sharing steps and their Chinese text.
+- 首页六步图文指南已按新界面重拍，英文和简体中文各一套（`<name>.webp` 和 `<name>-zh.webp`；指南按页头里选的语言显示对应那一套）。截图脚本现在用 test id（`encrypt-card`、`files-card`）而不是旧的 `rounded-3xl` 类名来定位上传和文件卡片，并在同一个页面状态里原地切换语言，一次得到两种语言。指南文字不再说“分享”按钮是蓝色（现在是黑色），帮助助手里分享步骤的英文和中文也一并改了。
+- The three Help-page videos (how it works, encrypt and upload, share and open) and the presentation's `demo-backup.mp4` (2 min 23 s, with its poster) are re-recorded on a local stack with the documented test accounts, and checked frame by frame: the new sign-in page, sidebar, centred headers, two-column Settings (Bob reading his fingerprint), the seal receipt and the Modified state after the tamper step. The demo still follows `DEMO_SCRIPT.md` step for step.
+- 帮助页的三个视频（how it works、encrypt and upload、share and open）和演示用的 `demo-backup.mp4`（2 分 23 秒，含海报图）已用文档里的测试账号在本地环境重新录制，并逐段看过：新的登录页、侧边栏、居中页头、双栏设置页（Bob 读自己的指纹）、封存回执，以及篡改一步之后的 Modified 状态。演示视频仍与 `DEMO_SCRIPT.md` 的步骤一一对应。
+- Found while re-shooting: a tab opened before a deploy could not open a lazy page afterwards (the click did nothing, because the page's file had been replaced); the router now reloads the target address once. The algorithm note on Upload was untranslated and its Chinese sentence said the file key and file are "not protected" (the opposite of the English); both are fixed. "Total 1 encrypted file" no longer shows "file" in English inside the Chinese text, and the Status chip no longer wraps.
+- 重拍时发现的问题：部署之前打开的标签页，之后无法打开懒加载页面（点了没反应，因为那个页面的文件已被替换）；路由现在会对目标地址整页重载一次。上传页的算法说明没有翻译，而且它的中文句子把意思说反了（写成文件密钥和文件“没有受到保护”）；两处都已修正。“Total 1 encrypted file”在中文里不再夹着英文“file”，“状态”标签也不再折行。
+
 ### My Files: centred table, Access history beside Delete / 我的文件：表格居中、访问历史放到删除旁边
 
 - The My Files table is centred from md up: the column headings and every cell, including the file name block (a small file icon before the name, with Details and Encrypted preview centred under it). The Actions column is wider so five controls fit. On a phone the card layout is unchanged.
