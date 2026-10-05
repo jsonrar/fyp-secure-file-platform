@@ -65,7 +65,7 @@ live deployment and repeatable browser coverage remain separate acceptance work.
   storage, and a four-step quick start. See the changelog entry for what each shows. The comparison table
   now has a labelled, numbered question column, and the footer has no empty track ([PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)).
   Headings and intros site-wide: one line where they fit, breaks only between sentences, no two-sentence
-  headings, checked by `text-audit.mjs` (PR_REF).
+  headings, checked by `text-audit.mjs` ([PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195)).
 
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.

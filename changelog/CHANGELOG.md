@@ -18,7 +18,7 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
-### Headings and intros: one line where they fit, breaks only between sentences / 标题和简介：放得下就一行，换行只在句与句之间 (PR_REF)
+### Headings and intros: one line where they fit, breaks only between sentences / 标题和简介：放得下就一行，换行只在句与句之间 ([PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195))
 
 - A text audit (`frontend/scripts/text-audit.mjs`) measured every heading and short paragraph on 16 pages at 1440, 1280, 1100, 1024, 768 and 390 px in English and Chinese, looking for four things: text capped narrower than its space, a sentence broken mid-way although it would fit on a line of its own, headings made of two sentences, and one or two words left alone on a last line.
 - 新增文字巡检脚本（`frontend/scripts/text-audit.mjs`）：在 1440、1280、1100、1024、768、390 px、中英文下量 16 个页面的每个标题和短段落，找四类问题：文字被限宽、本来能单独放一行的句子被从中间折断、由两句话组成的标题、最后一行只剩一两个词。
