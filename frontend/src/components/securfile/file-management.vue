@@ -12,6 +12,7 @@ import CiphertextPreviewPanel from '@/components/CiphertextPreviewPanel.vue'
 import { exactBytes } from '@/utils/ciphertext-preview'
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
 import FileHistoryDialog from '@/components/FileHistoryDialog.vue'
+import FileDetailDrawer from '@/components/FileDetailDrawer.vue'
 import { markSharesSeen, unseenSharedIds } from '@/utils/seen-shares'
 import { downloadEncryptedFile } from '@/utils/file-download'
 import { riskyFileKind } from '@/utils/risky-file'
@@ -42,6 +43,10 @@ interface EncryptedFile {
   /** Who uploaded it, shown when that is not the viewer. */
   ownerName: string
   folderId: string | null
+  algorithm: string
+  mimeType: string | null
+  /** Absent from a server that predates the field, so the panel only shows it when present. */
+  sha256?: string
   /** Set when a stale shared row is no longer authorized on the server. */
   accessError?: string
 }
@@ -72,6 +77,8 @@ const errorMessage = ref('')
 const shareFileId = ref<string | null>(null)
 const recoveryFileId = ref<string | null>(null)
 const historyFileId = ref<string | null>(null)
+const detailFileId = ref<string | null>(null)
+const detailFile = computed(() => files.value.find((file) => file.id === detailFileId.value))
 /** The one file whose encrypted preview is open beneath its row. */
 const previewFileId = ref<string | null>(null)
 const togglePreview = (file: EncryptedFile) => {
@@ -138,6 +145,9 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   owned: file.owner,
   ownerName: file.owner_username ?? 'another account',
   folderId: file.folder_id,
+  algorithm: file.encryption_algorithm,
+  mimeType: file.mime_type,
+  sha256: file.ciphertext_sha256,
 })
 
 /**
@@ -882,6 +892,13 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
                       <button
                         type="button"
+                        class="mr-4 mt-1 inline-flex min-h-10 items-center gap-1 text-xs text-primary hover:underline md:min-h-0"
+                        @click="detailFileId = file.id"
+                      >
+                        Details
+                      </button>
+                      <button
+                        type="button"
                         class="mt-1 inline-flex min-h-10 items-center gap-1 text-xs text-primary hover:underline md:min-h-0"
                         :aria-expanded="previewFileId === file.id"
                         :disabled="Boolean(file.accessError)"
@@ -1001,6 +1018,19 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         </div>
       </div>
     </div>
+
+    <FileDetailDrawer
+      v-if="detailFile"
+      :file="detailFile"
+      :download-busy="downloadBusy"
+      :downloading="downloadingId === detailFile.id"
+      @close="detailFileId = null"
+      @download="handleDownload(detailFile.id); detailFileId = null"
+      @share="openShare(detailFile.id); detailFileId = null"
+      @check="handleIntegrityCheck(detailFile.id); detailFileId = null"
+      @history="historyFileId = detailFile.id; detailFileId = null"
+      @delete="handleDelete(detailFile.id); detailFileId = null"
+    />
 
     <FileHistoryDialog
       v-if="historyFile"
