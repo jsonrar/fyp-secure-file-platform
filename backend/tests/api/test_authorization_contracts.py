@@ -92,6 +92,20 @@ def test_admin_integrity_routes_reject_authenticated_non_admin_before_service(
         assert response.json()["data"]["error_code"] == "access_denied"
 
 
+def test_admin_account_detail_and_password_reset_reject_non_admin_before_service(
+    protected_api: TestClient,
+) -> None:
+    for method, path in (
+        ("get", f"/api/v1/admin/users/{TARGET_USER_ID}"),
+        ("post", f"/api/v1/admin/users/{TARGET_USER_ID}/reset-password"),
+    ):
+        response = getattr(protected_api, method)(path)
+
+        assert response.status_code == 403, path
+        assert response.json()["data"]["error_code"] == "access_denied"
+        assert response.headers["cache-control"] == "no-store, no-cache, must-revalidate"
+
+
 def test_security_agent_report_rejects_authenticated_non_admin_before_service(
     protected_api: TestClient,
 ) -> None:

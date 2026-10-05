@@ -7,13 +7,23 @@ from uuid import UUID
 from sqlalchemy import and_, case, func, or_, select
 from sqlalchemy.orm import Session, aliased
 
-from app.domain.enums import SystemRole, UserStatus
+from app.domain.enums import SessionStatus, SystemRole, UserStatus
 from app.models.audit_log import AuditLog
 from app.models.file import File
 from app.models.file_access_grant import FileAccessGrant
 from app.models.integrity_check import IntegrityCheck
 from app.models.recovery_request import RecoveryRequest
 from app.models.user import User
+from app.models.user_session import UserSession
+
+
+@dataclass(frozen=True, slots=True)
+class UserActivity:
+    file_count: int
+    stored_bytes: int
+    shared_by_them: int
+    shared_with_them: int
+    active_sessions: int
 
 
 @dataclass(frozen=True, slots=True)
@@ -248,6 +258,56 @@ class AdminRepository:
 
     def _count(self, statement) -> int:
         return int(self.db.scalar(statement) or 0)
+
+    def get_user_by_uuid(self, user_uuid: UUID) -> User | None:
+        return self.db.scalar(select(User).where(User.user_uuid == str(user_uuid)))
+
+    def user_activity(self, user_id: int, *, now: datetime) -> UserActivity:
+        """Counts for one account's detail view: numbers only, never file names or keys."""
+        files = self.db.execute(
+            select(
+                func.count(),
+                func.coalesce(func.sum(File.encrypted_size_bytes), 0),
+            ).where(File.owner_id == user_id, File.status != "DELETED")
+        ).one()
+        shared_by_them = self._count(
+            select(func.count())
+            .select_from(FileAccessGrant)
+            .join(File, File.id == FileAccessGrant.file_id)
+            .where(
+                File.owner_id == user_id,
+                FileAccessGrant.user_id != user_id,
+                FileAccessGrant.status == "ACTIVE",
+                File.status != "DELETED",
+            )
+        )
+        shared_with_them = self._count(
+            select(func.count())
+            .select_from(FileAccessGrant)
+            .join(File, File.id == FileAccessGrant.file_id)
+            .where(
+                FileAccessGrant.user_id == user_id,
+                File.owner_id != user_id,
+                FileAccessGrant.status == "ACTIVE",
+                File.status != "DELETED",
+            )
+        )
+        sessions = self._count(
+            select(func.count())
+            .select_from(UserSession)
+            .where(
+                UserSession.user_id == user_id,
+                UserSession.status == SessionStatus.ACTIVE,
+                UserSession.absolute_expires_at > now,
+            )
+        )
+        return UserActivity(
+            file_count=int(files[0]),
+            stored_bytes=int(files[1]),
+            shared_by_them=shared_by_them,
+            shared_with_them=shared_with_them,
+            active_sessions=sessions,
+        )
 
     def lock_user_by_uuid(self, user_uuid: UUID) -> User | None:
         return self.db.scalar(

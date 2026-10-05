@@ -1,11 +1,13 @@
 from __future__ import annotations
 
-from collections.abc import Callable
+import secrets
+from collections.abc import Callable, Iterable
 from datetime import datetime, timedelta
 from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.security import hash_password, password_policy_error
 from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
@@ -26,8 +28,22 @@ from app.schemas.admin_schema import (
     AdminStatsOut,
     AdminUserStats,
 )
+from app.services.account_notice_service import AccountNoticeService
 from app.services.audit_log_service import AuditLogService
 from app.services.integrity_service import IntegrityService
+
+# No 0/O, 1/l/I: the temporary password is read out or copied by hand.
+_TEMPORARY_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnpqrstuvwxyz23456789"
+
+
+def temporary_password(*, context_values: Iterable[str] = ()) -> str:
+    """Four groups of four, e.g. `Kx7m-Q2pa-9Wvt-H3nc`: about 95 bits, and it passes the policy."""
+    values = tuple(context_values)
+    while True:
+        groups = ["".join(secrets.choice(_TEMPORARY_ALPHABET) for _ in range(4)) for _ in range(4)]
+        candidate = "-".join(groups)
+        if password_policy_error(candidate, context_values=values) is None:
+            return candidate
 
 
 class AdminService:
@@ -39,6 +55,8 @@ class AdminService:
         auth_repository: AuthRepository | None = None,
         audit_service: AuditLogService | None = None,
         integrity_service: IntegrityService | None = None,
+        notices: AccountNoticeService | None = None,
+        hash_password: Callable[[str], str] = hash_password,
         clock: Callable[[], datetime] = utc_now,
     ) -> None:
         self.db = db
@@ -46,6 +64,8 @@ class AdminService:
         self.auth_repository = auth_repository or AuthRepository(db)
         self.audit = audit_service or AuditLogService(db, clock=clock)
         self.integrity = integrity_service
+        self.notices = notices
+        self.hash_password = hash_password
         self.clock = clock
 
     @staticmethod
@@ -174,6 +194,67 @@ class AdminService:
     ):
         self._require_admin(actor)
         return self.repository.list_users(limit=limit + 1, offset=offset, status=status)
+
+    def user_detail(self, *, actor: ActorContext, user_id: UUID):
+        self._require_admin(actor)
+        user = self.repository.get_user_by_uuid(user_id)
+        if user is None:
+            raise ResourceNotFoundError()
+        now = to_second_resolution_utc(self.clock())
+        return user, self.repository.user_activity(user.id, now=now)
+
+    def reset_user_password(
+        self,
+        *,
+        actor: ActorContext,
+        user_id: UUID,
+        context: RequestContext,
+    ) -> tuple[object, str, int, bool]:
+        """Give an account a new, random login password and sign it out everywhere.
+
+        The administrator sees the temporary password once, in the response; only its hash is
+        stored. It changes the login password and nothing else: the encryption passphrase never
+        reaches the server, so every file stays exactly as openable as before. An administrator
+        cannot use this on themselves or on another administrator, and the holder is emailed.
+        """
+        self._require_admin(actor)
+        if user_id == actor.user_public_id:
+            raise ConflictError("Change your own password in Settings")
+        try:
+            user = self.repository.lock_user_by_uuid(user_id)
+            if user is None or user.status is UserStatus.DELETED:
+                raise ResourceNotFoundError()
+            if user.role is SystemRole.ADMIN:
+                raise ConflictError("Another administrator's password cannot be reset here")
+            temporary = temporary_password(context_values=(user.username, user.email))
+            now = to_second_resolution_utc(self.clock())
+            user.password_hash = self.hash_password(temporary)
+            user.password_changed_at = now
+            user.updated_at = now
+            revoked = self.auth_repository.revoke_all_session_families(
+                user.id, now=now, reason="admin_password_reset"
+            )
+            self.audit.append(
+                action="ADMIN_PASSWORD_RESET",
+                result="SUCCESS",
+                actor_user_id=actor.user_id,
+                target_user_id=user.id,
+                resource_type="USER",
+                resource_id=str(user_id),
+                context_ip_address=context.ip_address,
+                context_user_agent=context.user_agent,
+                metadata={"revoked_sessions": revoked},
+            )
+            self.db.commit()
+        except Exception:
+            self.db.rollback()
+            raise
+        notice_sent = (
+            self.notices.notify_admin_password_reset(email=user.email, username=user.username)
+            if self.notices is not None
+            else False
+        )
+        return user, temporary, revoked, notice_sent
 
     def list_files(
         self, *, actor: ActorContext, limit: int, offset: int, status: str | None = None

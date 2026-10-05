@@ -233,6 +233,8 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 | GET | `/admin/stats` | ADMIN | 仅含数字的平台汇总：按状态统计的用户、按状态与算法统计的文件、已存储字节数、有效分享数、24 小时内的完整性检查与失败数、待处理恢复请求、审计总数，以及最近五条失败事件（仅含动作、时间、行为者） |
 | POST | `/admin/users/{user_id}/disable` | ADMIN | 软禁用账户并撤销活跃会话 |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | 重新启用已禁用账户 |
+| GET | `/admin/users/{user_id}` | ADMIN | 单个账户：邮箱及是否验证、角色、状态、创建时间、最近登录、密码修改时间，以及只含数字的统计（文件数、占用字节、分享出去和收到的数量、在线会话数）。不返回任何密码、哈希或密钥 |
+| POST | `/admin/users/{user_id}/reset-password` | ADMIN | 设置一个新的随机登录密码，只在这次响应里返回一次（`no-store`），数据库只存哈希。让该账户在所有设备上退出登录，审计记录 `ADMIN_PASSWORD_RESET`（不含密码），并发邮件通知本人。不能用于自己的账户或其他管理员。加密口令和文件不受影响 |
 
 管理列表使用 `limit`（`1..100`）及 `offset`。状态变更是条件式且有审计；审计链引用的身份不做
 硬删除。

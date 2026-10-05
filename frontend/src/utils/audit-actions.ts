@@ -43,6 +43,7 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   AUTH_PASSWORD_CHANGED: { label: 'Password changed', category: 'other' },
   AUTH_PASSWORD_CHANGE_FAILED: { label: 'Password change failed', category: 'other' },
   AUTH_PASSWORD_RESET: { label: 'Password reset', category: 'other' },
+  ADMIN_PASSWORD_RESET: { label: 'Password reset by an administrator', category: 'other' },
   AUTH_SESSION_REVOKED: { label: 'Session revoked', category: 'other' },
   AUTH_ALL_SESSIONS_REVOKED: { label: 'All sessions signed out', category: 'other' },
   AUTH_SESSION_EXPIRED: { label: 'Session expired', category: 'other' },

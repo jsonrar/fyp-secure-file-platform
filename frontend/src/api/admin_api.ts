@@ -4,10 +4,31 @@ import type { ApiEnvelope } from './types'
 export interface AdminUserOut {
   user_id: string
   username: string
+  email?: string | null
+  email_verified?: boolean | null
   role: string
   status: string
   created_at: string
   last_login_at: string | null
+  password_changed_at?: string | null
+}
+
+/** One account as an administrator sees it: counts only, never a password, hash or key. */
+export interface AdminUserDetail extends AdminUserOut {
+  file_count: number
+  stored_bytes: number
+  shared_by_them: number
+  shared_with_them: number
+  active_sessions: number
+}
+
+export interface AdminPasswordReset {
+  user_id: string
+  username: string
+  /** Shown once; only its hash is stored. */
+  temporary_password: string
+  revoked_sessions: number
+  notice_sent: boolean
 }
 
 export type AdminUserStatusFilter = 'CURRENT' | 'ACTIVE' | 'DISABLED' | 'DELETED'
@@ -171,6 +192,12 @@ export const adminApi = {
   /** `status` CURRENT means every file that has not been deleted; omit it for all. */
   listFiles(params?: { limit?: number; offset?: number; status?: AdminFileStatusFilter }) {
     return http.get<ApiEnvelope<AdminFileList>>('/admin/files', { params })
+  },
+  getUser(userId: string) {
+    return http.get<ApiEnvelope<AdminUserDetail>>(`/admin/users/${userId}`)
+  },
+  resetUserPassword(userId: string) {
+    return http.post<ApiEnvelope<AdminPasswordReset>>(`/admin/users/${userId}/reset-password`)
   },
   disableUser(userId: string) {
     return http.post<ApiEnvelope<AdminUserStatusResult>>(`/admin/users/${userId}/disable`)

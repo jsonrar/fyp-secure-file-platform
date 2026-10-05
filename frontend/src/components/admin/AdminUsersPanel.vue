@@ -1,12 +1,13 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
-import { Loader2, RefreshCw, Search, UserCheck, UserX } from 'lucide-vue-next'
+import { Loader2, PanelRightOpen, RefreshCw, Search, UserCheck, UserX } from 'lucide-vue-next'
 
 import { adminApi, type AdminUserOut, type AdminUserStatusFilter } from '@/api/admin_api'
 import { apiErrorMessage } from '@/api/http'
 import { unwrapData } from '@/api/types'
 import { useAuthStore } from '@/stores/auth_store'
 import { matchesSearch, statusBadgeClass } from '@/utils/admin-lists'
+import AdminUserDialog from '@/components/admin/AdminUserDialog.vue'
 
 const auth = useAuthStore()
 const users = ref<AdminUserOut[]>([])
@@ -31,9 +32,11 @@ const filters: { value: AdminUserStatusFilter | 'ALL'; label: string }[] = [
   { value: 'ALL', label: 'All' },
 ]
 const search = ref('')
+/** The account whose details dialog is open. */
+const openUserId = ref<string | null>(null)
 
 const visibleUsers = computed(() =>
-  users.value.filter((user) => matchesSearch(search.value, user.username, user.role)),
+  users.value.filter((user) => matchesSearch(search.value, user.username, user.email, user.role)),
 )
 
 function formatTimestamp(value: string | null): string {
@@ -102,7 +105,8 @@ onMounted(() => {
       <div>
         <h2 class="text-lg font-semibold text-foreground">Users</h2>
         <p class="text-sm text-muted-foreground">
-          Disable an account to stop it signing in; this also ends every session it has open.
+          Open an account to see what it holds or reset its login password. Disable stops it signing in
+          and ends every session it has open.
         </p>
       </div>
       <button
@@ -141,7 +145,7 @@ onMounted(() => {
         <input
           v-model="search"
           type="search"
-          placeholder="Search by username"
+          placeholder="Search by username or email"
           class="h-9 w-full rounded-md border border-border bg-background pl-8 pr-3 text-sm outline-none focus:border-primary"
         />
       </label>
@@ -157,10 +161,11 @@ onMounted(() => {
       {{ search ? 'No loaded account matches that search.' : 'No accounts with this status.' }}
     </div>
     <div v-else class="overflow-x-auto rounded-xl border border-border">
-      <table class="w-full min-w-[44rem] text-left text-sm">
+      <table class="w-full min-w-[56rem] text-left text-sm">
         <thead class="border-b border-border bg-secondary/40 text-xs uppercase tracking-wide text-muted-foreground">
           <tr>
             <th class="px-4 py-3 font-medium">Username</th>
+            <th class="px-4 py-3 font-medium">Email</th>
             <th class="px-4 py-3 font-medium">Role</th>
             <th class="px-4 py-3 font-medium">Status</th>
             <th class="px-4 py-3 font-medium">Created</th>
@@ -175,9 +180,19 @@ onMounted(() => {
             class="border-b border-border last:border-0"
             :class="{ 'opacity-60': user.status === 'DELETED' }"
           >
-            <td translate="no" class="px-4 py-3 font-medium text-foreground">
-              {{ user.username }}
+            <td class="px-4 py-3 font-medium text-foreground">
+              <button
+                type="button"
+                translate="no"
+                class="text-left underline-offset-4 hover:underline"
+                @click="openUserId = user.user_id"
+              >
+                {{ user.username }}
+              </button>
               <span v-if="isSelf(user)" class="ml-1 text-xs font-normal text-muted-foreground">(you)</span>
+            </td>
+            <td translate="no" class="max-w-[16rem] truncate px-4 py-3 text-muted-foreground" :title="user.email ?? ''">
+              {{ user.email ?? '—' }}
             </td>
             <td class="px-4 py-3">
               <span
@@ -196,6 +211,15 @@ onMounted(() => {
             <td class="px-4 py-3 text-muted-foreground">{{ formatTimestamp(user.created_at) }}</td>
             <td class="px-4 py-3 text-muted-foreground">{{ formatTimestamp(user.last_login_at) }}</td>
             <td class="whitespace-nowrap px-4 py-3 text-right">
+              <button
+                type="button"
+                class="mr-1 inline-flex items-center gap-1.5 rounded-md border border-border px-2.5 py-1.5 text-xs hover:bg-secondary"
+                :data-testid="`users-details-${user.username}`"
+                @click="openUserId = user.user_id"
+              >
+                <PanelRightOpen class="h-3.5 w-3.5" />
+                Details
+              </button>
               <span v-if="isSelf(user) || user.status === 'DELETED'" class="text-xs text-muted-foreground">—</span>
               <template v-else-if="confirmingUserId === user.user_id">
                 <span class="mr-2 text-xs text-foreground">Disable and sign out?</span>
@@ -258,5 +282,13 @@ onMounted(() => {
         Load more
       </button>
     </div>
+
+    <AdminUserDialog
+      v-if="openUserId"
+      :user-id="openUserId"
+      :is-self="openUserId === auth.user?.id"
+      @close="openUserId = null"
+      @reset="(username) => (actionMessage = `Reset the login password of ${username}.`)"
+    />
   </div>
 </template>

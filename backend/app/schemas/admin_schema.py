@@ -15,10 +15,34 @@ class _StrictModel(BaseModel):
 class AdminUserOut(_StrictModel):
     user_id: UUID
     username: str
+    email: str | None = None
+    email_verified: bool | None = None
     role: SystemRole
     status: UserStatus
     created_at: datetime
     last_login_at: datetime | None = None
+    password_changed_at: datetime | None = None
+
+
+class AdminUserDetailOut(AdminUserOut):
+    """One account as an administrator sees it. No password, hash or key material: the login
+    password is stored only as a one-way hash, and the encryption passphrase never reaches the
+    server at all."""
+
+    file_count: int = Field(ge=0)
+    stored_bytes: int = Field(ge=0)
+    shared_by_them: int = Field(ge=0)
+    shared_with_them: int = Field(ge=0)
+    active_sessions: int = Field(ge=0)
+
+
+class AdminPasswordResetOut(_StrictModel):
+    user_id: UUID
+    username: str
+    # Shown once, to the administrator who asked for it, and never stored in clear.
+    temporary_password: str
+    revoked_sessions: int = Field(ge=0)
+    notice_sent: bool
 
 
 class AdminUserListResponse(_StrictModel):

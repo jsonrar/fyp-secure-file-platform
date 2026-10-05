@@ -4,6 +4,7 @@ import { LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 import { RouterLink, useRouter } from 'vue-router'
 import PageHeader from '@/components/securfile/PageHeader.vue'
+import ChangePasswordCard from '@/components/ChangePasswordCard.vue'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
 import KeyFingerprintCard from '@/components/KeyFingerprintCard.vue'
 import ResetPassphraseCard from '@/components/ResetPassphraseCard.vue'
@@ -127,6 +128,7 @@ function onDeleted() {
       </div>
 
       <div class="mt-6 flex flex-col gap-6">
+        <ChangePasswordCard />
         <ResetPassphraseCard />
 
         <div class="rounded-xl border border-destructive/40 bg-card p-6">

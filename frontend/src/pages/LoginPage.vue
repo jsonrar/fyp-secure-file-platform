@@ -24,6 +24,7 @@ const route = useRoute()
 // Set by the refresh interceptor when a session could not be renewed. Saying so is the
 // difference between "I was signed out" and "this app is broken".
 const sessionExpired = computed(() => route.query.expired === '1')
+const passwordChanged = computed(() => route.query.passwordChanged === '1')
 
 async function login() {
   isSubmitting.value = true
@@ -61,6 +62,13 @@ async function login() {
         class="text-sm rounded-md border border-border bg-secondary/60 text-foreground px-3 py-2 mb-4"
       >
         {{ t('login.sessionExpired') }}
+      </p>
+      <p
+        v-else-if="passwordChanged"
+        class="text-sm rounded-md border border-border bg-secondary/60 text-foreground px-3 py-2 mb-4"
+        role="status"
+      >
+        Password changed. Sign in with the new one.
       </p>
 
       <form @submit.prevent="login">

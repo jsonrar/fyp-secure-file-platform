@@ -20,7 +20,9 @@ from app.schemas.admin_schema import (
     AdminFileOut,
     AdminIntegrityReportOut,
     AdminIntegrityScanOut,
+    AdminPasswordResetOut,
     AdminStatsOut,
+    AdminUserDetailOut,
     AdminUserListResponse,
     AdminUserOut,
     AdminUserStatusResponse,
@@ -50,22 +52,68 @@ def list_users(
 ) -> JSONResponse:
     rows = service.list_users(actor=actor, limit=limit, offset=offset, status=status)
     data = AdminUserListResponse(
-        users=[
-            AdminUserOut(
-                user_id=UUID(user.user_uuid),
-                username=user.username,
-                role=user.role,
-                status=user.status,
-                created_at=to_api_utc(user.created_at),
-                last_login_at=to_api_utc(user.last_login_at),
-            )
-            for user in rows[:limit]
-        ],
+        users=[AdminUserOut(**_user_fields(user)) for user in rows[:limit]],
         limit=limit,
         offset=offset,
         has_more=len(rows) > limit,
     )
     return ok(message="Users retrieved", data=data, headers=AUTH_NO_STORE_HEADERS)
+
+
+def _user_fields(user) -> dict:
+    return {
+        "user_id": UUID(user.user_uuid),
+        "username": user.username,
+        "email": user.email,
+        "email_verified": bool(user.email_verified),
+        "role": user.role,
+        "status": user.status,
+        "created_at": to_api_utc(user.created_at),
+        "last_login_at": to_api_utc(user.last_login_at),
+        "password_changed_at": to_api_utc(user.password_changed_at),
+    }
+
+
+@router.get("/users/{user_id}", response_model=ApiSuccessResponse[AdminUserDetailOut])
+def get_user(
+    user_id: UUID,
+    actor: AdminActorDependency,
+    service: AdminServiceDependency,
+) -> JSONResponse:
+    user, activity = service.user_detail(actor=actor, user_id=user_id)
+    data = AdminUserDetailOut(
+        **_user_fields(user),
+        file_count=activity.file_count,
+        stored_bytes=activity.stored_bytes,
+        shared_by_them=activity.shared_by_them,
+        shared_with_them=activity.shared_with_them,
+        active_sessions=activity.active_sessions,
+    )
+    return ok(message="User retrieved", data=data, headers=AUTH_NO_STORE_HEADERS)
+
+
+@router.post(
+    "/users/{user_id}/reset-password",
+    response_model=ApiSuccessResponse[AdminPasswordResetOut],
+)
+def reset_user_password(
+    user_id: UUID,
+    actor: AdminActorDependency,
+    context: RequestContextDependency,
+    service: AdminServiceDependency,
+) -> JSONResponse:
+    user, temporary, revoked, notice_sent = service.reset_user_password(
+        actor=actor, user_id=user_id, context=context
+    )
+    data = AdminPasswordResetOut(
+        user_id=user_id,
+        username=user.username,
+        temporary_password=temporary,
+        revoked_sessions=revoked,
+        notice_sent=notice_sent,
+    )
+    # no-store: the temporary password must not sit in any cache between here and the browser.
+    return ok(message="Login password reset", data=data, headers=AUTH_NO_STORE_HEADERS)
 
 
 @router.get("/stats", response_model=ApiSuccessResponse[AdminStatsOut])
