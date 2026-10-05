@@ -219,15 +219,14 @@ first share on a new device trusts the first key it sees. The comparison is the 
 
 **Status:** the supervisor, the four team members, the FIT3162 Teaching Team and other students have
 used the live site with their own accounts for the core flows (register, encrypt and upload, share,
-open, revoke). The formal study we planned ([docs/usability/STUDY_PLAN.md](../usability/STUDY_PLAN.md):
-task cards, observation sheets, SUS questionnaire, pass criteria fixed in advance) was **not run**;
-#115 was closed as not planned. So there is no SUS score and no per-task completion rate.
+open, revoke). The formal study we had planned (task cards, SUS questionnaire, pass criteria fixed in advance) was
+**not run**, and its materials were deleted on 2026-10-05; #115 was closed as not planned. So there is no SUS score and no per-task completion rate.
 
 **What to say:** "NFR2 is supported by real use rather than a formal study. Our supervisor, the
 Teaching Team and other students have used the live site with their own accounts. We also did a
 first-time-user walkthrough, and it changed the product: two-step registration, labelled file actions,
-a getting-started checklist, and confirming who you share with. We had a formal study written, with
-pass criteria fixed in advance, but chose not to run it, so we do not quote a usability score."
+a getting-started checklist, and confirming who you share with. We had considered a formal study but chose not to run it, so we do not quote
+a usability score."
 
 **Do not say:** "a usability study showed…", "users rated it…", or any SUS number or completion
 rate. Do not invent how many people used it: say who, not a count we did not measure.

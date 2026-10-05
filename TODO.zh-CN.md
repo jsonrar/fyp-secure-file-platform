@@ -149,8 +149,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] ~~[#115 运行非专业用户可用性研究（WBS 5.4、NFR2）](https://github.com/jsonrar/fyp-secure-file-platform/issues/115)~~
   ——**2026-10-04 按 not planned 关闭。**团队决定不做正式研究。取而代之的是：导师、团队 4 人、FIT3162 Teaching Team
   和其他同学都用自己的账号在 staging 上实际使用过。这属于非正式的真实使用：没有 SUS 分数、没有各任务完成率，
-  [`docs/usability/RESULTS.md`](docs/usability/RESULTS.md) 保持为空。研究套件仍保留在
-  [`docs/usability/`](docs/usability/STUDY_PLAN.zh-CN.md)，以后需要正式研究时可用。
+  研究套件（`docs/usability/` 和计分脚本）已于 2026-10-05 删除；以后如果需要正式研究，可以在 git 历史（PR #114）里找回。
 
 ## P2 — 正式安全保障
 

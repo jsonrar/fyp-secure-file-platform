@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Remove the usability study kit / 删除可用性研究套件
+
+- The project owner decided not to run a formal usability study (#115 was already closed as not planned), so the kit that supported it is deleted: `docs/usability/` (study plan in both languages, consent sheet, screener, task cards, SUS questionnaire, CSV templates, `RESULTS.md`), `backend/scripts/usability_analysis.py` and its test. It remains in the git history (PR #114). NFR2 is still described as informal real use with no usability score; TODO, `PROPOSAL_TRACEABILITY`, REFLECTION and TALKING_POINTS (both languages) no longer link to the deleted files.
+- 项目负责人决定不做正式的可用性研究（#115 此前已按 not planned 关闭），所以支撑它的整套材料一并删除：`docs/usability/`（中英文研究方案、同意书、筛选问卷、任务卡、SUS 问卷、CSV 模板、`RESULTS.md`）、`backend/scripts/usability_analysis.py` 及其测试。这些仍可在 git 历史（PR #114）里找回。NFR2 仍然写作“非正式的真实使用，没有可用性分数”；TODO、`PROPOSAL_TRACEABILITY`、REFLECTION 和 TALKING_POINTS（中英文）不再链接已删除的文件。
+
 ### Backup video for the live demo, and re-recorded Help videos / 现场演示备用视频，以及重录的帮助视频
 
 - The live demo had no backup if the network or staging failed. `frontend/scripts/record-demo.mjs` records it from the real product: Alice's and Bob's browsers are recorded side by side and cut together in the order of `DEMO_SCRIPT.md` (upload with the timed steps and byte comparison, share after checking the fingerprint, Bob decrypts, and the tamper step), with a label for whose screen it is. Step 4 really changes the stored file through `demo_tamper.py`, the card shows that command's real output, and the file is restored at the end. Result: `docs/presentation/media/demo-backup.mp4`, 2 min 23 s. It was recorded on a disposable local stack running the same code, because the recorder signs in automatically.
