@@ -35,8 +35,8 @@ For the live demo and the tamper demo only (see [DEMO_SCRIPT.md](presentation/DE
 
 | Username | Login password | Encryption passphrase |
 | --- | --- | --- |
-| `demo-alice` | `mcs21666` | Kept by the project lead |
-| `demo-bob` | `mcs21666` | Kept by the project lead, different from Alice's |
+| `demo-alice` | `mcs21666` | demo-alice-passphrase-2026 |
+| `demo-bob` | `mcs21666` | demo-bob-other-passphrase-2026 |
 
 - Usernames must start with `demo-`; the tamper tool (`backend/scripts/demo_tamper.py`) refuses other accounts.
 - Do not sign in or register on staging through a browser for UI checks. Audits and recordings run locally.
