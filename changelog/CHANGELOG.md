@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Home page: "Three moves" heading on one line / 首页“三步”标题改为一行
+
+- The heading above the Seal, Share and Verify cards sat in a box capped at 56 rem, so it broke onto two lines with empty space on its right. The cap is removed; it now takes the full width and is one line at desktop widths (checked in a browser at 1440 px).
+- “封存、分享、验证”三张卡片上方的标题放在一个最大宽度 56 rem 的容器里，所以被折成两行，右边空出一大块。现已去掉这个限制，标题占满整行，桌面宽度下是一行（已在 1440 px 的真实浏览器里确认）。
+
 ### The file list returns each file's ciphertext SHA-256 / 文件列表返回每个文件的密文 SHA-256
 
 - `FileSummaryOut` (the rows of `GET /files` and the head of `GET /files/{id}`) gains `ciphertext_sha256`: the SHA-256 of the stored ciphertext as recorded at upload. It is not a secret: the ciphertext preview endpoint already returns it to anyone with view access, and the integrity checks compare against it. It lets the file detail panel show the fingerprint of what the server holds, so a person can compare it with the audit record or hash the downloaded ciphertext themselves. One field, no new endpoint, no new query (the column is already loaded), covered by a unit test; the frontend type is updated and the panel follows in the UI redesign PR.
