@@ -18,7 +18,7 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
-### Deploy: a stalled dependency download no longer hangs the release / 部署：依赖下载卡住不再拖住发布 (PR_REF)
+### Deploy: a stalled dependency download no longer hangs the release / 部署：依赖下载卡住不再拖住发布 ([PR #196](https://github.com/jsonrar/fyp-secure-file-platform/pull/196))
 
 - On 2026-10-05 the deploy of #195 sat for over seven minutes because one pip connection trickled at ~29 kB/s; it was only unblocked by killing pip and running `mcs21-auto-deploy retry`. `mcs21-deploy` now gives each `pip install` attempt a wall-clock limit (240 s by default) on top of pip's `--timeout 30 --retries 5`, retries a stalled or failed attempt up to three times, and removes the `.build-*` directory when it finally gives up (two had been left on the server). The limits can be overridden with `MCS21_PIP_ATTEMPTS`, `MCS21_PIP_ATTEMPT_SECONDS` and `MCS21_PIP_RETRY_PAUSE`. New tests run the real function against a fake pip that hangs once or always fails.
 - 2026-10-05 部署 #195 时，一个 pip 连接以约 29 kB/s 的速度慢慢下载，部署卡了七分多钟，最后是手动结束 pip 再运行 `mcs21-auto-deploy retry` 才过去。现在 `mcs21-deploy` 给每次 `pip install` 加了总时长上限（默认 240 秒），pip 自身也加了 `--timeout 30 --retries 5`；卡住或失败会重试，最多三次；最终放弃时会删掉 `.build-*` 目录（服务器上之前留下了两个）。上限可以用 `MCS21_PIP_ATTEMPTS`、`MCS21_PIP_ATTEMPT_SECONDS`、`MCS21_PIP_RETRY_PAUSE` 调整。新测试用一个“卡一次”或“一直失败”的假 pip 实际运行这个函数。

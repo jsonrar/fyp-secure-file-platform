@@ -187,7 +187,7 @@ not a release pass.
   git history (PR #114) if a formal study is ever wanted.
 
 - [x] A stalled pip download no longer hangs a deploy: per-attempt time limit, three attempts, and the
-  build directory is removed on failure (PR_REF). `/usr/local/sbin/mcs21-deploy` is installed by hand.
+  build directory is removed on failure ([PR #196](https://github.com/jsonrar/fyp-secure-file-platform/pull/196)). `/usr/local/sbin/mcs21-deploy` is installed by hand.
 
 ## P2 — formal security assurance
 
