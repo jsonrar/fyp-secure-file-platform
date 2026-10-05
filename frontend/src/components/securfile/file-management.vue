@@ -259,6 +259,8 @@ watch(
 const moreMenuFileId = ref<string | null>(null)
 // The table scrolls sideways inside an overflow box, which would clip a menu positioned within
 // it. The menu is teleported to <body> and placed under its button instead.
+/** Matches the menu's `w-56`. */
+const MORE_MENU_WIDTH = 224
 const moreMenuPosition = ref<{ top?: number; bottom?: number; right: number }>({ right: 0 })
 const MORE_MENU_HEIGHT = 136
 
@@ -272,7 +274,9 @@ const toggleMoreMenu = (id: string, event: MouseEvent) => {
     return
   }
   const rect = (event.currentTarget as HTMLElement).getBoundingClientRect()
-  const right = window.innerWidth - rect.right
+  // Right-aligned to the button, but never so far right that the menu's left edge leaves the screen:
+  // on a narrow phone the buttons can wrap, which puts More at the left of a second row.
+  const right = Math.min(window.innerWidth - rect.right, Math.max(8, window.innerWidth - MORE_MENU_WIDTH - 8))
   // Open upwards when the row sits too close to the bottom of the window for the menu to fit.
   moreMenuPosition.value =
     rect.bottom + 4 + MORE_MENU_HEIGHT > window.innerHeight
@@ -719,7 +723,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
     <div class="page-container">
       <PageHeader title="Manage Encrypted Files" subtitle="View, download, share, and verify all your encrypted files" />
 
-      <div class="bg-card border border-border rounded-3xl p-6">
+      <div class="bg-card border border-border rounded-3xl p-4 sm:p-6">
         <div class="flex flex-col md:flex-row md:items-center justify-between gap-4 mb-6">
           <div>
             <div class="inline-flex rounded-lg border border-border p-1 mb-2">
@@ -934,9 +938,10 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   <!-- The everyday actions stay visible (download, share, delete, access history); the rest sit under More. Sharing and
                        deleting belong to the owner: a recipient's grant carries can_share=false and
                        can_manage=false, so showing them would promise something the server refuses. -->
-                  <div class="relative flex items-center gap-1 md:justify-center">
+                  <!-- Wraps on the narrowest phones instead of squeezing a button below a tappable size. -->
+                  <div class="relative flex flex-wrap items-center gap-1 md:flex-nowrap md:justify-center">
                     <button
-                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
+                      class="h-10 w-10 shrink-0 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
                       aria-label="Download and decrypt"
                       :disabled="downloadBusy || Boolean(file.accessError)"
@@ -948,7 +953,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <button
                       v-if="file.owned"
                       type="button"
-                      class="h-10 md:h-8 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-3 text-sm font-medium text-primary-foreground hover:bg-primary/90 md:w-8 md:px-0 lg:w-auto lg:px-2.5"
+                      class="h-10 shrink-0 md:h-8 inline-flex items-center justify-center gap-1.5 rounded-md bg-primary px-2.5 text-sm font-medium text-primary-foreground hover:bg-primary/90 md:w-8 md:px-0 lg:w-auto lg:px-2.5"
                       title="Share"
                       aria-label="Share"
                       @click="openShare(file.id)"
@@ -959,7 +964,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <button
                       v-if="file.owned"
                       type="button"
-                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive"
+                      class="h-10 w-10 shrink-0 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary text-destructive"
                       title="Delete"
                       aria-label="Delete"
                       @click="handleDelete(file.id)"
@@ -968,7 +973,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     </button>
                     <button
                       type="button"
-                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                      class="h-10 w-10 shrink-0 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
                       title="Access history"
                       aria-label="Access history"
                       @click="historyFileId = file.id"
@@ -977,7 +982,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     </button>
                     <button
                       type="button"
-                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                      class="h-10 w-10 shrink-0 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
                       title="More actions"
                       aria-label="More actions"
                       aria-haspopup="menu"
