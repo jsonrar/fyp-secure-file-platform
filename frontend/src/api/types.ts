@@ -14,6 +14,8 @@ export interface FileSummaryOut {
   plaintext_size: number
   /** Size of the stored ciphertext, excluding the detached authentication tag. */
   ciphertext_size: number
+  /** SHA-256 of the stored ciphertext, as recorded at upload. */
+  ciphertext_sha256: string
   mime_type: string | null
   encryption_algorithm: string
   status: string
