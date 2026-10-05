@@ -868,23 +868,25 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
           <table class="block w-full text-sm md:table md:min-w-[44rem] md:table-fixed">
             <thead class="hidden md:table-header-group">
               <tr class="border-b border-border text-muted-foreground">
-                <th class="w-[28%] text-left py-3 pr-3 font-medium">File Name</th>
-                <th class="hidden w-[11%] text-left py-3 pr-3 font-medium whitespace-nowrap md:table-cell">Original</th>
-                <th class="hidden w-[11%] text-left py-3 pr-3 font-medium whitespace-nowrap md:table-cell">Encrypted</th>
-                <th class="hidden w-[14%] text-left py-3 pr-3 font-medium whitespace-nowrap lg:table-cell">Encrypted At</th>
-                <th class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Folder</th>
-                <th class="w-[13%] text-left py-3 pr-3 font-medium whitespace-nowrap">Status</th>
-                <th class="w-[8.5rem] lg:w-[11rem] text-right py-3 font-medium whitespace-nowrap">Actions</th>
+                <th class="w-[26%] px-2 py-3 text-center font-medium">File Name</th>
+                <th class="hidden w-[10%] px-2 py-3 text-center font-medium whitespace-nowrap md:table-cell">Original</th>
+                <th class="hidden w-[10%] px-2 py-3 text-center font-medium whitespace-nowrap md:table-cell">Encrypted</th>
+                <th class="hidden w-[14%] px-2 py-3 text-center font-medium whitespace-nowrap lg:table-cell">Encrypted At</th>
+                <th class="w-[13%] px-2 py-3 text-center font-medium whitespace-nowrap">Folder</th>
+                <th class="w-[11%] px-2 py-3 text-center font-medium whitespace-nowrap">Status</th>
+                <th class="w-[11.5rem] px-2 py-3 text-center font-medium whitespace-nowrap lg:w-[14.5rem]">Actions</th>
               </tr>
             </thead>
             <tbody class="block space-y-3 md:table-row-group md:space-y-0">
               <template v-for="file in filteredFiles" :key="file.id">
               <tr class="grid grid-cols-2 gap-x-3 gap-y-3 rounded-xl border border-border bg-card p-4 md:table-row md:rounded-none md:border-0 md:border-b md:border-border/60 md:bg-transparent md:p-0 md:align-middle">
-                <td class="col-span-2 md:table-cell md:py-3 md:pr-3">
-                  <div class="flex items-start gap-3">
-                    <div class="mt-0.5 shrink-0 rounded-lg bg-secondary p-2"><FileIcon class="h-4 w-4 text-primary" /></div>
-                    <div class="min-w-0">
-                      <p translate="no" class="text-foreground font-medium [overflow-wrap:anywhere]">{{ file.name }}</p>
+                <td class="col-span-2 md:table-cell md:px-2 md:py-3">
+                  <div class="flex items-start gap-3 md:justify-center">
+                    <div class="mt-0.5 shrink-0 rounded-lg bg-secondary p-2 md:hidden"><FileIcon class="h-4 w-4 text-primary" /></div>
+                    <div class="min-w-0 md:text-center">
+                      <p translate="no" class="text-foreground font-medium [overflow-wrap:anywhere]">
+                        <FileIcon class="mr-1.5 hidden h-4 w-4 text-muted-foreground align-[-3px] md:inline" aria-hidden="true" />{{ file.name }}
+                      </p>
                       <p v-if="!file.owned" class="text-xs text-muted-foreground">Shared by {{ file.ownerName }}</p>
                       <p v-if="file.accessError" class="mt-1 text-xs text-destructive">{{ file.accessError }}</p>
                       <p class="text-xs text-muted-foreground md:hidden">{{ file.originalSize }} -> {{ file.encryptedSize }}</p>
@@ -908,10 +910,10 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     </div>
                   </div>
                 </td>
-                <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.originalBytes)">{{ file.originalSize }}</td>
-                <td class="py-3 pr-3 text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.encryptedBytes)">{{ file.encryptedSize }}</td>
-                <td class="py-3 pr-3 text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
-                <td class="md:table-cell md:py-3 md:pr-3">
+                <td class="px-2 py-3 text-center text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.originalBytes)">{{ file.originalSize }}</td>
+                <td class="px-2 py-3 text-center text-muted-foreground hidden whitespace-nowrap md:table-cell" :title="exactBytes(file.encryptedBytes)">{{ file.encryptedSize }}</td>
+                <td class="px-2 py-3 text-center text-muted-foreground hidden lg:table-cell">{{ file.encryptedAt }}</td>
+                <td class="md:table-cell md:px-2 md:py-3 md:text-center">
                   <select
                     :value="file.folderId ?? ''"
                     :aria-label="`Folder for ${file.name}`"
@@ -922,17 +924,17 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                     <option translate="no" v-for="folder in folders" :key="folder.folder_id" :value="folder.folder_id">{{ folder.name }}</option>
                   </select>
                 </td>
-                <td class="md:table-cell md:py-3 md:pr-3">
+                <td class="md:table-cell md:px-2 md:py-3 md:text-center">
                   <button class="inline-flex min-h-10 items-center gap-1 rounded-md px-3 py-1 md:min-h-0 md:px-2" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
                     <component :is="statusConfig[file.status].icon" class="h-3 w-3" />
                     {{ statusConfig[file.status].label }}
                   </button>
                 </td>
-                <td class="col-span-2 border-t border-border pt-3 md:table-cell md:border-0 md:py-3 md:pt-3 md:text-right">
-                  <!-- The three everyday actions stay visible; the rest sit under More. Sharing and
+                <td class="col-span-2 border-t border-border pt-3 md:table-cell md:border-0 md:px-2 md:py-3 md:pt-3">
+                  <!-- The everyday actions stay visible (download, share, delete, access history); the rest sit under More. Sharing and
                        deleting belong to the owner: a recipient's grant carries can_share=false and
                        can_manage=false, so showing them would promise something the server refuses. -->
-                  <div class="relative flex items-center gap-1 md:justify-end">
+                  <div class="relative flex items-center gap-1 md:justify-center">
                     <button
                       class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary disabled:opacity-40"
                       :title="downloadingId === file.id ? 'Decrypting...' : 'Download and decrypt'"
@@ -963,6 +965,15 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                       @click="handleDelete(file.id)"
                     >
                       <Trash2 class="h-4 w-4" />
+                    </button>
+                    <button
+                      type="button"
+                      class="h-10 w-10 md:h-8 md:w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                      title="Access history"
+                      aria-label="Access history"
+                      @click="historyFileId = file.id"
+                    >
+                      <Activity class="h-4 w-4" />
                     </button>
                     <button
                       type="button"
@@ -1082,15 +1093,6 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
         >
           <LifeBuoy class="h-4 w-4 shrink-0" />
           <span>Request recovery</span>
-        </button>
-        <button
-          role="menuitem"
-          type="button"
-          class="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-sm md:min-h-0 text-foreground hover:bg-secondary"
-          @click="historyFileId = moreMenuFile.id; closeMoreMenu()"
-        >
-          <Activity class="h-4 w-4 shrink-0" />
-          <span>Access history</span>
         </button>
       </div>
     </Teleport>
