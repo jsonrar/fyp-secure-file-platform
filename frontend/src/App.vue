@@ -1,12 +1,17 @@
 <script setup lang="ts">
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterView, useRoute } from 'vue-router'
 import AppHeader from '@/components/securfile/header.vue'
 import AppFooter from '@/components/securfile/footer.vue'
+import AppSidebar from '@/components/securfile/AppSidebar.vue'
 import HelpAssistant from '@/components/assistant/HelpAssistant.vue'
 import { useTheme } from '@/composables/useTheme'
+import { useAuthStore } from '@/stores/auth_store'
 
 const route = useRoute()
+const auth = useAuthStore()
+/** Signed in and on one of the app's own pages: those get the sidebar instead of the marketing header. */
+const inApp = computed(() => auth.isAuthed && route.meta.requiresAuth === true)
 const isScrolled = ref(false)
 const isMobileMenuOpen = ref(false)
 const { preference, setPreference } = useTheme()
@@ -34,8 +39,11 @@ onBeforeUnmount(() => {
 </script>
 
 <template>
-  <main class="min-h-screen bg-background">
+  <main class="min-h-screen bg-background" :class="inApp ? 'lg:flex' : ''">
+    <AppSidebar v-if="inApp" />
+    <div class="min-w-0 flex-1">
     <AppHeader
+      :in-app="inApp"
       :is-scrolled="isScrolled"
       :is-mobile-menu-open="isMobileMenuOpen"
       :theme-preference="preference"
@@ -44,7 +52,8 @@ onBeforeUnmount(() => {
       @set-theme-preference="setPreference"
     />
     <RouterView />
-    <AppFooter />
+    <div :class="inApp ? 'lg:hidden' : ''"><AppFooter /></div>
+    </div>
     <HelpAssistant />
   </main>
 </template>
