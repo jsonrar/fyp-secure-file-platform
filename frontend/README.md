@@ -2,7 +2,10 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Vue 3 + TypeScript frontend integrated with SecurFile UI and FYP backend APIs.
+Vue 3 + TypeScript frontend for SecureView, talking to the FYP backend at `/api/v1`. The
+interface uses the "Sealed" style (self-hosted Geist font, green only for verified/sealed, red
+only for changed/dangerous), works in light, dark and system themes, and switches between
+English and Simplified Chinese from the header or Settings.
 
 ## Run
 
@@ -17,38 +20,52 @@ Backend should be running at `http://localhost:8000`.
 
 | Route | Description |
 |-------|-------------|
-| `/` | Landing (hero + features) |
+| `/` | Home: hero with real sample bytes, how it works, comparison questions |
+| `/how-it-works` | Animated explainer and the six-step picture guide |
 | `/login` | Sign in |
-| `/register` | Register + private key display |
+| `/register` | Two-step registration: the account (email, code, login password), then the encryption passphrase; offers the private key file once |
 | `/forgot-password` | Email-code login-password reset |
-| `/dashboard` | Signed-in workspace |
-| `/upload` | File encryption upload (auth required) |
-| `/files` | File management (auth required) |
-| `/audit-logs` | Audit access records (auth required) |
-| `/admin` | Role-aware operations: recovery review, admin users/files, audit chain, recovery key |
-| `/education` | Education page |
-| `/help` | Product help — links to homepage picture guide; video placeholders |
-| `/team` | Contact us — feedback form preview + development team |
+| `/dashboard` | Signed-in workspace with a getting-started checklist |
+| `/upload` | File encryption upload with the live encryption steps and byte comparison (auth required) |
+| `/files` | My Files: owned and shared files, folders, details panel, share, revoke, access history, encrypted preview (auth required) |
+| `/audit-logs` | Access Records (auth required) |
+| `/profile` | Profile and avatar (auth required) |
+| `/settings` | Theme, language, key fingerprint, login-password change, passphrase reset with the private key file, account deletion (auth required) |
+| `/admin` | Role-aware operations: overview statistics, users (details, enable/disable, temporary login password), files, integrity, security agent, audit chain, recovery requests, recovery key |
+| `/education` | Education articles and algorithm explorer |
+| `/help` | Help: animated explainer, walkthrough videos of the real product, picture guide |
+| `/team` | Contact us: feedback form, supervisor and team |
+| `/benchmark/argon2` | Argon2id timing benchmark for this device |
+| anything else | Not-found page |
+
+The round button at the bottom right of every page opens the Help assistant
+([docs/HELP_ASSISTANT.md](../docs/HELP_ASSISTANT.md)).
 
 ## Structure
 
-- `src/components/securfile/` — UI migrated from SecurFile
+- `src/pages/`, `src/components/` — pages and UI components (`securfile/` holds the public site sections)
 - `src/api/` — Axios clients aligned with backend `/api/v1`
-- `src/crypto/` — authenticated file encryption/decryption and sharing-key rewrap
+- `src/crypto/` — file encryption/decryption (six AEAD suites), sharing-key rewrap, key
+  fingerprints, private-key-file unlock and passphrase reset
 - `src/stores/` — Pinia auth/file state
+- `src/i18n/`, `src/locales/` — English and Simplified Chinese ([docs/I18N.md](../docs/I18N.md))
 - `src/composables/useTheme.ts` — System/light/dark theme
+- `scripts/layout-audit.mjs`, `scripts/text-audit.mjs` — scripted layout and text checks across
+  pages, widths, themes and languages
 
-The browser implements account-key enrolment, passphrase/private-key-file unlock, encrypted
-upload, authenticated download/decryption, sharing-key rewrap, revocation, search, audit
-history, refresh rotation, server-revoking logout, account deletion, and role-aware
-admin/recovery/audit operations on `/admin`. Passphrase change and successor-key rotation
-remain backlog work.
+The browser implements account-key enrolment, passphrase/private-key-file unlock, passphrase
+reset with the private key file, encrypted upload, authenticated download/decryption, sharing
+with recipient key-fingerprint confirmation, revocation, folders, search, audit history,
+refresh rotation, server-revoking logout, account deletion, and role-aware
+admin/recovery/audit operations on `/admin`. Changing a known passphrase without the key file
+(`POST /keys/me/rewrap`) and successor-key rotation exist in the API but have no UI yet.
 
-On `/files`, **Download encrypted** saves the stored ciphertext as `<filename>.ciphertext`
-without unlocking the account key; **Download and decrypt** still opens the unlock dialog
-when needed and saves the original file. Both use the authenticated, integrity-checked
-`POST /files/{file_id}/download` endpoint. Encrypted downloads contain only the stored blob,
-not a complete offline-decryption envelope.
+On `/files`, **Download and decrypt** opens the unlock dialog when needed and saves the
+original file. The **Encrypted preview** panel shows the stored bytes and offers **Download
+encrypted file**, which saves the ciphertext as `<filename>.ciphertext` without unlocking the
+account key. Both use the authenticated, integrity-checked `POST /files/{file_id}/download`
+endpoint. Encrypted downloads contain only the stored blob, not a complete
+offline-decryption envelope.
 
 ## Environment
 

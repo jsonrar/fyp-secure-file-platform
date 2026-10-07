@@ -1,5 +1,7 @@
 # Repository Agent Rules
 
+English | [简体中文](AGENTS.zh-CN.md)
+
 These rules apply to the entire repository.
 
 ## Application HTTP Methods
@@ -42,7 +44,13 @@ These rules apply to the entire repository.
   schema/runtime requirements, and staging entry points. Do not leave a shipped feature
   described as missing.
 - When a contribution changes shipped behaviour or the executable backlog, synchronize the
-  shared changelog, the relevant README, and both TODO summaries in the same pull request.
+  shared changelog, the relevant README, and both TODO summaries in the same pull request,
+  together with the presentation records `docs/presentation/TALKING_POINTS.md` (what is worth
+  showing) and `docs/presentation/REFLECTION.md` (what is still weak), when the change affects
+  them. A planned item that ships is marked done there with its PR number.
+- Every Markdown document exists in English (`X.md`) and Simplified Chinese (`X.zh-CN.md`);
+  change both in the same pull request. Dated records (load-test and scan reports, the
+  changelog's past entries) are left as they were and only annotated when they would mislead.
 - Every pull request must review changelog, README, TODO, linked Issues, tests, migrations,
   secrets, and deployment impact. Update the affected records or state why each is `N/A`.
 - A runtime change is not complete when it merges. Verify that automatic deployment reaches

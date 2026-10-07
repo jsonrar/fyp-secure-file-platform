@@ -10,8 +10,9 @@ This fits the FYP scope while preserving explicit database, storage, cryptograph
 identity seams. Microservices would add distributed transactions without improving the key-
 custody boundary.
 
-Authentication, client-wrapped account keys, encrypted files, sharing, audit queries,
-recovery, and administration are implemented vertical slices. The public API contains real
+Authentication, client-wrapped account keys, encrypted files and folders, sharing, audit
+queries, recovery, integrity checking, and administration (including counts-only statistics
+and the security-agent report) are implemented vertical slices. The public API contains real
 handlers for all of these modules.
 
 ## Dependency Direction
@@ -49,7 +50,7 @@ Rules:
 ```text
 backend/app/
 |-- api/                 FastAPI routers, dependencies, error/response mapping
-|   `-- v1/              Auth, keys, files, sharing, audit, recovery, admin
+|   `-- v1/              Auth, keys, files and folders, sharing, audit, recovery, admin
 |-- core/                Configuration, database/session factory, security primitives
 |-- domain/              Trusted contexts, enums, domain inputs/results/errors
 |-- models/              SQLAlchemy persistence models
@@ -82,8 +83,8 @@ The session model uses independent high-entropy opaque credentials, not JWTs:
 - Logout, logout-all, password change, administrative disable, and session limits revoke the
   appropriate server-side session families.
 
-Login passwords use Unicode NFC normalization, a 15-to-128-character policy, local common and
-account-derived checks, and `pwdlib`'s recommended Argon2id hasher. Valid legacy bcrypt hashes
+Login passwords use Unicode NFC normalization, an 8-to-128-character policy that requires at
+least two character classes, local common and account-derived checks, and `pwdlib`'s recommended Argon2id hasher. Valid legacy bcrypt hashes
 are upgraded on login. Unknown users still trigger dummy verification. MySQL-backed HMAC
 account/IP buckets coordinate throttling across workers, while each worker separately bounds
 concurrent memory-hard operations.
@@ -144,14 +145,27 @@ expected to remain under keys derived from that AMK; the server cannot cryptogra
 prove this because it never learns the AMK. The successor-key flow is therefore rotation of
 an RSA key under the existing AMK, not a safe new-AMK reset/versioning mechanism.
 
+A **forgotten passphrase** is handled by a separate flow that does create a new AMK. At
+registration the browser offers the account private key once as a plaintext PKCS#8 `.pem`
+file. With that file and a signed-in session, the client builds a new AMK under a KEK from the
+new passphrase, re-encrypts the same private key under it, signs a canonical digest of both
+replacement envelopes with RSA-PSS-SHA256 (from
+`POST /keys/me/reset-protection/signing-payload`), and submits them to
+`POST /keys/me/reset-protection`. The key pair and every file wrapping are unchanged, so no
+file is re-encrypted. A session alone cannot reset the passphrase; losing both the passphrase
+and the key file makes the account's files unrecoverable (see
+[SECURITY_FLOWS.md](SECURITY_FLOWS.md#passphrase-reset-with-the-private-key-file)).
+
 This is a key-custody boundary, not proof against a malicious server. Stored KDF material
 supports offline passphrase guessing after database theft, and clients need fingerprint/
 revision pinning or an external trust anchor to detect malicious key substitution or rollback.
 
 ## Encrypted-Object and Transaction Boundary
 
-Files are encrypted by the client before upload. Each file uses an independent 256-bit DEK,
-AES-256-GCM nonce/tag, a versioned envelope/AAD contract, an owner-public-key RSA-OAEP-SHA256
+Files are encrypted by the client before upload. Each file uses an independent random DEK and
+one of six authenticated suites chosen per upload (AES-128/192/256-GCM, AES-256-GCM-SIV,
+ChaCha20-Poly1305, XChaCha20-Poly1305; AES-256-GCM is the default), its nonce and detached
+tag, a versioned envelope/AAD contract, an owner-public-key RSA-OAEP-SHA256
 wrapping, and a recovery-public-key wrapping. The API accepts ciphertext plus those envelopes;
 it never accepts file plaintext, a private key, or a plaintext DEK.
 
@@ -172,6 +186,11 @@ compensation:
 Database rows store opaque object keys, never host filesystem paths. The storage adapter
 resolves and containment-checks those keys inside its configured root.
 
+Uploads are also bounded per account: 2 GiB stored and 5 GiB uploaded per rolling 24 hours by
+default (`USER_STORAGE_QUOTA_BYTES`, `USER_DAILY_UPLOAD_BYTES`), and all uploads are refused
+when free disk would fall below a floor. Upload request handling keeps blocking database work
+off the event loop, so slow bodies cannot exhaust the connection pool (#163).
+
 Download does not decrypt. It requires grant plus wrapping, verifies the ciphertext hash, and
 streams ciphertext. A separate metadata response gives the authorized client its nonce, tag,
 wrapped DEK, algorithm versions, and optional encrypted manifest. Decryption and GCM
@@ -179,7 +198,11 @@ authentication happen on the client. The backend therefore verifies storage inte
 cannot validate client-produced GCM semantics without learning the DEK.
 
 Soft deletion durably marks the file and revokes grants/wrappings before idempotent storage
-cleanup. Integrity checks recompute object hashes and append their result.
+cleanup. Integrity checks recompute object hashes and append their result: every download is
+verified, and a daily sweep (`mcs21-integrity-sweep.timer`) checks every stored object against
+the digest anchored in the upload's audit event, so rewriting the database digest alone does
+not hide a changed object. Damaged files appear on the administrator's Integrity tab and can be
+restored from backup one file at a time (`backend/scripts/restore_file.py`).
 
 ## Sharing Boundary
 
@@ -246,12 +269,17 @@ persisted `DATETIME(6)` values and `{}` metadata permit deterministic recomputat
 Audit reads are actor/file scoped and return allowlisted metadata; ADMIN may verify the full
 chain and head. Restrictive identity foreign keys preserve hashed history, so account removal
 is status-based. A database-local plain hash chain cannot prevent an administrator from
-rewriting and recomputing all history; stronger deployments publish signed/HMAC checkpoints
-outside the database.
+rewriting and recomputing all history, so staging also publishes an HMAC-authenticated
+checkpoint of the chain head to external S3-compatible storage
+(`backend/scripts/audit_checkpoint.py`, `mcs21-audit-checkpoint.timer`); the application
+process never holds that HMAC key.
+
+Transactions that MySQL aborts with a deadlock (1213) or lock-wait timeout (1205) are retried
+from the start, up to three attempts (`app/core/db_retry.py`, #139).
 
 ## Schema and Delivery Rules
 
-- ORM metadata and ordered Alembic revisions through `0004_email_verification_codes` are the
+- ORM metadata and ordered Alembic revisions through `0010_shared_file_folders` are the
   development/CI schema-authoring authority.
 - `database/mysql/02-schema.sql` is the reviewed production empty-database artifact derived
   from that authority; parity tests compare tables, columns, indexes, and constraints.

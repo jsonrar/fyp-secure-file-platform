@@ -14,6 +14,8 @@ Closes #
 - [ ] `README.md` and `README.zh-CN.md` still describe current capabilities/setup, or `N/A`.
 - [ ] `TODO.md`, `TODO.zh-CN.md`, and the linked GitHub Issue still agree, or `N/A`.
 - [ ] Design/API/schema/deployment documents affected by this change are updated, or `N/A`.
+- [ ] `docs/presentation/TALKING_POINTS.md` and `REFLECTION.md` reflect this change, or `N/A`.
+- [ ] Every changed Markdown document is updated in both English and 简体中文.
 
 ### Verification and safety
 

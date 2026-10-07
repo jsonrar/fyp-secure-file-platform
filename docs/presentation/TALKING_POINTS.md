@@ -7,7 +7,7 @@ say**, **where the numbers and evidence are**, **what a judge is likely to ask**
 Anything marked *planned* or *in review* is not done yet; do not present it as done. What is still
 missing, and in what order to fix it, is in [REFLECTION.md](REFLECTION.md).
 
-Last updated: 2026-10-04
+Last updated: 2026-10-07
 
 ---
 
@@ -103,8 +103,9 @@ Our first guess, that file transfers held connections, was **wrong**, and a meas
 downloads held no transaction. The real cause was uploads holding a connection while waiting for a thread
 pool whose threads were all waiting for connections. After the fix (PR #163), the same tool on the same
 machine at 100 users: **80 % of uploads failed → 0 %, 0.33 → 56 operations per second**. Show the two
-charts in `docs/performance/pool-fix-2026-10-04/` side by side. Say the re-measure was local; the staging
-re-run is the next step.
+charts in `docs/performance/pool-fix-2026-10-04/` side by side. The same 100-user step was then re-run on
+staging (2026-10-04 evening): 102 of 102 uploads and 102 of 102 verified downloads succeeded
+([staging re-run](../performance/pool-fix-2026-10-04/staging-rerun/REPORT.md), #172).
 
 **How to tell it:** this is the strongest engineering story in the project: measure, find the bottleneck,
 be wrong once and prove it, fix the real cause, measure again.
@@ -120,7 +121,8 @@ whole transaction, up to three times.
 
 **Evidence:**
 - A new regression test reproduced the deadlock about 7 times in 10 before the fix, and never after
-- All 627 backend tests pass, 85.17 % coverage
+- All 627 backend tests passed at the fix, 85.17 % coverage; on 2026-10-07 (CI on `e4b3f13`) the full
+  MySQL suite is 632 tests at 85.27 % branch coverage, alongside 866 frontend live tests and 57 browser specs
 - 28,540 requests on staging that night, not one deadlock
 
 **How to say it:** "Our testing wasn't a formality: it found a real concurrency bug before users did, we

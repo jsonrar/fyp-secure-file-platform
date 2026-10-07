@@ -1,11 +1,15 @@
 # Proposal-to-Delivery Traceability
 
+English | [简体中文](PROPOSAL_TRACEABILITY.zh-CN.md)
+
 Originally audited on **2026-09-05** against the FIT3161 MCS21 Project Proposal Report, GitHub
 `main`, all pull requests and commits, current repository tests, and the public staging
 deployment. Repository and board records were rechecked on **2026-09-07**; that record-only
 update did not re-verify the public deployment. Rechecked again on **2026-10-01** against `main`
 at `70fcb6d`: the statuses below were refreshed from the Issues, the CI runs, the staging host and
-the live site, and the public deployment was verified to be running that same SHA.
+the live site, and the public deployment was verified to be running that same SHA. The statuses
+were rechecked on **2026-10-07** against `main` at `e4b3f13` (also the SHA deployed on staging
+that day).
 
 This is an evidence map, not a claim that every completed implementation has received final
 academic or independent-security approval.
@@ -32,7 +36,8 @@ crypto-track record rather than a personal board view or fabricated PR history.
 Commits are evidence for work packages; they are not treated as independent tasks. GitHub
 Issues and PRs share one number sequence. On 2026-10-01 the repository had **95 PRs**: 87 merged,
 two open and six closed without merge (#2, #3, #17, #95, #97, #100). The rechecked `70fcb6d`
-`main` baseline contains 241 commits.
+`main` baseline contains 241 commits. On 2026-10-07 there were **168 PRs** (158 merged, 10 closed
+without merge, none open) and `main` at `e4b3f13` contains 317 commits.
 
 ## Proposal WBS audit
 
@@ -46,19 +51,19 @@ two open and six closed without merge (#2, #3, #17, #95, #97, #100). The recheck
 | 2.3 | Target users and stakeholders | Done | Proposal stakeholders and implemented user/RBAC roles |
 | 3.1 | UI/UX and Figma prototypes | Done | Implemented/deployed user journeys and PR #46 |
 | 3.2 | REST API and FastAPI module design | Done | `docs/API_DESIGN.md` and public OpenAPI/Swagger contract |
-| 3.3 | MySQL schema and migration design | Done | Alembic head `0008_avatars`, production SQL, PRs #1, #24, #103 and #106 |
+| 3.3 | MySQL schema and migration design | Done | Alembic head `0010_shared_file_folders`, production SQL, PRs #1, #24, #103, #106 and #145 |
 | 3.4 | AES/RSA hybrid workflow design | Done | `docs/SECURITY_FLOWS.md` and authenticated envelope implementation |
 | 3.5 | Educational-page design | Done | `/education`, algorithm explorer, playground and knowledge search |
 | 4.1 | Vue frontend | Done | Vue 3/TypeScript application, tests, typecheck and build |
-| 4.2 | FastAPI backend modules | Done | Auth, keys, files, sharing, audit, admin and recovery APIs |
+| 4.2 | FastAPI backend modules | Done | Auth, keys, files and folders, sharing, audit, admin (statistics, account details, integrity, security agent) and recovery APIs |
 | 4.3 | MySQL and Alembic implementation | Done | MySQL 8.4 staging, migrations and least-privilege production SQL |
-| 4.4 | AES-GCM encryption | Done | Browser AES-128/192/256-GCM and CT-1.7 |
+| 4.4 | AES-GCM encryption | Done | Browser AES-128/192/256-GCM (CT-1.7) and AES-256-GCM-SIV (#145), alongside ChaCha20-Poly1305 and XChaCha20-Poly1305 |
 | 4.5 | RSA-OAEP key wrapping | Done | Owner/recovery/recipient DEK wrapping; PR #34 |
 | 4.6 | SHA-256 and tamper detection | Done | Authenticated envelope, download verification and integrity UX |
 | 4.7 | Argon2id and protected private keys | Done | Password hashing and browser-protected account-key bundles |
 | 4.8 | RBAC and session management | Done | Server enforcement, refresh rotation, logout revocation (#89), and role-aware admin/recovery UI (#55) |
 | 4.9 | Audit logging | Done | Hash-chained events, per-file history and corrected visibility rules |
-| 5.1 | Functional and end-to-end testing | Done | `e2e-live` runs every live-backend suite un-skipped and a Chromium golden-path test; `mysql-gate` runs the whole suite against MySQL 8.4 with concurrency and fault-injection and fails on any skip; a tamper drill runs in CI (Issues #53, #58, #90, #93). Still not a long-running chaos test |
+| 5.1 | Functional and end-to-end testing | Done | `e2e-live` runs every live-backend suite un-skipped and a Chromium golden-path test; `mysql-gate` runs the whole suite against MySQL 8.4 with concurrency and fault-injection and fails on any skip; a tamper drill runs in CI (Issues #53, #58, #90, #93); further Chromium specs cover the tamper view, phone widths, the Help assistant and the language switch; staging was load-tested on 2026-10-03/04 (#140) and the 100-user failure fixed and re-run (#163, #172). Still not a long-running chaos test |
 | 5.2 | Cryptographic correctness testing | Done | Primitive, envelope, tamper, upload/download and live integration tests |
 | 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, F-01 is mitigated by CI-gated deployment (#117) and three *Recommended* findings (F-02 to F-04) are open |
 | 5.4 | Non-expert usability testing | In progress | Informal real use only: the supervisor, the four team members, the FIT3162 Teaching Team and other students used staging with their own accounts. The formal study was **not run** (Issue #115 closed as not planned on 2026-10-04): no SUS score, no per-task completion rate. The study kit was deleted on 2026-10-05 (it is in the git history, PR #114). It would become Done only if a real study were run and recorded |
@@ -78,7 +83,7 @@ mark or effort-weighted earned value. The 2026-09-07 summary of 20 Done, 3 In pr
 | M4 Core cryptographic modules | Done | AES, RSA, SHA/integrity, Argon2id and ChaCha20 implementations/tests |
 | M5 Feature freeze | Done | Browser MVP complete; remaining work explicitly classified as hardening/assurance |
 | M6 Full system integration | Done | Public HTTPS stack and live two-account MVP test |
-| M7 Final demo readiness | In progress | The P0 CI, MySQL and backup blockers are closed with evidence. Remaining: implement the AC7 progress pipeline. Usability has informal real use only; the formal study (#115) was closed as not planned |
+| M7 Final demo readiness | In progress | The P0 CI, MySQL and backup blockers are closed with evidence; demo script, scripted tamper demo and backup video exist (#167, #164, #173). Remaining: an explicit dismiss control for the AC7 panel. Usability has informal real use only; the formal study (#115) was closed as not planned |
 
 **Milestone summary:** 6 Done and 1 In progress. The supervisor's 70–80% assessment is evidence
 for the completed historical checkpoint, not a claim that the current repository has an exact
@@ -115,26 +120,28 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 | Criterion | Status | Evidence or remaining gap |
 | --- | --- | --- |
 | AC1 Registration and protected RSA private key | Done | Browser key generation and protected private-key bundle |
-| AC2 Algorithm choice and ciphertext-only upload | Done | Selectable authenticated ciphers and client-side encryption |
-| AC3 Recipient decrypts with own passphrase | Done | Recipient-key rewrap and live two-account proof |
+| AC2 Algorithm choice and ciphertext-only upload | Done | Six selectable authenticated ciphers and client-side encryption; the upload shows the real encryption steps and a plaintext-vs-ciphertext byte comparison (#156) |
+| AC3 Recipient decrypts with own passphrase | Done | Recipient-key rewrap and live two-account proof; the sender confirms the recipient's key fingerprint before sharing (#160) |
 | AC4 Tamper detection before successful decrypt | Done | Authenticated decryption/integrity refusal and UI error |
-| AC4a Recovery after tampering (teacher's integrity-and-recovery ask) | Done in code; timer not yet installed | Daily sweep, admin Integrity tab, `restore_file.py`, drill step in `mysql-gate` (BACKUP_AND_RECOVERY §9) |
+| AC4a Recovery after tampering (teacher's integrity-and-recovery ask) | Done | Daily sweep (installed automatically from a healthy release, #134; runs 05:30 on staging), admin Integrity tab, `restore_file.py`, drill step in `mysql-gate` (BACKUP_AND_RECOVERY §9); live tamper demonstration (#164) |
 | AC8 AI agent that solves a defined automation problem (supervisor's guidance) | Done (v2, rule-based) | Admin → Security agent: inputs, thirteen rules, Critical/High/Medium/Low output with recommended actions, stated boundaries; v2 (#137) runs it daily and mails the team on Critical/High findings, detects a sign-in that succeeded after guessing, and reports active sign-in throttle blocks — [SECURITY_AGENT.md](SECURITY_AGENT.md) |
 | AC5 Timestamped actor/access audit | Done | Upload/download/share/revoke events and per-file history |
 | AC6 Interactive crypto education | Done | AES/RSA/SHA/Argon2id content and playgrounds |
-| AC7 Dismissible four-stage progress pipeline | In progress | Per-file spinner/result exists; inspection→encryption→upload→complete stages and dismissal do not |
+| AC7 Dismissible four-stage progress pipeline | In progress | Four measured stages exist (#156): read the file → encrypt and self-check → wrap the file key → upload the ciphertext, then complete. The panel has no explicit dismiss control; it is replaced when the next file is chosen |
 
 ## Immediate evidence priorities
 
 1. Non-expert usability (WBS 5.4): the formal study (Issue #115) was closed as not planned on
    2026-10-04. Describe NFR2 as supported by informal real use, never as formally verified.
-2. Implement the exact four-stage, dismissible processing feedback required by AC7.
+2. Add an explicit dismiss control to the four-stage upload feedback (AC7); the stages exist (#156).
 3. Decide the three open *Recommended* security findings (F-02 to F-04): move the recovery key into
    proposed custody, switch off `/docs` after the demo, reject known-weak passphrases. (F-01, CI-gated
    deployment, was done and installed on 2026-10-01.)
 4. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
-5. Run the staging capacity and performance test (meeting items 4–6, Issue #140) with the ready
-   `loadtest/` tool, and fix the two concurrency deadlocks it found locally (Issue #139).
+
+Done since the 2026-10-01 recheck: the staging capacity and performance test (#140, PR #155), the
+two concurrency deadlocks (#139, PR #154), and the 100-user database-pool failure with its staging
+re-run (PR #163, #172).
 
 These records should be updated in the same PR that changes their evidence. A runtime change is
 not Done until the merged SHA is deployed and the affected live path is verified.

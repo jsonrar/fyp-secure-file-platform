@@ -63,6 +63,9 @@ JSON 应用响应使用统一信封，其中 `data` 是路由专用 DTO。失败
 | POST | `/auth/change-password` | Bearer | 200 | 修改登录密码并撤销所有会话 |
 | GET | `/auth/sessions` | Bearer | 200 | 最多列出最近 100 个服务端会话 |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | 按公开 UUID 撤销本账户会话 |
+| POST | `/auth/avatar/upload` | Bearer | 200 | 上传经校验的 PNG/JPEG 头像（存放在加密对象目录之外） |
+| GET | `/auth/avatar` | Bearer | 200 | 返回调用者的头像图片 |
+| POST | `/auth/avatar/delete` | Bearer | 200 | 删除头像，退回显示姓名首字母 |
 
 `POST /auth/verification-codes/send` 接收 `email` 与 `purpose`（`REGISTRATION` 或
 `PASSWORD_RESET`）。无论该地址是否已注册，一律返回 `200` 及 `code_sent`、
@@ -89,7 +92,7 @@ nonce 与认证标签的两个信封，以及私钥包的 `ciphertext_sha256`。
 彼此独立，因此重置登录密码绝不会让账户失去对已加密文件的访问能力。
 
 登录密码与加密 passphrase 相互独立；API 从不接收加密 passphrase。登录与修改密码输入先做
-Unicode NFC 规范化；新密码须为 15 至 128 个字符，并通过本地常见密码及账户派生检查，再用
+Unicode NFC 规范化；新密码须为 8 至 128 个字符、至少包含两类字符，并通过本地常见密码及账户派生检查，再用
 Argon2id 哈希。
 
 登录成功数据包含 `user`、`access_token`、`refresh_token`、`token_type`、
@@ -160,10 +163,18 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 | POST | `/files/{file_id}/delete` | Bearer 所有者 | 软删除文件、撤销访问/包装并删除对象 |
 | POST | `/files/{file_id}/integrity-check` | Bearer | 重新计算并记录密文存储完整性 |
 | POST | `/files/{file_id}/ciphertext-preview` | Bearer，需下载权限 | 以十六进制返回存储密文的固定 128 字节样本，以及精确大小与已记录的 SHA-256。不做校验（不计算完整哈希），也从不解密；以 `FILE_CIPHERTEXT_PREVIEWED` 记入审计，它不算下载 |
+| GET | `/files/folders` | Bearer | 列出调用者的文件夹 |
+| POST | `/files/folders` | Bearer | 新建文件夹 |
+| POST | `/files/folders/{folder_id}/rename` | Bearer，所有者 | 重命名文件夹 |
+| POST | `/files/folders/{folder_id}/delete` | Bearer，所有者 | 删除文件夹；其中文件变为“无文件夹”，不删除任何文件 |
+| POST | `/files/{file_id}/move` | Bearer + 文件访问权 | 把文件放进调用者自己的文件夹（所有者的归类记在文件上，接收者的记在自己的授权上） |
 
 上传使用 `multipart/form-data`：
 
-- `file`：AES-256-GCM 密文。16-byte GCM tag 单独传输，因此密文字节数必须等于声明明文大小。
+- `file`：按 `metadata.encryption_algorithm` 所指套件生成的密文（`AES-128-GCM`、`AES-192-GCM`、
+  `AES-256-GCM`（默认）、`AES-256-GCM-SIV`、`ChaCha20-Poly1305` 或 `XChaCha20-Poly1305`）。
+  16-byte tag 单独传输，因此密文字节数必须等于声明明文大小。nonce 为 12 字节，
+  XChaCha20-Poly1305 为 24 字节。
 - `metadata`：JSON 字符串，包含文件 UUID、明文文件名/大小/MIME、信封/AAD 版本、Base64
   nonce/tag、所有者密钥 UUID 及 RSA-OAEP-SHA256 包装 DEK、恢复密钥 UUID 及恢复包装 DEK，
   以及可选的 Base64 加密 manifest。
@@ -171,6 +182,8 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 当前强制要求活跃恢复密钥及匹配恢复包装。服务器从不接收文件明文或私钥。
 `GET /files/{file_id}` 提供已授权客户端所需的解密信封；下载以 no-store 标头流式返回
 `application/octet-stream` 密文。
+
+若上传会超过账户存储配额（2 GiB）、滚动 24 小时上传额度（5 GiB），或使磁盘剩余空间低于下限，会被拒绝并给出明确提示。
 
 文件列表分页参数为 `page` 和 `page_size`（`1..100`）。未经授权与不存在的文件资源有意采用
 不可区分响应。
@@ -235,6 +248,9 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 | POST | `/admin/users/{user_id}/enable` | ADMIN | 重新启用已禁用账户 |
 | GET | `/admin/users/{user_id}` | ADMIN | 单个账户：邮箱及是否验证、角色、状态、创建时间、最近登录、密码修改时间，以及只含数字的统计（文件数、占用字节、分享出去和收到的数量、在线会话数）。不返回任何密码、哈希或密钥 |
 | POST | `/admin/users/{user_id}/reset-password` | ADMIN | 设置一个新的随机登录密码，只在这次响应里返回一次（`no-store`），数据库只存哈希。让该账户在所有设备上退出登录，审计记录 `ADMIN_PASSWORD_RESET`（不含密码），并发邮件通知本人。不能用于自己的账户或其他管理员。加密口令和文件不受影响 |
+| GET | `/admin/integrity` | ADMIN | Integrity 标签页：最近一次巡检结果与损坏文件 |
+| POST | `/admin/integrity/scan` | ADMIN | 立即运行一次完整性巡检 |
+| GET | `/admin/agent/report` | ADMIN | 安全 Agent 的排序结果（只读、仅元数据、基于规则） |
 
 管理列表使用 `limit`（`1..100`）及 `offset`。状态变更是条件式且有审计；审计链引用的身份不做
 硬删除。

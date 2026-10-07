@@ -1,5 +1,7 @@
 # End-to-end verification
 
+English | [简体中文](E2E_TESTING.zh-CN.md)
+
 `frontend/src/crypto/mvp.integration.test.ts` exercises the product the way a user does —
 real crypto in the client, a real backend over HTTP, two real accounts — and asserts the
 things unit tests cannot reach.
@@ -107,14 +109,17 @@ driven by Playwright, clicks the built pages through the golden path:
 
 | Step | How it is driven |
 | --- | --- |
-| Register two accounts | The register form, with **Send code** |
+| Register two accounts | The two-step register form: account details with **Send code**, **Next**, then the encryption passphrase and **Register** |
 | Email verification | The code is read from the stack's mailbox directory (the same one `e2e/live-stack` reads) and typed into the form; nothing is sent |
 | Sign in | The login form |
-| Upload | The file picker and **Start Encryption** on `/upload` |
+| Upload | The file picker and **Start Encryption** on `/upload`, then **View Encrypted Files** |
+| Encrypted preview | **Encrypted preview** on the row shows the stored bytes, and they do not start like the original |
+| Folders | The file is added to a folder and moved back to **All files** |
 | Unlock the key vault | The passphrase dialog raised by **Download and decrypt** |
 | Download | The browser's own download, compared byte for byte with the original |
-| Share | The row's **Share** button and the share dialog |
+| Share | The row's **Share** button, the share dialog, then **Confirm and share** on the recipient and key-fingerprint confirmation |
 | Recipient sees it | The second account's **Shared with me** list, then a download decrypted with its own passphrase |
+| Recipient's folder | The recipient files the shared file in a folder of their own; the row offers **Download and decrypt** and **More actions** but no **Share** or **Delete** |
 | Revoke | **Revoke** in the share dialog, then **Revoke access** on the confirmation |
 | Recipient no longer sees it | The recipient's list after a reload |
 | Log out | **Log out** in the account menu; a protected page then sends the browser back to sign in |
@@ -125,7 +130,8 @@ unlocked key. The test asserts what the button does — tokens gone, protected p
 and does not separately re-check the server-side revocation (that contract remains covered by
 `e2e/live-stack`).
 
-Selectors are roles, labels and visible text only; no `data-testid` was needed. There are no
+Selectors are roles, labels and visible text, with a few `data-testid` hooks where the visible
+text is not unique. There are no
 sleeps: every wait is a Playwright web-first assertion, and the mailbox is polled with
 `expect.poll`. It runs with one worker, no retries, and `failOnFlakyTests`, so a test that only
 passes on a second attempt fails the run.
@@ -180,6 +186,34 @@ unpacks ZIP attachments and the report's embedded base64 results (a byte-level s
 either), and refuses any Playwright trace outright, so a report with a trace can never be
 published even if someone turns tracing on.
 
+### The other browser specs
+
+`npx playwright test` in the live stack runs every spec in `frontend/browser-tests/`, so CI runs
+these too:
+
+| Spec | What it asserts |
+| --- | --- |
+| `tamper-visibility.browser.ts` | One byte of a stored object is changed on the disposable stack; the page then shows the file as changed and refuses the download with the reason (#94, #164). It refuses to run outside the stack's temporary directories |
+| `help-assistant.browser.ts` | Ask the Help assistant a question, follow the answer's link, close it from the keyboard; on a phone the round button fits and never covers Start Encryption or the My Files actions |
+| `language-switch.browser.ts` | Switching to 简体中文 and back, remembering the choice, the fallback, and the Chinese public pages at phone widths |
+| `not-found.browser.ts` | Unknown paths show the not-found page |
+
+## Layout and text audits
+
+Two scripts in `frontend/scripts/` measure the interface instead of judging it by eye (#183,
+#195). They need a local stack and a local accounts file that is never committed, so they are run
+by hand before a UI change is merged, not in CI.
+
+- `layout-audit.mjs` opens every page in five configurations (1440 light, 1440 dark, 768, 390
+  phone, 1440 Chinese), takes full-page screenshots, and records squeezed headings, horizontal
+  overflow, clipped text, text under 12 px, click targets under 32 px, untranslated English, and
+  console or HTTP errors.
+- `text-audit.mjs` measures every heading and short paragraph at six widths in both languages for
+  capped widths, sentences broken mid-way, two-sentence headings and lonely last words.
+
+A UI change is finished when squeezed headings and overflow are zero. The scripts measure layout;
+whether a page reads well is still a human judgement.
+
 ## Backend concurrency and fault injection
 
 `backend/tests/integration/test_concurrency_mysql.py` races real threads, each on its own MySQL
@@ -196,6 +230,16 @@ refuses a publish or an unlink, envelopes arrive truncated or naming the wrong k
 signatures are forged, made by the wrong key, or cover a different payload.
 
 Both run in the `mysql-gate` job with the rest of the integration suite.
+
+## The CI gate
+
+Five jobs run on every pull request and push: `backend`, `frontend`, `mysql-gate`, `e2e-live`
+(the live suites and every browser spec above) and `tamper-drill` (the isolated attacker lab in
+`security-lab/`). Since 2026-10-04 they run on three self-hosted runners on the VPS
+([deployment/ci-runner/README.md](../deployment/ci-runner/README.md)); a push that changes only
+documentation skips the test jobs. On `main`, the `promote` job fast-forwards the `deploy` branch
+only after all five pass, and staging deploys from `deploy`, so a commit that failed CI is never
+deployed ([AUTOMATIC_DEPLOYMENT.md](AUTOMATIC_DEPLOYMENT.md)).
 
 ## Phone widths
 

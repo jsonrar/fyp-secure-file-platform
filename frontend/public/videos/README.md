@@ -1,5 +1,7 @@
 # Help-page videos
 
+English | [简体中文](README.zh-CN.md)
+
 Recorded from the real product, not mocked, by `frontend/scripts/record-walkthroughs.mjs`:
 
 | File | What it shows |

@@ -45,7 +45,7 @@
 | `audit_logs`、`audit_chain_heads` | 运行时授权（`database/mysql/02-schema.sql`）对 `audit_logs` 只有 `SELECT, INSERT`，对 `audit_chain_heads` 只有 `SELECT, UPDATE (last_log_id, current_hash, updated_at)`。以 `fyp_user` 连接时，即使有 bug，任务也**不可能**删除审计证据 |
 | `users`、`user_keys`、`user_key_protection_profiles`、`encrypted_private_key_bundles`、`recovery_keys`（密钥保管） | 脚本从不引用这些表。指向被清理表的唯一外键是 `session_refresh_tokens.session_id → user_sessions ON DELETE CASCADE`；没有任何级联从被清理的表传到审计、密钥或恢复相关的表 |
 | `recovery_requests` | 从不引用；过期的请求是问责证据 |
-| `files`、`file_access_grants`、`file_key_wrappings`、`integrity_checks`（在用授权） | `files` 只被读取，用来判断哪些对象在用，从不写入。被在用行引用的对象无论多旧都保留 |
+| `files`、`file_folders`、`file_access_grants`、`file_key_wrappings`、`integrity_checks`（在用授权） | `files` 只被读取，用来判断哪些对象在用，从不写入。被在用行引用的对象无论多旧都保留 |
 | 本应失效的访问 | 访问令牌只能通过连接 `user_sessions.access_token_hash` 认证（`app/repositories/auth_repository.py` 中的 `get_access_principal`）。会话行被删除意味着令牌被拒绝，因此删除只会减少访问，永远不会让访问复活 |
 
 测试强制保证这些。`backend/tests/unit/test_reconcile.py` 编译任务发出的每条语句；

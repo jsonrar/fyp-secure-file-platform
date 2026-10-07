@@ -1,5 +1,7 @@
 # Homepage walkthrough screenshots
 
+English | [简体中文](README.zh-CN.md)
+
 Each image exists twice: `<name>.webp` in English and `<name>-zh.webp` in Simplified Chinese; the home page shows the set for the language chosen in the header. These WebP files show the real Vue interface in Light mode with fictitious accounts
 (`sam`, `alex`) and `Project notes.txt`. Blue outlines and numbers identify the controls.
 Mobile crops show the relevant upload column or the narrower real file-list layout.

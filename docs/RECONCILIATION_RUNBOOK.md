@@ -49,7 +49,7 @@ mtime, so a directory emptied by one run is collected by the next.
 | `audit_logs`, `audit_chain_heads` | The runtime grant (`database/mysql/02-schema.sql`) is `SELECT, INSERT` on `audit_logs` and `SELECT, UPDATE (last_log_id, current_hash, updated_at)` on `audit_chain_heads`. Connected as `fyp_user`, the job **cannot** delete audit evidence, even with a bug |
 | `users`, `user_keys`, `user_key_protection_profiles`, `encrypted_private_key_bundles`, `recovery_keys` (key custody) | Never named by the script. The only foreign key into the reconciled tables is `session_refresh_tokens.session_id → user_sessions ON DELETE CASCADE`. Nothing cascades from the reconciled tables into audit, key, or recovery tables |
 | `recovery_requests` | Never named; an expired request is accountability evidence |
-| `files`, `file_access_grants`, `file_key_wrappings`, `integrity_checks` (live authorization) | `files` is read to learn which objects are live, and never written. An object a live row names is kept however old |
+| `files`, `file_folders`, `file_access_grants`, `file_key_wrappings`, `integrity_checks` (live authorization) | `files` is read to learn which objects are live, and never written. An object a live row names is kept however old |
 | Access that should be gone | An access token authenticates only by joining `user_sessions.access_token_hash` (`app/repositories/auth_repository.py`, `get_access_principal`). A deleted session row means the token is rejected, so deletion can only reduce access, never revive it |
 
 The tests enforce this. `backend/tests/unit/test_reconcile.py` compiles every statement the

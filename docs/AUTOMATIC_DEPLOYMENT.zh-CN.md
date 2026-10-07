@@ -136,6 +136,10 @@ systemctl list-timers mcs21-integrity-sweep.timer mcs21-security-agent.timer
 告警邮件脚本（`/usr/local/sbin/mcs21-alert`）同样是手动安装；重新安装后，安全 Agent 的告警才会带上“去管理后台查看”的提示，
 可用 `sudo systemctl start mcs21-alert@test.service` 测试。
 
+2026-10-07 核对：已安装的 `/usr/local/sbin/mcs21-deploy`、`mcs21-alert`、`mcs21-backup` 和 `mcs21-backup-verify`
+与 `e4b3f13` 中 `deployment/server/` 的文件逐字节一致（SHA-256），九个 `mcs21-*` timer（自动部署、observe、
+审计检查点、异地备份、备份、对账、完整性巡检、安全 Agent、备份校验）全部处于启用状态。
+
 服务器还单独保存环境专用的 Git mirror、Deploy Key、Secret、备份与 sudo policy；这些
 环境专用内容不得复制进 Git。
 

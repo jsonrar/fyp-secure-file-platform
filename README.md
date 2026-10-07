@@ -54,13 +54,20 @@ AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305 are selectable per fil
 remains the default. The former
 hard-coded credential and demo-token fallbacks are gone.
 
-Public product pages sit beside the authenticated workspace: `/` is the marketing landing
-("Encryption and Sharing" hero plus scrolling Core Features), `/education` teaches algorithms
-with demos and a knowledge base, `/help` points to the homepage picture guide and keeps video
-placeholders for longer clips, and `/team` (**Contact us**) shows a feedback form preview plus
-the development roster. `/benchmark/argon2`, linked from no menu, times the unlock key derivation
+Since the "Sealed" redesign (2026-10-05, #176–#182, #188–#195) the whole site shares one style:
+self-hosted Geist type, green only for "verified/sealed" and red only for "changed/dangerous",
+near-white primary buttons in dark mode, a centred page header and one content width, and a
+sidebar on every signed-in page. Public product pages sit beside the authenticated workspace:
+`/` opens with a dark hero that shows the real first bytes of a sample file next to the bytes the
+server receives, a proof strip of the algorithms used, "three moves" (sealed before it leaves, only to a checked key, changed means refused), five
+numbered comparison questions and the picture guide; `/how-it-works` is the animated explainer
+with a four-step quick start; `/education` teaches algorithms with demos and a knowledge base;
+`/help` offers the explainer, three walkthrough videos recorded from the real product and the
+picture guide; and `/team` (**Contact us**) has a feedback form (it opens the visitor's mail
+client) and the supervisor and team profiles. A path that does not exist shows a not-found page. `/benchmark/argon2`, linked from no menu, times the unlock key derivation
 on the visiting device; it is the evidence behind the threat model's passphrase analysis.
-The language switch sits in the header bar itself, never inside a menu. Signed-in users get a
+The language switch sits in the header bar on wide screens and in the header menu on phones, and
+Settings offers the same choice. Signed-in users get a
 header avatar menu with theme controls, `/profile` and `/settings`; signed-out visitors open the
 theme controls from the settings icon to the right of the language switch.
 The active nav label uses the theme primary colour so the current tab is obvious. `/profile` can
@@ -75,40 +82,45 @@ questions are not sent or logged. Signed in, it also answers questions about you
 answers only read what My Files and Access Records already show, and change nothing. See
 [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 
-The interface can be switched between **English and 简体中文** (#74) from the header bar,
-the phone menu or Settings; the choice is remembered on
-the device. File names, usernames and anything a user wrote are never translated. The Chinese is
+The interface can be switched between **English and 简体中文** (#74) from the header (#166)
+or Settings; the choice is remembered on the device. File names, usernames and anything a user wrote are never translated. The Chinese is
 drafted at build time by Zhipu `glm-4-flash` and checked against a fixed security glossary; the
 browser never calls a translation service. See [docs/I18N.md](docs/I18N.md).
 
-Core Features uses a dual-row `FeatureLane` with autoplay plus touch, mouse-drag and keyboard
-scrolling (no native scrollbar), and a static complete-card layout for reduced-motion
-preferences. The file lifecycle explainer sits below Upload; Upload, Education, Help, Access
-Records and My Files share Contact us page styling. The home page compares SecureView with ordinary
+Signed in, the workspace (`/dashboard`) starts with a getting-started checklist (#162).
+Registration takes two steps, the account and then the encryption passphrase alone, and signs the
+new account straight in (#161). In My Files each row shows **Download**, **Share** and **Delete**
+with labels and keeps the rest under **More** (#159); a non-modal details panel shows the cipher,
+both sizes, the owner and who can open the file, with Access history beside Delete (#191, #193).
+Before anything is shared, the dialog names the recipient and shows the fingerprint of the key the
+file will be sealed to, computed in the browser; the recipient sees the same fingerprint in Settings,
+and the browser warns if it changes later (#160). The home page compares SecureView with ordinary
 cloud storage as five numbered questions with two answers each, and the footer lists the project facts
 (Monash University, FIT3161 / FIT3162, team MCS21, supervisor) beside the Product and Learn links.
 Headings fit on one line where they can, and two-sentence intros break only between sentences
 (`SentenceLines`); `frontend/scripts/text-audit.mjs` checks this on every page. See
 [changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9).
 
-The homepage's How it works section offers six annotated screenshots from the real UI under
-`/#how-it-works`, covering file selection, encryption, sharing, unlock, and recipient download.
-Visitors can pause, enlarge images, swipe on phones, or let 8-second autoplay run with a visible
-progress bar. Completed steps show a check. The pictures use fabricated data and
-mobile crops; this local preview is not yet verified on staging.
+The homepage's picture guide offers six annotated screenshots from the real UI, in English and
+Chinese, covering file selection, encryption, sharing, unlock, and recipient download. Visitors
+can pause, enlarge images, swipe on phones, or let 8-second autoplay run with a visible progress
+bar. Completed steps show a check. The pictures use fabricated data and mobile crops; they were
+re-shot after the redesign on 2026-10-05 (#192) and are live on staging.
 
-The remaining work is production hardening rather than an unfinished basic demo: change-passphrase
-(with the old one) and successor-key UI, complete admin/recovery-officer screens, observability,
-and formal security review. Required CI, MySQL 8.4 release gates, encrypted off-server backups,
-clean-host restore evidence, scheduled reconciliation, and a same-VPS isolated tamper drill are
-now in place. The prioritized summary is in [TODO.md](TODO.md), and executable
+The remaining work is production hardening rather than an unfinished basic demo: a UI for
+changing the passphrase with the old one and for successor keys (both exist in the API), an
+explicit dismiss control for the upload progress panel, the three open *Recommended* security
+findings (F-02 to F-04), and an independent security review. Required CI on self-hosted runners
+with a CI-gated deploy, MySQL 8.4 release gates, encrypted off-server backups, clean-host restore
+evidence, scheduled reconciliation, a daily integrity sweep, external audit checkpoints,
+monitoring alerts, the security agent and a same-VPS isolated tamper drill are now in place. The prioritized summary is in [TODO.md](TODO.md), and executable
 work with acceptance criteria is tracked in [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues)
 and the team's [SecureView Development Board](https://github.com/users/Waldo0926/projects/1).
 
-The file manager also offers **Download encrypted** for owners and authorized recipients,
-including while the vault is locked. It saves the verified stored bytes as
-`<filename>.ciphertext` without a passphrase or private key. **Encrypted preview**, under each
-file, shows what the server really stores: the exact sizes, the recorded SHA-256 and a hex dump
+The file manager also lets owners and authorized recipients save the verified stored bytes as
+`<filename>.ciphertext` (**Download encrypted file** in the encrypted preview), including while
+the vault is locked and without a passphrase or private key. **Encrypted preview** shows what the
+server really stores: the exact sizes, the recorded SHA-256 and a hex dump
 of the first 128 bytes of ciphertext, for owned and received files alike. Why the two sizes match,
 and how to show it live, is in [docs/ENCRYPTION_EVIDENCE.md](docs/ENCRYPTION_EVIDENCE.md).
 
@@ -121,7 +133,10 @@ nothing had been encrypted; nothing is slowed down to look busy.
 **Measured capacity (staging, 2026-10-03/04, #140):** 22,264 operations, 5,094 downloads
 SHA-256-verified with 0 integrity failures, every common file type up to 500 MiB byte-exact; no
 server error up to 50 concurrent users; at 100 the API's 15-connection database pool is the first
-limit while CPU averages 3 %. Read the test conditions before quoting a number:
+limit while CPU averages 3 %. That limit was then fixed (#163: no database work on the event loop
+during uploads) and the 100-user step re-run on staging: 102 of 102 uploads and 102 of 102 verified
+downloads succeeded ([pool-fix-2026-10-04](docs/performance/pool-fix-2026-10-04/README.md), #172).
+Read the test conditions before quoting a number:
 [docs/performance/REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) and the conclusions
 in [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md).
 
@@ -149,8 +164,9 @@ and what to do about it, by priority, is in
 
 ### Standard user flow
 
-1. **Register:** At `/register`, provide a username, email, login password, and a separate
-   encryption passphrase, then complete email-code verification. The browser generates the
+1. **Register:** `/register` has two steps (#161): first the account (username, email, the
+   emailed code and the login password), then the separate encryption passphrase on its own, with
+   why it exists. The new account is signed straight in. The browser generates the
    RSA key pair, AMK, and sealed private-key bundle locally. Move the one-time `.pem` private
    key out of Downloads and store it safely. The login password authenticates the account;
    the encryption passphrase unlocks files, and neither replaces the other.
@@ -164,14 +180,16 @@ and what to do about it, by priority, is in
 4. **Manage files:** `/files` searches and pages through "My Files" and "Shared with me". Owners can create, rename, and delete folders, move files between them, and take files out of a folder; deleting a folder never deletes its encrypted files. Clicking a row (or its Details button) opens a side panel with the cipher, exact sizes, the ciphertext SHA-256, who can open the file and every action; clicking another row switches it.
    Download first verifies the server-side ciphertext SHA-256, then the browser unwraps the
    DEK, authenticates the AEAD tag, and saves the plaintext. A failed authentication never
-   saves a partial file. **Download encrypted** instead saves the ciphertext without
-   unlocking; sign-in and download permission are still required. The `.ciphertext` file
+   saves a partial file. **Download encrypted file**, in the encrypted preview, instead saves the
+   ciphertext without unlocking; sign-in and download permission are still required. The `.ciphertext` file
    contains only the stored bytes, not the separately stored envelope, nonce, tag, or wrapped
    key, so it is not a standalone offline-decryption backup. Deleting an owned file asks for
    confirmation and states that shares are revoked and the action cannot be undone.
 5. **Share and revoke:** The owner unlocks first if needed, then enters an existing user's
-   exact username or email address. The browser
-   rewraps the same DEK to the recipient's public key, and the recipient opens it with their
+   exact username or email address. The dialog then names the recipient and shows the
+   fingerprint of their key, computed in the browser, and the owner confirms (**Confirm and
+   share**); the recipient can read the same fingerprint in Settings. The browser
+   rewraps the same DEK to the confirmed public key, and the recipient opens it with their
    own passphrase; the server never learns the DEK. Revocation confirms first, then stops
    future server-mediated access; it cannot recover a copy the recipient already downloaded
    and decrypted.
@@ -182,19 +200,25 @@ and what to do about it, by priority, is in
    retained `.pem` key, which can unlock the current session or, in `/settings`, set a new
    passphrase without changing the account key or any file. Account identity and preferences live
    under the header avatar: `/profile` shows the signed-in account, can upload or remove a
-   profile picture, and can open account deletion; `/settings` covers theme and the same
-   deletion flow (password + typed `DELETE`).
+   profile picture, and can open account deletion; `/settings` covers theme, language, the
+   account's key fingerprint, changing the login password, resetting the passphrase with the
+   key file, and the same deletion flow (password + typed `DELETE`).
 7. **Learn and get help without signing in:** `/education` covers Algorithm Explorer,
-   Playground, and Knowledge Base. The homepage `#how-it-works` slideshow is the fastest first
-   share guide; `/help` links to it and keeps video placeholders. `/team` is labelled
-   **Contact us**: a demo feedback form sits above the team roster. The header highlights the
+   Playground, and Knowledge Base. The homepage picture guide is the fastest first share guide;
+   `/how-it-works` is the animated explainer, and `/help` adds three walkthrough videos recorded
+   from the real product. The round button at the bottom right of every page opens the Help
+   assistant. `/team` is labelled **Contact us**: a feedback form (it opens the visitor's mail
+   client) sits above the supervisor and team profiles. The header highlights the
    active tab in the theme colour.
 
 ### Roles and administration
 
 - `USER` uses upload, download, sharing, revocation, and personal audit features.
 - `ADMIN` can manage users/files, verify the audit chain, register recovery public keys, and
-  review recovery requests through `/admin`.
+  review recovery requests through `/admin`. Its tabs also include a counts-only Overview, the
+  Integrity tab (daily sweep results, damaged files, scan now), the Security agent's ranked
+  findings, and per-account details with enable/disable and a temporary login password (#197;
+  never for the caller's own account or another administrator).
 - `RECOVERY_OFFICER` can review recovery requests on `/admin` but cannot approve a request they
   created.
 - Any signed-in user can open a recovery request from My Files and track or cancel it on
@@ -265,7 +289,7 @@ and refresh are the main public endpoints. Other endpoints require a bearer toke
 responses use the `success/status/message/data/code` envelope, while centralized handlers
 map domain failures to stable HTTP responses. `/health/live` checks the process;
 `/health/ready` also queries MySQL and requires the stored schema revision to equal
-`0007_file_folders`. Local development exposes `/docs`, `/redoc`, and `/openapi.json`;
+`0010_shared_file_folders`. Local development exposes `/docs`, `/redoc`, and `/openapi.json`;
 a deployment can unmount all three with `APP_DOCS_ENABLED`.
 
 ## Repository Structure
@@ -273,51 +297,43 @@ a deployment can unmount all three with `APP_DOCS_ENABLED`.
 ```text
 fyp-secure-file-platform/
 |-- backend/
-|   |-- app/
-|   |   |-- api/v1/routers/
-|   |   |-- core/
-|   |   |-- domain/
-|   |   |-- models/
-|   |   |-- repositories/
-|   |   |-- schemas/
-|   |   `-- services/
-|   |-- migrations/
-|   |-- tests/
+|   |-- app/                 api/v1/routers, core, domain, models, repositories, schemas, services
+|   |-- migrations/          Alembic revisions 0001-0010
+|   |-- scripts/             ops and drills: reconcile, integrity sweep, restore_file, audit
+|   |                        checkpoint, observe, security agent, backups, tamper demo, seeding
+|   |-- tests/               unit, api, integration (MySQL 8.4), e2e (live stack)
 |   `-- requirements.txt
-|-- database/
-|   `-- mysql/
-|       |-- 01-provision.sql
-|       |-- 02-schema.sql
-|       `-- 03-verify.sql
+|-- database/mysql/          01-provision, 02-schema, 03-verify, 04-backup-account (.sql)
 |-- deployment/
-|   `-- server/
-|       |-- mcs21-deploy
-|       |-- mcs21-auto-deploy
-|       |-- mcs21-auto-deploy.service
-|       `-- mcs21-auto-deploy.timer
+|   |-- server/              mcs21-deploy, mcs21-auto-deploy, alert/backup scripts, systemd
+|   |                        units and timers, nginx and fail2ban config
+|   `-- ci-runner/           the self-hosted GitHub Actions runners on the VPS
 |-- frontend/
-|   |-- src/
-|   `-- package.json
+|   |-- src/                 pages, components, api, crypto, stores, i18n, locales
+|   |-- browser-tests/       Playwright specs (golden path, tamper view, phone widths, ...)
+|   |-- scripts/             layout/text audits, walkthrough and video recording, i18n tools
+|   `-- public/              walkthrough screenshots and Help videos
+|-- loadtest/                browser-equivalent load-test client and server sampler
+|-- security-lab/            isolated tamper-drill attacker lab (CI job `tamper-drill`)
 |-- changelog/
 |   |-- CHANGELOG.md
 |   |-- README.md
-|   `-- work-packages/
+|   `-- work-packages/       read-only historical archives
 |-- docs/
-|   |-- ARCHITECTURE.md
-|   |-- API_DESIGN.md
-|   |-- DATABASE_SCHEMA.md
-|   |-- DEPLOYMENT.md
-|   |-- AUTOMATIC_DEPLOYMENT.md
-|   |-- E2E_TESTING.md
-|   |-- SECURITY_FLOWS.md
-|   |-- THREAT_MODEL.md
-|   |-- PROJECT_SCOPE.md
-|   `-- crypto/
-|       |-- FILE_ENVELOPE.md
-|       `-- test_vectors.json
+|   |-- PROJECT_SCOPE, PROPOSAL_TRACEABILITY, ARCHITECTURE, API_DESIGN, DATABASE_SCHEMA
+|   |-- SECURITY_FLOWS, THREAT_MODEL, ENCRYPTION_EVIDENCE, SECURITY_AGENT, HELP_ASSISTANT, I18N
+|   |-- DEPLOYMENT, AUTOMATIC_DEPLOYMENT, BACKUP_AND_RECOVERY, RECONCILIATION_RUNBOOK,
+|   |   OBSERVABILITY_AND_INCIDENT_RESPONSE, E2E_TESTING, PERFORMANCE_TESTING, TEST_ACCOUNTS
+|   |                        (each as X.md and X.zh-CN.md)
+|   |-- crypto/              FILE_ENVELOPE and test_vectors.json
+|   |-- performance/         load-test reports, charts and raw data
+|   |-- security/            third-party scan reports
+|   |-- benchmarks/          Argon2id measurements
+|   `-- presentation/        TALKING_POINTS, REFLECTION, DEMO_SCRIPT, TAMPER_DEMO, media/
 |-- recovery_keys/
-|-- TODO.md
-|-- TODO.zh-CN.md
+|-- AGENTS.md, AGENTS.zh-CN.md
+|-- README.md, README.zh-CN.md
+|-- TODO.md, TODO.zh-CN.md
 |-- .env.example
 |-- .gitignore
 `-- docker-compose.yml
@@ -369,8 +385,12 @@ newer entry closes an old limitation, prefer the newer entry, the current README
   proposal commitments to repository and deployment results.
 - `TODO.md`: prioritized summary linked to those Issues, not a second independent backlog.
 - `README.md`: current user-facing capabilities, setup, and deployment entry points.
+- [`docs/presentation/TALKING_POINTS.md`](docs/presentation/TALKING_POINTS.md) and
+  [`REFLECTION.md`](docs/presentation/REFLECTION.md): what is worth presenting, with evidence, and
+  what is still weak, by priority.
 
-Every pull request must review all four, update the affected records, and explain any
+Every Markdown document has an English and a Simplified Chinese version (`X.md`, `X.zh-CN.md`),
+changed together. Every pull request must review all of these, update the affected records, and explain any
 intentional `N/A`. Runtime changes are not complete at merge: after `main` deploys, record the
 deployed SHA and verify health plus the changed user-visible path. The repository pull-request
 template carries this checklist.
@@ -380,7 +400,7 @@ template carries this checklist.
 All backend business routers are operational. Health, readiness, and OpenAPI are available;
 protected routes require bearer authentication and the admin/recovery routes enforce RBAC.
 Readiness checks both database connectivity and the exact
-`0007_file_folders` schema revision.
+`0010_shared_file_folders` schema revision.
 
 `MAX_REQUEST_BODY_BYTES` limits ordinary JSON/form bodies (1 MiB by default, configurable up
 to 8 MiB). Encrypted multipart upload has a separate
@@ -487,7 +507,8 @@ Since 2026-10-04 every job runs on the project's own runner on the VPS, isolated
 full run still takes about 5 minutes.
 `backend` and `frontend` are required checks by convention: GitHub branch protection is not
 available while the repository is private on the free plan, so nothing stops a merge on red CI
-except the reviewer. Run the same commands locally before pushing so a failure never arrives
+except the reviewer. Deployment is gated, though: staging deploys only the `deploy` branch, which
+the `promote` job moves after all five jobs pass on `main`. Run the same commands locally before pushing so a failure never arrives
 as a surprise in CI:
 
 ```bash
@@ -508,7 +529,7 @@ npm run build
 ```
 
 A third job, `mysql-gate`, provisions a disposable MySQL 8.4 service with verified TLS, runs
-every migration from empty through `0007_file_folders`, then `alembic current` and
+every migration from empty through `0010_shared_file_folders`, then `alembic current` and
 `alembic check`, then the whole backend suite against it — unit tests plus every MySQL
 integration test, including the multi-connection concurrency and fault-injection suites —
 failing the job if any test is skipped or branch coverage falls below 82%, followed by grant-
@@ -518,7 +539,7 @@ scenarios locally during development of the gate itself.
 
 The fourth job, `e2e-live`, starts the real API against another disposable MySQL and runs every
 frontend live-backend suite un-skipped: registration with an emailed code, login/refresh/
-replay/logout, unlock, all four file algorithms, sharing and revocation, audit visibility, role
+replay/logout, unlock, all six file algorithms, sharing and revocation, audit visibility, role
 denial, and account deletion. It then runs a Chromium smoke test (Playwright) that clicks the
 built pages through the same golden path, so a button wired to the wrong handler fails CI. Each
 job publishes its JUnit and coverage reports as a build
@@ -529,9 +550,10 @@ The fifth job, `tamper-drill`, builds a default-stopped attacker container on an
 Docker network. Against its own MySQL 8.4 `_test` database and encrypted-object volumes, it
 proves that byte modification is shown as `MODIFIED`/`CORRUPTED`, download is refused, a missing
 object is reported without permanently corrupting status, and a restored object returns to
-`VALID`/`ACTIVE`. It also documents the trust boundary: an attacker controlling both the object
-store and database can replace the recorded SHA-256, but the browser's AEAD tag still rejects
-the forged ciphertext. See [`security-lab/README.md`](security-lab/README.md).
+`VALID`/`ACTIVE`. It also covers the stronger attacker: one controlling both the object store and the
+database can replace the recorded SHA-256, but the integrity check also compares with the digest
+anchored in the upload's audit event, so the file is still reported `MODIFIED`, and the browser's
+AEAD tag rejects the forged ciphertext as a last line. See [`security-lab/README.md`](security-lab/README.md).
 
 Both database suites run from a laptop against any disposable MySQL 8.4 whose database name has
 a `_test` segment (never the shared `docker compose` database):

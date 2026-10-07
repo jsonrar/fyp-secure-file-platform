@@ -44,11 +44,13 @@ passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲�
 每个文件可选择 AES-128/192/256-GCM、AES-256-GCM-SIV、ChaCha20-Poly1305 或 XChaCha20-Poly1305，默认仍为 AES-256-GCM；旧有硬编码
 凭据和演示 token 后备均已移除。
 
-公开产品页与登录后工作台并列：`/` 为营销落地页（"Encryption and Sharing" 主标题与横向滚动
-Core Features），`/education` 提供算法教学、演练场与知识库，`/help` 优先指向首页图文引导并保留
-视频占位，`/team`（导航标签为 **Contact us**）提供反馈
-表单预览与开发团队名单。`/benchmark/argon2` 不在任何菜单中出现，用于在访问设备上测量解锁时密钥派生的
-耗时，是威胁模型中 passphrase 分析的依据。语言切换直接放在页头栏上，不藏进任何菜单。登录用户可通过页头头像菜单切换主题，并进入
+“Sealed”改版（2026-10-05，#176–#182、#188–#195）之后全站统一风格：自托管 Geist 字体，绿色只表示“已验证/已封装”，
+红色只表示“被改动/危险”，暗色模式下主按钮接近白色，页头居中、内容宽度统一，所有登录后的页面都有侧边栏。公开产品页与
+登录后工作台并列：`/` 开头是深色首屏，把样例文件真实的前几个字节和服务器收到的字节并排展示，下面是所用算法的证明条、
+“三步”（离开前封装、只给核对过的公钥、被改动就拒绝）、五个编号对比问题和图文指南；`/how-it-works` 是动画讲解和四步快速上手；`/education` 提供
+算法教学、演练场与知识库；`/help` 提供动画讲解、三段从真实产品录制的演示视频和图文指南；`/team`（导航标签为
+**Contact us**）有反馈表单（会打开访客的邮件客户端）以及导师和团队介绍。不存在的路径显示 404 页面。`/benchmark/argon2` 不在任何菜单中出现，用于在访问设备上测量解锁时密钥派生的
+耗时，是威胁模型中 passphrase 分析的依据。语言切换在宽屏时位于页头栏，手机上在页头菜单里，设置页也提供同样的选择。登录用户可通过页头头像菜单切换主题，并进入
 `/profile` 与 `/settings`；未登录访客通过语言切换右边的设置图标打开主题控件。当前导航标签使用主题主色高亮，便于确认所在页。
 `/profile` 可上传或移除经验证的 PNG/JPEG 头像（无图时回退首字母）。
 
@@ -59,27 +61,31 @@ WhatsApp / 邮件”类问题，给出简短摘要、步骤和产品内链接；
 本来就能看到的内容，不做任何修改。见
 [docs/HELP_ASSISTANT.zh-CN.md](docs/HELP_ASSISTANT.zh-CN.md)。
 
-界面可以在 **English 和简体中文** 之间切换（#74），入口在页头栏、手机菜单和设置页；选择按设备记住。文件名、用户名
+界面可以在 **English 和简体中文** 之间切换（#74），入口在页头（#166）和设置页；选择按设备记住。文件名、用户名
 以及用户自己写的内容一律不翻译。中文在构建阶段由智谱 `glm-4-flash` 起草，并按固定的安全术语表校验；浏览器从不
-调用翻译服务。见 [docs/I18N.md](docs/I18N.md)。
+调用翻译服务。见 [docs/I18N.zh-CN.md](docs/I18N.zh-CN.md)。
 
-Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动、鼠标拖动与键盘浏览（不显示原生滚动条）；偏好减少动态效果时静态展示全部功能卡片。文件生命周期说明位于上传区下方；上传、教育、帮助、访问记录与我的文件统一采用联系我们页风格。首页用五个编号问题、每题两种回答来对比 SecureView 和普通网盘；页脚在 Product、Learn 链接旁列出项目信息（莫纳什大学、FIT3161 / FIT3162、MCS21 团队、指导老师）。标题能放一行就放一行，两句话的简介只在句与句之间换行（`SentenceLines`）；`frontend/scripts/text-audit.mjs` 会在每个页面上检查这一点。详见
+登录后的工作台（`/dashboard`）先显示新手清单（#162）。注册分两步：先建账户，再单独设置加密 passphrase，完成后直接登录
+（#161）。我的文件中每行带文字显示 **Download**、**Share** 和 **Delete**，其余操作收在 **More** 里（#159）；非模态详情面板
+显示加密算法、两种大小、所有者和谁能打开该文件，Access history 位于 Delete 旁（#191、#193）。分享之前，对话框会写明
+接收者，并显示文件将要封装给的那把公钥的指纹（在浏览器中计算）；接收者在设置页能看到同一指纹，之后指纹若变化浏览器会
+警告（#160）。首页用五个编号问题、每题两种回答来对比 SecureView 和普通网盘；页脚在 Product、Learn 链接旁列出项目信息（莫纳什大学、FIT3161 / FIT3162、MCS21 团队、指导老师）。标题能放一行就放一行，两句话的简介只在句与句之间换行（`SentenceLines`）；`frontend/scripts/text-audit.mjs` 会在每个页面上检查这一点。详见
 [changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9)。
 
-首页 How it works（`/#how-it-works`）提供六张带定位标记的真实界面截图，涵盖选文件、加密、分享、
-解锁和接收者下载。默认自动播放（每步 8 秒，带进度条），用户可暂停；也可放大图片或在手机上滑动换步；
-已完成步骤显示勾选。图片使用虚构数据，并提供手机裁切图；本版为本地预览，尚未核验预发布部署。
+首页图文指南提供六张带定位标记的真实界面截图（中英文各一套），涵盖选文件、加密、分享、解锁和接收者下载。默认自动播放
+（每步 8 秒，带进度条），用户可暂停；也可放大图片或在手机上滑动换步；已完成步骤显示勾选。图片使用虚构数据，并提供手机
+裁切图；已在 2026-10-05 改版后重新截取（#192），并已上线 staging。
 
-剩余工作属于生产级加固，而非基础演示尚未闭环：凭旧 passphrase 修改 passphrase 与后继密钥 UI、
-完整管理/恢复专员页面、可观测性及正式安全评审。强制 CI、MySQL 8.4 发布门禁、加密异地备份、
-洁净主机恢复证据、定时对账，以及同 VPS 的隔离篡改演练现均已到位。优先级摘要见
+剩余工作属于生产级加固，而非基础演示尚未闭环：凭旧 passphrase 修改 passphrase 与后继密钥的界面（API 已有）、上传进度
+面板的明确关闭控件、三项未处理的 *建议* 级安全发现（F-02 至 F-04），以及独立安全评审。运行在自建 runner 上的强制 CI 与
+CI 门禁部署、MySQL 8.4 发布门禁、加密异地备份、洁净主机恢复证据、定时对账、每日完整性巡检、外部审计检查点、监控告警、
+安全 Agent，以及同 VPS 的隔离篡改演练现均已到位。优先级摘要见
 [TODO.zh-CN.md](TODO.zh-CN.md)，带验收标准的可执行工作统一放在
 [GitHub Issues](https://github.com/jsonrar/fyp-secure-file-platform/issues) 与团队共用的
 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)。
 
-文件管理页面还提供 **Download encrypted**：所有者和具有下载权限的接收者可在保险库锁定时，
-无需 passphrase 或私钥，将已校验的原始密文保存为 `<filename>.ciphertext`。每个文件下方的 **Encrypted preview**
-会显示服务器真正存储的内容：精确大小、已记录的 SHA-256，以及密文前 128 字节的十六进制转储，自己的文件和别人分享给你的文件都适用。
+文件管理页面还允许所有者和具有下载权限的接收者在保险库锁定时、无需 passphrase 或私钥，把已校验的原始密文保存为
+`<filename>.ciphertext`（密文预览里的 **Download encrypted file**）。**Encrypted preview** 会显示服务器真正存储的内容：精确大小、已记录的 SHA-256，以及密文前 128 字节的十六进制转储，自己的文件和别人分享给你的文件都适用。
 两个大小为什么一样、以及如何现场演示，见 [docs/ENCRYPTION_EVIDENCE.zh-CN.md](docs/ENCRYPTION_EVIDENCE.zh-CN.md)。
 
 上传文件时，上传页面会展示这个文件的真实步骤（在浏览器中读取、加密并自检、用 RSA-OAEP 包装文件密钥、上传密文并显示真实进度），
@@ -88,7 +94,9 @@ Core Features 使用双向 `FeatureLane`：自动滚动之外支持触屏滑动�
 
 **实测容量（staging，2026-10-03/04，#140）：** 共 22,264 次操作，5,094 次下载全部做了 SHA-256 校验，完整性失败 0 次；
 所有常见文件类型在 500 MiB 以内都能逐字节一致地往返；50 个并发用户以内服务器零错误；到 100 个用户时，第一个瓶颈是 API 的
-15 个数据库连接，而 CPU 平均只有 3%。引用数字前请先读测试条件：
+15 个数据库连接，而 CPU 平均只有 3%。这个瓶颈随后已修复（#163：上传期间不在事件循环上做数据库操作），并在 staging 上
+重跑了 100 用户阶段：102 次上传、102 次校验下载全部成功（[pool-fix-2026-10-04](docs/performance/pool-fix-2026-10-04/README.zh-CN.md)，#172）。
+引用数字前请先读测试条件：
 [docs/performance/REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) 和
 [docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md) 末尾的结论。
 
@@ -110,8 +118,8 @@ Final Presentation 要讲什么、每一点的证据在哪，见
 
 ### 普通用户流程
 
-1. **注册**：在 `/register` 填写用户名、邮箱、登录密码和独立的加密 passphrase，并通过邮箱
-   验证码。浏览器本地生成 RSA 密钥对、AMK 和加密私钥包；注册完成时应立即把一次性提供的
+1. **注册**：`/register` 分两步（#161）：先填账户信息（用户名、邮箱、邮件验证码和登录密码），再单独设置加密
+   passphrase，并说明它为什么存在。注册完成后直接登录。浏览器本地生成 RSA 密钥对、AMK 和加密私钥包；注册完成时应立即把一次性提供的
    `.pem` 私钥文件移出下载目录并安全保存。登录密码用于认证，加密 passphrase 用于解锁文件，
    两者不能互相替代。
 2. **登录与工作台**：在 `/login` 登录后进入 `/dashboard`。Access token 即将失效时，前端会
@@ -122,10 +130,11 @@ Final Presentation 要讲什么、每一点的证据在哪，见
 4. **文件管理**：在 `/files` 搜索或翻页查看“我的文件”和“分享给我的文件”。所有者可以创建、
    重命名和删除文件夹，把文件移入不同文件夹或移回“未分类”；删除文件夹不会删除其中的加密文件。点击某一行（或它的 Details 按钮）会在右侧打开详情栏，显示算法、精确大小、密文 SHA-256、谁能打开和全部操作；点另一行即切换。下载时先校验服务端
    密文 SHA-256，再由浏览器解包 DEK、验证 AEAD tag 并保存明文；认证失败时不会保存残缺文件。
-   **Download encrypted** 则无需解锁，直接保存密文，但仍须登录且具有下载权限。`.ciphertext`
+   密文预览中的 **Download encrypted file** 则无需解锁，直接保存密文，但仍须登录且具有下载权限。`.ciphertext`
    只包含存储的密文字节，不包含单独存储的 envelope、nonce、tag 或包装后的密钥，因此不是可独立
    离线解密的备份。删除自己的文件会先弹出确认，说明分享会被撤销且不可撤销。
-5. **分享与撤销**：所有者在需要时先解锁，再输入现有用户的准确用户名或邮箱地址。浏览器使用接收者公钥重新包装同一个 DEK，
+5. **分享与撤销**：所有者在需要时先解锁，再输入现有用户的准确用户名或邮箱地址。对话框随后写明接收者，并显示在浏览器中计算出的接收者公钥指纹，所有者确认
+   （**Confirm and share**）；接收者可在设置页看到同一指纹。浏览器使用确认过的公钥重新包装同一个 DEK，
    接收者随后用自己的 passphrase 解密；服务器始终看不到 DEK。撤销会先确认，再阻止今后的服务器介导访问，
    无法收回接收者已经下载并解密的副本。
 6. **审计与账户操作**：`/audit-logs` 展示登录、上传、下载、分享、撤销等记录。所有者可以查看
@@ -133,15 +142,19 @@ Final Presentation 要讲什么、每一点的证据在哪，见
    可通过邮箱验证码重置；忘记加密 passphrase 时只能使用注册时另存的 `.pem`：它可以解锁当前会话，也可以在 `/settings`
    中设置新的 passphrase，而不改变账户密钥或任何文件。
    账户身份与偏好在页头头像菜单中：`/profile` 显示当前账户、可上传或移除头像，并可进入注销确认；
-   `/settings` 提供主题与同一套注销流程（登录密码 + 输入 `DELETE`）。
+   `/settings` 提供主题、语言、账户密钥指纹、修改登录密码、用私钥文件重设 passphrase，以及同一套注销流程（登录密码 +
+   输入 `DELETE`）。
 7. **未登录也可学习与求助**：`/education` 包含 Algorithm Explorer、Playground 与 Knowledge
-   Base；首页 `#how-it-works` 图文幻灯是最快上手路径，`/help` 会链过去并保留视频占位；`/team`
-   导航标签为 **Contact us**，上方为演示用反馈表单，下方为团队名单。页头以主题色高亮当前标签。
+   Base；首页图文指南是最快上手路径，`/how-it-works` 是动画讲解，`/help` 另有三段从真实产品录制的演示视频；每个页面右下角
+   的圆形按钮会打开问答助手。`/team` 导航标签为 **Contact us**，上方为反馈表单（会打开访客的邮件客户端），下方为导师和
+   团队介绍。页头以主题色高亮当前标签。
 
 ### 角色与管理流程
 
 - `USER` 使用上传、下载、分享、撤销和个人审计功能。
-- `ADMIN` 可在 `/admin` 管理用户/文件、验证审计链、登记恢复公钥并复核恢复请求。
+- `ADMIN` 可在 `/admin` 管理用户/文件、验证审计链、登记恢复公钥并复核恢复请求。标签页还包括仅计数的概览、
+  Integrity（每日巡检结果、损坏文件、立即扫描）、安全 Agent 的排序结果，以及单个账户详情（启用/禁用、签发临时登录密码，#197；
+  不能作用于自己或其他管理员）。
 - `RECOVERY_OFFICER` 可在 `/admin` 参与恢复复核，但不能批准自己创建的请求。
 - 任意已登录用户可在 My Files 发起恢复请求，并在 `/admin` 跟踪或取消；执行已批准请求仍需
   离线用恢复私钥重新封装，浏览器 UI 从不接受该私钥。
@@ -202,7 +215,7 @@ FastAPI 是本项目的 HTTP/API 框架，不负责浏览器端文件解密。�
 端点通过 `Depends` 要求有效 Bearer token，敏感操作再执行角色或资源级授权。成功响应使用
 `success/status/message/data/code` 信封；领域异常由统一处理器映射为稳定 HTTP 响应。
 `/health/live` 只检查进程是否存活，`/health/ready` 还会执行数据库查询并要求数据库保存的
-Schema revision 精确等于 `0007_file_folders`。本地默认提供 `/docs`、`/redoc` 和
+Schema revision 精确等于 `0010_shared_file_folders`。本地默认提供 `/docs`、`/redoc` 和
 `/openapi.json`，部署环境可通过 `APP_DOCS_ENABLED` 整体卸载这些路由。
 
 ## 仓库结构
@@ -210,51 +223,43 @@ Schema revision 精确等于 `0007_file_folders`。本地默认提供 `/docs`、
 ```text
 fyp-secure-file-platform/
 |-- backend/
-|   |-- app/
-|   |   |-- api/v1/routers/
-|   |   |-- core/
-|   |   |-- domain/
-|   |   |-- models/
-|   |   |-- repositories/
-|   |   |-- schemas/
-|   |   `-- services/
-|   |-- migrations/
-|   |-- tests/
+|   |-- app/                 api/v1/routers, core, domain, models, repositories, schemas, services
+|   |-- migrations/          Alembic revisions 0001-0010
+|   |-- scripts/             ops and drills: reconcile, integrity sweep, restore_file, audit
+|   |                        checkpoint, observe, security agent, backups, tamper demo, seeding
+|   |-- tests/               unit, api, integration (MySQL 8.4), e2e (live stack)
 |   `-- requirements.txt
-|-- database/
-|   `-- mysql/
-|       |-- 01-provision.sql
-|       |-- 02-schema.sql
-|       `-- 03-verify.sql
+|-- database/mysql/          01-provision, 02-schema, 03-verify, 04-backup-account (.sql)
 |-- deployment/
-|   `-- server/
-|       |-- mcs21-deploy
-|       |-- mcs21-auto-deploy
-|       |-- mcs21-auto-deploy.service
-|       `-- mcs21-auto-deploy.timer
+|   |-- server/              mcs21-deploy, mcs21-auto-deploy, alert/backup scripts, systemd
+|   |                        units and timers, nginx and fail2ban config
+|   `-- ci-runner/           the self-hosted GitHub Actions runners on the VPS
 |-- frontend/
-|   |-- src/
-|   `-- package.json
+|   |-- src/                 pages, components, api, crypto, stores, i18n, locales
+|   |-- browser-tests/       Playwright specs (golden path, tamper view, phone widths, ...)
+|   |-- scripts/             layout/text audits, walkthrough and video recording, i18n tools
+|   `-- public/              walkthrough screenshots and Help videos
+|-- loadtest/                browser-equivalent load-test client and server sampler
+|-- security-lab/            isolated tamper-drill attacker lab (CI job `tamper-drill`)
 |-- changelog/
 |   |-- CHANGELOG.md
 |   |-- README.md
-|   `-- work-packages/
+|   `-- work-packages/       read-only historical archives
 |-- docs/
-|   |-- ARCHITECTURE.md
-|   |-- API_DESIGN.md
-|   |-- DATABASE_SCHEMA.md
-|   |-- DEPLOYMENT.md
-|   |-- AUTOMATIC_DEPLOYMENT.md
-|   |-- E2E_TESTING.md
-|   |-- SECURITY_FLOWS.md
-|   |-- THREAT_MODEL.md
-|   |-- PROJECT_SCOPE.md
-|   `-- crypto/
-|       |-- FILE_ENVELOPE.md
-|       `-- test_vectors.json
+|   |-- PROJECT_SCOPE, PROPOSAL_TRACEABILITY, ARCHITECTURE, API_DESIGN, DATABASE_SCHEMA
+|   |-- SECURITY_FLOWS, THREAT_MODEL, ENCRYPTION_EVIDENCE, SECURITY_AGENT, HELP_ASSISTANT, I18N
+|   |-- DEPLOYMENT, AUTOMATIC_DEPLOYMENT, BACKUP_AND_RECOVERY, RECONCILIATION_RUNBOOK,
+|   |   OBSERVABILITY_AND_INCIDENT_RESPONSE, E2E_TESTING, PERFORMANCE_TESTING, TEST_ACCOUNTS
+|   |                        (each as X.md and X.zh-CN.md)
+|   |-- crypto/              FILE_ENVELOPE and test_vectors.json
+|   |-- performance/         load-test reports, charts and raw data
+|   |-- security/            third-party scan reports
+|   |-- benchmarks/          Argon2id measurements
+|   `-- presentation/        TALKING_POINTS, REFLECTION, DEMO_SCRIPT, TAMPER_DEMO, media/
 |-- recovery_keys/
-|-- TODO.md
-|-- TODO.zh-CN.md
+|-- AGENTS.md, AGENTS.zh-CN.md
+|-- README.md, README.zh-CN.md
+|-- TODO.md, TODO.zh-CN.md
 |-- .env.example
 |-- .gitignore
 `-- docker-compose.yml
@@ -295,12 +300,14 @@ fyp-secure-file-platform/
   视图分别展示当前 backlog、提案 WBS、里程碑、验收标准与 PR 证据，并按 Backlog、Ready、
   In progress、In review 与 Done 管理。历史上直接进入 `main` 的 CT 工作保留在追踪文档和
   历史档案中，不再设个人看板视图，也不会虚构追溯 PR。
-- [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：从提案承诺到仓库及部署
+- [`docs/PROPOSAL_TRACEABILITY.zh-CN.md`](docs/PROPOSAL_TRACEABILITY.zh-CN.md)：从提案承诺到仓库及部署
   证据的带日期追踪表。
 - `TODO.zh-CN.md`：链接到 Issues 的优先级摘要，不再维护第二套独立 backlog。
 - `README.zh-CN.md`：面向用户的当前能力、设置步骤与部署入口。
+- [`docs/presentation/TALKING_POINTS.zh-CN.md`](docs/presentation/TALKING_POINTS.zh-CN.md) 与
+  [`REFLECTION.zh-CN.md`](docs/presentation/REFLECTION.zh-CN.md)：值得展示的内容及其证据，以及按优先级排列的不足。
 
-每个 Pull Request 都必须检查以上四处，更新受影响的记录；若不适用则说明 `N/A`。运行时改动不能
+每份 Markdown 文档都有英文和简体中文两个版本（`X.md`、`X.zh-CN.md`），一起修改。每个 Pull Request 都必须检查以上各处，更新受影响的记录；若不适用则说明 `N/A`。运行时改动不能
 在 merge 时就算完成：`main` 部署后还必须记录线上 SHA，并验证健康检查和实际受影响页面。仓库的
 Pull Request 模板已包含该清单。
 
@@ -308,7 +315,7 @@ Pull Request 模板已包含该清单。
 
 所有后端业务路由均已可用。存活检查、readiness 和 OpenAPI 也已启用；受保护路由要求
 Bearer 身份认证，管理及恢复路由执行 RBAC。Readiness 会检查数据库连接及精确的
-`0007_file_folders` Schema revision。
+`0010_shared_file_folders` Schema revision。
 
 `MAX_REQUEST_BODY_BYTES` 限制普通 JSON／form 请求体（默认 1 MiB，配置上限 8 MiB）。加密
 multipart 上传另受 `MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` 独立上限
@@ -402,7 +409,8 @@ npm run dev
 自 2026-10-04 起，所有 Job 都在 VPS 上项目自建、并与线上环境隔离的 runner 上运行
 （[deployment/ci-runner/](deployment/ci-runner/README.zh-CN.md)）；三台 runner 并行接任务，一次完整 CI 仍约 5 分钟。`backend` 与
 `frontend` 按约定是必需检查：仓库为免费套餐下的私有仓库，无法使用 GitHub 分支保护，所以 CI 变红时除了评审人
-之外没有任何机制阻止合并。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
+之外没有任何机制阻止合并。但部署是有门禁的：staging 只部署 `deploy` 分支，而只有 `main` 上五个 Job 全部通过，
+`promote` 才会移动它。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
 
 ```bash
 # 后端（在 backend/ 下执行，对应 "backend" Job；分支覆盖率低于 78% 即失败）
@@ -422,14 +430,14 @@ npm run build
 ```
 
 第三个 Job `mysql-gate` 会拉起一个经过 TLS 校验的一次性 MySQL 8.4 服务，从空数据库依次迁移到
-`0007_file_folders`，再执行 `alembic current` 与 `alembic check`，随后对其运行完整的后端测试
+`0010_shared_file_folders`，再执行 `alembic current` 与 `alembic check`，随后对其运行完整的后端测试
 ——单元测试加上全部 MySQL 集成测试，包括多连接并发与故障注入测试——只要有任何测试被跳过，或
 分支覆盖率低于 82%，该 Job 就直接失败；接着运行授权边界、Schema 一致性、非空数据库拒绝安装、
 中断后幂等恢复、并发迁移加锁与备份恢复等检查。开发此门禁本身时，可用
 `backend/scripts/mysql_release_gate.sh` 在本地验证较复杂的场景。
 
 第四个 Job `e2e-live` 会针对另一个一次性 MySQL 启动真实 API，并在不跳过任何测试的前提下运行
-前端所有依赖真实后端的测试套件：邮箱验证码注册、登录/refresh/重放/登出、解锁、全部四种文件
+前端所有依赖真实后端的测试套件：邮箱验证码注册、登录/refresh/重放/登出、解锁、全部六种文件
 算法、分享与撤销、审计可见性、角色拒绝以及注销账户；随后运行 Chromium 冒烟测试（Playwright），
 在构建后的页面上点击走完同一条黄金路径，因此按钮接错处理函数也会让 CI 失败。每个 Job 都会把 JUnit 与覆盖率报告作为
 构建产物上传，但前提是 `backend/scripts/check_report_hygiene.py` 确认其中不含密钥、令牌、非示例
@@ -437,9 +445,9 @@ npm run build
 
 第五个 Job `tamper-drill` 会在仅内部可达的 Docker 网络中构建默认停止的攻击容器。它只针对自己
 的 MySQL 8.4 `_test` 数据库与密文卷，证明：修改字节后界面语义为 `MODIFIED`/`CORRUPTED` 且下载
-被拒；对象缺失会被报告但不会永久污染状态；恢复对象后回到 `VALID`/`ACTIVE`。它也明确记录信任
-边界：若攻击者同时控制对象存储与数据库，就能替换数据库中的 SHA-256，但浏览器的 AEAD 认证标签
-仍会拒绝伪造密文。详见 [`security-lab/README.md`](security-lab/README.md)。
+被拒；对象缺失会被报告但不会永久污染状态；恢复对象后回到 `VALID`/`ACTIVE`。它也覆盖更强的攻击者：
+若攻击者同时控制对象存储与数据库，就能替换数据库中的 SHA-256，但完整性检查还会与上传审计事件中锚定的摘要
+比对，所以文件仍被判为 `MODIFIED`；浏览器的 AEAD 认证标签作为最后一道防线也会拒绝伪造密文。详见 [`security-lab/README.md`](security-lab/README.md)。
 
 两套数据库测试都可以在笔记本上针对任意一次性 MySQL 8.4 运行，数据库名须带 `_test` 段（切勿
 使用共享的 `docker compose` 数据库）：
@@ -459,7 +467,7 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_t
 # 加上 E2E_BROWSER=1 同时运行 Chromium 冒烟测试（首次需：cd frontend && npx playwright install chromium）
 ```
 
-各测试套件证明了什么，参见 [`docs/E2E_TESTING.md`](docs/E2E_TESTING.md)；各检查脚本参见
+各测试套件证明了什么，参见 [`docs/E2E_TESTING.zh-CN.md`](docs/E2E_TESTING.zh-CN.md)；各检查脚本参见
 `backend/scripts/`；尚未完成的部分记录在 `TODO.md`。
 
 ### 管理后台里的账户

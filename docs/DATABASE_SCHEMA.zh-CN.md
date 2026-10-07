@@ -22,6 +22,20 @@ Alembic；`database/mysql/02-schema.sql` 是由当前 head 派生并经过评审
 4. `0004_email_verification_codes`：用于注册与重置密码的 `email_verification_codes`
    挑战表，以及新增的四个 `auth_login_throttles` scope——按邮箱与 IP 分别限制验证码的
    发送与校验。
+5. `0005_selectable_aes_key_length`：文件内容也可使用 AES-128-GCM 或 AES-192-GCM。
+6. `0006_chacha20_poly1305`：新增 ChaCha20-Poly1305，并使套件名检查区分大小写
+   （`utf8mb4_bin`）。
+7. `0007_file_folders`：新增 `file_folders` 表及 `files.folder_id`，供所有者整理文件。
+8. `0008_avatars`：在 `users` 上保存经校验的可选头像元数据（图片字节存在磁盘上，位于加密对象
+   目录之外）。
+9. `0009_more_aead_suites`：新增 AES-256-GCM-SIV 与 XChaCha20-Poly1305；nonce 长度检查改为按
+   套件区分（XChaCha20-Poly1305 为 24 字节，其他均为 12 字节）。
+10. `0010_shared_file_folders`：新增 `file_access_grants.folder_id`，接收者可把共享文件放进自己的
+    文件夹，而不改变所有者的归类。
+
+0005、0006 和 0009 在仍有文件使用其新增套件时拒绝降级，而不是删除完好的文件。
+`database/mysql/04-backup-account.sql` 是独立、可重复执行的脚本，用于创建最小权限备份账户（见
+[BACKUP_AND_RECOVERY.zh-CN.md](BACKUP_AND_RECOVERY.zh-CN.md)）。
 
 当前仓库不再保留 `docs/init.sql`。历史版本中的该文件不是当前应用 Schema 的权威来源，
 Compose 也不会挂载任何生产表初始化脚本。后端启动时同样不得调用
@@ -88,7 +102,9 @@ Revision `0004_email_verification_codes` 可逆，因为它只新增了一张存
 
 未来对非空生产数据库的变更必须使用独立、按版本命名、经 DBA 评审且只允许预期前置版本的
 前向 SQL。每份升级 SQL 都需要配套备份/恢复、数据回填和发布后核验；不得以 Alembic 或
-重跑完整 `02-schema.sql` 代替。
+重跑完整 `02-schema.sql` 代替。0005–0010 就是这样上到 staging 的：用
+`alembic upgrade <上一版>:<新版> --sql` 从 revision 渲染出 SQL，在依赖它的代码发布前手动执行（见
+[DEPLOYMENT.zh-CN.md](DEPLOYMENT.zh-CN.md) 中“对运行中的部署应用 Schema revision”一节）。
 
 ### 接管旧版或未受管理数据库
 
@@ -120,7 +136,7 @@ Alembic 都不会自动安全接管它。
 | 身份 | `users`, `user_sessions`, `session_refresh_tokens`, `user_keys`, `user_key_protection_profiles`, `encrypted_private_key_bundles` | 账户、不透明 Session、公钥历史、KEK 包装 AMK 配置及客户端加密私钥包 |
 | 身份证明 | `email_verification_codes` | 注册/重置密码的一次性挑战，仅以带密钥摘要形式存储 |
 | 滥用控制 | `auth_login_throttles` | 在各 worker 间共享、以 HMAC 为 key 的登录、重新认证、注册及验证码发送/校验 bucket |
-| 文件 | `files`, `file_access_grants`, `file_key_wrappings` | 加密对象 metadata，以及逻辑和密码学访问控制 |
+| 文件 | `files`, `file_access_grants`, `file_key_wrappings`, `file_folders` | 加密对象 metadata、逻辑和密码学访问控制，以及按用户的文件夹 |
 | 保障 | `integrity_checks`, `audit_logs`, `audit_chain_heads` | 验证历史、安全事件及串行化审计链追加状态 |
 | 恢复 | `recovery_keys`, `recovery_requests` | 恢复公钥及经办-复核工作流 |
 
@@ -172,6 +188,14 @@ Alembic 都不会自动安全接管它。
     客户端私钥对行为者/当前密钥/profile/revision 与完整拟议保护信封的
     RSA-PSS-SHA256 签名；更新与审计追加必须原子完成。
 17. 普通查询排除已软删除文件，且不能再向这些文件授予新权限。
+18. passphrase 重设（`POST /keys/me/reset-protection`）同时替换保护配置和加密私钥包，并保留其
+    公开 ID；需要两个预期 revision，以及账户私钥在独立 domain 标签下的 RSA-PSS-SHA256 签名。
+    用户密钥对和所有文件包装保持不变。拥有多把当前密钥的账户会被拒绝。
+19. 管理员重置登录密码时只保存随机临时密码的哈希，撤销该账户全部会话，并在不记录密码的前提下
+    审计 `ADMIN_PASSWORD_RESET`。它拒绝作用于调用者自己和其他管理员，且从不改动文件、密钥或
+    加密 passphrase。
+20. 文件夹只属于一个用户。所有者的归类在 `files.folder_id`，接收者的归类在
+    `file_access_grants.folder_id`。删除文件夹会把两者置为 `NULL`，不会删除任何文件。
 
 服务层拥有这些事务。Repository 可以查询、添加及执行 `flush`，但不得自行提交。
 

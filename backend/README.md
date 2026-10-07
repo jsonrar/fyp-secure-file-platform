@@ -25,10 +25,16 @@ The core Auth endpoints under `/api/v1` are:
 | POST | `/auth/change-password` | Bearer access token |
 | GET | `/auth/sessions` | Bearer access token |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer access token |
+| POST | `/auth/avatar/upload` | Bearer access token |
+| GET | `/auth/avatar` | Bearer access token |
+| POST | `/auth/avatar/delete` | Bearer access token |
 
 The `/keys`, `/files`, `/audit-logs`, `/recovery`, and `/admin` routers are also active and
 fully described by OpenAPI. `/health/live` checks the process; `/health/ready` additionally
-checks database access and schema revision `0007_file_folders`.
+checks database access and schema revision `0010_shared_file_folders`. Administrators can also
+view one account's details and issue a temporary login password
+(`GET /admin/users/{user_id}`, `POST /admin/users/{user_id}/reset-password`, #197); that never
+touches files, keys or the encryption passphrase.
 
 Registration requires `username`, `email`, `password`, `verification_code`, and
 `key_material`. The client generates the account RSA key pair and both envelopes locally and
@@ -85,7 +91,7 @@ passphrase. MFA and external identity login are not implemented.
 
 ## Prerequisites
 
-- Python 3.11 or newer
+- Python 3.11 or newer (CI and staging use 3.12)
 - Docker with Compose (recommended for MySQL 8.4)
 
 The canonical command directory for backend commands is `backend/`. Configuration always
