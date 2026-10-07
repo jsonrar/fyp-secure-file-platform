@@ -34,6 +34,21 @@ The current ordered history is:
 4. `0004_email_verification_codes`: the `email_verification_codes` challenge table for
    registration and password reset, and four additional `auth_login_throttles` scopes that
    rate limit code sending and code checking per address and per IP.
+5. `0005_selectable_aes_key_length`: file content may also use AES-128-GCM or AES-192-GCM.
+6. `0006_chacha20_poly1305`: adds ChaCha20-Poly1305 and makes the suite-name check
+   case-sensitive (`utf8mb4_bin`).
+7. `0007_file_folders`: the `file_folders` table and `files.folder_id` for an owner's folders.
+8. `0008_avatars`: optional validated avatar metadata on `users` (the image bytes stay on disk,
+   outside the encrypted-object root).
+9. `0009_more_aead_suites`: adds AES-256-GCM-SIV and XChaCha20-Poly1305; the nonce-length check
+   becomes per-suite (24 bytes for XChaCha20-Poly1305, 12 for every other suite).
+10. `0010_shared_file_folders`: `file_access_grants.folder_id`, so a recipient can file a shared
+    file into one of their own folders without moving the owner's placement.
+
+Revisions 0005, 0006 and 0009 refuse to downgrade while any file uses a suite they added,
+rather than delete intact files. `database/mysql/04-backup-account.sql` is a separate,
+re-runnable script that creates the least-privilege backup account (see
+[BACKUP_AND_RECOVERY.md](BACKUP_AND_RECOVERY.md)).
 
 The historical `docs/init.sql` development bootstrap has been deleted. A database previously
 created from it is not automatically managed. The backend must not call
@@ -88,7 +103,10 @@ and no Python/Alembic command on the database server.
 transactional. It must never be used as an upgrade mechanism. Future changes to a non-empty
 production database require an immutable, versioned, reviewed DBA SQL upgrade with writer
 drain, serialization, bounded waits, a verified restorable backup, explicit preconditions,
-and release-specific post-verification.
+and release-specific post-verification. Revisions 0005–0010 reached staging that way: the SQL
+is rendered from the revision with `alembic upgrade <previous>:<new> --sql` and applied by hand
+before the code that expects it (see
+[DEPLOYMENT.md](DEPLOYMENT.md#applying-a-schema-revision-to-a-running-deployment)).
 
 The deleted Python runner previously supplied advisory locking, connectivity retries,
 preflight/refusal checks, exact table validation, and backup confirmation. Release
@@ -126,7 +144,7 @@ this repository silently deletes, stamps, or adopts it.
 | Identity | `users`, `user_sessions`, `session_refresh_tokens`, `user_keys`, `user_key_protection_profiles`, `encrypted_private_key_bundles` | Accounts, opaque sessions, public-key history, KEK-wrapped AMK profiles, and client-encrypted private-key bundles |
 | Identity proof | `email_verification_codes` | One-time registration/password-reset challenges stored only as keyed digests |
 | Abuse control | `auth_login_throttles` | HMAC-keyed login, reauthentication, registration, and verification send/check buckets shared across workers |
-| Files | `files`, `file_access_grants`, `file_key_wrappings` | Encrypted-object metadata plus logical and cryptographic access |
+| Files | `files`, `file_access_grants`, `file_key_wrappings`, `file_folders` | Encrypted-object metadata, logical and cryptographic access, and per-user folders |
 | Assurance | `integrity_checks`, `audit_logs`, `audit_chain_heads` | Verification history, security events, and serialized audit-chain append state |
 | Recovery | `recovery_keys`, `recovery_requests` | Recovery public keys and maker-checker workflow |
 
@@ -188,6 +206,17 @@ cannot express them cleanly:
     the newest current client private key over the actor/current-key/profile/revision and
     complete proposed protection envelope; update and audit append are atomic.
 17. Soft-deleted files are excluded from normal queries and cannot receive new grants.
+18. A passphrase reset (`POST /keys/me/reset-protection`) replaces the protection profile and the
+    encrypted private-key bundle together, keeping their public ids, under both expected
+    revisions and an RSA-PSS-SHA256 signature by the account private key with its own domain
+    label. The user key pair and every file wrapping are unchanged. It is refused for accounts
+    with more than one current key.
+19. An administrator login-password reset stores only the hash of a random temporary password,
+    revokes every session of that account, and audits `ADMIN_PASSWORD_RESET` without the
+    password. It refuses the caller's own account and other administrators, and never touches
+    files, keys or the encryption passphrase.
+20. A folder belongs to one user. An owner's placement is `files.folder_id`; a recipient's is
+    `file_access_grants.folder_id`. Deleting a folder sets both to `NULL`; no file is deleted.
 
 The service layer owns these transactions. Repositories may query, add, and `flush`; they
 must not independently commit.

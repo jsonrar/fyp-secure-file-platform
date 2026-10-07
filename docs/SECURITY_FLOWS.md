@@ -158,9 +158,12 @@ call receives a passphrase, AMK, KEK, or plaintext private key.
 ### Passphrase-loss semantics
 
 The user normally needs to remember only the encryption passphrase; the encrypted bundle
-can be fetched again after login. If that passphrase is forgotten and no separately secured
-backup/recovery factor exists, the AMK and existing private key are cryptographically
-unrecoverable. The server cannot reset or reveal them. The implemented file-recovery
+can be fetched again after login. A forgotten passphrase loses the AMK, which the server cannot
+reset or reveal. The separately held factor is the private key file shown once at registration:
+with it the user sets a new passphrase (see
+[Passphrase reset with the private key file](#passphrase-reset-with-the-private-key-file)) and
+keeps every file. Without it as well, the existing private key is cryptographically
+unrecoverable. The implemented file-recovery
 workflow does **not** recover a passphrase or decrypt a private-key bundle; it only rewraps a
 file DEK to an already registered active user public key. Consequently, recovery is useful
 only when the requester can use the target key's private half.
@@ -231,8 +234,10 @@ file-key recovery.
 
 ## Encrypted Upload
 
-The client obtains the active recovery public key, generates a random 256-bit DEK and
-96-bit AES-GCM nonce, encrypts the file locally, and wraps the DEK twice with
+The client obtains the active recovery public key, generates a random DEK and nonce for the
+suite the user chose (AES-128/192/256-GCM, AES-256-GCM-SIV or ChaCha20-Poly1305 with a 96-bit
+nonce; XChaCha20-Poly1305 with a 192-bit nonce; AES-256-GCM by default), encrypts the file
+locally, and wraps the DEK twice with
 RSA-OAEP-SHA256: once to its own active public key and once to the recovery public key.
 It then sends a multipart request containing the ciphertext and a JSON metadata envelope.
 
@@ -254,7 +259,9 @@ successfully committed file record.
 An active recovery key and matching recovery wrapping are currently mandatory for upload.
 The backend never encrypts plaintext and cannot authenticate the supplied GCM tag because it
 does not have the DEK. It validates structure and storage integrity; the client detects a
-wrong DEK, nonce, tag, AAD, or ciphertext when local AES-GCM decryption fails.
+wrong DEK, nonce, tag, AAD, or ciphertext when local AEAD decryption fails. The server also
+enforces the per-account limits (2 GiB stored, 5 GiB per 24 hours) and the
+free-disk floor.
 
 ## Metadata and Encrypted Download
 
@@ -263,12 +270,15 @@ capability and a matching ACTIVE user-key wrapping. `GET /files/{file_id}` retur
 authorized user's envelope, including the nonce, tag, their wrapped DEK, and optional
 encrypted manifest. `POST /files/{file_id}/download` verifies the stored ciphertext SHA-256
 and streams **ciphertext only**. The client combines both responses, unlocks its private key
-locally, unwraps the DEK, and performs AES-GCM decryption and authentication locally.
+locally, unwraps the DEK, and performs AEAD decryption and authentication locally. The stored
+ciphertext alone can also be saved as `<name>.ciphertext` without unlocking any key.
 
-An explicit integrity check recomputes the stored-object hash and records the result. This
-detects accidental storage modification relative to the database value; because an
-administrator able to rewrite both data and database state can replace both hashes, it is
-not an external authenticity proof.
+Every download and the daily integrity sweep recompute the stored-object hash and record the
+result. The sweep compares against the digest anchored in the upload's audit event as well as
+the `files` row, so rewriting only the database digest does not hide a changed object. An
+administrator able to rewrite the object, the row and the whole audit chain could still
+replace all three; the external audit checkpoints (see Audit Chain) are what make that
+detectable.
 
 Owner deletion is a durable soft delete that revokes grants and wrappings in the same
 transaction, then idempotently removes the storage object. A crash between commit and
@@ -280,6 +290,9 @@ Sharing is a client-side rewrap operation:
 
 ```text
 sender fetches recipient's active public key
+  -> browser computes the key's fingerprint from the key itself, shows the recipient and the
+     fingerprint, and warns if it differs from the one remembered for that recipient
+  -> sender confirms; the confirmed key is exactly the key used
   -> sender locally unlocks its private key and unwraps the file DEK
   -> sender wraps the same DEK to the recipient with RSA-OAEP-SHA256
   -> POST wrapped_file_key, target_user_id, target_key_id, and capabilities
@@ -296,6 +309,12 @@ cannot receive `can_download` or `can_share` when the sender lacks the correspon
 so delegated sharing cannot use another account to regain a denied capability. The canonical
 owner grant is immutable, and an unrelated delegated sharer cannot overwrite or revive an
 existing non-owner grant.
+
+The fingerprint check addresses T-S5 (a server substituting a recipient's public key). It is
+trust-on-first-use per device, and it helps only when people compare the value with the
+fingerprint the recipient sees in Settings. Before a recipient saves a shared program or
+macro-capable file (`.exe`, `.bat`, `.js`, `.docm`, …) the browser warns them, because the server
+cannot scan ciphertext.
 
 Revocation requires REVOKE permission, cannot target the canonical owner, and atomically
 revokes the target grant and its active user wrappings. It prevents future server-mediated
@@ -350,7 +369,9 @@ The stored Argon2id envelope supports offline passphrase guessing after database
 Ciphertext length leaks approximate content length. Traffic analysis and access timing remain
 visible. A malicious server can serve rolled-back or substituted ciphertext, key bundles, or
 public keys unless clients pin fingerprints/revisions or authenticate a manifest through a
-separate trust anchor. This design therefore provides zero-knowledge **key custody at the API
+separate trust anchor. The browser now remembers each recipient's fingerprint and warns on a
+change, which covers recipient-key substitution after first use, but not rollback of the
+user's own bundle or ciphertext. This design therefore provides zero-knowledge **key custody at the API
 boundary**, not full anonymity or protection from an actively malicious service.
 
 ## Audit Chain
@@ -367,5 +388,8 @@ insert audit row and update chain head
 ADMIN chain verification recomputes the complete chain and checks the head. User audit
 queries are scoped and metadata is allowlisted before return. The database-resident hash
 chain detects accidental or partial modification, but an administrator who can rewrite the
-entire database can recompute it; stronger deployments need signed or HMAC checkpoints
-published outside that database.
+entire database can recompute it. Staging therefore publishes an HMAC-authenticated
+checkpoint of the chain head to external S3-compatible storage on a timer
+(`backend/scripts/audit_checkpoint.py`); the HMAC key is root-only and never reaches the
+application process, so a later rewrite of the chain no longer matches a published
+checkpoint.

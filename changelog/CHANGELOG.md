@@ -18,6 +18,13 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Documentation brought in line with the code and the live system / 文档与代码和线上系统对齐
+
+- Every living document was checked against the code, the CI run on `e4b3f13` and the staging host on 2026-10-07. The worst gap was the claim, in `PROJECT_SCOPE`, that a forgotten passphrase cannot be reset: since #110 the private key file resets it, and only losing both is unrecoverable. Also corrected: the login-password rule (8–128 characters and two character classes, not 15–128), one cipher instead of six, schema revision `0004`/`0007` instead of `0010`, the 13- instead of 15-table runtime grant, missing folder/avatar/integrity/agent endpoints, an integrity check described without the audit-anchored digest and external checkpoints, sharing without the fingerprint confirmation, and pages described as they were before the "Sealed" redesign.
+- 对照代码、`e4b3f13` 上的 CI 运行和 2026-10-07 的 staging 主机，逐份核对了所有描述现状的文档。最严重的问题是 `PROJECT_SCOPE` 声称忘记 passphrase 无法重设：自 #110 起私钥文件就能重设，只有两者都丢失才无法恢复。同时更正：登录密码规则（8–128 位且至少两类字符，而不是 15–128 位）、只写了一种加密算法而实际有六种、Schema revision 写成 `0004`/`0007` 而实际为 `0010`、运行时授权写成 13 张表而实际 15 张、缺少文件夹/头像/完整性/安全 Agent 接口、完整性检查没写审计锚定摘要和外部检查点、分享流程缺少指纹确认，以及若干页面仍按“Sealed”改版前描述。
+- Added the missing Chinese versions (`AGENTS`, `E2E_TESTING`, `I18N`, `PROPOSAL_TRACEABILITY`, `loadtest/README`, the walkthrough and video READMEs), a 2026-10-07 verification table in TODO with the real test counts, a CI-gate section in `E2E_TESTING`, and the bilingual and presentation-records rules in `AGENTS.md` and the PR template, so the next change keeps them current. Dated records (load-test and scan reports, past changelog entries) were left as they were.
+- 补齐缺失的中文版（`AGENTS`、`E2E_TESTING`、`I18N`、`PROPOSAL_TRACEABILITY`、`loadtest/README`、截图与视频说明），在 TODO 中加入带真实测试数字的 2026-10-07 核验表，在 `E2E_TESTING` 中加入 CI 门禁一节，并把中英双版和答辩材料同步的规矩写进 `AGENTS.md` 和 PR 模板，让以后的改动保持同步。带日期的记录（压测和扫描报告、过去的 changelog 条目）保持原样。
+
 ### Admin: account details and login-password reset; change your login password in Settings / 管理员：查看账户信息、重置登录密码；设置页可修改登录密码 ([PR #197](https://github.com/jsonrar/fyp-secure-file-platform/pull/197))
 
 - The admin console's user list now shows email, and a Details dialog shows one account: email and whether it is verified, role, status, created, last sign-in, when the password last changed, and counts only (files, stored bytes, shares sent and received, sessions open) from `GET /admin/users/{id}`. No password is ever shown: the login password is stored only as a one-way hash, and the encryption passphrase never reaches the server, so there is nothing to show.
@@ -1069,10 +1076,10 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - Header and footer now show the SecureView wordmark SVG (inlined for `currentColor` theme
   tracking). The tab favicon is a permanent brand-blue shield (`#006DC7`) rather than a
   theme-tinted mark, because favicons cannot inherit page colour and a fixed blue stays
-  recognisable in every theme. Detail: [`JY-changelog.md`](JY-changelog.md).
+  recognisable in every theme. Detail: [`JY-changelog.md`](https://github.com/jsonrar/fyp-secure-file-platform/blob/50e15cf4a37544f0897c25c7091c3333cd26a528/changelog/JY-changelog.md).
 - 页头与页脚改为展示 SecureView 字标 SVG（内联以跟随 `currentColor` 主题色）。标签页图标为固定
   品牌蓝盾牌（`#006DC7`），不再随主题着色——favicon 无法继承页面颜色，固定蓝色在任何主题下都更
-  可辨认。明细见 [`JY-changelog.md`](JY-changelog.md)。
+  可辨认。明细见 [`JY-changelog.md`](https://github.com/jsonrar/fyp-secure-file-platform/blob/50e15cf4a37544f0897c25c7091c3333cd26a528/changelog/JY-changelog.md)。
 
 ### Totals that are actually totals / 让统计数字真的是总数
 

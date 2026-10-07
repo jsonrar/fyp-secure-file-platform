@@ -198,13 +198,14 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 Never use the mysql client's `--force` option or an interactive `SOURCE` command. The file
 checks MySQL 8.4, strict SQL mode, exact database encoding, and an empty persistent schema
 before permanent DDL. It is deliberately non-idempotent and must run exactly once on a clean
-database. It creates all 15 application tables, the `alembic_version` compatibility marker,
+database. It creates all 17 application tables, the `alembic_version` compatibility marker,
 the audit-chain singleton, indexes, constraints, and these exact runtime grants:
 
-- `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the thirteen ordinary state tables:
-  `auth_login_throttles`, `recovery_keys`, `users`, `files`, `user_keys`, `user_sessions`,
-  `user_key_protection_profiles`, `encrypted_private_key_bundles`, `file_access_grants`,
-  `file_key_wrappings`, `integrity_checks`, `recovery_requests`, and `session_refresh_tokens`;
+- `SELECT`, `INSERT`, `UPDATE`, and `DELETE` on the fifteen ordinary state tables:
+  `auth_login_throttles`, `recovery_keys`, `users`, `file_folders`, `files`, `user_keys`,
+  `user_sessions`, `user_key_protection_profiles`, `encrypted_private_key_bundles`,
+  `file_access_grants`, `file_key_wrappings`, `integrity_checks`, `recovery_requests`,
+  `session_refresh_tokens`, and `email_verification_codes`;
 - `SELECT` and `INSERT` only on `audit_logs`;
 - table-level `SELECT` on `audit_chain_heads`, plus column-level `UPDATE` only on
   `last_log_id`, `current_hash`, and `updated_at`; and
@@ -212,10 +213,10 @@ the audit-chain singleton, indexes, constraints, and these exact runtime grants:
   and no other table/column privilege, role, proxy, or routine grant. In particular,
   `fyp_user` cannot update `audit_chain_heads.schema_revision`.
 
-The chain-head column default and initial row both start on the previous completed revision.
+The chain-head column default and initial row both start on `0002_auth_identity_sessions`.
 After the runtime grants and `alembic_version` marker succeed, the script restores the column
-default to the final 0003 schema value and then explicitly publishes
-`0004_email_verification_codes` to the singleton in the final statement. Thus readiness cannot
+default to the final schema value and then explicitly publishes `0010_shared_file_folders` to
+the singleton in the final statement. Thus readiness cannot
 advertise the new schema for a partially executed install, while the completed schema remains
 equivalent to the ORM and Alembic head.
 
@@ -260,7 +261,7 @@ Review every result set. Expected results are:
 - neither name has a static or dynamic global privilege, schema privilege, unexpected
   table/column or routine grant, role/default-role edge, or proxy relationship, and server
   mandatory roles are empty;
-- the table-grant symmetric difference is empty: exactly the thirteen-table CRUD matrix plus
+- the table-grant symmetric difference is empty: exactly the fifteen-table CRUD matrix plus
   audit-log `SELECT`/`INSERT` and chain-head table-level `SELECT`, all non-grantable;
 - the column-grant symmetric difference is empty: exactly non-grantable `UPDATE` on
   `audit_chain_heads.last_log_id`, `current_hash`, and `updated_at`, never
@@ -268,10 +269,10 @@ Review every result set. Expected results are:
 - the persistent table inventory, structural totals, critical foreign-key actions, check
   clauses, and composite indexes match `02-schema.sql`;
 - `alembic_version` contains exactly the SQL artifact's compatibility marker
-  `0004_email_verification_codes`; and
+  `0010_shared_file_folders`; and
 - `audit_chain_heads` contains exactly the genesis singleton: `id = 1`,
   `last_log_id IS NULL`, a 64-zero current hash, and
-  `schema_revision = '0004_email_verification_codes'`.
+  `schema_revision = '0010_shared_file_folders'`.
 
 Because account creation and grants are additive, any extra row or privilege is a deployment
 failure even if the expected grants are also present. Every query in `03-verify.sql` is a
@@ -288,7 +289,7 @@ credential should exist in the release or application environment.
 
 After startup, require both `GET /health/live` and `GET /health/ready` to succeed before
 adding the instance to service. Readiness executes a database probe and requires the exact
-configured schema revision `0004_email_verification_codes`; it diagnoses drift but never migrates
+configured schema revision `0010_shared_file_folders`; it diagnoses drift but never migrates
 or stamps the database.
 
 ## 5. Terminate TLS at nginx

@@ -162,6 +162,11 @@ older release is current installs the older script. The alert mail itself
 (`/usr/local/sbin/mcs21-alert`) is a manual install too; reinstall it to get the security agent's
 pointer to the admin tab, and test it with `sudo systemctl start mcs21-alert@test.service`.
 
+Checked on 2026-10-07: the installed `/usr/local/sbin/mcs21-deploy`, `mcs21-alert`, `mcs21-backup` and
+`mcs21-backup-verify` are byte-identical (SHA-256) to `deployment/server/` at `e4b3f13`, and all nine
+`mcs21-*` timers (auto-deploy, observe, audit checkpoint, offsite backup, backup, reconcile, integrity
+sweep, security agent, backup verify) are active.
+
 The server additionally provides its environment-specific mirror, Deploy Key, release command,
 secrets, backup storage, and sudo policy. Environment-specific values must not be copied into
 Git.

@@ -28,8 +28,8 @@ passphrase 由项目负责人保管）。用户名必须以 `demo-` 开头，因
 | --- | --- | --- | --- |
 | 0:00–0:15 | 交代场景 | 指一下两个窗口 | “Alice 要把一份机密报告发给 Bob。他们俩都不信任服务器，你们也不应该信任。” |
 | 0:15–1:15 | **1. 上传** | 窗口 A：Upload → 选择 `board-minutes.pdf` → Start Encryption，让步骤动画播完 | “你看到的每一步耗时都是真实测出来的：在浏览器里用一把新密钥加密，再把这把密钥包装起来，然后上传。看这些字节：原文件开头是 `%PDF`，服务器收到的是一堆乱码。” |
-| 1:15–2:05 | **2. 分享** | 窗口 A：My Files → `board-minutes.pdf` → Share → 输入 `demo-bob` → Share。确认页显示 Bob 的密钥指纹。窗口 B：Settings 里显示同一个指纹 | “发送之前，Alice 能看到文件会被锁到哪一把密钥上。Bob 从自己的设置页读出指纹：两边一致，所以只有 Bob 能打开。服务器从头到尾没拿到过这把密钥。”然后点 Confirm and share |
-| 2:05–2:45 | **3. 打开** | 窗口 B：My Files → Shared with me → `board-minutes.pdf` → Download，打开保存下来的文件 | “Bob 用的是他自己的口令，不是 Alice 的。文件取出时先校验，再在他自己的设备上解密。” |
+| 1:15–2:05 | **2. 分享** | 窗口 A：My Files → `board-minutes.pdf` → Share → 输入 `demo-bob` → Share。确认页显示 Bob 的密钥指纹 → **Confirm and share**。窗口 B：Settings 里显示同一个指纹 | “发送之前，Alice 能看到文件会被锁到哪一把密钥上。Bob 从自己的设置页读出指纹：两边一致，所以只有 Bob 能打开。服务器从头到尾没拿到过这把密钥。”然后点 Confirm and share |
+| 2:05–2:45 | **3. 打开** | 窗口 B：My Files → Shared with me → `board-minutes.pdf` → **Download and decrypt**，输入 Bob 的口令，打开保存下来的文件 | “Bob 用的是他自己的口令，不是 Alice 的。文件取出时先校验，再在他自己的设备上解密。” |
 | 2:45–3:40 | **4. 篡改** | 切到终端，对 `quarterly-results.txt` 执行 [TAMPER_DEMO.zh-CN.md](TAMPER_DEMO.zh-CN.md) 里的 `flip`。窗口 B：下载这个文件 | “现在假设我是服务器管理员，或者入侵了服务器的人。我把一个存储的文件改掉一个字节。”下载被拒绝，这一行变成 **Modified**。“改过了，所以被拒绝。不需要任何人相信我们。” |
 | 3:40–4:00 | 收尾 | 切回幻灯片 | “离开设备前就加密，只有指定的人能打开，被改动就拒绝。” |
 

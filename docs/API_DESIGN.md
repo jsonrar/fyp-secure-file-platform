@@ -70,6 +70,9 @@ cross the API boundary; public resources use UUIDs.
 | POST | `/auth/change-password` | Bearer | 200 | Change login password and revoke every session |
 | GET | `/auth/sessions` | Bearer | 200 | List at most the 100 newest server-side sessions |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | Revoke an account-owned session by public UUID |
+| POST | `/auth/avatar/upload` | Bearer | 200 | Upload a validated PNG/JPEG avatar (stored outside the encrypted-object root) |
+| GET | `/auth/avatar` | Bearer | 200 | Return the caller's avatar image |
+| POST | `/auth/avatar/delete` | Bearer | 200 | Remove the avatar; initials remain the fallback |
 
 `POST /auth/verification-codes/send` takes `email` and a `purpose` of `REGISTRATION` or
 `PASSWORD_RESET`. It always answers `200` with `code_sent`, `expires_in_seconds`, and
@@ -107,7 +110,8 @@ its encrypted files.
 
 The login password and encryption passphrase are independent. The API never accepts the
 encryption passphrase. Login and password-change inputs are Unicode NFC-normalized; new
-passwords must contain 15 to 128 characters and pass local common/account-derived checks
+passwords must contain 8 to 128 characters from at least two character classes and pass local
+common/account-derived checks
 before Argon2id hashing.
 
 Successful login data contains `user`, `access_token`, `refresh_token`, `token_type`,
@@ -191,11 +195,19 @@ and successor-key inputs.
 | POST | `/files/{file_id}/delete` | Bearer owner | Soft-delete file, revoke access/wrappings, and remove object |
 | POST | `/files/{file_id}/integrity-check` | Bearer | Recompute and record ciphertext-storage integrity |
 | POST | `/files/{file_id}/ciphertext-preview` | Bearer, download capability | A fixed 128-byte sample of the stored ciphertext as hex, with the exact sizes and recorded SHA-256. Not verified (no full hash) and never decrypted; audited as `FILE_CIPHERTEXT_PREVIEWED`, which is not a download |
+| GET | `/files/folders` | Bearer | List the caller's folders |
+| POST | `/files/folders` | Bearer | Create a folder |
+| POST | `/files/folders/{folder_id}/rename` | Bearer owner | Rename a folder |
+| POST | `/files/folders/{folder_id}/delete` | Bearer owner | Delete a folder; its files move to "No folder", none is deleted |
+| POST | `/files/{file_id}/move` | Bearer + file access | Place a file in one of the caller's folders (an owner's placement is on the file, a recipient's on their own grant) |
 
 Upload is `multipart/form-data` with:
 
-- `file`: the AES-256-GCM ciphertext. The 16-byte GCM tag is supplied separately, so the
-  ciphertext byte count must equal declared plaintext size.
+- `file`: the ciphertext under the suite named in `metadata.encryption_algorithm`
+  (`AES-128-GCM`, `AES-192-GCM`, `AES-256-GCM` (default), `AES-256-GCM-SIV`,
+  `ChaCha20-Poly1305` or `XChaCha20-Poly1305`). The 16-byte tag is supplied separately, so the
+  ciphertext byte count must equal declared plaintext size. The nonce is 12 bytes, or 24 for
+  XChaCha20-Poly1305.
 - `metadata`: a JSON string containing file UUID, plaintext filename/size/MIME type,
   envelope/AAD versions, Base64 nonce/tag, owner key UUID and RSA-OAEP-SHA256-wrapped DEK,
   recovery key UUID and recovery-wrapped DEK, plus an optional Base64 encrypted manifest.
@@ -204,6 +216,9 @@ An active recovery key and matching recovery wrapping are currently required. Th
 never accepts plaintext file data or a private key. `GET /files/{file_id}` provides the
 authorized client's decryption envelope; download streams `application/octet-stream`
 ciphertext with no-store headers.
+
+Uploads are refused with a clear error when they would exceed the account's storage quota
+(2 GiB) or rolling 24-hour upload allowance (5 GiB), or leave less free disk than the floor.
 
 File-list pagination uses `page` and `page_size` (`1..100`). Unauthorized and nonexistent
 file resources are intentionally indistinguishable.
@@ -275,6 +290,9 @@ account's private-key bundle.
 | POST | `/admin/users/{user_id}/enable` | ADMIN | Re-enable a disabled account |
 | GET | `/admin/users/{user_id}` | ADMIN | One account: email and whether it is verified, role, status, created, last sign-in, password changed, and counts only (files, stored bytes, shares sent and received, sessions open). Never a password, hash or key |
 | POST | `/admin/users/{user_id}/reset-password` | ADMIN | Set a new random login password, returned once (`no-store`); only its hash is stored. Signs the account out everywhere, audits `ADMIN_PASSWORD_RESET` without the password and emails the holder. Not for the caller's own account or another administrator. The encryption passphrase and files are untouched |
+| GET | `/admin/integrity` | ADMIN | Integrity tab: latest sweep result and damaged files |
+| POST | `/admin/integrity/scan` | ADMIN | Run an integrity sweep now |
+| GET | `/admin/agent/report` | ADMIN | The security agent's ranked findings (read-only, metadata only, rule-based) |
 
 Admin list endpoints use `limit` (`1..100`) and `offset`. Status changes are conditional and
 audited; hard deletion is not used for identities referenced by the audit chain.

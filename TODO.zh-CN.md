@@ -4,14 +4,14 @@
 本文件最初于 2026-09-03 根据 GitHub `main`、共享 changelog、仓库测试及线上预发布环境
 完成同步。2026-09-07 再次对照 GitHub `main` 的 `cab44b1` 检查；该版本已合并 500 MiB
 上传上限改动，但那次仅同步 backlog，未重新核验线上部署。2026-10-01 再次对照 `main` 的 `70fcb6d` 检查：
-该提交上的 CI 全部通过，预发布环境运行的是同一个 SHA，各定时任务健康（见下表）。GitHub Issues 是可执行 backlog，
+该提交上的 CI 全部通过，预发布环境运行的是同一个 SHA，各定时任务健康。2026-10-07 又对照 `main` 的 `e4b3f13` 复核（见下表）。GitHub Issues 是可执行 backlog，
 团队通过 [SecureView Development Board](https://github.com/users/Waldo0926/projects/1)
 共用 Kanban 视图；本文件只提供带链接的优先级摘要，不再成为另一份会漂移的清单。
 
 下方已交付 MVP 能力继续保持勾选。GitHub Issues 是权威来源；下方未勾选项仍缺产品、运维、
 安全评审或部署证据。部分完成不会被误标为完成。
 
-提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md)：
+提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.zh-CN.md`](docs/PROPOSAL_TRACEABILITY.zh-CN.md)：
 24 个 WBS 工作包中 22 个 Done、1 个 In review、1 个 In progress（非专业用户可用性：产品已有非正式的真实使用，
 但正式研究没有进行，#115 已按 not planned 关闭）；7 条产品验收标准中 6 条 Done，剩余的分阶段进度提示为 In progress。
 M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师所说的全项目约 70–80%
@@ -19,16 +19,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 ## 已交付 MVP 基线
 
-待评审的本地预览：How it works 新增六步带定位标记的截图引导，支持手动切换、可选播放和放大。
-详见 [截图引导记录](changelog/CHANGELOG.md#homepage-screenshot-walkthrough--首页截图操作引导)。
-截图脚本使用模拟后端响应，不代表
-[#58 浏览器 E2E 覆盖](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
-已完成，也不构成部署证据。
-
-当前 GitHub `main`（本次同步未重新核验线上部署）：Core Features 已修复宽屏周期交界处
-的空白跳闪，保留悬停暂停，并在减少动态效果模式下静态展示全部卡片。详见 [实现记录](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨)。
-此 UI 修复不代表 [#58 浏览器 E2E 覆盖](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
-已经完成；线上部署核验与可重复的浏览器覆盖仍按各自验收条件推进。
+首页图文指南（六张带标记的截图，中英文各一套）和帮助页视频已在“Sealed”改版后重新拍摄并上线 staging（#192）。
+横向滚动的 Core Features 在那次改版中已从首页移除（#177）。
 
 - [x] 邮箱验证码注册与重置登录密码、登录与服务端撤销会话的登出、后端会话撤销端点、refresh 轮换、
   会话失效、注销账户、限流、
@@ -53,6 +45,19 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
+
+## 2026-10-07 已核验（`main` 位于 `e4b3f13`）
+
+| 门禁 | 结果 | 含义 |
+| --- | --- | --- |
+| `e4b3f13` 上的 GitHub Actions | 五个测试 Job 和 `promote` 全部通过 | 运行在 VPS 自建 runner 上；`promote` 移动了 `deploy`，staging 随即部署 |
+| 后端（`mysql-gate`） | 632 passed，0 skipped；分支覆盖率 85.27%（下限 82%） | 针对 MySQL 8.4 的完整测试，含并发和故障注入 |
+| 后端（`backend` Job，无 MySQL） | 568 passed，64 deselected；覆盖率 80.35%（下限 78%） | 被排除的就是上面那些 MySQL 测试 |
+| 前端（`frontend` Job） | 810 passed，56 skipped | 被跳过的是真实后端测试套件 |
+| 前端实时测试（`e2e-live`） | 866 passed，0 skipped | 全部套件针对一次性 API 与 MySQL 运行 |
+| 浏览器测试（`e2e-live`） | 57 passed | 主流程、篡改视图、手机宽度、问答助手、语言切换、404 页面 |
+| Schema head | `0010_shared_file_folders` | 17 张应用表加 `alembic_version` |
+| 线上 staging | 运行 `e4b3f13` | `/opt/mcs21/current` 指向该发布；九个 `mcs21-*` timer 全部启用 |
 
 ## 2026-10-01 已核验（`main` 位于 `70fcb6d`）
 
@@ -95,7 +100,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   要求评审，`mcs21-deploy all main` 仍按设计绕过 CI。自 [#171](https://github.com/jsonrar/fyp-secure-file-platform/pull/171) 起，推送到 `main` 的纯文档改动相对 `deploy` 判断，
   不会再取消代码 commit 的 CI 运行、让那段代码一直得不到部署。
 - [x] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
-  ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 `0007_file_folders` 的每一次迁移，
+  ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 head（目前为 `0010_shared_file_folders`）的每一次迁移，
   运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，
   并检查运行时账户与管理员账户的权限边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争
   现在随机化运行 8 轮，每轮都必须出现一个应用者和一个等待者；恢复结果按逐表 `CHECKSUM TABLE` 加
@@ -129,9 +134,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   真实删除之后的幂等重复运行尚未被观察到。
 - [x] [#58 扩展浏览器 E2E、并发、故障注入与覆盖率门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
   ——`e2e-live` CI Job 针对一次性 API 与 MySQL 不跳过地运行前端全部真实后端测试套件（从注册到
-  注销账户、全部四种文件算法、角色拒绝），随后运行 Chromium 冒烟测试，在构建后的页面上点击完成
+  注销账户、全部六种文件算法、角色拒绝），随后运行 Chromium 冒烟测试，在构建后的页面上点击完成
   注册、验证、登录、解锁、上传、下载、分享、撤销与登出；`mysql-gate` 运行多连接并发与真实故障注入
-  测试；覆盖率下限与经脱敏检查的 JUnit/覆盖率产物已就位（[docs/E2E_TESTING.md](docs/E2E_TESTING.md)）。
+  测试；覆盖率下限与经脱敏检查的 JUnit/覆盖率产物已就位（[docs/E2E_TESTING.zh-CN.md](docs/E2E_TESTING.zh-CN.md)）。
 - [x] [#59 增加脱敏可观测性、事故 runbook 与外部审计 checkpoint](https://github.com/jsonrar/fyp-secure-file-platform/issues/59)
   ——仓库侧实现已就绪：脱敏结构化事件、仅 loopback 的 metrics 与阈值告警、受信 proxy 约束、HMAC 外部审计 checkpoint、最小化告警邮件和双语事故 runbook。2026-09-25 已记录 staging 证据（Issue 的关闭评论，以及[运行手册](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md)第 8 节）：
   loopback 绑定、nginx 未暴露 metrics、外部 checkpoint 已在另一台机器下载并完成 HMAC 校验、测试告警不含 journal 内容。
@@ -201,7 +206,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——页头、手机菜单和设置页均可切换 English / 简体中文，按设备记住，并在首次渲染前恢复。公共界面（导航、登录、注册、
   设置等）使用 vue-i18n 键值消息；其余界面通过词典显示中文，词典在构建阶段由智谱 `glm-4-flash` 起草，并由脚本和测试
   按安全术语表校验。**中文为机器起草，尚未经过完整人工审校**；Help assistant 仍只能匹配英文提问。见
-  [docs/I18N.md](docs/I18N.md)。
+  [docs/I18N.zh-CN.md](docs/I18N.zh-CN.md)。
 - [x] [#75 经验证的用户头像上传与展示](https://github.com/jsonrar/fyp-secure-file-platform/issues/75)
   ——资料页 / 页头支持可选头像，并包含内容验证、安全提供、清理、限流及首字母 fallback。已合并（#101、#106）并部署（2026-10-01 staging 的 OpenAPI 中有头像路由）；该 Issue 在 2026-09-29 关闭前，没有在
   Issue 上记录上传/展示/删除的短流程演示。
@@ -210,7 +215,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   关闭。**用自动化排查对 23 个界面在 360 与 320 px 下检查，发现多处横向滚动（教育页，320 px 下的注册、
   忘记密码与上传页）、My Files 表格把操作按钮推出手机屏幕、高度只有 9–20 px 的页脚链接，以及数十个过小的点击目标；
   这些都已修复（My Files 在 768 px 以下改为卡片列表，被标记的点击目标均不小于 40 px，弹框会让长文件名换行并保持在
-  屏幕内），并由三个 Chromium 测试覆盖（[docs/E2E_TESTING.md](docs/E2E_TESTING.md#phone-widths)）。2026-10-02
+  屏幕内），并由三个 Chromium 测试覆盖（[docs/E2E_TESTING.zh-CN.md](docs/E2E_TESTING.zh-CN.md)）。2026-10-02
   这些手机测试又在 WebKit（Safari 内核，模拟 iPhone 13）和 Chromium（模拟 Pixel 7）下全部通过。**未做：**没有在
   实体手机上运行；通知与设置流程只检查了布局。
 

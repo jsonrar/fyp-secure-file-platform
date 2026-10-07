@@ -6,7 +6,7 @@ the live staging deployment on 2026-09-03. Rechecked against GitHub `main` at `c
 on 2026-09-07 after the 500 MiB upload-limit change merged; live deployment was not
 re-verified in that backlog-only synchronization. Rechecked again on 2026-10-01 against `main`
 at `70fcb6d`: the CI run on that commit passed, and staging was running the same SHA with its
-timers healthy (see the table below). GitHub Issues are the executable backlog,
+timers healthy. Rechecked on 2026-10-07 against `main` at `e4b3f13` (see the tables below). GitHub Issues are the executable backlog,
 and the [SecureView Development Board](https://github.com/users/Waldo0926/projects/1) is the
 shared Kanban view; this file is the prioritized summary and must link to them rather than
 becoming a second, drifting list.
@@ -25,18 +25,9 @@ assessment describes that historical checkpoint rather than an exact current com
 
 ## Shipped MVP baseline
 
-Local preview for review: How it works now has a six-step, annotated screenshot guide
-with manual navigation, optional playback, and enlargement. See
-[walkthrough notes](changelog/CHANGELOG.md#homepage-screenshot-walkthrough--首页截图操作引导).
-The capture script uses backend fixtures; this does not close
-[#58 browser E2E coverage](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
-or provide deployment evidence.
-
-Current GitHub `main` (live deployment not re-verified in this synchronization): Core
-Features loops continuously without the wide-screen boundary gap, preserves hover pause, and
-shows all cards statically for reduced motion. See [implementation notes](changelog/CHANGELOG.md#landing-hero-and-feature-marquee-polish--首页主标题与功能滚动条打磨).
-This UI fix does not close [#58 browser E2E coverage](https://github.com/jsonrar/fyp-secure-file-platform/issues/58);
-live deployment and repeatable browser coverage remain separate acceptance work.
+The homepage picture guide (six annotated screenshots, English and Chinese) and the Help videos
+were re-shot after the "Sealed" redesign and are live on staging (#192). The scrolling Core
+Features lane was retired from the home page in that redesign (#177).
 
 - [x] Email-code registration and login-password reset, login plus server-revoking logout,
   backend session-revocation endpoints, refresh rotation,
@@ -69,6 +60,19 @@ live deployment and repeatable browser coverage remain separate acceptance work.
 
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.
+
+## Verified on 2026-10-07 (`main` at `e4b3f13`)
+
+| Gate | Result | Interpretation |
+| --- | --- | --- |
+| GitHub Actions on `e4b3f13` | All five test jobs and `promote` green | Runs on the self-hosted VPS runners; `promote` moved `deploy`, so staging deployed it |
+| Backend (`mysql-gate`) | 632 passed, 0 skipped; branch coverage 85.27 % (floor 82 %) | The whole suite against MySQL 8.4, including concurrency and fault injection |
+| Backend (`backend` job, no MySQL) | 568 passed, 64 deselected; coverage 80.35 % (floor 78 %) | The deselected tests are the MySQL ones above |
+| Frontend (`frontend` job) | 810 passed, 56 skipped | The skips are live-backend suites |
+| Frontend live suites (`e2e-live`) | 866 passed, 0 skipped | Every suite against a disposable API and MySQL |
+| Browser specs (`e2e-live`) | 57 passed | Golden path, tamper view, phone widths, Help assistant, language switch, not-found |
+| Schema head | `0010_shared_file_folders` | 17 application tables plus `alembic_version` |
+| Live staging | Running `e4b3f13` | `/opt/mcs21/current` points at that release; all nine `mcs21-*` timers active |
 
 ## Verified on 2026-10-01 (`main` at `70fcb6d`)
 
@@ -115,7 +119,7 @@ not a release pass.
   judged against `deploy`, so it can no longer cancel a code commit's run and leave that code unpromoted.
 - [x] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
-  `0007_file_folders`, runs `alembic current`/`check`, runs the whole backend suite (coverage
+  the head (`0010_shared_file_folders` today), runs `alembic current`/`check`, runs the whole backend suite (coverage
   floor 82%) and fails on any skipped test, and checks runtime-vs-admin grants and live schema
   parity. The two gaps once deferred here are closed: the migration-lock race now runs 8 randomized
   iterations that must each show one applier and one waiter, and restores are compared by per-table
@@ -156,7 +160,7 @@ not a release pass.
   observed because nothing has been eligible since.
 - [x] [#58 Expand browser E2E, concurrency, fault-injection, and coverage gates](https://github.com/jsonrar/fyp-secure-file-platform/issues/58)
   — the `e2e-live` CI job runs every frontend live-backend suite un-skipped against a
-  disposable API and MySQL (registration through account deletion, all four file algorithms,
+  disposable API and MySQL (registration through account deletion, all six file algorithms,
   role denial), then a Chromium smoke test that clicks the built pages through register,
   verify, sign in, unlock, upload, download, share, revoke and log out; `mysql-gate` runs
   multi-connection concurrency and real fault-injection suites; coverage floors and sanitized

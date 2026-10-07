@@ -24,10 +24,15 @@
 | POST | `/auth/change-password` | Bearer 访问令牌 |
 | GET | `/auth/sessions` | Bearer 访问令牌 |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer 访问令牌 |
+| POST | `/auth/avatar/upload` | Bearer 访问令牌 |
+| GET | `/auth/avatar` | Bearer 访问令牌 |
+| POST | `/auth/avatar/delete` | Bearer 访问令牌 |
 
 `/keys`、`/files`、`/audit-logs`、`/recovery` 和 `/admin` 路由也已启用，并由 OpenAPI
 完整描述。`/health/live` 检查进程；`/health/ready` 还会检查数据库连接及精确的
-`0007_file_folders` Schema revision。
+`0010_shared_file_folders` Schema revision。管理员还可以查看单个账户详情并签发临时登录密码
+（`GET /admin/users/{user_id}`、`POST /admin/users/{user_id}/reset-password`，#197），这不会改动
+文件、密钥或加密 passphrase。
 
 这些 API 采用客户端密钥托管边界：服务器只保存公钥、加密私钥包、密文及包装密钥，不接收
 加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。浏览器前端已实现账户密钥登记
@@ -52,13 +57,13 @@ passphrase／私钥文件解锁、上传前加密、下载后本地解密，以�
 MFA 和外部身份登录尚未实现。
 
 加密 passphrase 与登录密码相互独立，只在客户端用于派生 KEK。用户通常只需记住该
-passphrase，服务端则保存加密私钥包；但若 passphrase 遗失且没有独立安全保存的可用密钥
-副本，服务器目前无法重置或恢复它。恢复 API 只治理单个文件 DEK 向已登记活跃公钥的重新
+passphrase，服务端则保存加密私钥包。passphrase 遗失时服务器无法重置或恢复它；持有注册时
+一次性提供的私钥文件（`.pem`）的用户可在设置页自行设置新 passphrase，两者都丢失则文件无法恢复。恢复 API 只治理单个文件 DEK 向已登记活跃公钥的重新
 包装，不会恢复 passphrase、AMK 或解密私钥包。
 
 ## 前置要求
 
-- Python 3.11 或更高版本
+- Python 3.11 或更高版本（CI 与 staging 使用 3.12）
 - 带 Compose 的 Docker（推荐用于 MySQL 8.4）
 
 后端命令的规范执行目录是 `backend/`。配置始终从仓库根目录的 `.env` 加载，配置中的相对存储路径也会相对于仓库根目录解析，而不是相对于进程工作目录。
