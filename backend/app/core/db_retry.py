@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from typing import TypeVar
 
@@ -14,6 +15,10 @@ _LOCK_WAIT_TIMEOUT = 1205  # "Lock wait timeout exceeded; try restarting transac
 _RETRYABLE_MYSQL_ERRORS = frozenset({_DEADLOCK, _LOCK_WAIT_TIMEOUT})
 
 T = TypeVar("T")
+
+# Only the MySQL error code and the attempt numbers are logged, never the statement or its
+# parameters: those can carry file names, user identifiers or key material.
+_LOGGER = logging.getLogger("secureview.db")
 
 
 def is_retryable_deadlock(exc: BaseException) -> bool:
@@ -57,4 +62,10 @@ def run_with_deadlock_retry(
             db.rollback()
             if attempt >= attempts or not is_retryable_deadlock(exc):
                 raise
+            _LOGGER.warning(
+                "mysql_transaction_retry code=%s attempt=%d of %d",
+                exc.orig.args[0],
+                attempt + 1,
+                attempts,
+            )
     raise AssertionError("unreachable: the loop above always returns or raises")
