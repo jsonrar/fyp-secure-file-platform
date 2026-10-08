@@ -407,13 +407,12 @@ dumps, and objects in a private temporary directory that is removed on exit.
 - The 4 h whole-service RTO has not been timed end to end on a fresh VPS; only the data
   restore has (§5).
 - The rsync destination is wired but untested against a real target. S3 is live on R2.
-- `mcs21-deploy`'s pre-deploy backups remain plaintext on the same host (root-only, 0700) and are
-  never pruned: 81 dumps, 5.6 GB on 2026-09-24, and 178 dumps, 76 GB on 2026-10-08 (the root disk
-  was 65 % full), because each one also archives every ciphertext object. Pruning is now in
-  `mcs21-deploy` ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)): after a healthy deployment it keeps the newest 10 sets
-  (`MCS21_KEEP_DEPLOY_BACKUPS`, never fewer than 3). It takes effect once the updated script is
-  installed in `/usr/local/sbin`, and the first deployment after that removes the older sets. They are a fast rollback point, not an
-  off-server copy. Pruning belongs in `mcs21-deploy`.
+- ~~`mcs21-deploy`'s pre-deploy backups are never pruned.~~ **Done 2026-10-08** ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)):
+  they had grown to 81 dumps and 5.6 GB by 2026-09-24 and 184 sets and 81 GB by 2026-10-08, because
+  each one also archives every ciphertext object. They remain plaintext on the same host (root-only,
+  0700) as a fast rollback point, not an off-server copy. After a healthy deployment `mcs21-deploy`
+  now keeps the newest 10 (`MCS21_KEEP_DEPLOY_BACKUPS`, never fewer than 3). The first run, a forced
+  redeploy of `f826165`, removed 175 sets: 81 GB → 7.5 GB, root disk 69 % → 51 % used.
 
 ## Staging installation record (2026-09-24)
 

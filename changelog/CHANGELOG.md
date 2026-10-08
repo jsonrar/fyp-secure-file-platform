@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Ops: pre-deploy backup pruning installed and run on staging / 运维：部署前备份清理已安装并在 staging 上运行
+
+- The #204 `mcs21-deploy` was installed in `/usr/local/sbin` on 2026-10-08 (the previous script kept in `/root`), and a forced redeploy of `f826165` ran the first prune: 175 old sets removed, 10 kept, `/var/backups/mcs21-deploy` 81 GB → 7.5 GB, root disk 69 % → 51 %. The deployment itself succeeded and the site stayed healthy; the audit log records `deploy_backups_pruned removed=175 kept=10`.
+- #204 的 `mcs21-deploy` 已于 2026-10-08 安装到 `/usr/local/sbin`（旧脚本备份在 `/root`），并通过强制重新部署 `f826165` 完成第一次清理：删除 175 份旧备份、保留 10 份，`/var/backups/mcs21-deploy` 从 81 GB 降到 7.5 GB，根盘占用从 69% 降到 51%。部署本身成功、网站保持正常；审计日志记录为 `deploy_backups_pruned removed=175 kept=10`。
+
 ### Settings: the two top columns end at the same line / 设置页：上方两栏底边对齐
 
 - The Settings page's top grid aligned its columns to the top, so the right column (Account, key fingerprint) ended well above the left (Appearance, Language) and left an empty band. Both columns now stretch to the same height; the fingerprint card fills the rest and puts the fingerprint, now in a framed box, at its bottom, level with the language buttons. Below `lg` the page is one column, unchanged.
