@@ -47,7 +47,7 @@ function onDeleted() {
     <div class="page-container">
       <PageHeader :title="t('settings.title')" :subtitle="t('settings.intro', { name: auth.displayName })" />
 
-      <div class="grid items-start gap-6 lg:grid-cols-2">
+      <div class="grid gap-6 lg:grid-cols-2">
         <div class="flex flex-col gap-6">
           <div class="rounded-xl border border-border bg-card p-6">
             <h2 class="text-lg font-semibold text-foreground">{{ t('settings.appearance') }}</h2>
@@ -81,7 +81,7 @@ function onDeleted() {
             </div>
           </div>
 
-          <div class="rounded-xl border border-border bg-card p-6">
+          <div class="flex-1 rounded-xl border border-border bg-card p-6">
             <h2 id="settings-language" class="text-lg font-semibold text-foreground">{{ t('settings.language') }}</h2>
             <p class="mt-1 text-sm text-muted-foreground">{{ t('settings.languageHint') }}</p>
             <div class="mt-4 grid gap-3 sm:grid-cols-2" role="radiogroup" aria-labelledby="settings-language">
@@ -124,7 +124,7 @@ function onDeleted() {
             </div>
           </div>
 
-          <KeyFingerprintCard />
+          <KeyFingerprintCard class="flex-1" />
         </div>
       </div>
 
