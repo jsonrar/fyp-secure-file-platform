@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import logging
+
 import pytest
 from sqlalchemy.exc import OperationalError
 
@@ -94,3 +96,35 @@ def test_run_with_deadlock_retry_never_touches_other_exceptions() -> None:
     # Not this function's job to roll back a non-deadlock failure -- the caller's own
     # except clause (as every service here already has) is still responsible for that.
     assert db.rollbacks == 0
+
+
+def test_each_retry_logs_a_warning_without_the_statement(caplog: pytest.LogCaptureFixture) -> None:
+    db = FakeSession()
+    calls = {"count": 0}
+
+    def operation() -> str:
+        calls["count"] += 1
+        if calls["count"] < 3:
+            raise OperationalError(
+                "UPDATE files SET secret = 'x'", {"p": "secret"}, Exception(1213, "Deadlock")
+            )
+        return "ok"
+
+    with caplog.at_level(logging.WARNING, logger="secureview.db"):
+        assert run_with_deadlock_retry(db, operation) == "ok"
+
+    messages = [r.getMessage() for r in caplog.records if r.name == "secureview.db"]
+    assert messages == [
+        "mysql_transaction_retry code=1213 attempt=2 of 3",
+        "mysql_transaction_retry code=1213 attempt=3 of 3",
+    ]
+    assert all("secret" not in m and "UPDATE" not in m for m in messages)
+
+
+def test_no_warning_when_the_error_is_not_retried(caplog: pytest.LogCaptureFixture) -> None:
+    def operation() -> str:
+        raise _mysql_error(1046, "No database selected")
+
+    with caplog.at_level(logging.WARNING, logger="secureview.db"), pytest.raises(OperationalError):
+        run_with_deadlock_retry(FakeSession(), operation)
+    assert not [r for r in caplog.records if r.name == "secureview.db"]
