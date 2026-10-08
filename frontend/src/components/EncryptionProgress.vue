@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { Check, Circle, KeyRound, Lock, RefreshCw, UploadCloud, FileText } from 'lucide-vue-next'
+import { Check, Circle, KeyRound, Lock, RefreshCw, UploadCloud, FileText, X } from 'lucide-vue-next'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { formatFileSize } from '@/api/types'
 import type { UploadStage } from '@/crypto/upload'
@@ -15,7 +15,11 @@ const props = defineProps<{
   plaintextHead: Uint8Array | null
   ciphertextHead: Uint8Array | null
   done: boolean
+  /** True once nothing is running, so the receipt can be put away. */
+  dismissible?: boolean
 }>()
+
+const emit = defineEmits<{ dismiss: [] }>()
 
 const ORDER: UploadStage[] = ['read', 'encrypt', 'wrap', 'upload']
 
@@ -93,10 +97,23 @@ onBeforeUnmount(() => clearInterval(timer))
           <span translate="no" class="[overflow-wrap:anywhere]">{{ fileName }}</span>
         </p>
       </div>
-      <span
-        class="shrink-0 rounded-md px-2.5 py-1 font-mono text-xs uppercase"
-        :class="done ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground'"
-      >{{ done ? 'Sealed' : 'Sealing…' }}</span>
+      <div class="flex shrink-0 items-center gap-1.5">
+        <span
+          class="rounded-md px-2.5 py-1 font-mono text-xs uppercase"
+          :class="done ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground'"
+        >{{ done ? 'Sealed' : 'Sealing…' }}</span>
+        <button
+          v-if="dismissible"
+          type="button"
+          class="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground"
+          aria-label="Close the seal receipt"
+          title="Close the seal receipt"
+          data-testid="encryption-progress-dismiss"
+          @click="emit('dismiss')"
+        >
+          <X class="h-4 w-4" />
+        </button>
+      </div>
     </div>
 
     <ol class="space-y-3">

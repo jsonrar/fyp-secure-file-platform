@@ -83,9 +83,9 @@ mark or effort-weighted earned value. The 2026-09-07 summary of 20 Done, 3 In pr
 | M4 Core cryptographic modules | Done | AES, RSA, SHA/integrity, Argon2id and ChaCha20 implementations/tests |
 | M5 Feature freeze | Done | Browser MVP complete; remaining work explicitly classified as hardening/assurance |
 | M6 Full system integration | Done | Public HTTPS stack and live two-account MVP test |
-| M7 Final demo readiness | In progress | The P0 CI, MySQL and backup blockers are closed with evidence; demo script, scripted tamper demo and backup video exist (#167, #164, #173). Remaining: an explicit dismiss control for the AC7 panel. Usability has informal real use only; the formal study (#115) was closed as not planned |
+| M7 Final demo readiness | Done | The P0 CI, MySQL and backup blockers are closed with evidence; demo script, scripted tamper demo, pre-shared demo file and backup video exist (#167, #164, #173); the last acceptance criterion (AC7) closed with #200. Usability has informal real use only; the formal study (#115) was closed as not planned |
 
-**Milestone summary:** 6 Done and 1 In progress. The supervisor's 70–80% assessment is evidence
+**Milestone summary:** all 7 Done. The supervisor's 70–80% assessment is evidence
 for the completed historical checkpoint, not a claim that the current repository has an exact
 70–80% completion value.
 
@@ -127,21 +127,20 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 | AC8 AI agent that solves a defined automation problem (supervisor's guidance) | Done (v2, rule-based) | Admin → Security agent: inputs, thirteen rules, Critical/High/Medium/Low output with recommended actions, stated boundaries; v2 (#137) runs it daily and mails the team on Critical/High findings, detects a sign-in that succeeded after guessing, and reports active sign-in throttle blocks — [SECURITY_AGENT.md](SECURITY_AGENT.md) |
 | AC5 Timestamped actor/access audit | Done | Upload/download/share/revoke events and per-file history |
 | AC6 Interactive crypto education | Done | AES/RSA/SHA/Argon2id content and playgrounds |
-| AC7 Dismissible four-stage progress pipeline | In progress | Four measured stages exist (#156): read the file → encrypt and self-check → wrap the file key → upload the ciphertext, then complete. The panel has no explicit dismiss control; it is replaced when the next file is chosen |
+| AC7 Dismissible four-stage progress pipeline | Done | Four measured stages (#156): read the file → encrypt and self-check → wrap the file key → upload the ciphertext, then complete; the receipt closes with its close button once nothing is running (#200), checked in the golden-path browser test |
 
 ## Immediate evidence priorities
 
 1. Non-expert usability (WBS 5.4): the formal study (Issue #115) was closed as not planned on
    2026-10-04. Describe NFR2 as supported by informal real use, never as formally verified.
-2. Add an explicit dismiss control to the four-stage upload feedback (AC7); the stages exist (#156).
-3. Decide the three open *Recommended* security findings (F-02 to F-04): move the recovery key into
+2. Decide the three open *Recommended* security findings (F-02 to F-04): move the recovery key into
    proposed custody, switch off `/docs` after the demo, reject known-weak passphrases. (F-01, CI-gated
    deployment, was done and installed on 2026-10-01.)
-4. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
+3. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
 
 Done since the 2026-10-01 recheck: the staging capacity and performance test (#140, PR #155), the
 two concurrency deadlocks (#139, PR #154), and the 100-user database-pool failure with its staging
-re-run (PR #163, #172).
+re-run (PR #163, #172), and the AC7 close button (#200).
 
 These records should be updated in the same PR that changes their evidence. A runtime change is
 not Done until the merged SHA is deployed and the affected live path is verified.

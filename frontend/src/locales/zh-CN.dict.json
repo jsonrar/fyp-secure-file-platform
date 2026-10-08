@@ -2084,5 +2084,6 @@
   "Their files and encryption passphrase are unchanged.": "对方的文件和加密口令都没有变。",
   "They have been emailed that it changed.": "已发邮件通知对方密码被修改。",
   "They should sign in with it and choose a new one in Settings.": "对方应先用它登录，再到“设置”里改成自己的新密码。",
-  "This account has been deleted.": "这个账户已被删除。"
+  "This account has been deleted.": "这个账户已被删除。",
+  "Close the seal receipt": "关闭封存回执"
 }

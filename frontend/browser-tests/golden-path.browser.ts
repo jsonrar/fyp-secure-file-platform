@@ -168,6 +168,11 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await expect(owner.getByRole('button', { name: 'Encryption Complete' })).toBeVisible({
       timeout: 60_000,
     })
+    // The seal receipt (AC7) stays until it is put away, then leaves the page.
+    const receipt = owner.getByTestId('encryption-progress')
+    await expect(receipt).toContainText('Sealed')
+    await owner.getByRole('button', { name: 'Close the seal receipt' }).click()
+    await expect(receipt).toHaveCount(0)
     await owner.getByRole('button', { name: 'View Encrypted Files' }).click()
     await expect(owner.getByRole('row').filter({ hasText: fileName })).toBeVisible()
   })
