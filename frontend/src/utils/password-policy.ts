@@ -140,3 +140,101 @@ export function evaluatePassword(
     message,
   }
 }
+
+/**
+ * Passphrases that a guessing attacker tries first (threat model F-04, recommendation R-1).
+ *
+ * The passphrase never reaches the server, so this check can only run here. Each guess costs an
+ * attacker one 64 MiB Argon2id derivation, so a passphrase in the first few thousand entries of
+ * any list falls in minutes; one of four random words does not fall in years. Compared with
+ * spaces and case removed. Entries mirror the server's login deny-list at 10 characters and up,
+ * plus common passphrase defaults.
+ */
+const COMMON_PASSPHRASES = new Set(
+  [
+    '1234567890',
+    '123456789012345',
+    '1234567890123456',
+    '111111111111111',
+    'adminadmin',
+    'adminadminadmin',
+    'administrator123',
+    'changemechangeme',
+    'correcthorsebatterystaple',
+    'iloveyouiloveyou',
+    'letmein123',
+    'letmeinletmeinletmein',
+    'password123',
+    'password1234',
+    'password123456',
+    'passwordpassword',
+    'qwertyqwertyqwerty',
+    'securefile',
+    'securefileplatform',
+    'secureview',
+    'secureview123',
+    'welcome123',
+    'welcome123456789',
+    'passphrase',
+    'passphrase123',
+    'mypassphrase',
+    'encryption',
+    'encryptionpassphrase',
+    'iloveyou123',
+    'qwerty12345',
+    'abc1234567',
+    'monash2026',
+    'monashuniversity',
+  ].map((entry) => entry.replace(/\s+/g, '')),
+)
+
+const SEQUENCES = ['abcdefghijklmnopqrstuvwxyz', '01234567890123456789', 'qwertyuiopasdfghjklzxcvbnm']
+
+/** True for "aaaaaaaaaa", "abcabcabcabc", "1212121212": one short unit repeated. */
+function isRepeatedUnit(value: string): boolean {
+  for (let unit = 1; unit <= 4 && unit < value.length; unit += 1) {
+    const piece = value.slice(0, unit)
+    if (piece.repeat(Math.ceil(value.length / unit)).slice(0, value.length) === value) return true
+  }
+  return false
+}
+
+/** True for a run along the alphabet, the digits or a keyboard row, either direction. */
+function isSequence(value: string): boolean {
+  return SEQUENCES.some(
+    (sequence) => sequence.includes(value) || [...sequence].reverse().join('').includes(value),
+  )
+}
+
+export type WeakPassphraseReason = '' | 'common' | 'pattern' | 'account'
+
+/**
+ * Why a passphrase is too easy to guess, or '' when it is not.
+ *
+ * `contextValues` are the account's own identifiers (username, email): a passphrase that is
+ * mostly one of them is guessed by anyone who knows whose account it is. A fragment counts
+ * only when it is at least four characters and what is left after removing it is shorter than
+ * eight, so a genuine phrase that happens to contain a name still passes.
+ */
+export function weakPassphraseReason(
+  passphrase: string,
+  contextValues: readonly string[] = [],
+): WeakPassphraseReason {
+  const compact = passphrase.normalize('NFC').toLowerCase().replace(/\s+/g, '')
+  if (!compact) return ''
+  if (COMMON_PASSPHRASES.has(compact)) return 'common'
+  if (isRepeatedUnit(compact) || isSequence(compact) || new Set(compact).size <= 3) return 'pattern'
+
+  for (const fragment of accountDetailFragments(contextValues)) {
+    const token = fragment.replace(/\s+/g, '')
+    if (token.length >= 4 && compact.includes(token) && [...compact.replace(token, '')].length < 8) {
+      return 'account'
+    }
+  }
+  return ''
+}
+
+/** The message under the field for a weak passphrase, in the interface language. */
+export function weakPassphraseMessage(reason: WeakPassphraseReason): string {
+  return reason ? t(`passphrase.weak.${reason}`) : ''
+}

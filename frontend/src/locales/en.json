@@ -87,7 +87,12 @@
     "label": "Encryption Passphrase",
     "enter": "Enter an encryption passphrase.",
     "tooShort": "Use at least {min} characters ({length} so far).",
-    "sameAsPassword": "Use a different value from your login password."
+    "sameAsPassword": "Use a different value from your login password.",
+    "weak": {
+      "common": "This passphrase is on the lists attackers try first. Try four or more random words.",
+      "pattern": "Repeated or sequential characters are guessed in seconds. Try four or more random words.",
+      "account": "Do not build the passphrase from your username or email. Try four or more random words."
+    }
   },
   "register": {
     "title": "Create Account",

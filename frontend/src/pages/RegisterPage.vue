@@ -18,6 +18,8 @@ const { t } = useI18n()
 // who has just destroyed an account on purpose and is expecting to start over.
 const afterDeletion = computed(() => route.query.deleted === '1')
 import {
+  weakPassphraseMessage,
+  weakPassphraseReason,
   PASSPHRASE_MIN_LENGTH,
   PASSWORD_MIN_LENGTH,
   passwordRequirementHint,
@@ -120,6 +122,10 @@ const errors = computed<Record<FieldName, string>>(() => {
     passphraseError = t('passphrase.tooShort', { min: PASSPHRASE_MIN_LENGTH, length: currentPassphraseLength })
   } else if (passphrase.value === password.value) {
     passphraseError = t('passphrase.sameAsPassword')
+  } else {
+    passphraseError = weakPassphraseMessage(
+      weakPassphraseReason(passphrase.value, [username.value.trim(), email.value.trim()]),
+    )
   }
 
   return {
