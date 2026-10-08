@@ -1542,6 +1542,7 @@
   "The message is then encrypted and authenticated exactly as ChaCha20-Poly1305, under the subkey, producing ciphertext and a 128-bit tag.",
   "The My Files table with Project notes.txt and its Share icon outlined and marked 3.",
   "The new encryption passphrase must be at least {0} characters",
+  "The new encryption passphrase must be different from the current one",
   "The new passphrase was saved but could not be verified. Keep your private key file; it still opens every file.",
   "The newest {0} of {1}.",
   "The note is ready to send to the team. Press Send there to deliver it. If no email app opened, write to",

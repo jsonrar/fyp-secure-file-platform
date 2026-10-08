@@ -29,7 +29,7 @@ npm run dev
 | `/files` | 我的文件：自有与共享文件、文件夹、详情面板、分享、撤销、访问历史、密文预览（需要身份认证） |
 | `/audit-logs` | 访问记录（需要身份认证） |
 | `/profile` | 个人资料与头像（需要身份认证） |
-| `/settings` | 主题、语言、密钥指纹、修改登录密码、用私钥文件重设 passphrase、注销账户（需要身份认证） |
+| `/settings` | 主题、语言、密钥指纹、修改登录密码、凭当前 passphrase 修改 passphrase、用私钥文件重设 passphrase、注销账户（需要身份认证） |
 | `/admin` | 角色感知运维：概览统计、用户（详情、启用/禁用、临时登录密码）、文件、完整性、安全 Agent、审计链、恢复请求、恢复公钥 |
 | `/education` | 教育文章与算法浏览器 |
 | `/help` | 帮助：动画讲解、真实产品的演示视频、图文指南 |
@@ -53,8 +53,7 @@ npm run dev
 
 浏览器已经实现账户密钥登记、passphrase／私钥文件解锁、用私钥文件重设 passphrase、加密上传、
 认证下载与本地解密、带接收者密钥指纹确认的分享、撤销、文件夹、搜索、审计历史、refresh 轮换、
-会撤销服务端会话的登出、注销账户，以及 `/admin` 上的角色感知管理／恢复／审计操作。在不使用私钥
-文件的情况下修改已知 passphrase（`POST /keys/me/rewrap`）和后继密钥轮换，API 已有但尚无界面。
+会撤销服务端会话的登出、注销账户，以及 `/admin` 上的角色感知管理／恢复／审计操作。设置页还可以凭当前 passphrase 修改 passphrase（#201）。后继密钥轮换 API 已有，但尚无界面。
 
 在 `/files` 中，**Download and decrypt** 会在需要时弹出解锁对话框并保存原文件。**Encrypted
 preview** 面板展示服务器保存的字节，并提供 **Download encrypted file**，无需解锁账户密钥即可将
