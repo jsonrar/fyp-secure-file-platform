@@ -32,6 +32,10 @@ ID 做关联，不使用用户身份作为关联键。
 只写受控字段，如 `caller`、`action`、`result`、commit/backup 路径或受控失败位置，不记录
 `backend.env` 或数据库密码。
 
+数据库重试单独记录在 `secureview.db` 上（#202）：每个被重试的事务写一条 warning，形如
+`mysql_transaction_retry code=1213 attempt=2 of 3`，只含 MySQL 错误码和第几次尝试，从不包含 SQL 语句或参数。
+用 `journalctl -u fyp-backend | grep mysql_transaction_retry` 可以统计死锁（1213）或锁等待超时（1205）被重试的次数。
+
 ## 2. 仅宿主机可访问的 Metrics
 
 `GET http://127.0.0.1:8000/internal/metrics` 是仅宿主机使用的运维接口。生产 Uvicorn 绑定

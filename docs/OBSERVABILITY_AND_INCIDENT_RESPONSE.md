@@ -37,6 +37,12 @@ Deploy and rollback outcomes already have a separate operator audit trail in
 `caller`, `action`, `result`, commit/backup paths, or a controlled failure location; it never
 logs backend environment contents or database passwords.
 
+Database retries are logged separately on `secureview.db` (#202): one warning per retried
+transaction, `mysql_transaction_retry code=1213 attempt=2 of 3`, with the MySQL error code and the
+attempt number only, never the statement or its parameters.
+`journalctl -u fyp-backend | grep mysql_transaction_retry` counts how often deadlocks (1213) or
+lock-wait timeouts (1205) were retried.
+
 ## 2. Host-local metrics
 
 `GET http://127.0.0.1:8000/internal/metrics` is a host-local operations surface. Production

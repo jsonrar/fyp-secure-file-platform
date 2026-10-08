@@ -118,7 +118,7 @@ Final Presentation 要讲什么、每一点的证据在哪，见
 ### 普通用户流程
 
 1. **注册**：`/register` 分两步（#161）：先填账户信息（用户名、邮箱、邮件验证码和登录密码），再单独设置加密
-   passphrase，并说明它为什么存在。注册完成后直接登录。浏览器本地生成 RSA 密钥对、AMK 和加密私钥包；注册完成时应立即把一次性提供的
+   passphrase，并说明它为什么存在。常见、有规律或由用户名构成的口令会被拒绝（#205）。注册完成后直接登录。浏览器本地生成 RSA 密钥对、AMK 和加密私钥包；注册完成时应立即把一次性提供的
    `.pem` 私钥文件移出下载目录并安全保存。登录密码用于认证，加密 passphrase 用于解锁文件，
    两者不能互相替代。
 2. **登录与工作台**：在 `/login` 登录后进入 `/dashboard`。Access token 即将失效时，前端会
@@ -500,7 +500,7 @@ bash scripts/mysql_release_gate.sh     # 锁竞争、带校验和的恢复、回
 
 staging 上的备份任务已安装并在运行：`mcs21-backup`（同机备份，每天 04:15 起）、`mcs21-offsite-backup`（加密异地副本，
 每天 02:30 起，使用 `04-backup-account.sql` 创建的最小权限账号），以及每周日的 `mcs21-backup-verify` 恢复校验。最近一次异地
-备份（2026-10-08 02:37）成功。详见 [docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)。
+备份（2026-10-08 02:37）成功。每次部署前还会留一份部署前备份，`mcs21-deploy` 只保留最新 10 份（#204）。详见 [docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)。
 
 ### 对账清理与运维告警
 

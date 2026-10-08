@@ -7,7 +7,7 @@ say**, **where the numbers and evidence are**, **what a judge is likely to ask**
 Anything marked *planned* or *in review* is not done yet; do not present it as done. What is still
 missing, and in what order to fix it, is in [REFLECTION.md](REFLECTION.md).
 
-Last updated: 2026-10-07
+Last updated: 2026-10-08
 
 ---
 
@@ -293,6 +293,28 @@ database leak exposes every password; a security product that did this would fai
 
 **Evidence:** the reset is audited as `ADMIN_PASSWORD_RESET` without the password; tests check that only a
 hash is stored, sessions are revoked, and that admins cannot reset themselves or other admins.
+
+## 14. Closing what the threat model and the proposal asked for (PRs #200–#205, 2026-10-08)
+
+**What to say:** "Our own threat model said a weak passphrase like `password123` would fall in minutes,
+even behind Argon2id. The passphrase never reaches our server, so only the browser can check it: it now
+refuses common, patterned and username-based passphrases and suggests four random words (F-04, #205).
+Users who still know their passphrase can change it in Settings without digging out their key file
+(#201). And the upload's seal receipt can now be closed, which was the last unmet acceptance criterion
+(AC7, #200)."
+
+**Evidence:** THREAT_MODEL F-04 marked Mitigated with the PR; unit tests list the refused and accepted
+examples; the live passphrase-reset suite changes a real account's passphrase and still decrypts a file
+uploaded before; the golden-path browser test closes the receipt and changes the passphrase in Settings.
+Every product acceptance criterion and milestone M7 are now Done in PROPOSAL_TRACEABILITY.
+
+**Also worth one sentence (operations):** deadlock retries are now logged, so the next load test can say
+whether any fired (#202); the deploy script stopped hoarding pre-deploy backups (76 GB) and keeps the
+newest 10 (#204).
+
+**Likely question:** can't a malicious client skip the passphrase check?
+**Answer:** yes, and we say so. It protects users from their own weak choices; it is not a server-side
+control, because the server never sees the passphrase by design.
 
 ## Quick answers for judges
 

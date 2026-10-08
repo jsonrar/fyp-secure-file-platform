@@ -311,6 +311,7 @@ Times are to exhaust the whole space; the expected time to success is half.
 2. **The 10-character minimum is a usability floor, not a strength guarantee.** The check is
    length-only, plus "differs from the login password". `aaaaaaaaaa` and `password12` pass it,
    and fall in minutes on one laptop. Length is a poor proxy for entropy when people choose.
+   *(Update 2026-10-08: R-1 is implemented, #205; both examples are now refused. See F-04.)*
 3. **Only the browser can do better.** The passphrase never reaches the server, by design (O1),
    so the server can neither check it against a deny-list nor enforce anything about it. Any
    strength check must run client-side.
@@ -558,6 +559,9 @@ The owner column names one of the project's two defined roles, or *Unassigned* w
 - The registration page no longer claims the passphrase cannot be reset (#110).
 
 **Status changes since v1.0 (2026-10-01):** F-10 and F-11 are resolved by the staging evidence in Issue #59, F-20 is resolved and F-19 mitigated by #113, and F-12 is partly resolved by #112. F-01 is mitigated by CI-gated deployment (#117, installed the same day), with the residual that branch protection is unavailable on this plan and no review is enforced. F-02, F-03 and F-04 are unchanged and still open.
+
+**Status changes on 2026-10-08:** F-04 mitigated by #205 (browser-side rejection of common, patterned
+and account-derived passphrases). F-02 and F-03 remain *Recommended*.
 
 ## 13. Review record
 

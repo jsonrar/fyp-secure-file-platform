@@ -47,7 +47,8 @@ account access to its encrypted files.
 The encryption passphrase is independent of the login password and only ever derives the KEK in
 the client. A user normally needs to remember just that passphrase, because the server keeps the
 encrypted private-key bundle. The server cannot reset or recover a lost passphrase; the holder of
-the private key file (`.pem`, offered once at registration) sets a new one in Settings, and losing
+the private key file (`.pem`, offered once at registration) sets a new one in Settings (or, while
+the passphrase is still known, Settings changes it with the current one, #201), and losing
 both makes the files unrecoverable. The recovery API only governs rewrapping one file's DEK to an
 already registered active public key; it does not recover the passphrase or the AMK, or decrypt
 the private-key bundle.

@@ -62,7 +62,7 @@ deployment as it found it.
 ## The disposable stack: every live suite, un-skipped, in CI
 
 Four frontend suites talk to a real backend, and each skips itself without its environment:
-`crypto/mvp`, `crypto/upload`, `crypto/passphrase-reset`, and `e2e/live-stack`. The `e2e-live`
+`crypto/mvp`, `crypto/upload`, `crypto/passphrase-reset`, and `e2e/live-stack`. `crypto/passphrase-reset` covers both the key-file reset and the change with the current passphrase (#201). The `e2e-live`
 CI job runs all of them against a fresh API process and a disposable MySQL 8.4, then fails if
 the JUnit report contains a single skipped test (`backend/scripts/check_no_skips.py`).
 
@@ -112,7 +112,7 @@ driven by Playwright, clicks the built pages through the golden path:
 | Register two accounts | The two-step register form: account details with **Send code**, **Next**, then the encryption passphrase and **Register** |
 | Email verification | The code is read from the stack's mailbox directory (the same one `e2e/live-stack` reads) and typed into the form; nothing is sent |
 | Sign in | The login form |
-| Upload | The file picker and **Start Encryption** on `/upload`, then **View Encrypted Files** |
+| Upload | The file picker and **Start Encryption** on `/upload`, then **View Encrypted Files**; before that the seal receipt is closed with **Close the seal receipt** and must leave the page (#200) |
 | Encrypted preview | **Encrypted preview** on the row shows the stored bytes, and they do not start like the original |
 | Folders | The file is added to a folder and moved back to **All files** |
 | Unlock the key vault | The passphrase dialog raised by **Download and decrypt** |
@@ -122,6 +122,7 @@ driven by Playwright, clicks the built pages through the golden path:
 | Recipient's folder | The recipient files the shared file in a folder of their own; the row offers **Download and decrypt** and **More actions** but no **Share** or **Delete** |
 | Revoke | **Revoke** in the share dialog, then **Revoke access** on the confirmation |
 | Recipient no longer sees it | The recipient's list after a reload |
+| Change the passphrase | Settings → **Change your encryption passphrase**: current and new passphrase, then the success message (#201) |
 | Log out | **Log out** in the account menu; a protected page then sends the browser back to sign in |
 
 Every step is driven through the UI; none is done over the API. The UI's **Log out** calls
