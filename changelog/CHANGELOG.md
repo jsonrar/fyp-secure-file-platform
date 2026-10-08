@@ -22,6 +22,10 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 - `mcs21-deploy` dumps the database and archives every ciphertext object before each deployment, and nothing ever deleted them: 178 sets and 76 GB on 2026-10-08, with the shared root disk 65 % full. After a healthy deployment it now keeps the newest `MCS21_KEEP_DEPLOY_BACKUPS` (default 10), only ever considers directories with the names it creates, refuses to keep fewer than 3, and audits how many it removed. A failed deployment never prunes, so the rollback history is never shortened by a bad release. Off-server copies remain the job of `mcs21-offsite-backup`. Takes effect once the script is reinstalled in `/usr/local/sbin`.
 - `mcs21-deploy` 每次部署前都会导出数据库并打包所有密文对象，而这些备份从未被删除：2026-10-08 已有 178 份、76 GB，共用的根盘已用 65%。现在部署健康后只保留最新的 `MCS21_KEEP_DEPLOY_BACKUPS` 份（默认 10），只处理脚本自己创建的目录名，拒绝保留少于 3 份，并在审计日志里记下删了几份。部署失败时从不清理，所以坏发布不会缩短可回滚的历史。异地副本仍由 `mcs21-offsite-backup` 负责。需要把脚本重新安装到 `/usr/local/sbin` 后生效。
+### Dependencies: Vue 3.5.43 and source-map-js 1.2.2 for two new high-severity advisories / 依赖：为两条新的高危公告升级到 Vue 3.5.43 与 source-map-js 1.2.2
+
+- On 2026-10-08 `npm audit` began reporting GHSA-g2v6-rqmx-r4w6 (XSS in `@vue/server-renderer` before 3.5.42) and an event-loop denial of service in `source-map-js` before 1.2.2, and the CI audit gate failed every frontend pull request. The app does not server-render, so the Vue advisory was not reachable here, but the gate is what keeps a reachable one out, so the fix is the upgrade rather than an exception. Lockfile and the `vue` floor only; typecheck, 810 unit tests and the build pass.
+- 2026-10-08 起 `npm audit` 报告 GHSA-g2v6-rqmx-r4w6（3.5.42 之前的 `@vue/server-renderer` 存在 XSS）以及 1.2.2 之前 `source-map-js` 的事件循环拒绝服务，CI 的依赖审计门禁因此拦下了所有前端 PR。本应用不做服务端渲染，所以 Vue 那条在这里无法被利用；但门禁的作用就是挡住真正可利用的公告，所以处理方式是升级而不是加例外。只改了 lockfile 和 `vue` 的最低版本；类型检查、810 个单元测试和构建均通过。
 
 ### Documentation second pass: both languages say the same thing, and open items re-checked on staging / 文档第二轮：中英两版内容一致，未完成事项在 staging 上重新核对
 
