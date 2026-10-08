@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Settings: the two top columns end at the same line / 设置页：上方两栏底边对齐
+
+- The Settings page's top grid aligned its columns to the top, so the right column (Account, key fingerprint) ended well above the left (Appearance, Language) and left an empty band. Both columns now stretch to the same height; the fingerprint card fills the rest and puts the fingerprint, now in a framed box, at its bottom, level with the language buttons. Below `lg` the page is one column, unchanged.
+- 设置页上方的网格原来是顶部对齐，右栏（账户、密钥指纹）比左栏（外观、语言）短一截，下面空出一块。现在两栏等高；密钥指纹卡片填满剩余高度，指纹改放在带边框的框里并贴在卡片底部，与左边的语言按钮齐平。`lg` 以下的单栏布局不变。
+
 ### Passphrase: reject common, patterned and account-derived passphrases (F-04) / 口令：拒绝常见、有规律或由账户信息构成的口令（F-04） ([PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205))
 
 - The encryption passphrase only had a 10-character minimum, so `password123` or `aaaaaaaaaa` passed, and the threat model measured that a list passphrase falls in minutes on one laptop despite Argon2id (F-04, §9.4). The passphrase never reaches the server, so only the browser can check it: registration, the passphrase change card and the key-file reset now refuse passphrases on a common list (the server's login deny-list at 10+ characters plus passphrase defaults), repeated or sequential characters, and ones that are mostly the username or email, and suggest four or more random words. A real phrase that merely contains the name still passes. F-04 is mitigated; it remains a client-side check that a modified client could skip.
