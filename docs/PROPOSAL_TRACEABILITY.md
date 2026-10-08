@@ -65,7 +65,7 @@ without merge, none open) and `main` at `e4b3f13` contains 317 commits.
 | 4.9 | Audit logging | Done | Hash-chained events, per-file history and corrected visibility rules |
 | 5.1 | Functional and end-to-end testing | Done | `e2e-live` runs every live-backend suite un-skipped and a Chromium golden-path test; `mysql-gate` runs the whole suite against MySQL 8.4 with concurrency and fault-injection and fails on any skip; a tamper drill runs in CI (Issues #53, #58, #90, #93); further Chromium specs cover the tamper view, phone widths, the Help assistant and the language switch; staging was load-tested on 2026-10-03/04 (#140) and the 100-user failure fixed and re-run (#163, #172). Still not a long-running chaos test |
 | 5.2 | Cryptographic correctness testing | Done | Primitive, envelope, tamper, upload/download and live integration tests |
-| 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, F-01 is mitigated by CI-gated deployment (#117) and three *Recommended* findings (F-02 to F-04) are open |
+| 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, F-01 is mitigated by CI-gated deployment (#117) and two *Recommended* findings (F-02, F-03) are open; F-04 was mitigated by #205 |
 | 5.4 | Non-expert usability testing | In progress | Informal real use only: the supervisor, the four team members, the FIT3162 Teaching Team and other students used staging with their own accounts. The formal study was **not run** (Issue #115 closed as not planned on 2026-10-04): no SUS score, no per-task completion rate. The study kit was deleted on 2026-10-05 (it is in the git history, PR #114). It would become Done only if a real study were run and recorded |
 
 **WBS summary:** 22 Done, 1 In review, 1 In progress, 0 Backlog. The simple board completion
@@ -133,9 +133,9 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 
 1. Non-expert usability (WBS 5.4): the formal study (Issue #115) was closed as not planned on
    2026-10-04. Describe NFR2 as supported by informal real use, never as formally verified.
-2. Decide the three open *Recommended* security findings (F-02 to F-04): move the recovery key into
-   proposed custody, switch off `/docs` after the demo, reject known-weak passphrases. (F-01, CI-gated
-   deployment, was done and installed on 2026-10-01.)
+2. Decide the two open *Recommended* security findings (F-02, F-03): move the recovery key into
+   proposed custody, and switch off `/docs` after the demo. (F-01, CI-gated deployment, was done on
+   2026-10-01; F-04, rejecting known-weak passphrases, on 2026-10-08 in #205.)
 3. Time the 4-hour whole-service recovery on a fresh VPS (follow-up from Issue #56).
 
 Done since the 2026-10-01 recheck: the staging capacity and performance test (#140, PR #155), the

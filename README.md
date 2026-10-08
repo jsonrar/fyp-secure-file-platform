@@ -108,8 +108,8 @@ bar. Completed steps show a check. The pictures use fabricated data and mobile c
 re-shot after the redesign on 2026-10-05 (#192) and are live on staging.
 
 The remaining work is production hardening rather than an unfinished basic demo: a UI for
-successor keys (the API exists), the three open *Recommended* security
-findings (F-02 to F-04), and an independent security review. Required CI on self-hosted runners
+successor keys (the API exists), the two open *Recommended* security
+findings (F-02, F-03), and an independent security review. Required CI on self-hosted runners
 with a CI-gated deploy, MySQL 8.4 release gates, encrypted off-server backups, clean-host restore
 evidence, scheduled reconciliation, a daily integrity sweep, external audit checkpoints,
 monitoring alerts, the security agent and a same-VPS isolated tamper drill are now in place. The prioritized summary is in [TODO.md](TODO.md), and executable

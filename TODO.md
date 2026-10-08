@@ -209,9 +209,9 @@ not a release pass.
   CSP, uploads, tokens and recovery operations, and a register of 20 findings with severity and
   disposition. It is a self-assessment with one peer review, not an independent external review,
   and certifies nothing. Register refreshed on 2026-10-01 (v1.1): F-10, F-11 and F-20 resolved, F-12
-  partly and F-19 mitigated; F-01 mitigated the same day by CI-gated deploys (#117, below). Three
-  *Recommended* findings remain unimplemented: F-02 recovery-key custody, F-03 disabling `/docs` on
-  staging, and F-04 weak-passphrase rejection.
+  partly and F-19 mitigated; F-01 mitigated the same day by CI-gated deploys (#117, below). Two
+  *Recommended* findings remain unimplemented: F-02 recovery-key custody and F-03 disabling `/docs` on
+  staging. F-04 weak-passphrase rejection was mitigated on 2026-10-08 ([PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)).
 
 ## P3 — planned product UX
 

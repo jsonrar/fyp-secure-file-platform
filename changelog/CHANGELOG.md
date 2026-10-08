@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Passphrase: reject common, patterned and account-derived passphrases (F-04) / 口令：拒绝常见、有规律或由账户信息构成的口令（F-04） ([PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205))
+
+- The encryption passphrase only had a 10-character minimum, so `password123` or `aaaaaaaaaa` passed, and the threat model measured that a list passphrase falls in minutes on one laptop despite Argon2id (F-04, §9.4). The passphrase never reaches the server, so only the browser can check it: registration, the passphrase change card and the key-file reset now refuse passphrases on a common list (the server's login deny-list at 10+ characters plus passphrase defaults), repeated or sequential characters, and ones that are mostly the username or email, and suggest four or more random words. A real phrase that merely contains the name still passes. F-04 is mitigated; it remains a client-side check that a modified client could skip.
+- 加密口令原来只要求至少 10 个字符，`password123`、`aaaaaaaaaa` 都能通过；威胁模型实测，即使有 Argon2id，列表里的口令在一台笔记本上几分钟就会被猜中（F-04，第 9.4 节）。口令从不发到服务器，所以只能在浏览器里检查：注册、修改口令卡片和私钥文件重设现在都会拒绝常见列表中的口令（服务器登录拒绝列表里 10 位以上的条目，加上常见口令默认值）、重复或连续的字符，以及主要由用户名或邮箱构成的口令，并建议使用四个或更多随机单词。只是包含名字的正常短语仍可通过。F-04 已缓解；它仍是客户端检查，被改过的客户端可以绕过。
+
 ### Settings: change the encryption passphrase with the current one / 设置页：凭当前口令修改加密口令 ([PR #201](https://github.com/jsonrar/fyp-secure-file-platform/pull/201))
 
 - Until now the only way to a new encryption passphrase was the private-key file (#80), so someone who simply wanted a stronger passphrase had to dig out a file that should stay locked away. Settings now has a "Change your encryption passphrase" card: the current passphrase opens the stored key in the browser, and the same path as the key-file reset seals it again under a new account master key, signs the replacement with the key, and reads it back to check it opens. A wrong current passphrase is refused before anything is sealed or sent; neither passphrase leaves the browser, and a stolen session alone still cannot change it. No backend or schema change. Covered by unit tests, the live passphrase-reset suite (changes it for real and decrypts a file uploaded before) and a golden-path browser step.
