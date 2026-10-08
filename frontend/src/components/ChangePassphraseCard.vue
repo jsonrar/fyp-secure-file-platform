@@ -11,7 +11,13 @@ import {
   changePassphrase,
 } from '@/crypto/passphrase-reset'
 import { PassphraseRejectedError } from '@/utils/account-crypto'
-import { PASSPHRASE_MIN_LENGTH, passphraseLength } from '@/utils/password-policy'
+import {
+  PASSPHRASE_MIN_LENGTH,
+  passphraseLength,
+  weakPassphraseMessage,
+  weakPassphraseReason,
+} from '@/utils/password-policy'
+import { useAuthStore } from '@/stores/auth_store'
 
 /**
  * Change the encryption passphrase while the current one is still known.
@@ -21,6 +27,7 @@ import { PASSPHRASE_MIN_LENGTH, passphraseLength } from '@/utils/password-policy
  */
 
 const { t } = useI18n()
+const auth = useAuthStore()
 const current = ref('')
 const passphrase = ref('')
 const confirmation = ref('')
@@ -45,7 +52,9 @@ const passphraseError = computed(() => {
     return t('register.usernameTooShort', { min: PASSPHRASE_MIN_LENGTH })
   }
   if (passphrase.value === current.value) return t('changePassphrase.same')
-  return ''
+  return weakPassphraseMessage(
+    weakPassphraseReason(passphrase.value, [auth.user?.username ?? '', auth.user?.email ?? '']),
+  )
 })
 
 const confirmationError = computed(() => {

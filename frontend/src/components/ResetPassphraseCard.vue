@@ -10,7 +10,13 @@ import {
   ResetVerificationError,
   resetPassphraseWithPrivateKeyPem,
 } from '@/crypto/passphrase-reset'
-import { PASSPHRASE_MIN_LENGTH, passphraseLength } from '@/utils/password-policy'
+import {
+  PASSPHRASE_MIN_LENGTH,
+  passphraseLength,
+  weakPassphraseMessage,
+  weakPassphraseReason,
+} from '@/utils/password-policy'
+import { useAuthStore } from '@/stores/auth_store'
 
 /**
  * Set a new encryption passphrase using the private key file issued at registration.
@@ -20,6 +26,7 @@ import { PASSPHRASE_MIN_LENGTH, passphraseLength } from '@/utils/password-policy
  */
 
 const { t } = useI18n()
+const auth = useAuthStore()
 const keyPem = ref('')
 const keyFileName = ref('')
 const passphrase = ref('')
@@ -42,7 +49,9 @@ const passphraseError = computed(() => {
   if (passphraseLength(passphrase.value) < PASSPHRASE_MIN_LENGTH) {
     return t('register.usernameTooShort', { min: PASSPHRASE_MIN_LENGTH })
   }
-  return ''
+  return weakPassphraseMessage(
+    weakPassphraseReason(passphrase.value, [auth.user?.username ?? '', auth.user?.email ?? '']),
+  )
 })
 
 const confirmationError = computed(() => {

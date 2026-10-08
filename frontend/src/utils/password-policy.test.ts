@@ -7,6 +7,7 @@ import {
   evaluatePassword,
   passphraseLength,
   passwordCharacterClasses,
+  weakPassphraseReason,
 } from './password-policy'
 
 describe('encryption passphrase policy', () => {
@@ -91,5 +92,45 @@ describe('evaluatePassword', () => {
     // and wave through a password the server would then reject.
     expect(evaluatePassword('🔐🔐🔐🔐ab🔐🔐').length).toBe(8)
     expect(evaluatePassword('🔐🔐🔐ab🔐🔐').ok).toBe(false)
+  })
+})
+
+describe('weakPassphraseReason (threat model F-04)', () => {
+  it.each([
+    ['password123', 'common'],
+    ['Pass Word 123', 'common'],
+    ['correct horse battery staple', 'common'],
+    ['SecureView123', 'common'],
+    ['aaaaaaaaaa', 'pattern'],
+    ['abcabcabcabc', 'pattern'],
+    ['1212121212', 'pattern'],
+    ['abcdefghijk', 'pattern'],
+    ['9876543210', 'pattern'],
+    ['qwertyuiop', 'pattern'],
+    ['lkjhgfdsa1', ''],
+    ['aabbaabbab', 'pattern'],
+  ])('flags %j as %j', (passphrase, reason) => {
+    expect(weakPassphraseReason(passphrase)).toBe(reason)
+  })
+
+  it('flags a passphrase that is mostly the username or email', () => {
+    const context = ['samuel', 'samuel.lee@example.com']
+    expect(weakPassphraseReason('samuel2026!', context)).toBe('account')
+    expect(weakPassphraseReason('Samuel.Lee 1', context)).toBe('account')
+  })
+
+  it('lets a real phrase through even when it contains the name', () => {
+    const context = ['samuel', 'samuel.lee@example.com']
+    expect(weakPassphraseReason('samuel rides purple tractors at noon', context)).toBe('')
+  })
+
+  it('accepts four random words and other strong passphrases', () => {
+    expect(weakPassphraseReason('maple orbit sunlit gravel')).toBe('')
+    expect(weakPassphraseReason('throwaway alice passphrase 5d8c1e9a')).toBe('')
+    expect(weakPassphraseReason('我的猫喜欢在窗台上晒太阳')).toBe('')
+  })
+
+  it('says nothing about an empty value, which has its own message', () => {
+    expect(weakPassphraseReason('')).toBe('')
   })
 })
