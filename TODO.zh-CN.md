@@ -192,8 +192,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   或审计语义。
 - [x] [#54 浏览器修改 passphrase、密钥文件重置与后继密钥轮换](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
   ——**只完成了密钥文件重置**（#80）：Settings 会用账户公钥验证保存的私钥文件，在新 AMK 与新 passphrase 下重新
-  封装它，并以 RSA-PSS 签名证明持有；明文私钥不离开浏览器。**未实现，且不作为未完成工作被跟踪：**在记得旧
-  passphrase 时修改 passphrase、浏览器端的后继密钥轮换、规范化的账户信封规范文档，以及重置流程的浏览器 E2E
+  封装它，并以 RSA-PSS 签名证明持有；明文私钥不离开浏览器。记得当前 passphrase 时修改 passphrase 已于 2026-10-08
+  补上（[PR #201](https://github.com/jsonrar/fyp-secure-file-platform/pull/201)）：当前 passphrase 在浏览器中打开私钥，再走同一套重新封装和签名流程，有实时测试和浏览器测试。
+  **未实现，且不作为未完成工作被跟踪：**浏览器端的后继密钥轮换、规范化的账户信封规范文档，以及重置流程的浏览器 E2E
   （2026-10-01 检索 `frontend/src` 与 `docs`）。该 Issue 在这些未满足时被关闭；项目负责人选择如实记录而不是重新
   打开。见 Issue 上的范围记录。
 - [x] [#146 Help assistant：回答操作、原理与对比问题的悬浮助手（v1 不用大模型）](https://github.com/jsonrar/fyp-secure-file-platform/issues/146)

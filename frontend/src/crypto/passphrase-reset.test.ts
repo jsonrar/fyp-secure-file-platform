@@ -86,8 +86,13 @@ vi.mock('@/api/key_api', () => ({
   },
 }))
 
-const { PassphraseTooShortError, ResetVerificationError, resetPassphraseWithPrivateKeyPem } =
-  await import('./passphrase-reset')
+const {
+  PassphraseTooShortError,
+  ResetVerificationError,
+  SamePassphraseError,
+  changePassphrase,
+  resetPassphraseWithPrivateKeyPem,
+} = await import('./passphrase-reset')
 
 const OLD_PASSPHRASE = 'the passphrase that was forgotten'
 const NEW_PASSPHRASE = 'a brand new encryption passphrase'
@@ -174,4 +179,43 @@ describe('resetting the passphrase with the private key file', () => {
     await resetPassphraseWithPrivateKeyPem(enrolment.privateKeyPem, NEW_PASSPHRASE)
     expect(server.writes).toBe(1)
   }, 60_000)
+})
+
+describe('changing the passphrase with the current one', () => {
+  it('makes the new passphrase open the same private key, and the current one stop', async () => {
+    const before = structuredClone(server.state)
+
+    const outcome = await changePassphrase(OLD_PASSPHRASE, NEW_PASSPHRASE)
+
+    const reopened = await unlockAccountPrivateKeyDer(storedEnvelopes(), NEW_PASSPHRASE)
+    expect(bytesEqual(reopened, privateKeyPemToDer(enrolment.privateKeyPem))).toBe(true)
+    await expect(
+      unlockAccountPrivateKeyDer(storedEnvelopes(), OLD_PASSPHRASE),
+    ).rejects.toBeInstanceOf(PassphraseRejectedError)
+    expect(server.state.key).toEqual(before.key)
+    expect(outcome.profileRevision).toBe(4)
+    expect(server.writes).toBe(1)
+  }, 60_000)
+
+  it('refuses a wrong current passphrase before sending anything', async () => {
+    await expect(
+      changePassphrase('not the current passphrase at all', NEW_PASSPHRASE),
+    ).rejects.toBeInstanceOf(PassphraseRejectedError)
+    expect(server.pending).toBeUndefined()
+    expect(server.writes).toBe(0)
+  }, 60_000)
+
+  it('refuses a new passphrase equal to the current one', async () => {
+    await expect(changePassphrase(OLD_PASSPHRASE, OLD_PASSPHRASE)).rejects.toBeInstanceOf(
+      SamePassphraseError,
+    )
+    expect(server.writes).toBe(0)
+  })
+
+  it('refuses a short new passphrase before deriving anything', async () => {
+    await expect(changePassphrase(OLD_PASSPHRASE, 'too short')).rejects.toBeInstanceOf(
+      PassphraseTooShortError,
+    )
+    expect(server.writes).toBe(0)
+  })
 })
