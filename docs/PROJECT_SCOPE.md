@@ -29,7 +29,8 @@ key wrappings, access policy, recovery workflow state, and tamper-evident audit 
 - Key-protection profile retrieval and passphrase rewrap protected by optimistic revision plus
   newest-current-private-key RSA-PSS-SHA256 authorization
 - Current-private-key-authorized successor key addition with historical bundles retained
-- Reset of a forgotten encryption passphrase by the holder of the account's private key file
+- Change of the encryption passphrase with the current one, and reset of a forgotten one by the
+  holder of the account's private key file
   (`.pem`, offered once at registration), authorised by an RSA-PSS signature from that key
 - Recovery-public-key registration/rotation and mandatory upload recovery wrapping
 - Time-bounded, maker-checker recovery requests with isolated offline/HSM DEK unwrap/rewrap

@@ -108,7 +108,7 @@ bar. Completed steps show a check. The pictures use fabricated data and mobile c
 re-shot after the redesign on 2026-10-05 (#192) and are live on staging.
 
 The remaining work is production hardening rather than an unfinished basic demo: a UI for
-changing the passphrase with the old one and for successor keys (both exist in the API), an
+successor keys (the API exists), an
 explicit dismiss control for the upload progress panel, the three open *Recommended* security
 findings (F-02 to F-04), and an independent security review. Required CI on self-hosted runners
 with a CI-gated deploy, MySQL 8.4 release gates, encrypted off-server backups, clean-host restore
@@ -198,11 +198,12 @@ and what to do about it, by priority, is in
    involving themselves, and ADMIN can verify the full hash chain. An emailed code resets a
    forgotten login password; a forgotten encryption passphrase requires the separately
    retained `.pem` key, which can unlock the current session or, in `/settings`, set a new
-   passphrase without changing the account key or any file. Account identity and preferences live
+   passphrase without changing the account key or any file. While the passphrase is still known,
+   `/settings` changes it with the current one (#201). Account identity and preferences live
    under the header avatar: `/profile` shows the signed-in account, can upload or remove a
    profile picture, and can open account deletion; `/settings` covers theme, language, the
-   account's key fingerprint, changing the login password, resetting the passphrase with the
-   key file, and the same deletion flow (password + typed `DELETE`).
+   account's key fingerprint, changing the login password, changing the passphrase with the
+   current one, resetting it with the key file, and the same deletion flow (password + typed `DELETE`).
 7. **Learn and get help without signing in:** `/education` covers Algorithm Explorer,
    Playground, and Knowledge Base. The homepage picture guide is the fastest first share guide;
    `/how-it-works` is the animated explainer, and `/help` adds three walkthrough videos recorded

@@ -30,7 +30,7 @@ Backend should be running at `http://localhost:8000`.
 | `/files` | My Files: owned and shared files, folders, details panel, share, revoke, access history, encrypted preview (auth required) |
 | `/audit-logs` | Access Records (auth required) |
 | `/profile` | Profile and avatar (auth required) |
-| `/settings` | Theme, language, key fingerprint, login-password change, passphrase reset with the private key file, account deletion (auth required) |
+| `/settings` | Theme, language, key fingerprint, login-password change, passphrase change with the current one, passphrase reset with the private key file, account deletion (auth required) |
 | `/admin` | Role-aware operations: overview statistics, users (details, enable/disable, temporary login password), files, integrity, security agent, audit chain, recovery requests, recovery key |
 | `/education` | Education articles and algorithm explorer |
 | `/help` | Help: animated explainer, walkthrough videos of the real product, picture guide |
@@ -57,8 +57,8 @@ The browser implements account-key enrolment, passphrase/private-key-file unlock
 reset with the private key file, encrypted upload, authenticated download/decryption, sharing
 with recipient key-fingerprint confirmation, revocation, folders, search, audit history,
 refresh rotation, server-revoking logout, account deletion, and role-aware
-admin/recovery/audit operations on `/admin`. Changing a known passphrase without the key file
-(`POST /keys/me/rewrap`) and successor-key rotation exist in the API but have no UI yet.
+admin/recovery/audit operations on `/admin`. Settings also changes the passphrase with the
+current one (#201). Successor-key rotation exists in the API but has no UI yet.
 
 On `/files`, **Download and decrypt** opens the unlock dialog when needed and saves the
 original file. The **Encrypted preview** panel shows the stored bytes and offers **Download
