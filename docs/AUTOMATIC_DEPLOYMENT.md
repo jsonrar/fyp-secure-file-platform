@@ -118,8 +118,7 @@ Every deployment first writes a database dump and an archive of the ciphertext o
 `mcs21-deploy` keeps the newest `MCS21_KEEP_DEPLOY_BACKUPS` sets (default 10, never fewer than 3),
 deletes older ones, and audits how many it removed. It only considers directories with that name
 pattern and never prunes after a failed deployment. Off-server copies are `mcs21-offsite-backup`'s job.
-Like every change to this script, it applies once the new `mcs21-deploy` is installed in
-`/usr/local/sbin`.
+Installed on staging on 2026-10-08; the first run (a forced redeploy of `f826165`) removed 175 sets and kept 10: `/var/backups/mcs21-deploy` went from 81 GB to 7.5 GB and the root disk from 69 % to 51 % used.
 
 ## Installed artifacts
 

@@ -101,8 +101,7 @@ sudo mcs21-deploy all
 
 每次部署前都会把数据库导出和密文对象打包写到 `/var/backups/mcs21-deploy/<UTC 时间戳>-<sha>`。自 [PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204) 起，部署健康后
 `mcs21-deploy` 只保留最新的 `MCS21_KEEP_DEPLOY_BACKUPS` 份（默认 10，不少于 3），删除更早的，并在审计日志中记下删了几份。
-它只处理符合该命名格式的目录，部署失败时从不清理。异地副本由 `mcs21-offsite-backup` 负责。与这个脚本的任何改动一样，
-需要把新的 `mcs21-deploy` 装到 `/usr/local/sbin` 后才生效。
+它只处理符合该命名格式的目录，部署失败时从不清理。异地副本由 `mcs21-offsite-backup` 负责。已于 2026-10-08 安装到 staging；第一次运行（强制重新部署 `f826165`）删除 175 份、保留 10 份：`/var/backups/mcs21-deploy` 从 81 GB 降到 7.5 GB，根盘占用从 69% 降到 51%。
 
 ## 安装文件
 

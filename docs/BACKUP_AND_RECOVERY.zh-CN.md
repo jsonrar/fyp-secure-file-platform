@@ -334,9 +334,10 @@ bash scripts/mysql_release_gate.sh              # 锁竞争、带校验和的恢
 
 - 4 小时整体服务 RTO 尚未在全新 VPS 上端到端计时；目前只实测了数据恢复（§5）。
 - rsync 目标已接好，但尚未对真实目标测试。S3 已在 R2 上投入使用。
-- `mcs21-deploy` 的发布前备份仍是同一主机上的明文（仅 root 可读，0700），且从不清理：2026-09-24 时已有
-  81 份、5.6 GB；2026-10-08 已增至 178 份、76 GB（根盘已用 65%），因为每份都会把所有密文对象一起打包。清理现已加入 `mcs21-deploy`（[PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)）：部署健康后只保留最新 10 份
-  （`MCS21_KEEP_DEPLOY_BACKUPS`，不少于 3 份）。需要把更新后的脚本装到 `/usr/local/sbin` 才生效，之后的第一次部署会删掉更早的备份。它们是快速回滚点，不是异地副本。清理应在 `mcs21-deploy` 中实现。
+- ~~`mcs21-deploy` 的发布前备份从不清理。~~ **2026-10-08 已完成**（[PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)）：
+  因为每份都会把所有密文对象一起打包，它们在 2026-09-24 已有 81 份、5.6 GB，到 2026-10-08 增至 184 份、81 GB。它们仍是同一
+  主机上的明文（仅 root 可读，0700），是快速回滚点而不是异地副本。现在部署健康后 `mcs21-deploy` 只保留最新 10 份
+  （`MCS21_KEEP_DEPLOY_BACKUPS`，不少于 3 份）。第一次运行（强制重新部署 `f826165`）删除了 175 份：81 GB → 7.5 GB，根盘占用 69% → 51%。
 
 ## Staging 安装记录（2026-09-24）
 

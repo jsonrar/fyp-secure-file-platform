@@ -20,7 +20,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 ## 已交付 MVP 基线
 
 2026-10-08 上线：封存回执的关闭按钮，补完 AC7（[PR #200](https://github.com/jsonrar/fyp-secure-file-platform/pull/200)）；凭当前口令修改口令（[PR #201](https://github.com/jsonrar/fyp-secure-file-platform/pull/201)）；死锁重试写日志
-（[PR #202](https://github.com/jsonrar/fyp-secure-file-platform/pull/202)）；为两条 npm 公告升级到 Vue 3.5.43（[PR #203](https://github.com/jsonrar/fyp-secure-file-platform/pull/203)）；部署前备份清理，在 VPS 上重新安装 `mcs21-deploy` 后生效
+（[PR #202](https://github.com/jsonrar/fyp-secure-file-platform/pull/202)）；为两条 npm 公告升级到 Vue 3.5.43（[PR #203](https://github.com/jsonrar/fyp-secure-file-platform/pull/203)）；部署前备份清理，当天已装到 VPS（删除 175 份旧备份，腾出 73 GB）
 （[PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)）；以及在浏览器中拒绝弱口令，威胁模型 F-04（[PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)）。
 
 首页图文指南（六张带标记的截图，中英文各一套）和帮助页视频已在“Sealed”改版后重新拍摄并上线 staging（#192）。
