@@ -37,7 +37,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   [Swagger UI](https://secureview.tech/docs)、
   [OpenAPI JSON](https://secureview.tech/openapi.json)。
 - [x] 公开产品页与登录后账户壳层：落地页 `/`、Education（`/education`：算法、演练场、知识库）、
-  Help（`/help`：How to Use 操作演示）、Contact us（`/team`：反馈表单预览 + 导师简介 + 团队卡片）、页头当前标签主题色高亮，
+  Help（`/help`：How to Use 操作演示）、Contact us（`/team`：反馈表单 + 导师简介 + 团队卡片）、页头当前标签主题色高亮，
   以及含 `/profile` 与 `/settings` 的头像菜单。证据与理由见
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 的 `[Unreleased]`。
 - [x] 面向新用户的讲解（2026-10-02）：`/how-it-works` 和首页的可逐步查看的原理动画，Help 页三段从真实产品录制、
@@ -229,13 +229,13 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 4 分钟现场演示的脚本——[docs/presentation/DEMO_SCRIPT.zh-CN.md](docs/presentation/DEMO_SCRIPT.zh-CN.md)
 - [x] 在 staging 上建好演示账号 `demo-alice` / `demo-bob`（2026-10-04）
 - [x] 录备用视频——[docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)
-- [ ] 在 staging 上用 `demo-alice` 上传 `quarterly-results.txt` 并分享给 `demo-bob`（由用户来做；现场篡改那一步要用）
+- [x] 在 staging 上用 `demo-alice` 上传 `quarterly-results.txt` 并分享给 `demo-bob`（2026-10-08 核实：已分享且有效；现场篡改那一步要用）
 - [x] 文件行操作：下载（解密）、分享、删除三个按钮带文字直接显示，其余收进"更多"；修掉约 800 px 宽度下助手按钮压住操作的问题（[PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159)）
 - [x] 重新截取首页图文指南：截图里还是旧的六个图标（2026-10-04 已更新；第 5 步现在显示带密钥指纹的接收方确认）
 - [x] 现场篡改演示：改掉服务器上密文的一个字节，接收者下载时报错——
   `backend/scripts/demo_tamper.py` 和 [docs/presentation/TAMPER_DEMO.zh-CN.md](docs/presentation/TAMPER_DEMO.zh-CN.md)
 - [ ] 幻灯片：架构图、加密流程图、需求完成表、局限（最后做）
-- [ ] 界面改版（“Sealed”风格：暖白纸色、近黑墨色、薄荷绿强调、Geist 字体），所有功能保留。第 1 步全局风格：已完成（[PR #176](https://github.com/jsonrar/fyp-secure-file-platform/pull/176)）。
+- [x] 界面改版（“Sealed”风格：暖白纸色、近黑墨色、薄荷绿强调、Geist 字体），所有功能保留。第 1 步全局风格：已完成（[PR #176](https://github.com/jsonrar/fyp-secure-file-platform/pull/176)）。
   第 2 步公开页：已完成（[PR #177](https://github.com/jsonrar/fyp-secure-file-platform/pull/177)；深色首屏（深色首屏、替换 Core Features 卡片墙，保留“Under the hood”和六步指南）。第 3 步应用页：侧边栏、文件详情栏、上传封存回执、工作区和访问记录已改（PR #178、#180、#182）。第 3 步补充（来自 10-05 巡检）：P1 居中页头、统一内容宽度、设置和资料双栏、登录后所有页面保留侧边栏已完成（[#183](https://github.com/jsonrar/fyp-secure-file-platform/issues/183)）；P2（深色主色改近白、去胶囊标签、登录页分栏）已完成（[#184](https://github.com/jsonrar/fyp-secure-file-platform/issues/184)）；P3（访问记录无失败请求、步骤点点击区域、768px 溢出）代码已完成（[#185](https://github.com/jsonrar/fyp-secure-file-platform/issues/185)；线上 SHA-256 的确认由项目负责人做）。我的文件详情入口（整行、文件名、Details 按钮）和非模态侧边详情栏：已完成（[PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193)）。
   第 4 步重拍图文指南截图（中英文）、帮助页视频和演示备用视频：已完成（[#186](https://github.com/jsonrar/fyp-secure-file-platform/issues/186)）；幻灯片由项目负责人自己做
 - [x] 如实说明 NFR2（可用性）——TALKING_POINTS 第 10 条（非正式真实使用，没有正式研究）

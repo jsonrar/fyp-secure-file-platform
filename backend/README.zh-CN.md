@@ -38,12 +38,32 @@
 加密 passphrase、KEK、AMK、明文私钥、文件 DEK 或文件明文。浏览器前端已实现账户密钥登记
 （本地生成密钥对、Argon2id 派生 KEK、包装 AMK 并加密私钥，提交前自测信封可重新打开）、
 passphrase／私钥文件解锁、上传前加密、下载后本地解密，以及分享时把 DEK 重包装给接收者。
-尚未补全的是浏览器端修改 passphrase、后继账户密钥轮换，以及完整的管理/恢复专员操作界面。
+浏览器端还可以用私钥文件重设 passphrase；凭旧 passphrase 修改 passphrase 和后继账户密钥轮换在 API
+中已有，但尚无界面。管理员与恢复专员在 `/admin` 有完整的操作界面（概览、用户、文件、完整性、安全
+Agent、审计链、恢复请求、恢复公钥）。
 
 注册与忘记登录密码重置均由发往所声明邮箱的一次性验证码把关，注册同时将账户邮箱标记为已验证。
 验证码只以带密钥摘要形式存储，会过期、只能用一次、有尝试次数上界，并按邮箱与 IP 双重限流；
 发送端点对已注册与未注册地址返回完全相同的响应。重置绝不触碰账户密钥信封，因此不会让账户
 失去对已加密文件的访问能力，也因此无法找回遗忘的加密 passphrase。MFA 与外部身份登录尚未实现。
+
+### 服务端管理的账户密钥信封（format 2，目前未使用）
+
+> **不在注册路径上。** `CryptoService.generate_account_key` 和下面的格式是服务端管理注册方案试验留下的，
+> 但注册现在接收客户端生成的 `key_material`（见上文），因为 `docs/SECURITY_FLOWS.zh-CN.md` 要求后端永远不持有
+> 明文私钥。该辅助函数及其单元测试保留下来供团队评审，没有删除；没有任何代码调用它。
+
+该格式逐字节确定，便于其他后端客户端复现。密码先做 Unicode NFC 规范化并编码为 UTF-8，再进入 Argon2id。
+整数为无符号 32 位大端值，UUID 为 RFC 4122 网络字节序的原始 16 字节，公钥指纹是从 API 十六进制表示解码出
+的原始 32 字节 SHA-256 值。`||` 表示拼接；每个 domain 字符串以一个 `0x00` 字节结尾。
+
+- AMK 包装 AAD：`FYP-KEY-PROTECTION || 0x00 || format_version || aad_version || profile_uuid`
+- 私钥 HKDF info：`FYP-PRIVATE-KEY-DERIVATION || 0x00 || format_version || profile_uuid || key_uuid || bundle_uuid`
+- 私钥 AAD：`FYP-PRIVATE-KEY-BUNDLE || 0x00 || format_version || aad_version || profile_uuid || key_uuid || bundle_uuid || public_key_fingerprint`
+
+私钥 HKDF 使用 SHA-256，以 32 字节 AMK 为输入密钥材料、`derivation_salt` 为盐、上面的值为 `info`，输出
+32 字节。AES-GCM 认证标签与密文分开存放。format 2 的保护绑定登录密码，只能通过 `POST /auth/change-password`
+重新包装；客户端签名的 `/keys/me/rewrap` 流程只对旧版 format 1 配置可用。
 
 应用层 HTTP 端点仅使用 `GET` 和 `POST`：读取操作使用 `GET`，新增、更新、删除、撤销及其他
 会改变状态的动作使用 `POST`。不得新增 `PUT`、`PATCH` 或 `DELETE` 路由；CORS 方法配置也

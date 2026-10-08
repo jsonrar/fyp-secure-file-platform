@@ -408,7 +408,8 @@ dumps, and objects in a private temporary directory that is removed on exit.
   restore has (§5).
 - The rsync destination is wired but untested against a real target. S3 is live on R2.
 - `mcs21-deploy`'s pre-deploy backups remain plaintext on the same host (root-only, 0700) and are
-  never pruned: 81 dumps, 5.6 GB on 2026-09-24. They are a fast rollback point, not an
+  never pruned: 81 dumps, 5.6 GB on 2026-09-24, and 178 dumps, 76 GB on 2026-10-08 (the root disk
+  was 65 % full), because each one also archives every ciphertext object. They are a fast rollback point, not an
   off-server copy. Pruning belongs in `mcs21-deploy`.
 
 ## Staging installation record (2026-09-24)

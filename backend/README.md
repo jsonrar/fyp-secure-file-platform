@@ -44,6 +44,14 @@ are gated by a one-time code emailed to the address being claimed, which also ma
 account's email verified. Reset never touches the stored key envelopes, so it cannot cost an
 account access to its encrypted files.
 
+The encryption passphrase is independent of the login password and only ever derives the KEK in
+the client. A user normally needs to remember just that passphrase, because the server keeps the
+encrypted private-key bundle. The server cannot reset or recover a lost passphrase; the holder of
+the private key file (`.pem`, offered once at registration) sets a new one in Settings, and losing
+both makes the files unrecoverable. The recovery API only governs rewrapping one file's DEK to an
+already registered active public key; it does not recover the passphrase or the AMK, or decrypt
+the private-key bundle.
+
 ### Server-managed account-key envelope (format 2, currently unused)
 
 > **Not on the registration path.** `CryptoService.generate_account_key` and the format below

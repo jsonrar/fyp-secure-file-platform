@@ -499,8 +499,9 @@ bash scripts/backup_restore_drill.sh   # 加密备份 -> 洁净恢复 -> 拒绝�
 bash scripts/mysql_release_gate.sh     # 锁竞争、带校验和的恢复、回滚、部分 DDL
 ```
 
-夜间备份任务本身（`deployment/server/mcs21-offsite-backup.{service,timer}` 与
-`database/mysql/04-backup-account.sql` 账号）目前只是模板，尚未安装到预发布环境。
+staging 上的备份任务已安装并在运行：`mcs21-backup`（同机备份，每天 04:15 起）、`mcs21-offsite-backup`（加密异地副本，
+每天 02:30 起，使用 `04-backup-account.sql` 创建的最小权限账号），以及每周日的 `mcs21-backup-verify` 恢复校验。最近一次异地
+备份（2026-10-08 02:37）成功。详见 [docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)。
 
 ### 对账清理与运维告警
 

@@ -7,7 +7,7 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 | Version | 1.1 — Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
-| Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech` |
+| Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech`. Register statuses rechecked 2026-10-07 against `e4b3f13` (schema `0010_shared_file_folders`) |
 
 This document states what SecureView protects, from whom, where the trust boundaries lie, and
 which threats each boundary does and does not stop. It consolidates controls that are
@@ -80,7 +80,7 @@ credit the system with protections it does not claim.
 | A8 | Access and refresh tokens | Browser `localStorage`; SHA-256 hashes in DB | Session takeover until expiry or revocation | Re-login |
 | A9 | Ciphertext objects | VPS disk, mode-0700 directory owned by the service user; encrypted backups | Nothing without A2 | Integrity failure; restore from backup |
 | A10 | File metadata and sharing graph | MySQL cleartext columns | Privacy loss (N2) | Detected at decryption for AAD-bound fields; not for the rest |
-| A11 | Audit log and chain head | MySQL. HMAC-authenticated external checkpoints are implemented; their staging operation is not yet verified (T-T6) | Reveals activity | Tampering must be detectable (O5) |
+| A11 | Audit log and chain head | MySQL. HMAC-authenticated external checkpoints are published hourly from staging; one was downloaded and verified on a separate machine (F-10, T-T6) | Reveals activity | Tampering must be detectable (O5) |
 | A12 | Server secrets: `SECRET_KEY`, DB credentials, email API key, audit-checkpoint HMAC key | VPS protected environment and root-only files | Forged verification codes, DB access, mail abuse, forged checkpoints | Outage |
 | A13 | Backup private key | Intended: offline, under the same proposed custody as A6. Its current location is not recorded in the staging installation record | Opens every backup set | Backups unreadable |
 | A14 | Deployed code | GitHub `main`, pulled to the VPS by a read-only deploy key | See N1: whoever controls it controls A3 | — |
