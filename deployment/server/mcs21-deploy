@@ -15,6 +15,10 @@ env_file="/etc/fyp-secure-file-platform/backend.env"
 mysql_container="mcs21-mysql"
 mysql_account_host="172.29.21.1"
 backup_root="/var/backups/mcs21-deploy"
+# Pre-deploy sets kept as fast rollback points. Each one also archives every ciphertext object,
+# so an unpruned directory grew to 178 sets and 76 GB by 2026-10-08. Off-server copies are the
+# job of mcs21-offsite-backup, not of these.
+keep_backups="${MCS21_KEEP_DEPLOY_BACKUPS:-10}"
 audit_dir="/var/log/mcs21-deploy"
 audit_log="$audit_dir/audit.log"
 lock_file="/run/lock/mcs21-deploy.lock"
@@ -234,6 +238,26 @@ backup_database() {
   printf '%s\n' "$backup_dir"
 }
 
+prune_backups() {
+  # Keep the newest $keep_backups pre-deploy sets and delete older ones. Only directories whose
+  # names this script itself creates (UTC stamp + 12-hex SHA) are considered, so nothing else
+  # under $backup_root is ever touched. Names sort by time, so the order needs no stat calls.
+  local keep="$1"
+  [[ "$keep" =~ ^[0-9]+$ ]] && ((keep >= 3)) || die "refusing to keep fewer than 3 deploy backups"
+  local -a sets=()
+  local entry
+  while IFS= read -r entry; do
+    sets+=("$entry")
+  done < <(find "$backup_root" -mindepth 1 -maxdepth 1 -type d \
+    -regextype posix-extended -regex '.*/[0-9]{8}T[0-9]{6}Z-[0-9a-f]{12}' -printf '%f\n' | sort -r)
+  local removed=0 index
+  for ((index = keep; index < ${#sets[@]}; index++)); do
+    rm -rf -- "${backup_root:?}/${sets[index]}"
+    removed=$((removed + 1))
+  done
+  printf '%s\n' "$removed"
+}
+
 verify_database() {
   local release="$1"
   local protected_sql verify_log tls_state
@@ -391,6 +415,15 @@ deploy_release() {
   fi
   audit success "commit=$sha backup=$backup_dir previous=$(printf '%q' "$old_target")"
   printf 'Deployment succeeded.\n'
+  # Only after a healthy deployment, so a failing one never shortens the rollback history.
+  local pruned
+  if pruned="$(prune_backups "$keep_backups")"; then
+    printf 'Pruned %s pre-deploy backup set(s); kept the newest %s.\n' "$pruned" "$keep_backups"
+    audit info "message=deploy_backups_pruned removed=$pruned kept=$keep_backups"
+  else
+    printf 'WARNING: pre-deploy backups were not pruned; see above.\n' >&2
+    audit warning "message=deploy_backups_not_pruned"
+  fi
   # The release is already live and healthy, so a unit that cannot be installed is reported
   # and audited but never turns a good deployment into a failed one.
   if ! install_ops_units "$release"; then
