@@ -344,7 +344,13 @@ const goToFiles = () => {
               </div>
             </div>
 
-            <EncryptionProgress v-if="progress" class="mt-6" v-bind="progress" />
+            <EncryptionProgress
+              v-if="progress"
+              class="mt-6"
+              v-bind="progress"
+              :dismissible="!isEncrypting"
+              @dismiss="progress = null"
+            />
 
             <div class="mt-8">
               <button :disabled="!files.length || isEncrypting || hasOversizeFile" class="w-full h-12 inline-flex items-center justify-center gap-2 rounded-lg bg-primary font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="handleEncrypt">
