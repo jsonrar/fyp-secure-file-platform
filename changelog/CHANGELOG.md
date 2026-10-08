@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Upload: a close button for the seal receipt (AC7) / 上传：封存回执加上关闭按钮（AC7） ([PR #200](https://github.com/jsonrar/fyp-secure-file-platform/pull/200))
+
+- The seal receipt on the Upload page (read, encrypt and self-check, wrap the file key, upload, then the bytes before and after) now has a close button once nothing is running. AC7 in the proposal asks for a *dismissible* progress pipeline; the four stages shipped in #156, and this was the missing half, so every product acceptance criterion and milestone M7 are now Done. The golden-path browser test closes the receipt and checks it leaves the page.
+- 上传页的封存回执（读取、加密并自检、包装文件密钥、上传，以及加密前后的字节对比）在没有任务运行时多了一个关闭按钮。提案的 AC7 要求进度流程*可关闭*；四个阶段已在 #156 上线，缺的就是这一半，所以现在所有产品验收标准和里程碑 M7 都是 Done。主流程浏览器测试会关闭回执并确认它从页面上消失。
+
 ### Documentation second pass: both languages say the same thing, and open items re-checked on staging / 文档第二轮：中英两版内容一致，未完成事项在 staging 上重新核对
 
 - `backend/README` now carries the same content in both languages (the Chinese lacked the unused format-2 envelope section, the English the passphrase-loss paragraph), the load-test report has a Chinese summary, and statements that had gone stale were checked on the host: the off-site backup is installed and ran on 2026-10-08 (README said "not yet installed"), external audit checkpoints are verified (the threat model's asset table still said "not yet verified"), `quarterly-results.txt` is pre-shared for the tamper demo, and the redesign item is closed. The pre-deploy dumps that `mcs21-deploy` never prunes have grown to 178 sets and 76 GB, recorded in BACKUP_AND_RECOVERY.
