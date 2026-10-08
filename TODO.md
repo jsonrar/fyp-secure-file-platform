@@ -25,6 +25,11 @@ assessment describes that historical checkpoint rather than an exact current com
 
 ## Shipped MVP baseline
 
+Shipped on 2026-10-08: the seal receipt's close button, closing AC7 ([PR #200](https://github.com/jsonrar/fyp-secure-file-platform/pull/200)); passphrase change with the
+current passphrase ([PR #201](https://github.com/jsonrar/fyp-secure-file-platform/pull/201)); deadlock-retry logging ([PR #202](https://github.com/jsonrar/fyp-secure-file-platform/pull/202)); Vue 3.5.43 for two npm advisories
+([PR #203](https://github.com/jsonrar/fyp-secure-file-platform/pull/203)); pre-deploy backup pruning, effective once `mcs21-deploy` is reinstalled on the VPS ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204));
+and browser-side rejection of weak passphrases, threat model F-04 ([PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)).
+
 The homepage picture guide (six annotated screenshots, English and Chinese) and the Help videos
 were re-shot after the "Sealed" redesign and are live on staging (#192). The scrolling Core
 Features lane was retired from the home page in that redesign (#177).

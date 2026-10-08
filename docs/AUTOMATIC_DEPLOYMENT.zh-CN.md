@@ -97,6 +97,13 @@ sudo mcs21-auto-deploy force
 sudo mcs21-deploy all
 ```
 
+### 部署前备份会被清理
+
+每次部署前都会把数据库导出和密文对象打包写到 `/var/backups/mcs21-deploy/<UTC 时间戳>-<sha>`。自 [PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204) 起，部署健康后
+`mcs21-deploy` 只保留最新的 `MCS21_KEEP_DEPLOY_BACKUPS` 份（默认 10，不少于 3），删除更早的，并在审计日志中记下删了几份。
+它只处理符合该命名格式的目录，部署失败时从不清理。异地副本由 `mcs21-offsite-backup` 负责。与这个脚本的任何改动一样，
+需要把新的 `mcs21-deploy` 装到 `/usr/local/sbin` 后才生效。
+
 ## 安装文件
 
 仓库中的版本化参考文件位于 `deployment/server/`。预发布 VPS 上的安装位置为：

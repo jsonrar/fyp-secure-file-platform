@@ -211,6 +211,24 @@ recovery wrapping stays valid and no file is re-encrypted.
   The private key itself is unchanged; a suspected key compromise needs successor-key rotation,
   not a passphrase reset.
 
+### Passphrase change with the current passphrase
+
+Since [PR #201](https://github.com/jsonrar/fyp-secure-file-platform/pull/201) Settings also changes the passphrase while the current one is known. The
+current passphrase opens the stored envelopes in the browser, which yields the same private key
+bytes the key file would; from there the flow is exactly the reset above (new AMK, both envelopes
+replaced, RSA-PSS signature by the key, read back and reopened). A wrong current passphrase is
+refused before anything is sealed or sent. It shares the reset's limits: single-key accounts only,
+and not a remedy for a passphrase that has leaked.
+
+### Passphrase strength checks
+
+The passphrase never reaches the server, so its strength can only be checked in the browser. The
+minimum is 10 characters and it must differ from the login password. Since [PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205) (threat
+model F-04, R-1) registration, the change above and the key-file reset also refuse passphrases on
+a common list, ones made of repeated or sequential characters, and ones that are mostly the
+username or email, and suggest four or more random words. A modified client could skip these
+checks; they protect users from their own weak choices, not the server from an attacker.
+
 ## Login, Refresh, Revocation, and Password Change
 
 Login uses persisted HMAC-keyed account/IP throttle buckets, a per-worker memory-capacity
