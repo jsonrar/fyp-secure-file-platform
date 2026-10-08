@@ -22,6 +22,10 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 - Until now the only way to a new encryption passphrase was the private-key file (#80), so someone who simply wanted a stronger passphrase had to dig out a file that should stay locked away. Settings now has a "Change your encryption passphrase" card: the current passphrase opens the stored key in the browser, and the same path as the key-file reset seals it again under a new account master key, signs the replacement with the key, and reads it back to check it opens. A wrong current passphrase is refused before anything is sealed or sent; neither passphrase leaves the browser, and a stolen session alone still cannot change it. No backend or schema change. Covered by unit tests, the live passphrase-reset suite (changes it for real and decrypts a file uploaded before) and a golden-path browser step.
 - 以前想换加密口令只能用私钥文件（#80），只是想换个更强口令的人也得把本该锁好的文件翻出来。设置页新增“修改加密口令”卡片：当前口令在浏览器中打开已存的私钥，再走与私钥文件重设相同的路径，用新的账户主密钥重新封装、用私钥签名后提交，并读回确认能打开。当前口令错误时，任何东西都不会被封装或发送；两个口令都不离开浏览器，仅凭偷来的会话仍然改不了。后端和 Schema 均无改动。由单元测试、实时口令重设测试（真实修改并解密修改前上传的文件）和主流程浏览器测试覆盖。
+### Dependencies: Vue 3.5.43 and source-map-js 1.2.2 for two new high-severity advisories / 依赖：为两条新的高危公告升级到 Vue 3.5.43 与 source-map-js 1.2.2
+
+- On 2026-10-08 `npm audit` began reporting GHSA-g2v6-rqmx-r4w6 (XSS in `@vue/server-renderer` before 3.5.42) and an event-loop denial of service in `source-map-js` before 1.2.2, and the CI audit gate failed every frontend pull request. The app does not server-render, so the Vue advisory was not reachable here, but the gate is what keeps a reachable one out, so the fix is the upgrade rather than an exception. Lockfile and the `vue` floor only; typecheck, 810 unit tests and the build pass.
+- 2026-10-08 起 `npm audit` 报告 GHSA-g2v6-rqmx-r4w6（3.5.42 之前的 `@vue/server-renderer` 存在 XSS）以及 1.2.2 之前 `source-map-js` 的事件循环拒绝服务，CI 的依赖审计门禁因此拦下了所有前端 PR。本应用不做服务端渲染，所以 Vue 那条在这里无法被利用；但门禁的作用就是挡住真正可利用的公告，所以处理方式是升级而不是加例外。只改了 lockfile 和 `vue` 的最低版本；类型检查、810 个单元测试和构建均通过。
 
 ### Documentation second pass: both languages say the same thing, and open items re-checked on staging / 文档第二轮：中英两版内容一致，未完成事项在 staging 上重新核对
 
