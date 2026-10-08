@@ -109,7 +109,7 @@ re-shot after the redesign on 2026-10-05 (#192) and are live on staging.
 
 The remaining work is production hardening rather than an unfinished basic demo: a UI for
 changing the passphrase with the old one and for successor keys (both exist in the API), an
-explicit dismiss control for the upload progress panel, the three open *Recommended* security
+the three open *Recommended* security
 findings (F-02 to F-04), and an independent security review. Required CI on self-hosted runners
 with a CI-gated deploy, MySQL 8.4 release gates, encrypted off-server backups, clean-host restore
 evidence, scheduled reconciliation, a daily integrity sweep, external audit checkpoints,
@@ -127,7 +127,7 @@ and how to show it live, is in [docs/ENCRYPTION_EVIDENCE.md](docs/ENCRYPTION_EVI
 While a file uploads, the Upload page shows the real steps for it (read in the browser, encrypt
 and self-check, wrap the file key with RSA-OAEP, upload the ciphertext with a real progress bar),
 each with its measured time, and then the file's first 16 bytes beside the first 16 bytes the
-server receives. Encryption takes tens of milliseconds, so without this an upload looked as if
+server receives. The receipt stays until it is closed with its close button (#200). Encryption takes tens of milliseconds, so without this an upload looked as if
 nothing had been encrypted; nothing is slowed down to look busy.
 
 **Measured capacity (staging, 2026-10-03/04, #140):** 22,264 operations, 5,094 downloads
