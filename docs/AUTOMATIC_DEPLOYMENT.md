@@ -111,6 +111,16 @@ sudo mcs21-auto-deploy force
 sudo mcs21-deploy all
 ```
 
+### Pre-deploy backups are pruned
+
+Every deployment first writes a database dump and an archive of the ciphertext objects to
+`/var/backups/mcs21-deploy/<UTC stamp>-<sha>`. Since [PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204), after a healthy deployment
+`mcs21-deploy` keeps the newest `MCS21_KEEP_DEPLOY_BACKUPS` sets (default 10, never fewer than 3),
+deletes older ones, and audits how many it removed. It only considers directories with that name
+pattern and never prunes after a failed deployment. Off-server copies are `mcs21-offsite-backup`'s job.
+Like every change to this script, it applies once the new `mcs21-deploy` is installed in
+`/usr/local/sbin`.
+
 ## Installed artifacts
 
 The versioned reference files are under `deployment/server/`. On the staging VPS they are

@@ -154,7 +154,10 @@ replacement envelopes with RSA-PSS-SHA256 (from
 `POST /keys/me/reset-protection`. The key pair and every file wrapping are unchanged, so no
 file is re-encrypted. A session alone cannot reset the passphrase; losing both the passphrase
 and the key file makes the account's files unrecoverable (see
-[SECURITY_FLOWS.md](SECURITY_FLOWS.md#passphrase-reset-with-the-private-key-file)).
+[SECURITY_FLOWS.md](SECURITY_FLOWS.md#passphrase-reset-with-the-private-key-file)). Changing a
+passphrase the user still knows uses the same endpoint: the browser opens the key with the current
+passphrase instead of reading the key file (#201). The browser-side `/keys/me/rewrap` path described
+above remains in the API but is not what the Settings page calls.
 
 This is a key-custody boundary, not proof against a malicious server. Stored KDF material
 supports offline passphrase guessing after database theft, and clients need fingerprint/

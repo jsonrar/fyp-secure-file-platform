@@ -165,7 +165,7 @@ and what to do about it, by priority, is in
 
 1. **Register:** `/register` has two steps (#161): first the account (username, email, the
    emailed code and the login password), then the separate encryption passphrase on its own, with
-   why it exists. The new account is signed straight in. The browser generates the
+   why it exists. Common, patterned or username-based passphrases are refused (#205). The new account is signed straight in. The browser generates the
    RSA key pair, AMK, and sealed private-key bundle locally. Move the one-time `.pem` private
    key out of Downloads and store it safely. The login password authenticates the account;
    the encryption passphrase unlocks files, and neither replaces the other.
@@ -613,7 +613,8 @@ bash scripts/mysql_release_gate.sh     # lock races, checksummed restore, rollba
 On staging the backup jobs are installed and running: `mcs21-backup` (same-host, daily from 04:15),
 `mcs21-offsite-backup` (encrypted off-server copy, daily from 02:30, as the least-privilege
 `04-backup-account.sql` account) and the Sunday `mcs21-backup-verify` restore check. The last
-off-site run (2026-10-08 02:37) succeeded. See [docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md).
+off-site run (2026-10-08 02:37) succeeded. Each deployment also keeps a pre-deploy dump; `mcs21-deploy` keeps the
+newest 10 of those (#204). See [docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md).
 
 ### Reconciliation and ops alerts
 

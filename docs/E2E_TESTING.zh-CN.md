@@ -58,7 +58,7 @@ npx vitest run src/crypto/mvp.integration.test.ts
 
 四个前端测试套件会连接真实后端，缺少环境变量时各自跳过：`crypto/mvp`、`crypto/upload`、
 `crypto/passphrase-reset` 和 `e2e/live-stack`。CI 的 `e2e-live` 任务针对全新的 API 进程和一次性 MySQL 8.4
-运行全部四个，只要 JUnit 报告里有一个被跳过的测试就判失败（`backend/scripts/check_no_skips.py`）。
+运行全部四个，只要 JUnit 报告里有一个被跳过的测试就判失败（`backend/scripts/check_no_skips.py`）。`crypto/passphrase-reset` 同时覆盖私钥文件重设和凭当前口令修改（#201）。
 
 具体工作由 `backend/tests/e2e/run_live_stack.sh` 完成，所以本地同样一条命令即可：
 
@@ -102,7 +102,7 @@ Node 测试套件通过真实 HTTP 运行浏览器自己的代码——API 客�
 | 注册两个账户 | 两步注册表单：填写账户信息并点 **Send code**、**Next**，再设置加密 passphrase 并点 **Register** |
 | 邮箱验证 | 从环境的邮箱目录（与 `e2e/live-stack` 读取的是同一个）读出验证码并填入表单；不会真的发送 |
 | 登录 | 登录表单 |
-| 上传 | `/upload` 上的文件选择器和 **Start Encryption**，然后 **View Encrypted Files** |
+| 上传 | `/upload` 上的文件选择器和 **Start Encryption**，然后 **View Encrypted Files**；在此之前用 **Close the seal receipt** 关闭封存回执，并确认它从页面上消失（#200） |
 | 密文预览 | 行上的 **Encrypted preview** 显示服务器保存的字节，且开头与原文件不同 |
 | 文件夹 | 把文件放进文件夹，再移回 **All files** |
 | 解锁密钥库 | **Download and decrypt** 弹出的 passphrase 对话框 |
@@ -112,6 +112,7 @@ Node 测试套件通过真实 HTTP 运行浏览器自己的代码——API 客�
 | 接收者的文件夹 | 接收者把共享文件放进自己的文件夹；该行提供 **Download and decrypt** 和 **More actions**，没有 **Share** 或 **Delete** |
 | 撤销 | 分享对话框中的 **Revoke**，再在确认框点 **Revoke access** |
 | 接收者不再看到 | 刷新后接收者的列表 |
+| 修改口令 | 设置页 → **Change your encryption passphrase**：输入当前和新口令，看到成功提示（#201） |
 | 登出 | 账户菜单里的 **Log out**；之后访问受保护页面会被送回登录页 |
 
 每一步都通过界面驱动，没有一步走 API。界面的 **Log out** 会调用 `POST /auth/logout` 撤销服务端会话族，再清除

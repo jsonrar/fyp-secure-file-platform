@@ -129,7 +129,8 @@ AMK，用它重新加密同一把私钥，再对两个替换信封的规范摘�
 `POST /keys/me/reset-protection/signing-payload`）做 RSA-PSS-SHA256 签名，提交到
 `POST /keys/me/reset-protection`。密钥对和所有文件包装都不变，因此不需要重新加密任何文件。
 仅凭会话无法重设 passphrase；passphrase 与私钥文件都丢失时，该账户的文件无法恢复（见
-[SECURITY_FLOWS.zh-CN.md](SECURITY_FLOWS.zh-CN.md)）。
+[SECURITY_FLOWS.zh-CN.md](SECURITY_FLOWS.zh-CN.md)）。修改仍记得的 passphrase 也使用同一个端点：浏览器用当前 passphrase
+打开私钥，而不是读取私钥文件（#201）。上文的 `/keys/me/rewrap` 路径仍保留在 API 中，但设置页并不调用它。
 
 这是密钥托管边界，不是对恶意服务器的证明。数据库被盗后，已存 KDF 材料可用于离线猜测口令；
 客户端需要固定指纹/revision 或采用外部信任锚，才能发现恶意公钥替换或回滚。
