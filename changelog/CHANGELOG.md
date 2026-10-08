@@ -22,6 +22,10 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 - `run_with_deadlock_retry` (#139) now logs one warning on `secureview.db` each time it retries a deadlock (1213) or lock-wait timeout (1205), with the error code and attempt number only, never the statement or its parameters. The #140 load test could prove no deadlock reached a user but not whether a retry ever fired; the next run can answer that from the journal.
 - `run_with_deadlock_retry`（#139）每次重试死锁（1213）或锁等待超时（1205）时，都会在 `secureview.db` 上写一条 warning，只含错误码和第几次尝试，从不包含 SQL 语句或参数。#140 压测只能证明没有死锁影响到用户，却无法证明重试是否发生过；下一次压测可以直接从日志里看到。
+### Upload: a close button for the seal receipt (AC7) / 上传：封存回执加上关闭按钮（AC7） ([PR #200](https://github.com/jsonrar/fyp-secure-file-platform/pull/200))
+
+- The seal receipt on the Upload page (read, encrypt and self-check, wrap the file key, upload, then the bytes before and after) now has a close button once nothing is running. AC7 in the proposal asks for a *dismissible* progress pipeline; the four stages shipped in #156, and this was the missing half, so every product acceptance criterion and milestone M7 are now Done. The golden-path browser test closes the receipt and checks it leaves the page.
+- 上传页的封存回执（读取、加密并自检、包装文件密钥、上传，以及加密前后的字节对比）在没有任务运行时多了一个关闭按钮。提案的 AC7 要求进度流程*可关闭*；四个阶段已在 #156 上线，缺的就是这一半，所以现在所有产品验收标准和里程碑 M7 都是 Done。主流程浏览器测试会关闭回执并确认它从页面上消失。
 ### Dependencies: Vue 3.5.43 and source-map-js 1.2.2 for two new high-severity advisories / 依赖：为两条新的高危公告升级到 Vue 3.5.43 与 source-map-js 1.2.2
 
 - On 2026-10-08 `npm audit` began reporting GHSA-g2v6-rqmx-r4w6 (XSS in `@vue/server-renderer` before 3.5.42) and an event-loop denial of service in `source-map-js` before 1.2.2, and the CI audit gate failed every frontend pull request. The app does not server-render, so the Vue advisory was not reachable here, but the gate is what keeps a reachable one out, so the fix is the upgrade rather than an exception. Lockfile and the `vue` floor only; typecheck, 810 unit tests and the build pass.
