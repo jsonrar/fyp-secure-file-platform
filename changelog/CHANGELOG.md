@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Log each MySQL deadlock retry / 每次 MySQL 死锁重试都写日志 ([PR #202](https://github.com/jsonrar/fyp-secure-file-platform/pull/202))
+
+- `run_with_deadlock_retry` (#139) now logs one warning on `secureview.db` each time it retries a deadlock (1213) or lock-wait timeout (1205), with the error code and attempt number only, never the statement or its parameters. The #140 load test could prove no deadlock reached a user but not whether a retry ever fired; the next run can answer that from the journal.
+- `run_with_deadlock_retry`（#139）每次重试死锁（1213）或锁等待超时（1205）时，都会在 `secureview.db` 上写一条 warning，只含错误码和第几次尝试，从不包含 SQL 语句或参数。#140 压测只能证明没有死锁影响到用户，却无法证明重试是否发生过；下一次压测可以直接从日志里看到。
+
 ### Documentation second pass: both languages say the same thing, and open items re-checked on staging / 文档第二轮：中英两版内容一致，未完成事项在 staging 上重新核对
 
 - `backend/README` now carries the same content in both languages (the Chinese lacked the unused format-2 envelope section, the English the passphrase-loss paragraph), the load-test report has a Chinese summary, and statements that had gone stale were checked on the host: the off-site backup is installed and ran on 2026-10-08 (README said "not yet installed"), external audit checkpoints are verified (the threat model's asset table still said "not yet verified"), `quarterly-results.txt` is pre-shared for the tamper demo, and the redesign item is closed. The pre-deploy dumps that `mcs21-deploy` never prunes have grown to 178 sets and 76 GB, recorded in BACKUP_AND_RECOVERY.
