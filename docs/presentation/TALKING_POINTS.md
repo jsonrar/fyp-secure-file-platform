@@ -236,8 +236,8 @@ rate. Do not invent how many people used it: say who, not a count we did not mea
 **Likely question:** so how do you know non-experts can use it?
 **Answer:** people without a cryptography background (classmates, the Teaching Team) have used it on
 the live site with their own accounts, and our own first-time-user walkthrough changed four things
-where a new user would get stuck. It is real but informal evidence; the planned study with pass criteria is in the repository if
-someone wants to run it.
+where a new user would get stuck. It is real but informal evidence; the study design we drafted (task cards, SUS, pass criteria) is
+kept in the git history (PR #114) if someone wants to run it later.
 
 ## 11. We audited our own interface with a script, not by eye (#183)
 

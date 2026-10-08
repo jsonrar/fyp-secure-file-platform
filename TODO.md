@@ -285,7 +285,7 @@ Must do:
 - [x] Demo script for a 4-minute live demo — [docs/presentation/DEMO_SCRIPT.md](docs/presentation/DEMO_SCRIPT.md)
 - [x] Demo accounts `demo-alice` / `demo-bob` created on staging (2026-10-04)
 - [x] Record the backup video — [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)
-- [ ] On staging, upload `quarterly-results.txt` as `demo-alice` and share it with `demo-bob` (the user; needed for the live tamper step)
+- [x] On staging, upload `quarterly-results.txt` as `demo-alice` and share it with `demo-bob` (verified 2026-10-08: shared and active; needed for the live tamper step)
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
 - [x] Re-capture the homepage picture guide: its screenshots still showed the old six-icon row
@@ -293,7 +293,7 @@ Must do:
 - [x] Live tamper demonstration: change one byte of stored ciphertext, the recipient's download fails —
   `backend/scripts/demo_tamper.py` and [docs/presentation/TAMPER_DEMO.md](docs/presentation/TAMPER_DEMO.md)
 - [ ] Slides: architecture diagram, encryption flow, requirements-status table, limitations (last)
-- [ ] UI redesign ("Sealed" style: warm paper, near-black ink, mint accent, Geist fonts), all features kept. Step 1 global
+- [x] UI redesign ("Sealed" style: warm paper, near-black ink, mint accent, Geist fonts), all features kept. Step 1 global
   style: done ([PR #176](https://github.com/jsonrar/fyp-secure-file-platform/pull/176)). Step 2 public pages: done ([PR #177](https://github.com/jsonrar/fyp-secure-file-platform/pull/177); dark hero, replace the Core Features card wall, keep Under the hood and the
   six-step guide). Step 3 app pages: sidebar, file detail panel, upload seal receipt, workspace and access records restyled (PRs #178, #180 and #182). Step 3 follow-up from the 10-05 audit: P1 centred headers, one content width, two-column Settings and Profile, sidebar on every signed-in page done ([#183](https://github.com/jsonrar/fyp-secure-file-platform/issues/183)); P2 (near-white dark primary, no pill labels, split sign-in layout) done ([#184](https://github.com/jsonrar/fyp-secure-file-platform/issues/184)); P3 (Access Records without failed requests, step-dot targets, 768px overflow) done in code ([#185](https://github.com/jsonrar/fyp-secure-file-platform/issues/185); the staging check of the SHA-256 is with the project lead). My Files details entry (whole row, file name and a Details button) and a non-modal side panel: done ([PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193)). Step 4 re-shot picture guide (English and Chinese), Help videos and the demo backup video: done ([#186](https://github.com/jsonrar/fyp-secure-file-platform/issues/186)); the slides are the project lead's own
 - [x] State NFR2 (usability) honestly — TALKING_POINTS §10 (informal real use, no formal study)

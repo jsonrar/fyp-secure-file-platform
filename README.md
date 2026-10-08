@@ -610,9 +610,10 @@ bash scripts/backup_restore_drill.sh   # encrypted backup -> clean restore -> re
 bash scripts/mysql_release_gate.sh     # lock races, checksummed restore, rollback, partial DDL
 ```
 
-The nightly backup job itself (`deployment/server/mcs21-offsite-backup.{service,timer}` with the
-`database/mysql/04-backup-account.sql` account) is a template and is not yet installed on
-staging.
+On staging the backup jobs are installed and running: `mcs21-backup` (same-host, daily from 04:15),
+`mcs21-offsite-backup` (encrypted off-server copy, daily from 02:30, as the least-privilege
+`04-backup-account.sql` account) and the Sunday `mcs21-backup-verify` restore check. The last
+off-site run (2026-10-08 02:37) succeeded. See [docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md).
 
 ### Reconciliation and ops alerts
 

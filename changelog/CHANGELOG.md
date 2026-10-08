@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Documentation second pass: both languages say the same thing, and open items re-checked on staging / 文档第二轮：中英两版内容一致，未完成事项在 staging 上重新核对
+
+- `backend/README` now carries the same content in both languages (the Chinese lacked the unused format-2 envelope section, the English the passphrase-loss paragraph), the load-test report has a Chinese summary, and statements that had gone stale were checked on the host: the off-site backup is installed and ran on 2026-10-08 (README said "not yet installed"), external audit checkpoints are verified (the threat model's asset table still said "not yet verified"), `quarterly-results.txt` is pre-shared for the tamper demo, and the redesign item is closed. The pre-deploy dumps that `mcs21-deploy` never prunes have grown to 178 sets and 76 GB, recorded in BACKUP_AND_RECOVERY.
+- `backend/README` 中英两版内容对齐（中文缺未使用的 format 2 信封一节，英文缺 passphrase 遗失一段），压测报告新增中文摘要，并在服务器上核对了已经过时的说法：异地备份已安装并于 2026-10-08 运行成功（README 写的是“尚未安装”）、外部审计检查点已验证（威胁模型资产表仍写“未核实”）、篡改演示用的 `quarterly-results.txt` 已预先分享、改版事项已完成。`mcs21-deploy` 从不清理的发布前备份已增至 178 份、76 GB，已记入 BACKUP_AND_RECOVERY。
+
 ### Documentation brought in line with the code and the live system / 文档与代码和线上系统对齐
 
 - Every living document was checked against the code, the CI run on `e4b3f13` and the staging host on 2026-10-07. The worst gap was the claim, in `PROJECT_SCOPE`, that a forgotten passphrase cannot be reset: since #110 the private key file resets it, and only losing both is unrecoverable. Also corrected: the login-password rule (8–128 characters and two character classes, not 15–128), one cipher instead of six, schema revision `0004`/`0007` instead of `0010`, the 13- instead of 15-table runtime grant, missing folder/avatar/integrity/agent endpoints, an integrity check described without the audit-anchored digest and external checkpoints, sharing without the fingerprint confirmation, and pages described as they were before the "Sealed" redesign.
