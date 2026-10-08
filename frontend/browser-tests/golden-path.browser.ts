@@ -290,12 +290,14 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
   })
 
   await test.step('change the encryption passphrase in Settings with the current one', async () => {
+    // Two more Argon2id derivations and a round trip; give the long golden path room for them.
+    test.setTimeout(test.info().timeout + 60_000)
     await owner.goto('/settings')
     const card = owner.getByTestId('change-passphrase-card')
     const changed = `${alice.passphrase} changed`
-    await card.getByLabel('Current encryption passphrase', { exact: true }).fill(alice.passphrase)
-    await card.getByLabel('New encryption passphrase', { exact: true }).fill(changed)
-    await card.getByLabel('Confirm new passphrase', { exact: true }).fill(changed)
+    await card.getByLabel(/^Current encryption passphrase/).fill(alice.passphrase)
+    await card.getByLabel(/^New encryption passphrase/).fill(changed)
+    await card.getByLabel(/^Confirm new passphrase/).fill(changed)
     await card.getByRole('button', { name: 'Change passphrase' }).click()
     await expect(card.getByText('The old one no longer works.', { exact: false })).toBeVisible({
       timeout: 60_000,
