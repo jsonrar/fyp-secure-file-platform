@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Deploy: keep only the newest 10 pre-deploy backup sets / 部署：只保留最新 10 份部署前备份 ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204))
+
+- `mcs21-deploy` dumps the database and archives every ciphertext object before each deployment, and nothing ever deleted them: 178 sets and 76 GB on 2026-10-08, with the shared root disk 65 % full. After a healthy deployment it now keeps the newest `MCS21_KEEP_DEPLOY_BACKUPS` (default 10), only ever considers directories with the names it creates, refuses to keep fewer than 3, and audits how many it removed. A failed deployment never prunes, so the rollback history is never shortened by a bad release. Off-server copies remain the job of `mcs21-offsite-backup`. Takes effect once the script is reinstalled in `/usr/local/sbin`.
+- `mcs21-deploy` 每次部署前都会导出数据库并打包所有密文对象，而这些备份从未被删除：2026-10-08 已有 178 份、76 GB，共用的根盘已用 65%。现在部署健康后只保留最新的 `MCS21_KEEP_DEPLOY_BACKUPS` 份（默认 10），只处理脚本自己创建的目录名，拒绝保留少于 3 份，并在审计日志里记下删了几份。部署失败时从不清理，所以坏发布不会缩短可回滚的历史。异地副本仍由 `mcs21-offsite-backup` 负责。需要把脚本重新安装到 `/usr/local/sbin` 后生效。
+
 ### Documentation second pass: both languages say the same thing, and open items re-checked on staging / 文档第二轮：中英两版内容一致，未完成事项在 staging 上重新核对
 
 - `backend/README` now carries the same content in both languages (the Chinese lacked the unused format-2 envelope section, the English the passphrase-loss paragraph), the load-test report has a Chinese summary, and statements that had gone stale were checked on the host: the off-site backup is installed and ran on 2026-10-08 (README said "not yet installed"), external audit checkpoints are verified (the threat model's asset table still said "not yet verified"), `quarterly-results.txt` is pre-shared for the tamper demo, and the redesign item is closed. The pre-deploy dumps that `mcs21-deploy` never prunes have grown to 178 sets and 76 GB, recorded in BACKUP_AND_RECOVERY.
