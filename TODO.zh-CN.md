@@ -13,7 +13,7 @@
 
 提案对照结果记录在 [`docs/PROPOSAL_TRACEABILITY.zh-CN.md`](docs/PROPOSAL_TRACEABILITY.zh-CN.md)：
 24 个 WBS 工作包中 22 个 Done、1 个 In review、1 个 In progress（非专业用户可用性：产品已有非正式的真实使用，
-但正式研究没有进行，#115 已按 not planned 关闭）；7 条产品验收标准中 6 条 Done，剩余的分阶段进度提示为 In progress。
+但正式研究没有进行，#115 已按 not planned 关闭）；产品验收标准全部 Done，最后一条可关闭的分阶段进度提示（AC7）由 [PR #200](https://github.com/jsonrar/fyp-secure-file-platform/pull/200) 完成。
 M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师所说的全项目约 70–80%
 是该历史检查点的判断，不是对当前完成度的精确测量。
 
