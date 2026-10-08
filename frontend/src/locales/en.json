@@ -196,6 +196,18 @@
     "deleting": "Deleting...",
     "submit": "Delete my account"
   },
+  "changePassphrase": {
+    "title": "Change your encryption passphrase",
+    "intro": "If you still know your current passphrase, enter it here to choose a new one. Your files, your shares and your account key stay as they are; neither passphrase leaves this browser.",
+    "currentLabel": "Current encryption passphrase",
+    "currentRequired": "Enter your current encryption passphrase.",
+    "same": "The new passphrase must be different from the current one.",
+    "wrongCurrent": "That is not your current encryption passphrase. If you have forgotten it, use your private key file below.",
+    "done": "Your new passphrase is set and was checked against what the server now stores. The old one no longer works. Keep your private key file safe; it is still the way back if you forget this one.",
+    "submit": "Change passphrase",
+    "submitting": "Changing…",
+    "failed": "The passphrase could not be changed"
+  },
   "resetPassphrase": {
     "title": "Forgot your encryption passphrase?",
     "intro": "Set a new one with the private key file you were given once at registration. Your files, your shares, and your account key stay exactly as they are; only the passphrase that unlocks the key changes. The file is read in this browser and is never uploaded.",

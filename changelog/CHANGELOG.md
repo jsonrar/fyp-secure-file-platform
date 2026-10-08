@@ -18,6 +18,10 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Settings: change the encryption passphrase with the current one / 设置页：凭当前口令修改加密口令 ([PR #201](https://github.com/jsonrar/fyp-secure-file-platform/pull/201))
+
+- Until now the only way to a new encryption passphrase was the private-key file (#80), so someone who simply wanted a stronger passphrase had to dig out a file that should stay locked away. Settings now has a "Change your encryption passphrase" card: the current passphrase opens the stored key in the browser, and the same path as the key-file reset seals it again under a new account master key, signs the replacement with the key, and reads it back to check it opens. A wrong current passphrase is refused before anything is sealed or sent; neither passphrase leaves the browser, and a stolen session alone still cannot change it. No backend or schema change. Covered by unit tests, the live passphrase-reset suite (changes it for real and decrypts a file uploaded before) and a golden-path browser step.
+- 以前想换加密口令只能用私钥文件（#80），只是想换个更强口令的人也得把本该锁好的文件翻出来。设置页新增“修改加密口令”卡片：当前口令在浏览器中打开已存的私钥，再走与私钥文件重设相同的路径，用新的账户主密钥重新封装、用私钥签名后提交，并读回确认能打开。当前口令错误时，任何东西都不会被封装或发送；两个口令都不离开浏览器，仅凭偷来的会话仍然改不了。后端和 Schema 均无改动。由单元测试、实时口令重设测试（真实修改并解密修改前上传的文件）和主流程浏览器测试覆盖。
 ### Deploy: keep only the newest 10 pre-deploy backup sets / 部署：只保留最新 10 份部署前备份 ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204))
 
 - `mcs21-deploy` dumps the database and archives every ciphertext object before each deployment, and nothing ever deleted them: 178 sets and 76 GB on 2026-10-08, with the shared root disk 65 % full. After a healthy deployment it now keeps the newest `MCS21_KEEP_DEPLOY_BACKUPS` (default 10), only ever considers directories with the names it creates, refuses to keep fewer than 3, and audits how many it removed. A failed deployment never prunes, so the rollback history is never shortened by a bad release. Off-server copies remain the job of `mcs21-offsite-backup`. Takes effect once the script is reinstalled in `/usr/local/sbin`.

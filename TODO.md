@@ -236,9 +236,10 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
 - [x] [#54 Complete browser passphrase change, key-file reset, and successor-key rotation](https://github.com/jsonrar/fyp-secure-file-platform/issues/54)
   — **the key-file reset only** (#80): Settings verifies the saved private-key file against the
   account public key, re-seals it under a new AMK and passphrase, and proves possession with an
-  RSA-PSS signature; plaintext private keys never leave the browser. **Not implemented**, and not
-  tracked as open work: changing the passphrase while the old one is known, successor-key
-  rotation in the browser, the normative account-envelope specification, and browser E2E for the
+  RSA-PSS signature; plaintext private keys never leave the browser. Changing the passphrase while
+  the current one is known followed on 2026-10-08 ([PR #201](https://github.com/jsonrar/fyp-secure-file-platform/pull/201)): the current passphrase opens the
+  key in the browser and the same reseal-and-sign path runs, with a live test and a browser step.
+  **Not implemented**, and not tracked as open work: successor-key rotation in the browser, the normative account-envelope specification, and browser E2E for the
   reset (searched `frontend/src` and `docs` on 2026-10-01). The Issue was closed with these
   unmet; the project owner chose to record that rather than reopen it. See the scope record on
   the Issue.

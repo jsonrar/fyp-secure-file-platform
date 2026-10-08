@@ -1,5 +1,6 @@
 /**
- * Reset a forgotten encryption passphrase with the private key file saved at registration.
+ * Reset a forgotten encryption passphrase with the private key file saved at registration, or
+ * change a passphrase the user still knows.
  *
  * The passphrase never protected the files directly: it wraps the account master key (AMK),
  * and the AMK seals a copy of the private key. Forgetting it loses the AMK -- nothing on the
@@ -49,6 +50,14 @@ export class ResetVerificationError extends Error {
   }
 }
 
+/** The new passphrase is the one already in use, so changing it would protect nothing more. */
+export class SamePassphraseError extends Error {
+  constructor() {
+    super('The new encryption passphrase must be different from the current one')
+    this.name = 'SamePassphraseError'
+  }
+}
+
 export interface PassphraseResetOutcome {
   keyId: string
   profileRevision: number
@@ -78,6 +87,56 @@ export async function resetPassphraseWithPrivateKeyPem(
   // Raises PrivateKeyMismatchError for a key from another account, before anything is sealed.
   await assertKeyPairMatches(await importRsaOaepPrivateKey(privateKeyDer), current.key.public_key_pem)
 
+  return resealUnderNewPassphrase(current, privateKeyDer, newPassphrase)
+}
+
+/**
+ * Change the encryption passphrase while the current one is still known.
+ *
+ * The current passphrase opens the stored envelopes in this browser, which yields the same
+ * private key bytes the key file would; from there it is the reset above. A wrong current
+ * passphrase raises `PassphraseRejectedError` before anything is sealed or sent, and a stolen
+ * session alone still cannot do this, because the server checks a signature by the key.
+ */
+export async function changePassphrase(
+  currentPassphrase: string,
+  newPassphrase: string,
+): Promise<PassphraseResetOutcome> {
+  if (passphraseLength(newPassphrase) < PASSPHRASE_MIN_LENGTH) {
+    throw new PassphraseTooShortError()
+  }
+  if (newPassphrase === currentPassphrase) {
+    throw new SamePassphraseError()
+  }
+
+  const current = (await keyApi.myBundle()).data.data
+  const privateKeyDer = await unlockAccountPrivateKeyDer(
+    {
+      key_id: current.key.key_id,
+      protection: current.protection,
+      private_key_bundle: current.private_key_bundle,
+    },
+    currentPassphrase,
+  )
+
+  return resealUnderNewPassphrase(current, privateKeyDer, newPassphrase)
+}
+
+type CurrentKeyBundle = Awaited<ReturnType<typeof keyApi.myBundle>>['data']['data']
+
+/**
+ * Seal `privateKeyDer` under a fresh AMK and `newPassphrase`, register it, and read it back.
+ *
+ * Every check that can fail without touching the account runs first: the envelopes must
+ * reopen to the same bytes. Only then does anything leave the browser, and only ciphertext
+ * does. After the server accepts, the stored envelopes are fetched back and opened once more,
+ * because what matters is what the next unlock will read, not what was sent.
+ */
+async function resealUnderNewPassphrase(
+  current: CurrentKeyBundle,
+  privateKeyDer: Uint8Array,
+  newPassphrase: string,
+): Promise<PassphraseResetOutcome> {
   // Same ids as the envelopes being replaced: both AADs are built from them, and the rows are
   // updated in place rather than recreated.
   const sealed = await sealAccountKey({
