@@ -1,5 +1,6 @@
 /**
- * Passphrase reset with the private key file, against a running backend.
+ * Passphrase reset with the private key file, and change with the current passphrase, against a
+ * running backend.
  *
  * The unit tests use a stand-in server. This one proves the halves agree for real: that the
  * backend's digest is the one the browser signs, that python-cryptography accepts a PSS
@@ -27,7 +28,7 @@ import { keyApi } from '@/api/key_api'
 import { PassphraseRejectedError, unlockAccountPrivateKeyDer } from '@/utils/account-crypto'
 
 import { downloadAndDecrypt, forgetUnlockedKeys, unlockWithPassphrase } from './download'
-import { resetPassphraseWithPrivateKeyPem } from './passphrase-reset'
+import { changePassphrase, resetPassphraseWithPrivateKeyPem } from './passphrase-reset'
 import { encryptAndUpload } from './upload'
 
 const API_BASE = process.env.E2E_API_BASE
@@ -39,6 +40,7 @@ const KEY_FILE = process.env.E2E_RESET_KEY_FILE
 const live = Boolean(API_BASE && USER && PASSWORD && PASSPHRASE && KEY_FILE)
 
 const NEW_PASSPHRASE = `reset-e2e ${Date.now()} passphrase`
+const CHANGED_PASSPHRASE = `change-e2e ${Date.now()} passphrase`
 const CONTENT = `uploaded before the passphrase reset, ${new Date().toISOString()}`
 const FILENAME = `reset-e2e-${Date.now()}.txt`
 
@@ -120,6 +122,27 @@ describe.skipIf(!live)('passphrase reset with the key file, end to end', () => {
     const file = await downloadAndDecrypt(uploadedFileId)
     expect(new TextDecoder().decode(file.bytes)).toBe(CONTENT)
   }, 60_000)
+
+  it('changes the passphrase with the current one, no key file needed', async () => {
+    const before = (await keyApi.myBundle()).data.data
+
+    await expect(changePassphrase('not the current passphrase', CHANGED_PASSPHRASE)).rejects.toBeInstanceOf(
+      PassphraseRejectedError,
+    )
+    expect((await keyApi.myBundle()).data.data.protection.revision).toBe(before.protection.revision)
+
+    const outcome = await changePassphrase(NEW_PASSPHRASE, CHANGED_PASSPHRASE)
+    expect(outcome.keyId).toBe(before.key.key_id)
+    expect(outcome.profileRevision).toBe(before.protection.revision + 1)
+    await expect(unlockAccountPrivateKeyDer(await stored(), NEW_PASSPHRASE)).rejects.toBeInstanceOf(
+      PassphraseRejectedError,
+    )
+
+    forgetUnlockedKeys()
+    await unlockWithPassphrase(CHANGED_PASSPHRASE)
+    const file = await downloadAndDecrypt(uploadedFileId)
+    expect(new TextDecoder().decode(file.bytes)).toBe(CONTENT)
+  }, 180_000)
 
   it('resets back, leaving the account as it was found', async () => {
     await resetPassphraseWithPrivateKeyPem(keyPem, PASSPHRASE!)
