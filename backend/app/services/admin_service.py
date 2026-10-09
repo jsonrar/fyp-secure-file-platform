@@ -15,6 +15,7 @@ from app.domain.errors import (
     AuthenticationRateLimitedError,
     AuthorizationError,
     ConflictError,
+    LastAdministratorError,
     ResourceNotFoundError,
 )
 from app.repositories.admin_repository import AdminRepository
@@ -237,8 +238,8 @@ class AdminService:
             user.password_changed_at = now
             user.updated_at = now
             # The temporary password has been seen by the administrator and travels by
-            # hand, so the holder is sent to choose their own at the next sign-in. Only the
-            # frontend acts on it; the API does not lock the account out of anything else.
+            # hand, so the holder is sent to choose their own at the next sign-in. Until
+            # then `get_current_actor` refuses every route except the few needed to do it.
             user.must_change_password = True
             revoked = self.auth_repository.revoke_all_session_families(
                 user.id, now=now, reason="admin_password_reset"
@@ -288,9 +289,24 @@ class AdminService:
         if user_id == actor.user_public_id:
             raise ConflictError("An administrator cannot change their own account status")
         try:
+            administrators = []
+            if not enabled:
+                # Taken before the target row and in id order, the same order account
+                # deletion takes them in. Two administrators disabling each other at once
+                # would otherwise each see the other still active and leave none.
+                administrators = self.auth_repository.lock_administrators()
             user = self.repository.lock_user_by_uuid(user_id)
             if user is None or user.status is UserStatus.DELETED:
                 raise ResourceNotFoundError()
+            if (
+                not enabled
+                and user.role is SystemRole.ADMIN
+                and not any(
+                    other.id != user.id and other.status is UserStatus.ACTIVE
+                    for other in administrators
+                )
+            ):
+                raise LastAdministratorError()
             desired = UserStatus.ACTIVE if enabled else UserStatus.DISABLED
             changed = user.status is not desired
             revoked_sessions = 0

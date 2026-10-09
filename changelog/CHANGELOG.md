@@ -18,6 +18,17 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Account safety: forced password change enforced by the server, the last admin stays, one email per share / 账户安全：强制改密由服务器执行，最后一个管理员不能删除自己，同一次分享只发一封邮件
+
+- #212 only made the browser send a user with an admin-issued temporary password to Settings; the API still accepted that session everywhere, so whoever held the temporary password could delete the account. While `must_change_password` is set the server now answers 403 `password_change_required` on every authenticated route except `GET /auth/me`, change password, logout and logout-all (refresh issues tokens held to the same list). `GET /keys/me` is left out on purpose because it returns the encrypted private key bundle. The frontend sends any such 403 to the Settings password card. A test walks every authenticated route in the OpenAPI spec.
+- #212 只让浏览器把拿着管理员临时密码的用户送到 Settings，API 仍然接受这个会话做任何事，拿到临时密码的人可以直接删号。现在只要 `must_change_password` 为真，服务器对所有需要登录的接口都返回 403 `password_change_required`，只放行 `GET /auth/me`、改密、登出和全部登出（refresh 签发的令牌同样受这个限制）。`GET /keys/me` 有意不放行，因为它会返回加密的私钥包。前端收到这个 403 会跳到 Settings 的改密卡片。有一个测试会按 OpenAPI 把所有需要登录的接口都过一遍。
+- The last active administrator can no longer delete their own account or be disabled by another admin at the same moment: both answer 409 `last_admin`, after locking the admin rows in id order so two admins acting together run one after the other. Before this, losing the last admin meant editing the database to get one back.
+- 最后一个有效的管理员不能再删除自己的账号，也不会在两个管理员互相停用时被同时停用：两种情况都返回 409 `last_admin`，并且会先按 id 顺序锁住管理员行，两个管理员同时操作时会一个接一个执行。以前如果没了最后一个管理员，只能直接改数据库才能恢复。
+- Sharing a file again with someone who already has it no longer emails them again; only a new grant or a revoked one being restored sends the notice. Repeated re-sharing could spam a recipient and use up the site-wide daily notification cap.
+- 再次分享给已经有权限的人时不再重复发邮件，只有新授权或恢复已撤销的授权才发通知。以前反复分享可以骚扰收件人，还会耗光全站每日的通知上限。
+- Looking up a recipient by email or username after signing in stays as it is: sharing needs it. THREAT_MODEL 1.6 records it as T-S2a and F-21 (Accepted: needs a signed-in session, nginx allows 30 API requests a second per address, and it returns only the user id and public key). 1.6 also adds the forced password change as T-S8 and the last-admin rule as T-D5. TODO gains an open item to re-record the two backup videos once these changes are live.
+- 登录后按邮箱或用户名查收件人保持不变，因为分享需要它。THREAT_MODEL 1.6 把它记为 T-S2a 和 F-21（接受：需要登录，nginx 限制每个地址每秒 30 次 API 请求，只返回用户 id 和公钥）。1.6 还把强制改密记为 T-S8，最后一个管理员规则记为 T-D5。TODO 新增一项：这些改动上线后重录两个备用视频。
+
 ### Repository review 2026-10-09: two information leaks closed, upload and Access Records edge cases, records brought up to date / 2026-10-09 仓库检查：堵住两处信息泄露，修上传页和访问记录的边角问题，文档记录对齐
 
 - The Access Records visibility rule let a non-admin see any audit row whose resource id matched a file they owned, whatever the row was about. Upload file ids are chosen by the client, so someone could upload a file whose id was another user's account id and then read that user's sign-in failures, password changes, admin resets and account deletion. Only rows about a file (FILE, SHARE, INTEGRITY and file recovery actions) now count as "about your file". Tested on SQLite in the unit suite and on MySQL in `mysql-gate`.

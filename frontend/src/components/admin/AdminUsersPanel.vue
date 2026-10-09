@@ -3,7 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import { Loader2, PanelRightOpen, RefreshCw, Search, UserCheck, UserX } from 'lucide-vue-next'
 
 import { adminApi, type AdminUserOut, type AdminUserStatusFilter } from '@/api/admin_api'
-import { apiErrorMessage } from '@/api/http'
+import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { unwrapData } from '@/api/types'
 import { useAuthStore } from '@/stores/auth_store'
 import { matchesSearch, statusBadgeClass } from '@/utils/admin-lists'
@@ -88,7 +88,12 @@ async function setEnabled(user: AdminUserOut, enabled: boolean) {
       ? `Enabled ${user.username}.`
       : `Disabled ${user.username}; signed out of ${data.revoked_sessions} session${data.revoked_sessions === 1 ? '' : 's'}.`
   } catch (error) {
-    errorMessage.value = apiErrorMessage(error, `Could not update ${user.username}`)
+    // Only reachable when this administrator was disabled a moment ago by the one they are
+    // now disabling: the server will not leave the platform with no active administrator.
+    errorMessage.value =
+      apiErrorCode(error) === 'last_admin'
+        ? `Disabling ${user.username} would leave no active administrator, so it was not disabled.`
+        : apiErrorMessage(error, `Could not update ${user.username}`)
   } finally {
     busyUserId.value = null
   }

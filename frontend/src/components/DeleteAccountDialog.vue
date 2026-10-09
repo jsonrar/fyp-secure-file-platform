@@ -3,7 +3,7 @@ import { computed, nextTick, onMounted, ref } from 'vue'
 import { TriangleAlert } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
 
-import { apiErrorMessage } from '@/api/http'
+import { apiErrorCode, apiErrorMessage } from '@/api/http'
 import { authApi } from '@/api/auth_api'
 import PasswordField from '@/components/PasswordField.vue'
 
@@ -43,7 +43,11 @@ async function deleteAccount() {
     emit('deleted', res.data?.data?.files_deleted ?? 0)
   } catch (error) {
     password.value = ''
-    errorMessage.value = apiErrorMessage(error, t('deleteAccount.failed'))
+    // Retyping the password will not help here, so say what will.
+    errorMessage.value =
+      apiErrorCode(error) === 'last_admin'
+        ? t('deleteAccount.lastAdmin')
+        : apiErrorMessage(error, t('deleteAccount.failed'))
     await nextTick()
     field.value?.focus()
   } finally {

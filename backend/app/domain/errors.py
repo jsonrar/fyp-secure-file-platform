@@ -45,6 +45,17 @@ class AuthorizationError(AppError):
     public_message = "You do not have permission to perform this action"
 
 
+class PasswordChangeRequiredError(AuthorizationError):
+    """An administrator reset this account's password, and the holder has not replaced it yet.
+
+    The temporary password was seen by the administrator and travelled by hand, so until the
+    holder chooses their own the session can do only what replacing it takes.
+    """
+
+    code = "password_change_required"
+    public_message = "Choose a new login password before continuing"
+
+
 class ResourceNotFoundError(AppError):
     code = "resource_not_found"
     public_message = "The requested resource was not found"
@@ -58,6 +69,19 @@ class ConflictError(AppError):
 class AccountIdentifierUnavailableError(ConflictError):
     code = "account_identifier_unavailable"
     public_message = "The username is unavailable"
+
+
+class LastAdministratorError(ConflictError):
+    """The change would leave the platform with no active administrator.
+
+    Nothing in the application can appoint one, so the only way back would be an edit in the
+    database.
+    """
+
+    code = "last_admin"
+    public_message = (
+        "This is the only active administrator account; another administrator must be active first"
+    )
 
 
 class InputError(AppError):

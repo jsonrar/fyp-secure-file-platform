@@ -699,6 +699,19 @@ def test_authenticate_rejects_revoked_or_expired_access_session(
         harness.service.authenticate_access_token(raw_token)
 
 
+def test_authenticated_actor_carries_the_reset_marker() -> None:
+    # Read from the same row as the session check, so the API can refuse routes while an
+    # administrator's temporary password is still in place without a second query.
+    harness = _harness()
+    raw_token = "at_existing-access-token-material-000000"
+    user = _user()
+    harness.repository.principal = (_session(access_token=raw_token), user)
+
+    assert harness.service.authenticate_access_token(raw_token).must_change_password is False
+    user.must_change_password = True
+    assert harness.service.authenticate_access_token(raw_token).must_change_password is True
+
+
 def test_logout_revokes_only_actor_current_session() -> None:
     harness = _harness()
     user_session = _session()

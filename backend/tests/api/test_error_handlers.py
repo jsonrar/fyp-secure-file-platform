@@ -6,7 +6,12 @@ from fastapi import FastAPI
 from fastapi.testclient import TestClient
 
 from app.api.error_handlers import register_exception_handlers
-from app.domain.errors import ResourceNotFoundError
+from app.domain.errors import (
+    AppError,
+    LastAdministratorError,
+    PasswordChangeRequiredError,
+    ResourceNotFoundError,
+)
 
 
 def _test_app() -> FastAPI:
@@ -35,6 +40,31 @@ def test_application_error_has_stable_public_code() -> None:
 
     assert response.status_code == 404
     assert response.json()["data"]["error_code"] == "resource_not_found"
+
+
+@pytest.mark.parametrize(
+    ("error", "status", "code"),
+    [
+        (PasswordChangeRequiredError(), 403, "password_change_required"),
+        (LastAdministratorError(), 409, "last_admin"),
+    ],
+)
+def test_account_safety_refusals_keep_their_status_and_code(
+    error: AppError, status: int, code: str
+) -> None:
+    # The frontend acts on these codes: one sends the holder to the password card, the
+    # other explains why the last administrator cannot leave.
+    application = FastAPI()
+    register_exception_handlers(application)
+
+    @application.get("/refused")
+    def refused() -> None:
+        raise error
+
+    response = TestClient(application).get("/refused")
+
+    assert response.status_code == status
+    assert response.json()["data"]["error_code"] == code
 
 
 def test_validation_error_does_not_echo_request_input() -> None:

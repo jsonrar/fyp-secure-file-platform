@@ -283,7 +283,9 @@ it becomes a bottom sheet.
 **What it shows:** Admin → Users → Details shows an account's email, status, sign-in times and counts.
 "Reset login password" gives a random temporary password, shown once, signs the account out everywhere
 and emails the holder. Since PR #212 the next sign-in takes the holder straight to Settings, and the
-app keeps them there until they pick a new password.
+app keeps them there until they pick a new password. The server enforces this too: until then it refuses
+every signed-in request except reading the account, changing the password and signing out, so another
+API client cannot skip the step.
 
 **What to say:** "Our administrators cannot read passwords, because there is nothing to read. The login
 password is stored as a one-way hash, and the encryption passphrase never reaches the server. So the

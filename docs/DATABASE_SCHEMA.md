@@ -47,7 +47,8 @@ The current ordered history is:
 11. `0011_must_change_password`: `users.must_change_password` (`BOOL NOT NULL DEFAULT 0`), set by an
     administrator's login-password reset and cleared when the holder sets a password of their
     own. Login and `/auth/me` report it; the frontend keeps the holder on Settings while it is
-    true. The API refuses nothing because of it.
+    true, and since 2026-10-09 the API refuses every authenticated route except `/auth/me`,
+    change password and logout with `403 password_change_required`.
 
 Revisions 0005, 0006 and 0009 refuse to downgrade while any file uses a suite they added,
 rather than delete intact files. `database/mysql/04-backup-account.sql` is a separate,
