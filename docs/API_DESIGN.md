@@ -130,16 +130,21 @@ the complete session family.
 
 `user` (in login and in `GET /auth/me`) carries `must_change_password`. It is `true` from an
 administrator's `POST /admin/users/{user_id}/reset-password` until the holder sets a password
-of their own through `POST /auth/change-password` or `POST /auth/password-reset`. The flag is
-advisory: no endpoint is refused because of it. The frontend acts on it by sending the holder
-to Settings and keeping other signed-in pages closed until the password is changed.
+of their own through `POST /auth/change-password` or `POST /auth/password-reset`. While it is
+set, the server refuses every authenticated route with `403 password_change_required` except
+`GET /auth/me`, `POST /auth/change-password`, `POST /auth/logout` and `POST /auth/logout-all`
+(`POST /auth/refresh` takes no bearer token, and the tokens it issues are held to the same
+list). Delete-account is refused too. The frontend sends the holder to Settings from the flag,
+and from any `password_change_required` answer, until the password is changed.
 
 `POST /auth/delete-account` takes `password` on top of the bearer token, because it is the one
 irreversible action in the API. The password check shares the change-password
 re-authentication throttle: a wrong password counts against the `REAUTH_ACCOUNT` and
 `REAUTH_IP` buckets, is audited as `ACCOUNT_DELETION_PASSWORD_FAILED`, and answers `422
 invalid_current_password`; while a bucket is blocked the endpoint answers `429
-auth_rate_limited` with `Retry-After` before any password is compared.
+auth_rate_limited` with `Retry-After` before any password is compared. The last active
+administrator cannot close their account: the call answers `409 last_admin` until another
+administrator account is active.
 
 Email verification and forgotten-login-password reset are implemented on top of the emailed
 one-time code above. MFA and external identity-provider login remain unimplemented.
@@ -318,7 +323,7 @@ account's private-key bundle.
 | GET | `/admin/users` | ADMIN | Page user records; optional `status` = `ACTIVE`, `DISABLED`, `DELETED`, or `CURRENT` (everything not deleted) |
 | GET | `/admin/files` | ADMIN | Page file metadata records; optional `status` = `ACTIVE`, `CORRUPTED`, `DELETED`, or `CURRENT` |
 | GET | `/admin/stats` | ADMIN | Counts-only platform summary: users by status, files by status and algorithm, bytes stored, active shares, 24-hour integrity checks and failures, pending recovery requests, audit totals and the five newest failed events (action, time, actor only) |
-| POST | `/admin/users/{user_id}/disable` | ADMIN | Soft-disable an account and revoke active sessions |
+| POST | `/admin/users/{user_id}/disable` | ADMIN | Soft-disable an account and revoke active sessions. Not for the caller's own account (`409`), and `409 last_admin` when it would leave no active administrator |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | Re-enable a disabled account |
 | GET | `/admin/users/{user_id}` | ADMIN | One account: email and whether it is verified, role, status, created, last sign-in, password changed, and counts only (files, stored bytes, shares sent and received, sessions open). Never a password, hash or key |
 | POST | `/admin/users/{user_id}/reset-password` | ADMIN | Set a new random login password, returned once (`no-store`); only its hash is stored. Signs the account out everywhere, marks it `must_change_password` until the holder sets their own, audits `ADMIN_PASSWORD_RESET` without the password and emails the holder. Not for the caller's own account or another administrator. The encryption passphrase and files are untouched |

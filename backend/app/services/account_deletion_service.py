@@ -10,11 +10,12 @@ from sqlalchemy.orm import Session
 from app.core.security import PasswordManager, PasswordOperationCapacityError
 from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
-from app.domain.enums import UserStatus
+from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import (
     AuthenticationError,
     AuthenticationRateLimitedError,
     InvalidCurrentPasswordError,
+    LastAdministratorError,
 )
 from app.repositories.auth_repository import AuthRepository
 from app.repositories.file_repository import FileRepository
@@ -109,9 +110,22 @@ class AccountDeletionService:
                 now=now,
             )
 
+            administrators = []
+            if account.role is SystemRole.ADMIN:
+                # Before the account's own row, in the order an administrator disable takes
+                # them, so two administrators closing their accounts at once cannot each
+                # count the other as the one who stays.
+                administrators = self.auth.lock_administrators()
             user = self.auth.lock_user(actor.user_id)
             if user is None or user.status is not UserStatus.ACTIVE:
                 raise AuthenticationError()
+            # Nothing in the application can appoint an administrator, so closing the last
+            # active one would leave the admin console out of reach without a database edit.
+            if user.role is SystemRole.ADMIN and not any(
+                other.id != user.id and other.status is UserStatus.ACTIVE
+                for other in administrators
+            ):
+                raise LastAdministratorError()
 
             if not self.passwords.verify(password, user.password_hash):
                 # Committed on its own, so the count and the audit row outlive the

@@ -311,7 +311,7 @@ sequenceDiagram
     API->>DB: 锁 Bob 和他的密钥，检查封装长度，写入或更新授权和封装
     API->>DB: 写 FILE_SHARED 审计事件，提交
     API-->>AB: 200 created
-    API-->>B: 邮件通知（提交之后发，失败不影响分享）
+    API-->>B: 邮件通知（只在新授权或恢复已撤销授权时发，提交之后发，失败不影响分享）
     B->>BB: 与我共享，下载并解密
     BB->>API: GET /files/{file_id}
     API-->>BB: 带 Bob 的 wrapped_file_key 的 crypto_envelope

@@ -587,8 +587,10 @@ Admin → **Users** lists accounts with their email; **Details** shows one accou
 password-change times and counts (files, bytes stored, shares, open sessions). **Reset login password**
 sets a random temporary password shown once, signs the account out everywhere and emails the holder;
 the holder then chooses their own under Settings → Login password. Until they do, the account is marked
-`must_change_password` and signing in takes them straight to that card, so a temporary password the
-administrator has seen does not stay in use. No screen ever shows a password:
+`must_change_password`: signing in takes them straight to that card, and the server refuses every other
+signed-in request (`403 password_change_required`) except reading the account and signing out, so a
+temporary password the administrator has seen does not stay in use. The last active administrator cannot
+delete their own account or be disabled (`409 last_admin`). No screen ever shows a password:
 the login password is stored only as a one-way hash, and the encryption passphrase never reaches the
 server, so a reset cannot open or lose anyone's files.
 

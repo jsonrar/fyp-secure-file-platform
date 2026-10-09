@@ -310,6 +310,9 @@ Must do:
 - [x] Demo script for a 4-minute live demo — [docs/presentation/DEMO_SCRIPT.md](docs/presentation/DEMO_SCRIPT.md)
 - [x] Demo accounts `demo-alice` / `demo-bob` created on staging (2026-10-04)
 - [x] Record the backup video — [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)
+- [ ] Re-record the backup video [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4) and the Help video
+  `frontend/public/videos/encrypt-upload.mp4` once the account-safety changes are live on staging: both still show the upload page
+  from before [PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215)
 - [x] On staging, upload `quarterly-results.txt` as `demo-alice` and share it with `demo-bob` (verified 2026-10-08: shared and active; needed for the live tamper step)
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))

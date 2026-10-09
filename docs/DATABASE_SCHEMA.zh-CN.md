@@ -34,7 +34,8 @@ Alembic；`database/mysql/02-schema.sql` 是由当前 head 派生并经过评审
     文件夹，而不改变所有者的归类。
 11. `0011_must_change_password`：新增 `users.must_change_password`（`BOOL NOT NULL DEFAULT 0`），由管理员
     重置登录密码时置位，持有人设置自己的密码后清除。登录与 `/auth/me` 返回该字段；为真时前端把持有人
-    留在设置页。API 不会因它拒绝任何请求。
+    留在设置页；2026-10-09 起，API 对除 `/auth/me`、修改密码和退出登录之外的所有需要登录的路由返回
+    `403 password_change_required`。
 
 0005、0006 和 0009 在仍有文件使用其新增套件时拒绝降级，而不是删除完好的文件。
 `database/mysql/04-backup-account.sql` 是独立、可重复执行的脚本，用于创建最小权限备份账户（见

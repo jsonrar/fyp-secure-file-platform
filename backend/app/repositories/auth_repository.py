@@ -10,6 +10,7 @@ from sqlalchemy.orm import Session
 from app.domain.enums import (
     LoginThrottleScope,
     SessionStatus,
+    SystemRole,
     VerificationCodeStatus,
     VerificationPurpose,
 )
@@ -58,6 +59,23 @@ class AuthRepository:
             .where(User.id == user_id)
             .with_for_update()
             .execution_options(populate_existing=True)
+        )
+
+    def lock_administrators(self) -> list[User]:
+        """Every administrator row, locked in id order.
+
+        For the changes that must not leave the platform without an active administrator.
+        Each such change takes these locks first and in the same order, so two of them run
+        one after the other instead of each counting the other as still active.
+        """
+        return list(
+            self.db.scalars(
+                select(User)
+                .where(User.role == SystemRole.ADMIN)
+                .order_by(User.id)
+                .with_for_update()
+                .execution_options(populate_existing=True)
+            ).all()
         )
 
     def lock_key_protection_profile(self, user_id: int) -> UserKeyProtectionProfile | None:

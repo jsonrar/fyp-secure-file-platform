@@ -126,4 +126,26 @@ describe('auth store logout', () => {
     auth.clearLocalSession()
     expect(auth.mustChangePassword).toBe(false)
   })
+
+  it('takes the reset marker from a refused request, so the guard holds the holder on Settings', () => {
+    const auth = useAuthStore()
+    // Nothing to mark before anyone is known; the guard then relies on the query instead.
+    auth.markPasswordChangeRequired()
+    expect(auth.user).toBeNull()
+
+    auth.adoptUser({
+      id: '2',
+      username: 'reset-me',
+      email: 'reset-me@example.com',
+      role: 'USER',
+      status: 'ACTIVE',
+      email_verified: true,
+      created_at: '2026-01-01T00:00:00Z',
+      last_login_at: null,
+      has_avatar: false,
+      must_change_password: false,
+    })
+    auth.markPasswordChangeRequired()
+    expect(auth.mustChangePassword).toBe(true)
+  })
 })

@@ -41,6 +41,9 @@ class ActorContext:
     role: SystemRole
     status: UserStatus
     access_token_hash: str = field(repr=False)
+    # Set by an administrator's password reset. `get_current_actor` refuses every route
+    # outside a short allow-list while it is set.
+    must_change_password: bool = False
 
 
 @dataclass(frozen=True, slots=True)

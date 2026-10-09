@@ -108,13 +108,17 @@ Argon2id 哈希。
 
 `user`（登录响应和 `GET /auth/me` 中）带有 `must_change_password`。管理员执行
 `POST /admin/users/{user_id}/reset-password` 后它为 `true`，直到持有人通过
-`POST /auth/change-password` 或 `POST /auth/password-reset` 设置自己的密码。该字段只是提示：
-任何端点都不会因为它而拒绝请求。前端据此把持有人带到设置页，并在改密之前关闭其他登录后页面。
+`POST /auth/change-password` 或 `POST /auth/password-reset` 设置自己的密码。标记存在期间，服务器对除
+`GET /auth/me`、`POST /auth/change-password`、`POST /auth/logout`、`POST /auth/logout-all` 之外的所有
+需要登录的路由返回 `403 password_change_required`（`POST /auth/refresh` 不带 Bearer 令牌，它签发的令牌
+同样受这份清单约束）。删除账户也会被拒绝。前端根据这个标记，以及任何 `password_change_required` 响应，
+把持有人带到设置页，直到改好密码。
 
 `POST /auth/delete-account` 在 Bearer 令牌之外还要求 `password`，因为这是 API 里唯一不可逆的操作。
 密码校验与修改密码共用同一套重认证限流：密码错误计入 `REAUTH_ACCOUNT` 与 `REAUTH_IP` 桶，审计记录
 `ACCOUNT_DELETION_PASSWORD_FAILED`，并返回 `422 invalid_current_password`；桶被封禁期间，在比较任何
-密码之前就返回带 `Retry-After` 的 `429 auth_rate_limited`。
+密码之前就返回带 `Retry-After` 的 `429 auth_rate_limited`。最后一个在用的管理员不能删除自己的账户：在另一个
+管理员账户处于启用状态之前，该调用返回 `409 last_admin`。
 
 邮箱验证与忘记登录密码重置已基于上述一次性邮箱验证码实现；MFA 与外部身份提供商登录仍未实现。
 
@@ -269,7 +273,7 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 | GET | `/admin/users` | ADMIN | 分页列出用户记录；可选 `status` = `ACTIVE`、`DISABLED`、`DELETED`，或 `CURRENT`（所有未删除的） |
 | GET | `/admin/files` | ADMIN | 分页列出文件元数据记录；可选 `status` = `ACTIVE`、`CORRUPTED`、`DELETED`，或 `CURRENT` |
 | GET | `/admin/stats` | ADMIN | 仅含数字的平台汇总：按状态统计的用户、按状态与算法统计的文件、已存储字节数、有效分享数、24 小时内的完整性检查与失败数、待处理恢复请求、审计总数，以及最近五条失败事件（仅含动作、时间、行为者） |
-| POST | `/admin/users/{user_id}/disable` | ADMIN | 软禁用账户并撤销活跃会话 |
+| POST | `/admin/users/{user_id}/disable` | ADMIN | 软禁用账户并撤销活跃会话。不能用于自己的账户（`409`）；如果停用后不再有在用的管理员，返回 `409 last_admin` |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | 重新启用已禁用账户 |
 | GET | `/admin/users/{user_id}` | ADMIN | 单个账户：邮箱及是否验证、角色、状态、创建时间、最近登录、密码修改时间，以及只含数字的统计（文件数、占用字节、分享出去和收到的数量、在线会话数）。不返回任何密码、哈希或密钥 |
 | POST | `/admin/users/{user_id}/reset-password` | ADMIN | 设置一个新的随机登录密码，只在这次响应里返回一次（`no-store`），数据库只存哈希。让该账户在所有设备上退出登录，给账户打上 `must_change_password` 标记直到本人设置自己的密码，审计记录 `ADMIN_PASSWORD_RESET`（不含密码），并发邮件通知本人。不能用于自己的账户或其他管理员。加密口令和文件不受影响 |

@@ -394,7 +394,7 @@ sequenceDiagram
     API->>DB: lock Bob and his key, check the wrapping length, upsert grant and wrapping
     API->>DB: FILE_SHARED audit event, commit
     API-->>AB: 200 created
-    API-->>B: email notice (after commit, best effort)
+    API-->>B: email notice (new or restored grant only, after commit, best effort)
     B->>BB: Shared with me, Download and decrypt
     BB->>API: GET /files/{file_id}
     API-->>BB: crypto_envelope with Bob's wrapped_file_key
