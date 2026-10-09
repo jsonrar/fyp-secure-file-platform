@@ -282,7 +282,7 @@ from the start, up to three attempts (`app/core/db_retry.py`, #139).
 
 ## Schema and Delivery Rules
 
-- ORM metadata and ordered Alembic revisions through `0010_shared_file_folders` are the
+- ORM metadata and ordered Alembic revisions through `0011_must_change_password` are the
   development/CI schema-authoring authority.
 - `database/mysql/02-schema.sql` is the reviewed production empty-database artifact derived
   from that authority; parity tests compare tables, columns, indexes, and constraints.

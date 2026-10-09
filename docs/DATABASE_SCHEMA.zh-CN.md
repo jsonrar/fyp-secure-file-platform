@@ -32,6 +32,9 @@ Alembic；`database/mysql/02-schema.sql` 是由当前 head 派生并经过评审
    套件区分（XChaCha20-Poly1305 为 24 字节，其他均为 12 字节）。
 10. `0010_shared_file_folders`：新增 `file_access_grants.folder_id`，接收者可把共享文件放进自己的
     文件夹，而不改变所有者的归类。
+11. `0011_must_change_password`：新增 `users.must_change_password`（`BOOL NOT NULL DEFAULT 0`），由管理员
+    重置登录密码时置位，持有人设置自己的密码后清除。登录与 `/auth/me` 返回该字段；为真时前端把持有人
+    留在设置页。API 不会因它拒绝任何请求。
 
 0005、0006 和 0009 在仍有文件使用其新增套件时拒绝降级，而不是删除完好的文件。
 `database/mysql/04-backup-account.sql` 是独立、可重复执行的脚本，用于创建最小权限备份账户（见
@@ -158,16 +161,16 @@ Alembic 都不会自动安全接管它。
    用户名和 IP 不得用作限流主键。
 5. 注册以原子方式创建账户、客户端提交的公钥/指纹、KEK 包装 AMK 保护配置、加密私钥包及
    审计事件。明文 RSA 私钥和加密 passphrase 不会进入 API 或数据库。
-6. 修改密码以原子方式替换 Argon2id 哈希、记录 `password_changed_at`、撤销所有活跃
-   Session family，并追加审计事件；它不会改变相互独立的客户端加密 passphrase 或账户
+6. 修改密码以原子方式替换 Argon2id 哈希、记录 `password_changed_at`、清除 `must_change_password`、
+   撤销所有活跃 Session family，并追加审计事件；它不会改变相互独立的客户端加密 passphrase 或账户
    密钥信封。
 7. `email_verification_codes` 行只保存以 secret、purpose 与地址为密钥的 HMAC-SHA-256
    摘要，绝不保存邮件中的验证码。签发新验证码会作废该地址同用途下其他待用验证码。每行
    至多被 `CONSUMED` 一次，且 `consumed_at` 非空当且仅当状态为 `CONSUMED`。
 8. 被拒绝的验证码尝试必须先独立提交，再让调用方事务回滚。否则每个验证码的尝试计数与
    验证码限流 bucket 会随回滚一起消失，使一个仍然有效的验证码可被无限次猜测。
-9. 重置密码以原子方式替换 Argon2id 哈希、记录 `password_changed_at`、撤销所有 Session
-   family、销毁该挑战并追加审计事件。与修改密码一样，它不会改动密钥保护配置或加密私钥包，
+9. 重置密码以原子方式替换 Argon2id 哈希、记录 `password_changed_at`、清除 `must_change_password`、
+   撤销所有 Session family、销毁该挑战并追加审计事件。与修改密码一样，它不会改动密钥保护配置或加密私钥包，
    因此账户仍能访问其已加密文件。
 10. 创建文件时，以原子方式创建其 metadata、所有者授权、所有者密钥包装、恢复密钥包装
     （强制要求活跃恢复密钥）及上传审计事件。存储对象已经是客户端加密密文。

@@ -216,7 +216,7 @@ FastAPI 是本项目的 HTTP/API 框架，不负责浏览器端文件解密。�
 端点通过 `Depends` 要求有效 Bearer token，敏感操作再执行角色或资源级授权。成功响应使用
 `success/status/message/data/code` 信封；领域异常由统一处理器映射为稳定 HTTP 响应。
 `/health/live` 只检查进程是否存活，`/health/ready` 还会执行数据库查询并要求数据库保存的
-Schema revision 精确等于 `0010_shared_file_folders`。本地默认提供 `/docs`、`/redoc` 和
+Schema revision 精确等于 `0011_must_change_password`。本地默认提供 `/docs`、`/redoc` 和
 `/openapi.json`，部署环境可通过 `APP_DOCS_ENABLED` 整体卸载这些路由。
 
 ## 仓库结构
@@ -316,7 +316,7 @@ Pull Request 模板已包含该清单。
 
 所有后端业务路由均已可用。存活检查、readiness 和 OpenAPI 也已启用；受保护路由要求
 Bearer 身份认证，管理及恢复路由执行 RBAC。Readiness 会检查数据库连接及精确的
-`0010_shared_file_folders` Schema revision。
+`0011_must_change_password` Schema revision。
 
 `MAX_REQUEST_BODY_BYTES` 限制普通 JSON／form 请求体（默认 1 MiB，配置上限 8 MiB）。加密
 multipart 上传另受 `MAX_UPLOAD_SIZE_BYTES + MAX_UPLOAD_REQUEST_OVERHEAD_BYTES` 独立上限
@@ -431,7 +431,7 @@ npm run build
 ```
 
 第三个 Job `mysql-gate` 会拉起一个经过 TLS 校验的一次性 MySQL 8.4 服务，从空数据库依次迁移到
-`0010_shared_file_folders`，再执行 `alembic current` 与 `alembic check`，随后对其运行完整的后端测试
+`0011_must_change_password`，再执行 `alembic current` 与 `alembic check`，随后对其运行完整的后端测试
 ——单元测试加上全部 MySQL 集成测试，包括多连接并发与故障注入测试——只要有任何测试被跳过，或
 分支覆盖率低于 82%，该 Job 就直接失败；接着运行授权边界、Schema 一致性、非空数据库拒绝安装、
 中断后幂等恢复、并发迁移加锁与备份恢复等检查。开发此门禁本身时，可用
@@ -475,7 +475,8 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=USER DB_PASSWORD=PASS DB_NAME=fyp_local_t
 
 管理员页面 → **Users** 列出账户及其邮箱；**详情** 显示单个账户的状态、登录和改密时间，以及统计数字（文件数、占用空间、
 分享数、在线会话数）。**重置登录密码** 会生成一个只显示一次的随机临时密码，让该账户在所有设备上退出登录，并发邮件通知本人；
-本人之后在“设置 → 登录密码”里改成自己的密码。任何界面都不会显示密码：登录密码只以单向哈希保存，加密口令从来不会到达服务器，
+本人之后在“设置 → 登录密码”里改成自己的密码。在那之前账户带着 `must_change_password` 标记，一登录就被直接带到那张卡片，
+管理员看到过的临时密码不会被一直用下去。任何界面都不会显示密码：登录密码只以单向哈希保存，加密口令从来不会到达服务器，
 所以重置既打不开、也不会弄丢任何人的文件。
 
 ### 安全 Agent

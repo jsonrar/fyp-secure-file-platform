@@ -94,6 +94,11 @@ def get_account_deletion_service(
         db=db,
         passwords=request.app.state.password_manager,
         storage=FileStorageService(settings=settings),
+        reauthentication=AuthService(
+            db=db,
+            settings=settings,
+            passwords=request.app.state.password_manager,
+        ),
         avatar_storage=AvatarStorageService(settings=settings),
         audit_service=AuditLogService(db),
     )

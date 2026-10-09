@@ -31,7 +31,7 @@ The core Auth endpoints under `/api/v1` are:
 
 The `/keys`, `/files`, `/audit-logs`, `/recovery`, and `/admin` routers are also active and
 fully described by OpenAPI. `/health/live` checks the process; `/health/ready` additionally
-checks database access and schema revision `0010_shared_file_folders`. Administrators can also
+checks database access and schema revision `0011_must_change_password`. Administrators can also
 view one account's details and issue a temporary login password
 (`GET /admin/users/{user_id}`, `POST /admin/users/{user_id}/reset-password`, #197); that never
 touches files, keys or the encryption passphrase.
@@ -53,30 +53,26 @@ both makes the files unrecoverable. The recovery API only governs rewrapping one
 already registered active public key; it does not recover the passphrase or the AMK, or decrypt
 the private-key bundle.
 
-### Server-managed account-key envelope (format 2, currently unused)
+### Server-managed account-key envelope (format 2): removed
 
-> **Not on the registration path.** `CryptoService.generate_account_key` and the format below
-> remain in the tree from the server-managed registration experiment, but registration now
-> takes client-generated `key_material` (see above) because `docs/SECURITY_FLOWS.md` requires
-> the backend never to hold a plaintext private key. The helper and its unit tests are kept
-> for the team to review rather than deleted; nothing calls it.
+The server-side account-key generation from the server-managed registration experiment
+(`CryptoService.generate_account_key`, `decrypt_account_private_key`,
+`rewrap_key_protection_profile`, kept unused since the revert to client-held custody) has been
+removed. Registration takes client-generated `key_material` because
+`docs/SECURITY_FLOWS.md` requires the backend never to hold a plaintext private key, so there
+was nothing for that code to do. `CryptoService` keeps only what the API uses: public-key
+loading and fingerprints, wrapped-key length checks, RSA-PSS signature verification, and the
+AAD / HKDF-info builders below, which remain as the documented byte layout
+(`tests/unit/test_crypto_service.py` pins it).
 
-
-The format is byte-exact so another backend client can reproduce it. Passwords are normalized
-with Unicode NFC and encoded as UTF-8 before Argon2id. Integers are unsigned 32-bit big-endian
-values, UUIDs are their raw 16-byte RFC 4122/network-order representation, and the public-key
-fingerprint is the raw 32-byte SHA-256 value decoded from its hexadecimal API representation.
-Concatenation is shown as `||`; each domain string ends with one `0x00` byte.
+Integers are unsigned 32-bit big-endian values, UUIDs are their raw 16-byte RFC 4122/network-order
+representation, and the public-key fingerprint is the raw 32-byte SHA-256 value decoded from its
+hexadecimal API representation. Concatenation is shown as `||`; each domain string ends with
+one `0x00` byte.
 
 - AMK wrapping AAD: `FYP-KEY-PROTECTION || 0x00 || format_version || aad_version || profile_uuid`
 - Private-key HKDF info: `FYP-PRIVATE-KEY-DERIVATION || 0x00 || format_version || profile_uuid || key_uuid || bundle_uuid`
 - Private-key AAD: `FYP-PRIVATE-KEY-BUNDLE || 0x00 || format_version || aad_version || profile_uuid || key_uuid || bundle_uuid || public_key_fingerprint`
-
-The private-key HKDF uses SHA-256, the 32-byte AMK as input key material,
-`derivation_salt` as salt, the value above as `info`, and a 32-byte output. AES-GCM
-authentication tags are stored separately from ciphertext. Format-2 protection is bound to
-the login password and can be rewrapped only through `POST /auth/change-password`; the
-client-signed `/keys/me/rewrap` flow remains available only for legacy format-1 profiles.
 
 Application HTTP endpoints use only `GET` for reads and `POST` for creation, updates,
 deletion, revocation, and other state-changing actions. Do not add `PUT`, `PATCH`, or

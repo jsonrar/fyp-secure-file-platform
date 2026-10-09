@@ -3,6 +3,7 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { LifeBuoy, LogOut, Monitor, Moon, Settings, Sun, UserRound } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 import { useI18n } from 'vue-i18n'
+import { PASSWORD_CHANGE_REQUIRED, SETTINGS_PATH } from '@/router/guard'
 import { useAuthStore } from '@/stores/auth_store'
 import type { ThemePreference } from '@/composables/useTheme'
 
@@ -106,7 +107,13 @@ onMounted(() => {
   document.addEventListener('pointerdown', onDocumentPointerDown)
   document.addEventListener('keydown', onKeydown)
   // Only mounted while signed in, so this is the natural place to learn who that is.
-  void auth.loadUser()
+  void auth.loadUser().then(() => {
+    // A reload lands on whatever page was open before the guard knows about the marker;
+    // once `/auth/me` has answered, finish what the guard would have done.
+    if (auth.mustChangePassword && router.currentRoute.value.path !== SETTINGS_PATH) {
+      void router.push(PASSWORD_CHANGE_REQUIRED)
+    }
+  })
 })
 
 onBeforeUnmount(() => {

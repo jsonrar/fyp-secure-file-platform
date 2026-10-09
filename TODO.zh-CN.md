@@ -106,7 +106,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   要求评审，`mcs21-deploy all main` 仍按设计绕过 CI。自 [#171](https://github.com/jsonrar/fyp-secure-file-platform/pull/171) 起，推送到 `main` 的纯文档改动相对 `deploy` 判断，
   不会再取消代码 commit 的 CI 运行、让那段代码一直得不到部署。
 - [x] [#53 在 CI 中运行完整 MySQL 8.4 与 Schema parity 门禁](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
-  ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 head（目前为 `0010_shared_file_folders`）的每一次迁移，
+  ——`mysql-gate` Job 拉起经 TLS 校验的 MySQL 8.4，执行到 head（目前为 `0011_must_change_password`）的每一次迁移，
   运行 `alembic current`/`check`，运行完整后端测试（覆盖率下限 82%），任何测试被跳过即判失败，
   并检查运行时账户与管理员账户的权限边界及线上 Schema 一致性。此前遗留的两处缺口已补上：迁移锁竞争
   现在随机化运行 8 轮，每轮都必须出现一个应用者和一个等待者；恢复结果按逐表 `CHECKSUM TABLE` 加

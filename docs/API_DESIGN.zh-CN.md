@@ -61,6 +61,7 @@ JSON 应用响应使用统一信封，其中 `data` 是路由专用 DTO。失败
 | POST | `/auth/logout` | Bearer | 200 | 撤销当前会话族 |
 | POST | `/auth/logout-all` | Bearer | 200 | 撤销账户所有活跃会话族 |
 | POST | `/auth/change-password` | Bearer | 200 | 修改登录密码并撤销所有会话 |
+| POST | `/auth/delete-account` | Bearer + 登录密码 | 200 | 关闭账户并删除其拥有的文件；不可逆 |
 | GET | `/auth/sessions` | Bearer | 200 | 最多列出最近 100 个服务端会话 |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | 按公开 UUID 撤销本账户会话 |
 | POST | `/auth/avatar/upload` | Bearer | 200 | 上传经校验的 PNG/JPEG 头像（存放在加密对象目录之外） |
@@ -80,9 +81,15 @@ JSON 应用响应使用统一信封，其中 `data` 是路由专用 DTO。失败
 其中的算法名、格式版本与 AAD 版本、派生密钥长度由 API 固定，不由调用方声明；携带这些字段会被
 当作多余字段拒绝。请求真正承载的是只有调用方能产生的材料：公钥、各个盐、KDF 开销参数、连同
 nonce 与认证标签的两个信封，以及私钥包的 `ciphertext_sha256`。存储行与所有 `*Out` 响应仍然
-记录每个信封由哪种算法封装，以便日后引入第二种算法。缺少验证码时返回 `422`；验证码错误或过期时 `error_code` 为 `invalid_verification_code`。消费验证码即
-证明该地址受控，因此新账户直接以 `email_verified` 为真写入。成功响应返回 `user`、
-`key_id` 和 `public_key_fingerprint`，不返回私钥。
+记录每个信封由哪种算法封装，以便日后引入第二种算法。缺少验证码时返回 `422`。
+
+各项检查按固定顺序执行，使响应只暴露本来就公开的信息。用户名已被占用时先返回
+`409 account_identifier_unavailable`，且在消耗验证码之前：用户名本来就是公开的（分享时按用户名解析），
+提前告知可以让调用方换个名字而不必重新发码。接着消耗验证码，错误或过期时 `error_code` 为
+`invalid_verification_code`。最后才检查邮箱，已注册的邮箱返回同样的 `422 invalid_verification_code`，
+因此无法把"邮箱已注册"和"验证码错误"区分开。（发码接口本来就不会给已注册邮箱发验证码，这一分支
+通常只是堵住竞态。）消费验证码即证明该地址受控，因此新账户直接以 `email_verified` 为真写入。
+成功响应返回 `user`、`key_id` 和 `public_key_fingerprint`，不返回私钥。
 
 `POST /auth/password-reset` 接收 `username`、`email`、`verification_code` 和
 `new_password`。验证码先于用户名/邮箱一致性判断被消费，因此不匹配的组合会消耗一次尝试，而不会
@@ -98,6 +105,16 @@ Argon2id 哈希。
 登录成功数据包含 `user`、`access_token`、`refresh_token`、`token_type`、
 `access_expires_at`、`refresh_expires_at` 和 `session_id`。访问与刷新值是独立不透明凭据，
 服务器只保存其哈希。刷新凭据重放会撤销完整会话族。
+
+`user`（登录响应和 `GET /auth/me` 中）带有 `must_change_password`。管理员执行
+`POST /admin/users/{user_id}/reset-password` 后它为 `true`，直到持有人通过
+`POST /auth/change-password` 或 `POST /auth/password-reset` 设置自己的密码。该字段只是提示：
+任何端点都不会因为它而拒绝请求。前端据此把持有人带到设置页，并在改密之前关闭其他登录后页面。
+
+`POST /auth/delete-account` 在 Bearer 令牌之外还要求 `password`，因为这是 API 里唯一不可逆的操作。
+密码校验与修改密码共用同一套重认证限流：密码错误计入 `REAUTH_ACCOUNT` 与 `REAUTH_IP` 桶，审计记录
+`ACCOUNT_DELETION_PASSWORD_FAILED`，并返回 `422 invalid_current_password`；桶被封禁期间，在比较任何
+密码之前就返回带 `Retry-After` 的 `429 auth_rate_limited`。
 
 邮箱验证与忘记登录密码重置已基于上述一次性邮箱验证码实现；MFA 与外部身份提供商登录仍未实现。
 
@@ -255,7 +272,7 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 | POST | `/admin/users/{user_id}/disable` | ADMIN | 软禁用账户并撤销活跃会话 |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | 重新启用已禁用账户 |
 | GET | `/admin/users/{user_id}` | ADMIN | 单个账户：邮箱及是否验证、角色、状态、创建时间、最近登录、密码修改时间，以及只含数字的统计（文件数、占用字节、分享出去和收到的数量、在线会话数）。不返回任何密码、哈希或密钥 |
-| POST | `/admin/users/{user_id}/reset-password` | ADMIN | 设置一个新的随机登录密码，只在这次响应里返回一次（`no-store`），数据库只存哈希。让该账户在所有设备上退出登录，审计记录 `ADMIN_PASSWORD_RESET`（不含密码），并发邮件通知本人。不能用于自己的账户或其他管理员。加密口令和文件不受影响 |
+| POST | `/admin/users/{user_id}/reset-password` | ADMIN | 设置一个新的随机登录密码，只在这次响应里返回一次（`no-store`），数据库只存哈希。让该账户在所有设备上退出登录，给账户打上 `must_change_password` 标记直到本人设置自己的密码，审计记录 `ADMIN_PASSWORD_RESET`（不含密码），并发邮件通知本人。不能用于自己的账户或其他管理员。加密口令和文件不受影响 |
 | GET | `/admin/integrity` | ADMIN | Integrity 标签页：最近一次巡检结果与损坏文件 |
 | POST | `/admin/integrity/scan` | ADMIN | 立即运行一次完整性巡检 |
 | GET | `/admin/agent/report` | ADMIN | 安全 Agent 的排序结果（只读、仅元数据、基于规则） |

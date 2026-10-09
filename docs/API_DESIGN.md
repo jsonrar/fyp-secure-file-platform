@@ -68,6 +68,7 @@ cross the API boundary; public resources use UUIDs.
 | POST | `/auth/logout` | Bearer | 200 | Revoke the current session family |
 | POST | `/auth/logout-all` | Bearer | 200 | Revoke all active session families for the account |
 | POST | `/auth/change-password` | Bearer | 200 | Change login password and revoke every session |
+| POST | `/auth/delete-account` | Bearer + login password | 200 | Close the account and delete the files it owns; not reversible |
 | GET | `/auth/sessions` | Bearer | 200 | List at most the 100 newest server-side sessions |
 | POST | `/auth/sessions/{session_id}/revoke` | Bearer | 200 | Revoke an account-owned session by public UUID |
 | POST | `/auth/avatar/upload` | Bearer | 200 | Upload a validated PNG/JPEG avatar (stored outside the encrypted-object root) |
@@ -92,11 +93,19 @@ field. What the request carries is the material a caller alone can produce: the 
 the salts, the KDF cost parameters, the sealed envelopes with their nonces and tags, and the
 bundle's `ciphertext_sha256`. Stored rows and every `*Out` response still record which
 algorithm sealed each envelope, so a second one can be introduced later. A registration that
-omits the code fails validation
-with `422`, and an incorrect or expired code fails with `error_code`
-`invalid_verification_code`. Consuming the code proves control of the address, so the created
-account is stored with `email_verified` already true. The successful response returns `user`,
-`key_id`, and `public_key_fingerprint`; it does not return a private key.
+omits the code fails validation with `422`.
+
+The checks run in a fixed order so that the response reveals only what is public. A taken
+username answers `409 account_identifier_unavailable` first, before the code is consumed:
+usernames are public (sharing resolves them), and reporting it early means the caller can pick
+another name without requesting a new code. The code is consumed next, and an incorrect or
+expired one fails with `error_code` `invalid_verification_code`. Only then is the email checked,
+and an address that already has an account answers that same `422 invalid_verification_code`,
+so a registered email cannot be told apart from a wrong code. (The send endpoint never delivers
+a code to a registered address, so that branch normally only closes a race.) Consuming the
+code proves control of the address, so the created account is stored with `email_verified`
+already true. The successful response returns `user`, `key_id`, and
+`public_key_fingerprint`; it does not return a private key.
 
 `POST /auth/password-reset` takes `username`, `email`, `verification_code`, and
 `new_password`. The code is consumed before the username/email pair is judged, so a mismatched
@@ -118,6 +127,19 @@ Successful login data contains `user`, `access_token`, `refresh_token`, `token_t
 `access_expires_at`, `refresh_expires_at`, and `session_id`. Access and refresh values are
 independent opaque credentials; the server stores only their hashes. Refresh replay revokes
 the complete session family.
+
+`user` (in login and in `GET /auth/me`) carries `must_change_password`. It is `true` from an
+administrator's `POST /admin/users/{user_id}/reset-password` until the holder sets a password
+of their own through `POST /auth/change-password` or `POST /auth/password-reset`. The flag is
+advisory: no endpoint is refused because of it. The frontend acts on it by sending the holder
+to Settings and keeping other signed-in pages closed until the password is changed.
+
+`POST /auth/delete-account` takes `password` on top of the bearer token, because it is the one
+irreversible action in the API. The password check shares the change-password
+re-authentication throttle: a wrong password counts against the `REAUTH_ACCOUNT` and
+`REAUTH_IP` buckets, is audited as `ACCOUNT_DELETION_PASSWORD_FAILED`, and answers `422
+invalid_current_password`; while a bucket is blocked the endpoint answers `429
+auth_rate_limited` with `Retry-After` before any password is compared.
 
 Email verification and forgotten-login-password reset are implemented on top of the emailed
 one-time code above. MFA and external identity-provider login remain unimplemented.
@@ -299,7 +321,7 @@ account's private-key bundle.
 | POST | `/admin/users/{user_id}/disable` | ADMIN | Soft-disable an account and revoke active sessions |
 | POST | `/admin/users/{user_id}/enable` | ADMIN | Re-enable a disabled account |
 | GET | `/admin/users/{user_id}` | ADMIN | One account: email and whether it is verified, role, status, created, last sign-in, password changed, and counts only (files, stored bytes, shares sent and received, sessions open). Never a password, hash or key |
-| POST | `/admin/users/{user_id}/reset-password` | ADMIN | Set a new random login password, returned once (`no-store`); only its hash is stored. Signs the account out everywhere, audits `ADMIN_PASSWORD_RESET` without the password and emails the holder. Not for the caller's own account or another administrator. The encryption passphrase and files are untouched |
+| POST | `/admin/users/{user_id}/reset-password` | ADMIN | Set a new random login password, returned once (`no-store`); only its hash is stored. Signs the account out everywhere, marks it `must_change_password` until the holder sets their own, audits `ADMIN_PASSWORD_RESET` without the password and emails the holder. Not for the caller's own account or another administrator. The encryption passphrase and files are untouched |
 | GET | `/admin/integrity` | ADMIN | Integrity tab: latest sweep result and damaged files |
 | POST | `/admin/integrity/scan` | ADMIN | Run an integrity sweep now |
 | GET | `/admin/agent/report` | ADMIN | The security agent's ranked findings (read-only, metadata only, rule-based) |

@@ -19,7 +19,7 @@
 -- verified pre-deployment backup, then restart from 01-provision.sql.
 --
 -- The DDL below is the flattened final state represented by revisions
--- 0001_initial through 0010_shared_file_folders. Production deployment does not
+-- 0001_initial through 0011_must_change_password. Production deployment does not
 -- run Alembic. The alembic_version row is retained only as a compatibility
 -- marker for development tooling and must be updated together with reviewed
 -- future root-executed SQL release scripts.
@@ -146,6 +146,7 @@ CREATE TABLE users (
     avatar_sha256 CHAR(64),
     avatar_bytes INTEGER UNSIGNED,
     avatar_updated_at DATETIME,
+    must_change_password BOOL NOT NULL DEFAULT '0',
     PRIMARY KEY (id),
     CONSTRAINT uq_users_user_uuid UNIQUE (user_uuid),
     CONSTRAINT uq_users_username UNIQUE (username),
@@ -905,15 +906,15 @@ CREATE TABLE alembic_version (
   COLLATE=utf8mb4_unicode_ci;
 
 INSERT INTO alembic_version (version_num)
-VALUES ('0010_shared_file_folders');
+VALUES ('0011_must_change_password');
 
 -- Restore final-schema default parity only after every prior install statement
 -- has succeeded. The row still advertises 0002 until the final UPDATE below.
 ALTER TABLE audit_chain_heads
-ALTER COLUMN schema_revision SET DEFAULT '0010_shared_file_folders';
+ALTER COLUMN schema_revision SET DEFAULT '0011_must_change_password';
 
 -- This must be the final statement: readiness reads this marker rather than
 -- alembic_version because the runtime identity intentionally cannot read it.
 UPDATE audit_chain_heads
-SET schema_revision = '0010_shared_file_folders'
+SET schema_revision = '0011_must_change_password'
 WHERE id = 1;

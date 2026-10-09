@@ -96,6 +96,7 @@ def _user(role: SystemRole = SystemRole.USER, status: UserStatus = UserStatus.AC
         password_hash="old-hash",
         password_changed_at=None,
         updated_at=None,
+        must_change_password=False,
     )
 
 
@@ -126,6 +127,8 @@ def test_reset_stores_only_a_hash_signs_out_everywhere_and_audits_without_the_pa
     assert TEMPORARY.match(temporary)
     assert user.password_hash == f"hashed:{temporary}"
     assert user.password_changed_at is not None and user.updated_at == user.password_changed_at
+    # The holder is sent to choose their own password at the next sign-in.
+    assert user.must_change_password is True
     assert (revoked, notice_sent) == (3, True)
     assert auth.calls == [(9, "admin_password_reset")]
     assert db.commits == 1 and db.rollbacks == 0
@@ -166,6 +169,7 @@ def test_another_administrators_password_cannot_be_reset() -> None:
         service.reset_user_password(actor=_actor(), user_id=TARGET_ID, context=RequestContext())
 
     assert user.password_hash == "old-hash"
+    assert user.must_change_password is False
     assert (db.commits, db.rollbacks) == (0, 1)
     assert audit.events == []
 
