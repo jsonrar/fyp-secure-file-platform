@@ -12,7 +12,9 @@ report, charts, raw summaries, server sampler CSV and run logs are in
 [`performance/`](performance/REPORT-2026-10-03.md); the conclusions are filled in at the end of this
 page. Read the report's "Test conditions" before quoting a number: the generator's home link, not
 the server, bounds every transfer figure. Tracked in
-[#140](https://github.com/jsonrar/fyp-secure-file-platform/issues/140).
+[#140](https://github.com/jsonrar/fyp-secure-file-platform/issues/140). After the fixes the matrix
+was re-run on 2026-10-09 through the public URL
+([report](performance/REPORT-2026-10-09.md)); see the conclusions below.
 
 ## What is being measured, and what the server actually does
 
@@ -80,6 +82,8 @@ The nginx per-IP limits mean the choice of target matters:
 | Generator on another server (for example the j1900) | Same tunnel from that box | Like origin, with that box's bandwidth | Needs the loadtest venv there |
 
 Since PR #210 the edge limit is 30 req/s (burst 60), so a single generator through the public URL can push harder than in the table above.
+The 2026-10-09 after-fix run used the public URL with `loadtest/run_staging.sh`, which keeps the
+limits on and needs no tunnel or sshd change.
 
 Running the generator **on** the VPS itself would avoid the network but take CPU from the server
 being measured, so it is not recommended.
@@ -127,7 +131,9 @@ one account, and a soak far more, so for a capacity run set `USER_STORAGE_QUOTA_
 `USER_DAILY_UPLOAD_BYTES=0` in `/etc/fyp-secure-file-platform/backend.env`, restart
 `fyp-backend`, and restore both values afterwards. The SSH tunnel bypasses nginx, so its connection
 limit does not apply. Leave `UPLOAD_MIN_FREE_DISK_BYTES` in place: it is what keeps a run from
-filling a disk the server shares with other services.
+filling a disk the server shares with other services. Since 2026-10-09 the `sizes` scenario gives
+each file type its own owner account and deletes each file once it is verified, so it fits inside the
+quotas and that run left them on.
 
 1. On the server, create the test accounts (written 0600; test accounts only):
 
@@ -155,6 +161,10 @@ filling a disk the server shares with other services.
    ```
 
    The tool refuses any host other than this machine without `--confirm-remote`.
+
+   To run through the public URL instead, `LOAD_ACCOUNTS=loadtest-accounts.json bash loadtest/run_staging.sh`
+   runs every scenario in order against `https://secureview.tech/api/v1` by default. The large-file
+   matrix (about 5 GiB each way) only runs with `LOAD_LARGE_FILES=1`.
 4. Stop the sampler (Ctrl-C), copy the CSV back, and build the report:
    `.venv/bin/python -m secureview_load.report results --server-metrics loadtest-metrics.csv --out results/REPORT.md`
 5. Delete the accounts and all their files through the API:
@@ -175,7 +185,34 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=root DB_PASSWORD=... DB_NAME=fyp_loadtest
 
 The tool's own tests: `cd loadtest && .venv/bin/python -m pytest tests`.
 
-## Conclusions (staging run, 2026-10-03/04)
+## Conclusions
+
+### 2026-10-09 re-run (after fixes, public URL)
+
+Release `ac5e2b0`, run from a home broadband laptop through `https://secureview.tech` (HTTPS and
+nginx, limits on). Full numbers and test conditions are in
+[the 2026-10-09 report](performance/REPORT-2026-10-09.md).
+
+- **Integrity and errors:** 18,256 operations; 7,444 downloads decrypted and SHA-256-verified with 0
+  integrity failures; 0 server 5xx (the backend log has 25,637 requests and no 500).
+- **Capacity:** every request up to 50 concurrent users succeeded (upload p95 134 ms at 1 user, 3.3 s
+  at 50; download p95 76 ms at 1 user, 9.5 s at 50). At 100 users there was no server error. The 644
+  uploads refused across the two 100-user steps were 429s from nginx's limit of 50 uploads in flight
+  per address, because all the load came from one address. Before the fix the same step gave 65 to
+  78 % HTTP 500.
+- **Large files:** pdf, png, jpg, mp4, zip and exe at 1 to 500 MiB: 36/36 files uploaded, shared and
+  downloaded by the recipient, 72/72 downloads byte-exact. 500 MiB took about 48 s up and 43 s down
+  on this link.
+- **Bottleneck:** throughput levels off at about 8 to 9 MiB/s each way (about 70 Mbit/s) from 10
+  users, while server CPU averages 4.5 % (peak 42 %) and API memory stays at 199 MiB. The network
+  is the limit, not the application.
+- **Limits and retries:** 713 × 429 in total (644 uploads in flight, 1 API rate, 68 sign-in cap and
+  credential limit), all limits working as designed, and 1 × 413 from the 2 GiB account quota (the
+  same file then went through from an empty account). MySQL reported 8 deadlocks; each was retried
+  once by #139 and succeeded, which the #202 log line made visible.
+- **Not re-run:** the 15, 30 and 60 minute soaks.
+
+### Before-fix baseline (staging run, 2026-10-03/04)
 
 From the meeting notes, filled from [the staging report](performance/REPORT-2026-10-03.md):
 

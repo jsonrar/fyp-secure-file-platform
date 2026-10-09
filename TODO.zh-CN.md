@@ -54,18 +54,18 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
 
-## 2026-10-09 已核验（`main` 位于 `c3569c8`）
+## 2026-10-09 已核验（`main` 位于 `0bb6238`）
 
 | 门禁 | 结果 | 含义 |
 | --- | --- | --- |
-| `c3569c8` 上的 GitHub Actions | 所有测试 Job 全部通过 | 后端、前端、`mysql-gate`、`e2e-live` 和 `tamper-drill` |
-| 后端（`mysql-gate`） | 728 passed，0 skipped | 同时运行 MySQL 发布门禁和备份/恢复演练，均通过 |
-| 后端（`backend` Job，无 MySQL） | 661 passed；覆盖率 81.24% | 不需要 MySQL 的单元和 API 测试 |
-| 前端（`frontend` Job） | 875 passed，78 skipped；语句覆盖率 73.09% | 被跳过的是真实后端测试套件，在 `e2e-live` 里运行 |
-| 前端实时测试（`e2e-live`） | 953 passed，0 skipped | 全部套件针对一次性 API 与 MySQL 运行 |
+| `0bb6238`（PR #217）上的 GitHub Actions | 所有测试 Job 全部通过 | 后端、前端、`mysql-gate`、`e2e-live` 和 `tamper-drill` |
+| 后端（`mysql-gate`） | 759 passed，0 skipped；覆盖率 86.52% | 同时运行 MySQL 发布门禁和备份/恢复演练，均通过 |
+| 后端（`backend` Job，无 MySQL） | 691 passed；覆盖率 81.67% | 不需要 MySQL 的单元和 API 测试 |
+| 前端（`frontend` Job） | 881 passed，78 skipped；语句覆盖率 74.89% | 被跳过的是真实后端测试套件，在 `e2e-live` 里运行 |
+| 前端实时测试（`e2e-live`） | 959 passed，0 skipped；语句覆盖率 79.05% | 全部套件针对一次性 API 与 MySQL 运行 |
 | 浏览器测试（`e2e-live`） | 57 passed | Playwright |
 | 篡改演练 | 通过 | 隔离的攻击容器（#90） |
-| 线上 staging | 运行 `c3569c8`，schema `0011_must_change_password` | `/health/ready` 返回 ready；按 DEPLOYMENT.md 的要求，部署前先手动执行了 0011 的 SQL |
+| 线上 staging | 运行 `0bb6238`，schema `0011_must_change_password` | `/health/ready` 返回 ready；按 DEPLOYMENT.md 的要求，部署前先手动执行了 0011 的 SQL |
 | Schema head | `0011_must_change_password` | 新增管理员重置标记（#212） |
 
 ## 2026-10-07 已核验（`main` 位于 `e4b3f13`）
@@ -169,6 +169,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   共 22,264 次操作，5,094 次下载全部 SHA-256 校验、完整性失败 0 次，所有类型在 500 MiB 以内逐字节一致，50 个并发用户
   以内服务器零错误，100 个用户时第一个瓶颈是 15 个数据库连接。[报告](docs/performance/REPORT-2026-10-03.md)；结论见
   [docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md)。传输类数字受压测端家庭网络限制，引用前先读报告里的测试条件。
+  修复后于 2026-10-09 经公网地址重跑（版本 `ac5e2b0`，HTTPS 和 nginx，限流开着）：共 18,256 次操作，7,444 次下载校验、
+  完整性失败 0 次，服务器 5xx 为 0；50 个用户以内所有请求成功，100 个用户时服务器错误为 0，唯一的拒绝是按地址上传限制返回的 429。
+  [报告](docs/performance/REPORT-2026-10-09.zh-CN.md)。2026-10-03/04 的报告保留，作为修复前的对照。
 - [x] [#139 并发使用下两个 MySQL 死锁返回 HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
   — 已在 [PR #154](https://github.com/jsonrar/fyp-secure-file-platform/pull/154) 中通过对 MySQL 1213/1205 重试修复；
   回归测试在修复前约 7/10 次复现死锁，修复后从未复现。#140 压测的 28,540 个请求中没有出现 1213 或 1205。
@@ -271,6 +274,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 修掉数据库连接池瓶颈，并在 100 用户下做修复前后对比（本地：失败率 80% → 0%，
   [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163)）
 - [x] PR #163 部署后，在 staging 上重跑 #140 的 `steps`：100 用户从 78% 上传失败变为 102 次全部成功（[证据](docs/performance/pool-fix-2026-10-04/staging-rerun/REPORT.md)）
+- [x] 所有修复之后经公网地址重跑压测矩阵（长时间压测除外）（2026-10-09，版本 `ac5e2b0`）：100 用户从 65% 到 78% 的上传返回 HTTP 500 变为服务器错误 0 次，7,444 次校验下载完整性失败 0 次，36 个文件（六种类型，1 到 500 MiB）全部逐字节一致（[报告](docs/performance/REPORT-2026-10-09.zh-CN.md)）
 - [x] ~~#115 可用性研究并计算 SUS 分数~~——不再计划执行（#115 已于 2026-10-04 关闭）；改为非正式真实使用
 - [x] 分享前确认接收者，并显示对方的密钥指纹（密钥验证）——
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160)；威胁模型 T-S5 已针对数据写入者缓解

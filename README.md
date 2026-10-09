@@ -130,15 +130,20 @@ each with its measured time, and then the file's first 16 bytes beside the first
 server receives. The receipt stays until it is closed with its close button (#200). Encryption takes tens of milliseconds, so without this an upload looked as if
 nothing had been encrypted; nothing is slowed down to look busy.
 
-**Measured capacity (staging, 2026-10-03/04, #140):** 22,264 operations, 5,094 downloads
-SHA-256-verified with 0 integrity failures, every common file type up to 500 MiB byte-exact; no
-server error up to 50 concurrent users; at 100 the API's 15-connection database pool is the first
-limit while CPU averages 3 %. That limit was then fixed (#163: no database work on the event loop
-during uploads) and the 100-user step re-run on staging: 102 of 102 uploads and 102 of 102 verified
-downloads succeeded ([pool-fix-2026-10-04](docs/performance/pool-fix-2026-10-04/README.md), #172).
-Read the test conditions before quoting a number:
-[docs/performance/REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) and the conclusions
-in [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md).
+**Measured capacity (after the fixes, 2026-10-09, release `ac5e2b0`):** run through the public URL
+`https://secureview.tech` (HTTPS and nginx, limits on) from a home broadband laptop. 18,256
+operations, 7,444 downloads decrypted and SHA-256-verified with 0 integrity failures, and 0 server
+5xx. Every request up to 50 concurrent users succeeded (upload p95 3.3 s, download p95 9.5 s at 50
+users). At 100 users there was still no server error; the only refusals were 429s from nginx's
+50-uploads-in-flight-per-address limit, because all the load came from one address. pdf, png, jpg,
+mp4, zip and exe files from 1 to 500 MiB all round-tripped byte-exact, including sharing. Throughput
+levels off at about 8 to 9 MiB/s each way while server CPU averages 4.5 %, so the VPS's 100 Mbit/s
+network port, not the application, is the limit. Read the test conditions before quoting a number:
+[docs/performance/REPORT-2026-10-09.md](docs/performance/REPORT-2026-10-09.md) and the conclusions
+in [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md). The before-fix baseline, where 65 to
+78 % of uploads failed with HTTP 500 at 100 users, is in
+[REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) (#140, fixed by #163). Every test count,
+coverage figure and load-test result in one place: [docs/TESTING_SUMMARY.md](docs/TESTING_SUMMARY.md).
 
 **Upload limits (threat model F-09):** each account may store 2 GiB and upload 5 GiB per 24 hours,
 uploads stop while the storage disk is below a free-space floor, nginx allows fifty uploads in flight
