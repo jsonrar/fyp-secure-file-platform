@@ -7,7 +7,7 @@ say**, **where the numbers and evidence are**, **what a judge is likely to ask**
 Anything marked *planned* or *in review* is not done yet; do not present it as done. What is still
 missing, and in what order to fix it, is in [REFLECTION.md](REFLECTION.md).
 
-Last updated: 2026-10-08
+Last updated: 2026-10-09
 
 ---
 
@@ -101,16 +101,16 @@ stays at 199 MiB, so the VPS's 100 Mbit/s port is the limit, not the application
 `docs/performance/REPORT-2026-10-03.md` (before-fix baseline), both with charts, the conclusions at the end of
 `docs/PERFORMANCE_TESTING.md`, raw data in `docs/performance/raw/`, the server sampler CSV.
 
-**Conditions you must state:** the generator was a laptop on a home connection, so every transfer
-figure is bounded by that link (~24 Mbit/s up, ~13 Mbit/s down); the server's own port is ~100 Mbit/s.
-The report's "Test conditions" section says so. On 2026-10-09 the home link was much faster (speedtest.net:
-821 Mbit/s down, 493 Mbit/s up), so the VPS port (measured 94 down, 97 up) became the limit at
-about 8 to 9 MiB/s of file data each way.
+**Conditions you must state:** on 2026-10-03/04 the generator's home link (~24 Mbit/s up, ~13 Mbit/s
+down) bounded every transfer figure. On 2026-10-09 the home link was much faster (speedtest.net: 821
+Mbit/s down, 493 Mbit/s up), so the VPS's own 100 Mbit/s port (measured 94 down, 97 up) was the limit:
+about 8 to 9 MiB/s of file data each way with many users, and a single 500 MiB transfer at 87 to 98
+Mbit/s. Each report's "Test conditions" section says which link applied.
 
-**Likely question:** why does 500 MB take minutes?
-**Answer:** that is the test link's bandwidth, not the server. Server CPU stayed low throughout; its
-port tops out at about 100 Mbit/s, which still means 40-plus seconds for 500 MB. On the faster link
-used on 2026-10-09 a 500 MiB file took about 48 s up and 43 s down.
+**Likely question:** how long does a 500 MB file take?
+**Answer:** on 2026-10-09 about 48 s up and 43 s down, which is the server's 100 Mbit/s port running
+full; server CPU stayed low. On the slower home link of 2026-10-03 the same file took minutes. A
+bigger port, not different code, is what would make it faster.
 
 **Likely question:** it fails at 100 users?
 **Answer:** it did, and then we fixed it. The test pointed at the database pool, not the hardware.
