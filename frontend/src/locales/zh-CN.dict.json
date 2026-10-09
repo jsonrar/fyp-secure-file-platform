@@ -1237,6 +1237,7 @@
   "Symmetric vs Asymmetric Encryption": "对称与非对称加密比较",
   "Synthetic IV": "合成IV",
   "System": "系统",
+  "System (server script)": "系统（服务器脚本）",
   "Systems that cannot guarantee unique nonces (many devices, no shared counter)": "无法保证唯一非ces的系统能（许多设备，没有分享计数器）",
   "Systems that need AES with shorter keys": "需要AES较短的密钥的系统能",
   "TLS 1.3 cipher suites": "TLS 1.3加密套件",

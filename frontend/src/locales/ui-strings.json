@@ -1526,6 +1526,7 @@
   "Symmetric uses one shared key; asymmetric uses a public/private key pair. Most systems combine both.",
   "Symmetric vs Asymmetric Encryption",
   "Synthetic IV",
+  "System (server script)",
   "Systems that cannot guarantee unique nonces (many devices, no shared counter)",
   "Systems that need AES with shorter keys",
   "Tab",
