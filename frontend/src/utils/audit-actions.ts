@@ -147,3 +147,24 @@ export function auditFileLabel(log: { file_name?: string | null; file_deleted?: 
 export function isShareAction(action: string | undefined): boolean {
   return action === 'FILE_SHARED' || action === 'FILE_ACCESS_REVOKED'
 }
+
+/** The username a deleted account is left with (`AuthRepository.release_identifiers`). */
+const DELETED_ACCOUNT_USERNAME = /^deleted-[0-9a-f]{32}$/
+
+/**
+ * Who performed an audited action, as a person should read it.
+ *
+ * Two different things used to show as "A deleted account". A row with no actor at all was
+ * written by a server job (for example `scripts/restore_file.py` recording a restore from
+ * backup), while a deleted account keeps its row under a `deleted-<hex>` username. They are
+ * kept apart now, so a restore by the operator no longer reads as the work of a removed user.
+ */
+export function auditActorLabel(username: string | null | undefined): {
+  name: string
+  /** The name is a real username (never translated), not our wording. */
+  named: boolean
+} {
+  if (!username) return { name: 'System (server script)', named: false }
+  if (DELETED_ACCOUNT_USERNAME.test(username)) return { name: 'A deleted account', named: false }
+  return { name: username, named: true }
+}

@@ -5,7 +5,7 @@ import { Activity, Loader2 } from 'lucide-vue-next'
 import { auditApi } from '@/api/audit_api'
 import { apiErrorMessage } from '@/api/http'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
-import { auditActionLabel, isDownloadAction } from '@/utils/audit-actions'
+import { auditActionLabel, auditActorLabel, isDownloadAction } from '@/utils/audit-actions'
 
 const props = defineProps<{
   fileId: string
@@ -19,6 +19,8 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 interface HistoryEntry {
   id: string
   actor: string
+  /** `actor` is a real username (never translated), not "System (server script)". */
+  actorNamed: boolean
   action: string
   detail: string
   at: string
@@ -52,7 +54,8 @@ onMounted(async () => {
     const data = unwrapData(await auditApi.listFileLogs(props.fileId))
     entries.value = (data.logs ?? []).map((log, index) => ({
       id: `${log.created_at}-${log.action}-${index}`,
-      actor: log.actor_username ?? 'A deleted account',
+      actor: auditActorLabel(log.actor_username).name,
+      actorNamed: auditActorLabel(log.actor_username).named,
       action: auditActionLabel(log.action),
       detail: detailOf(log),
       summary: ` · ${auditActionLabel(log.action)}${detailOf(log) ? ` ${detailOf(log)}` : ''}`,
@@ -103,7 +106,7 @@ onMounted(async () => {
         >
           <div class="min-w-0">
             <p class="text-sm text-foreground">
-              <span translate="no" class="font-medium">{{ entry.actor }}</span>
+              <span :translate="entry.actorNamed ? 'no' : undefined" class="font-medium">{{ entry.actor }}</span>
               <!-- One interpolation, so the separators are real characters. Vue trims
                    whitespace *between* elements, which silently ran the words together. -->
               <span class="text-muted-foreground">{{ entry.summary }}</span>

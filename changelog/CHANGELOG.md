@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### A restore by the server shows as "System (server script)", not as a deleted account / 服务器恢复的记录显示为"系统（服务器脚本）"，不再显示成已删除账户
+
+- Access Records and a file's history showed every row without a username as "A deleted account". A row has no username in two different cases: it was written by a server job (`scripts/restore_file.py` recording `FILE_RESTORED_FROM_BACKUP`, which has no signed-in actor), or the account was deleted, which leaves the row under a `deleted-<hex>` username. So an operator's restore from backup read as the work of a removed user. `auditActorLabel` in `src/utils/audit-actions.ts` now tells them apart: no actor is "System (server script)", a `deleted-<32 hex>` username is "A deleted account", anything else is the username. Both labels are also translated now; the old text sat inside `translate="no"` with the username and never was.
+- 访问记录和文件历史把所有没有用户名的记录都显示成"一个被删除的账户"。没有用户名其实有两种情况：一是服务器任务写的（`scripts/restore_file.py` 记录 `FILE_RESTORED_FROM_BACKUP`，没有登录的操作人），二是账户已被删除，记录里的用户名变成 `deleted-<hex>`。结果管理员从备份恢复文件，看起来像是某个已删除用户做的。现在 `src/utils/audit-actions.ts` 里的 `auditActorLabel` 把两者分开：没有操作人显示"系统（服务器脚本）"，`deleted-<32 位十六进制>` 显示"一个被删除的账户"，其余照常显示用户名。这两个文字现在也会被翻译；以前它和用户名一起放在 `translate="no"` 里，从来没翻译过。
+
 ### Home and sign-in pages quote the 2026-10-09 load test / 首页和登录页改用 2026-10-09 的压测数字
 
 - The proof figures on the home page and beside the sign-in and registration forms still showed the 2026-10-03/04 run ("0 / 5,094" downloads failed their integrity check, "102 / 102" uploads at 100 users). They now show the after-fix run through the public URL: 0 of 7,444 downloads failed their integrity check, and 0 server errors with 100 concurrent users. Both figures come from `src/data/proof.ts`, which now points to the report and to `docs/TESTING_SUMMARY.md` so they are updated together.

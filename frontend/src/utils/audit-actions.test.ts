@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest'
 import {
   auditActionCategory,
   auditActionLabel,
+  auditActorLabel,
   auditFileLabel,
   auditSubjectFileId,
   isDownloadAction,
@@ -126,5 +127,25 @@ describe('isShareAction', () => {
     expect(isShareAction('FILE_DOWNLOAD_AUTHORIZED')).toBe(false)
     expect(isShareAction('AUTH_LOGIN_SUCCEEDED')).toBe(false)
     expect(isShareAction(undefined)).toBe(false)
+  })
+})
+
+describe('audit actor label', () => {
+  it('shows a server job (no actor) as the system, not as a deleted account', () => {
+    expect(auditActorLabel(null)).toEqual({ name: 'System (server script)', named: false })
+    expect(auditActorLabel(undefined)).toEqual({ name: 'System (server script)', named: false })
+    expect(auditActorLabel('')).toEqual({ name: 'System (server script)', named: false })
+  })
+
+  it('shows the username a deleted account is left with as a deleted account', () => {
+    expect(auditActorLabel('deleted-0123456789abcdef0123456789abcdef')).toEqual({
+      name: 'A deleted account',
+      named: false,
+    })
+  })
+
+  it('keeps a real username, including one that merely starts with "deleted"', () => {
+    expect(auditActorLabel('demo-alice')).toEqual({ name: 'demo-alice', named: true })
+    expect(auditActorLabel('deleted-bob')).toEqual({ name: 'deleted-bob', named: true })
   })
 })

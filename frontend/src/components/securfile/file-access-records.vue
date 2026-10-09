@@ -9,6 +9,7 @@ import { useAuthStore } from '@/stores/auth_store'
 import {
   auditActionLabel,
   auditActionOptions,
+  auditActorLabel,
   auditFileLabel,
   auditSubjectFileId,
   isDownloadAction,
@@ -26,6 +27,8 @@ interface AccessEvent {
   id: string
   /** Who did it. The API sends the username; only an admin ever sees anyone else's. */
   actor: string
+  /** `actor` is a real username (never translated), not "System (server script)". */
+  actorNamed: boolean
   accessTime: string
   /** Human label, e.g. "Downloaded". */
   action: string
@@ -88,7 +91,8 @@ const detailOf = (log: AuditLogOut): string => {
 
 const mapLogToEvent = (log: AuditLogOut, index: number): AccessEvent => ({
   id: `${log.created_at}-${log.action}-${index}`,
-  actor: log.actor_username ?? 'A deleted account',
+  actor: auditActorLabel(log.actor_username).name,
+  actorNamed: auditActorLabel(log.actor_username).named,
   accessTime: formatTimestamp(log.created_at),
   action: auditActionLabel(log.action),
   isDownload: isDownloadAction(log.action),
@@ -442,8 +446,9 @@ const toggle = (id: string) => {
                       {{ event.detail }}
                     </span>
                   </p>
-                  <p translate="no" class="mt-0.5 font-mono text-xs text-muted-foreground">
-                    {{ event.actor }} · {{ event.accessTime }}
+                  <p class="mt-0.5 font-mono text-xs text-muted-foreground">
+                    <span :translate="event.actorNamed ? 'no' : undefined">{{ event.actor }}</span>
+                    <span translate="no">{{ ` · ${event.accessTime}` }}</span>
                   </p>
                 </div>
                 <span
