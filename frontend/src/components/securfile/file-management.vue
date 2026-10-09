@@ -201,10 +201,18 @@ const loadFolders = async () => {
   }
 }
 
-const loadFiles = async () => {
+/**
+ * Fetch the current page. A `silent` load keeps the rows, the skeleton and any message as
+ * they are until the response arrives; it exists for the background refresh below, which
+ * must never look like something the person did.
+ */
+const loadFiles = async ({ silent = false } = {}) => {
   const thisRequest = ++requestId
-  isLoading.value = true
-  errorMessage.value = ''
+  lastLoadedAt = Date.now()
+  if (!silent) {
+    isLoading.value = true
+    errorMessage.value = ''
+  }
   try {
     const res = await fileApi.listFiles({
       page: page.value,
@@ -234,10 +242,34 @@ const loadFiles = async () => {
     total.value = data.total
   } catch (error) {
     if (thisRequest !== requestId) return
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load files'
+    // A background refresh keeps whatever is on screen: the next explicit load will say so.
+    if (!silent) errorMessage.value = apiErrorMessage(error, 'Failed to load files')
   } finally {
-    if (thisRequest === requestId) isLoading.value = false
+    if (thisRequest === requestId && !silent) isLoading.value = false
   }
+}
+
+/**
+ * When this list was last fetched, so a return to the tab can decide whether it is worth
+ * fetching again. Set when a request starts so two returns in quick succession fetch once.
+ */
+let lastLoadedAt = 0
+const REFRESH_ON_RETURN_AFTER_MS = 5_000
+
+/**
+ * Refresh quietly when the person comes back to this tab or window.
+ *
+ * A share, a revoke or a recovery happens in someone else's browser, and until now the
+ * recipient's list only noticed when they pressed Refresh: a demo that revokes Bob's access
+ * in one window showed Bob still holding the file in the other. The rows are replaced in
+ * place, with no loading state and no error, because nothing the person did asked for a
+ * reload and a flash of "Loading files..." over a list they were reading would be noise.
+ */
+const refreshOnReturn = () => {
+  if (document.visibilityState !== 'visible') return
+  if (Date.now() - lastLoadedAt < REFRESH_ON_RETURN_AFTER_MS) return
+  if (isLoading.value) return
+  void loadFiles({ silent: true })
 }
 
 /**
@@ -318,6 +350,8 @@ onMounted(() => {
   document.addEventListener('keydown', onDocumentKey)
   window.addEventListener('scroll', closeMoreMenu, true)
   window.addEventListener('resize', closeMoreMenu)
+  document.addEventListener('visibilitychange', refreshOnReturn)
+  window.addEventListener('focus', refreshOnReturn)
 })
 
 // The account key relocks itself after a spell of disuse. Nothing on screen depends on it
@@ -367,6 +401,8 @@ onBeforeUnmount(() => {
   document.removeEventListener('keydown', onDocumentKey)
   window.removeEventListener('scroll', closeMoreMenu, true)
   window.removeEventListener('resize', closeMoreMenu)
+  document.removeEventListener('visibilitychange', refreshOnReturn)
+  window.removeEventListener('focus', refreshOnReturn)
 })
 
 // The server applies the search, the tab and the folder. The ownership check stays as a guard
@@ -492,6 +528,7 @@ const confirmDelete = async () => {
   if (!file) return
   isDeleting.value = true
   actionMessage.value = ''
+  errorMessage.value = ''
   try {
     await fileApi.delete(file.id)
     files.value = files.value.filter((f) => f.id !== file.id)
@@ -505,7 +542,8 @@ const confirmDelete = async () => {
     pendingDelete.value = null
     await loadFolders()
   } catch (error) {
-    actionMessage.value = error instanceof Error ? error.message : 'Delete failed'
+    // A failure is not a result: it goes in the red message, not the blue one.
+    errorMessage.value = apiErrorMessage(error, 'Delete failed')
   } finally {
     isDeleting.value = false
   }
@@ -656,8 +694,16 @@ const closeUnlock = () => {
   pendingShareRecipient.value = ''
 }
 
+/** The file whose integrity check is in flight, so its badge can say so and refuse a second click. */
+const checkingFileId = ref<string | null>(null)
+
 const handleIntegrityCheck = async (id: string) => {
+  // The server hashes the whole object, which takes a moment for a large file. Without a
+  // visible state the badge looked inert and got clicked again, queueing a second check.
+  if (checkingFileId.value !== null) return
+  checkingFileId.value = id
   actionMessage.value = ''
+  errorMessage.value = ''
   try {
     const res = await fileApi.integrityCheck(id)
     const data = unwrapData(res) as { status?: string }
@@ -667,7 +713,9 @@ const handleIntegrityCheck = async (id: string) => {
     }
     actionMessage.value = `Integrity check: ${data.status ?? 'done'}`
   } catch (error) {
-    actionMessage.value = error instanceof Error ? error.message : 'Integrity check failed'
+    errorMessage.value = apiErrorMessage(error, 'Integrity check failed')
+  } finally {
+    checkingFileId.value = null
   }
 }
 
@@ -765,7 +813,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
               <Search class="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <input v-model="searchQuery" placeholder="Search your files..." class="h-10 w-full md:w-64 rounded-md border border-border bg-secondary pl-9 pr-3" />
             </div>
-            <button class="h-10 w-10 inline-flex items-center justify-center rounded-md border border-border hover:bg-secondary" @click="loadFiles">
+            <button class="h-10 w-10 inline-flex items-center justify-center rounded-md border border-border hover:bg-secondary" @click="loadFiles()">
               <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
             </button>
           </div>
@@ -840,7 +888,7 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
           </div>
         </div>
 
-        <p v-if="errorMessage" class="text-sm text-destructive mb-4">{{ errorMessage }}</p>
+        <p v-if="errorMessage" class="text-sm text-destructive mb-4" role="alert">{{ errorMessage }}</p>
         <p v-if="actionMessage" class="text-sm text-primary mb-4">{{ actionMessage }}</p>
         <div
           v-if="downloadProgressMessage"
@@ -946,9 +994,23 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
                   </select>
                 </td>
                 <td class="md:table-cell md:px-2 md:py-3 md:text-center">
-                  <button class="inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-md px-3 py-1 md:min-h-0 md:px-2" :class="statusConfig[file.status].className" @click="handleIntegrityCheck(file.id)">
-                    <component :is="statusConfig[file.status].icon" class="h-3 w-3" />
-                    {{ statusConfig[file.status].label }}
+                  <button
+                    type="button"
+                    class="inline-flex min-h-10 items-center gap-1 whitespace-nowrap rounded-md px-3 py-1 md:min-h-0 md:px-2 disabled:cursor-wait disabled:opacity-70"
+                    :class="statusConfig[file.status].className"
+                    :title="checkingFileId === file.id ? 'Checking integrity…' : 'Check integrity now'"
+                    :aria-busy="checkingFileId === file.id"
+                    :disabled="checkingFileId !== null"
+                    @click="handleIntegrityCheck(file.id)"
+                  >
+                    <template v-if="checkingFileId === file.id">
+                      <Loader2 class="h-3 w-3 animate-spin" />
+                      Checking…
+                    </template>
+                    <template v-else>
+                      <component :is="statusConfig[file.status].icon" class="h-3 w-3" />
+                      {{ statusConfig[file.status].label }}
+                    </template>
                   </button>
                 </td>
                 <td class="col-span-2 border-t border-border pt-3 md:table-cell md:border-0 md:px-2 md:py-3 md:pt-3">
@@ -1069,10 +1131,11 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       :file="detailFile"
       :download-busy="downloadBusy"
       :downloading="downloadingId === detailFile.id"
+      :checking="checkingFileId === detailFile.id"
       @close="detailFileId = null"
       @download="handleDownload(detailFile.id); detailFileId = null"
       @share="openShare(detailFile.id); detailFileId = null"
-      @check="handleIntegrityCheck(detailFile.id); detailFileId = null"
+      @check="handleIntegrityCheck(detailFile.id)"
       @history="historyFileId = detailFile.id; detailFileId = null"
       @delete="handleDelete(detailFile.id); detailFileId = null"
     />

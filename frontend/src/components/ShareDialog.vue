@@ -13,12 +13,14 @@ import {
   RecipientKeyMismatchError,
   RecipientNotFoundError,
   shareFileWithRecipient,
+  ShareWithSelfError,
   type RecipientCandidate,
 } from '@/crypto/share'
 import { apiErrorMessage } from '@/api/http'
 import { shareApi, type SharedUser } from '@/api/share_api'
 import { unwrapData } from '@/api/types'
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
+import { useAuthStore } from '@/stores/auth_store'
 import { knownFingerprint, rememberFingerprint } from '@/utils/known-keys'
 
 const props = defineProps<{
@@ -105,6 +107,16 @@ function closePendingRevoke() {
  */
 const candidate = ref<RecipientCandidate | null>(null)
 const previousFingerprint = ref<string | null>(null)
+const auth = useAuthStore()
+/**
+ * The sender's own name resolves to a perfectly good key, but the owner already holds the
+ * file. Saying so under the fingerprint, with the confirm button off, beats letting them
+ * confirm and then reading the same thing as an error.
+ */
+const sharingWithSelf = computed(
+  () => candidate.value !== null && auth.user?.id !== undefined && candidate.value.userId === auth.user.id,
+)
+const SHARE_WITH_SELF_MESSAGE = 'You already own this file; share it with someone else.'
 const keyChanged = computed(
   () =>
     candidate.value !== null &&
@@ -177,9 +189,11 @@ async function share() {
     errorMessage.value =
       error instanceof RecipientNotFoundError
         ? `No account matches "${name}". Check their exact SecureView username or email address.`
-        : error instanceof FileKeyUnwrapError
-          ? 'Your account key does not open this file, so it cannot be shared from here.'
-          : apiErrorMessage(error, 'Could not share this file')
+        : error instanceof ShareWithSelfError
+          ? SHARE_WITH_SELF_MESSAGE
+          : error instanceof FileKeyUnwrapError
+            ? 'Your account key does not open this file, so it cannot be shared from here.'
+            : apiErrorMessage(error, 'Could not share this file')
   } finally {
     isSubmitting.value = false
   }
@@ -278,13 +292,14 @@ async function share() {
           </span>
         </p>
 
-        <p v-if="errorMessage" class="text-sm text-destructive mt-2">{{ errorMessage }}</p>
+        <p v-if="sharingWithSelf" class="text-sm text-destructive mt-2" role="alert" data-testid="share-with-self">{{ SHARE_WITH_SELF_MESSAGE }}</p>
+        <p v-else-if="errorMessage" class="text-sm text-destructive mt-2">{{ errorMessage }}</p>
 
         <div class="mt-4 flex gap-2">
           <button
             type="button"
             class="flex-1 h-10 rounded-md bg-primary text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
-            :disabled="isSubmitting"
+            :disabled="isSubmitting || sharingWithSelf"
             @click="share"
           >
             {{ isSubmitting ? 'Sharing...' : 'Confirm and share' }}

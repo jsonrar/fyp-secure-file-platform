@@ -13,7 +13,7 @@ staging, `https://secureview.tech`.
 | --- | --- | --- |
 | Presenter ("Alice") | Browser window A, left half of the screen | `demo-alice` |
 | The colleague ("Bob") | Browser window B, right half, **a separate browser profile** so the two sessions do not share storage | `demo-bob` |
-| The attacker | A terminal, minimised until step 4 | root on the VPS |
+| The administrator | Browser window C, a third profile, opened on Admin → Security agent and minimised until step 5 | the team's ADMIN account on staging |
 
 `demo-alice` and `demo-bob` already exist on staging (seeded 2026-10-04, so no email code is needed;
 login password `mcs21666`, passphrases kept by the project owner). The names must start with `demo-`,
@@ -21,8 +21,10 @@ because the tamper tool refuses any other account. Use passphrases that differ f
 from any real account.
 
 Before the presentation, as `demo-alice`, upload `quarterly-results.txt` (a short readable text file)
-and share it with `demo-bob`. This pre-shared file is the one tampered with in step 4, so its id
-can be looked up in advance; the file uploaded live in step 1 is new and its id is not known yet.
+and share it with `demo-bob`, then change one byte of it on the server with `demo_tamper.py flip`
+(the exact steps are under "Preparing the tampered file" below). On stage Bob therefore has two
+shared files: `board-minutes.pdf`, uploaded live, which opens, and `quarterly-results.txt`, which is
+refused. No terminal is used during the talk.
 
 ## The script
 
@@ -31,30 +33,103 @@ can be looked up in advance; the file uploaded live in step 1 is new and its id 
 | 0:00–0:15 | Set the scene | Point at the two windows | "Alice wants to send Bob a confidential report. Neither of them trusts the server, and neither should you." |
 | 0:15–1:15 | **1. Upload** | In A: Upload → choose `board-minutes.pdf` → Start Encryption. Let the steps play | "Every step you see is timed for real: encrypt in the browser with a fresh key, wrap that key, upload. Look at the bytes: the file starts `%PDF`; what the server receives is noise." |
 | 1:15–2:05 | **2. Share** | In A: My Files → `board-minutes.pdf` → Share → type `demo-bob` → Share. The confirmation shows Bob's key fingerprint → **Confirm and share**. In B: Settings shows the same fingerprint | "Before anything is sent, Alice sees which key the file will be locked to. Bob reads his fingerprint from his own Settings: they match, so only Bob can open it. The server never had the key." Then Confirm and share |
-| 2:05–2:45 | **3. Open** | In B: My Files → Shared with me → `board-minutes.pdf` → **Download and decrypt**, enter Bob's passphrase. Open the saved file | "Bob unlocks with his own passphrase, never Alice's. The file is checked on the way out, then decrypted on his device." |
-| 2:45–3:40 | **4. Tamper** | Bring up the terminal; run `flip` from [TAMPER_DEMO.md](TAMPER_DEMO.md) on `quarterly-results.txt`. In B: Download that file | "Now I am the server's administrator, or someone who broke in. I change one byte of a stored file." The download is refused and the row turns **Modified**. "Changed, so refused. Nobody was asked to trust us." |
+| 2:05–2:45 | **3. Open** | In B: My Files → Shared with me → `board-minutes.pdf` → the download icon (its tooltip reads **Download and decrypt**). If the passphrase dialog appears, type Bob's passphrase. Open the saved file | "Bob unlocks with his own passphrase, never Alice's. The file is checked on the way out, then decrypted on his device." If the dialog appears: "His key is sealed under his passphrase, so the browser asks for it once." |
+| 2:45–3:15 | **4. Tamper** | Still in B, Shared with me. Point at `quarterly-results.txt`, the second file Alice shared, which was changed on the server before the talk (preparation below). Press its download icon | "Last night one byte of this file was changed on the server's disk, the way an administrator or an intruder could. Bob asks for it." The download is refused with "The encrypted file could not be verified", a red line appears under the list, the row reads **Modified**, and nothing is saved. "Changed, so refused. Nobody was asked to trust us." |
+| 3:15–3:40 | **5. The agent saw it** | In window C (the administrator): Admin → **Security agent**. The top finding is **Critical**, `INTEGRITY_DAMAGE`, naming `quarterly-results.txt` | "The administrator did not have to notice. The security agent reads the audit log and the integrity checks every day and ranks what needs attention: here, one damaged file, with the restore command. Restoring it from the encrypted backup is on the next slide." |
 | 3:40–4:00 | Close | Back to the slides | "Encrypted before it leaves the device, opened only by the named person, refused if changed." |
 
-Straight after the talk, run `restore` (TAMPER_DEMO.md) and click the file's status badge as
-`demo-alice` so it reads Verified again.
+No terminal is opened on stage. The tampering is done the day before, and the recovery (AC4a) is
+shown on a slide with the before-and-after screenshots from
+`docs/presentation/screenshots/` (added together with the slide material), not performed live.
+
+### Preparing the tampered file, the day before
+
+The tool is `backend/scripts/demo_tamper.py`; it runs **on the VPS**, not on the laptop, because
+it edits the stored object directly. It only touches accounts whose name starts with `demo-`,
+keeps a backup of the original bytes, and refuses a second flip before a restore. Full details in
+[TAMPER_DEMO.md](TAMPER_DEMO.md).
+
+1. As `demo-alice`, upload `quarterly-results.txt` (a short readable text file, a few KB) and share
+   it with `demo-bob`. As `demo-bob`, download it once to check that it opens.
+2. In a terminal: `ssh mcs21-vps`, then load the service environment:
+
+   ```bash
+   cd /opt/mcs21/current/backend && set -a && . /etc/fyp-secure-file-platform/backend.env && set +a
+   ```
+
+3. Get the file id:
+
+   ```bash
+   sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_CA,ENCRYPTED_FILE_DIR PYTHONPATH=$PWD .venv/bin/python scripts/demo_tamper.py list --owner demo-alice
+   ```
+
+   It prints every file `demo-alice` owns with its id and status. Copy the id of
+   `quarterly-results.txt`.
+4. Change one byte:
+
+   ```bash
+   sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_CA,ENCRYPTED_FILE_DIR PYTHONPATH=$PWD .venv/bin/python scripts/demo_tamper.py flip --owner demo-alice --file-id <id>
+   ```
+
+   It takes under a second and prints which byte it changed. Run `list` again: the file is now
+   marked `TAMPERED`.
+5. Keep the `restore` line (the same command with `restore` in place of `flip`) in a text file for
+   after the talk.
+
+What happens to the flipped file overnight, so nobody is surprised:
+
+- Nothing restores it by itself. The only way back is `restore`, or `restore_file.py` from a backup,
+  both run by hand.
+- The daily integrity sweep at 05:30 (Asia/Kuala_Lumpur) will find the changed bytes, record a
+  `MODIFIED` check and set the file's status to `CORRUPTED`. From then on Bob's row already reads
+  **Modified** when the list opens. That is fine for the talk: the live part is the refused
+  download, and the badge stays Modified either way.
+- The security agent runs at 06:00 and mails the team's alert address because a Critical finding
+  exists. Expect that email on the morning of the talk and ignore it. It is also why step 5 works:
+  the same `INTEGRITY_DAMAGE` finding is what the Admin tab shows.
+- Do not click the file's status badge or download it as `demo-alice` before the talk; it changes
+  nothing important, but the first refusal is better seen by the audience.
+
+After the talk, paste the `restore` command, then as `demo-alice` click the file's **Modified**
+badge once. It shows "Checking…" for a few seconds while the server re-hashes the file, then reads
+Verified, and the agent finding disappears on the next report.
 
 ## The day before
 
-- [ ] Both demo accounts sign in on staging, and `quarterly-results.txt` is shared from Alice to Bob.
-- [ ] `demo_tamper.py list --owner demo-alice` shows the file and nothing marked TAMPERED; the
-      `flip` and `restore` commands are written out with the file id, ready to paste.
-- [ ] One full rehearsal, timed, ending with `restore`.
+- [ ] Both demo accounts sign in on staging, and `quarterly-results.txt` is shared from Alice to Bob
+      and opened once by Bob.
+- [ ] `demo_tamper.py flip` has been run on `quarterly-results.txt` and `list` shows it marked
+      TAMPERED; the `restore` command is written out with the file id for after the talk.
+- [ ] The administrator window can open Admin → Security agent, and once the file has been refused
+      once (or the 05:30 sweep has run) the tab shows the Critical `INTEGRITY_DAMAGE` finding.
+- [ ] One full rehearsal, timed. Rehearse the refused download with a second throw-away file,
+      or accept that the rehearsal already turns the row Modified; the refusal repeats on every
+      download attempt, so the live step still works.
+- [ ] The recovery public key on staging is **ACTIVE**: as an administrator, Admin → Recovery key
+      shows it; or simply start the rehearsal upload, which fails at once with "The recovery key is
+      not active" if it is not. Every upload wraps the file key to that key, so without it nothing
+      can be uploaded.
+- [ ] `board-minutes.pdf` is a few megabytes at most. The browser reads the whole file into memory,
+      encrypts it, decrypts it again to self-check, and only then uploads, so a large file is slow
+      on stage for no gain; keep the 500 MiB limit for the slides, not the demo.
 - [ ] The backup video is recorded (below) and copied to the presentation laptop.
+- [ ] If the demo is run from a local build instead of staging, run `npm ci` in `frontend/` first.
+      A `node_modules` from before 2026-10-05 lacks the self-hosted font package and the build fails.
 - [ ] Nothing is merged to `main` from two hours before the talk. A merge triggers the automatic
       deploy, which restarts the service for a few seconds.
 
 ## 30 minutes before
 
 - [ ] Health check: `https://secureview.tech/health/live` returns 200.
-- [ ] Both windows signed in and **already unlocked** (open one file in each), so the audience does
-      not wait for the passphrase key derivation.
+- [ ] Both windows signed in, and the account key unlocked in each (download any file once). The
+      key relocks after 15 minutes without any click, key press or return to the tab, so do this
+      within the last few minutes before going on and keep both windows in use. If the passphrase
+      dialog does appear anyway, it is not a fault: say that the key is sealed under the passphrase
+      and type it.
 - [ ] Browser zoom 125 %, notifications and chat apps off, password-manager pop-ups dismissed.
 - [ ] `board-minutes.pdf` sits on the desktop; delete any earlier copy from Alice's My Files.
+- [ ] Window C is signed in as the administrator with Admin → Security agent already open, so step
+      5 is one click.
 - [ ] Phone hotspot ready in case the venue network fails.
 
 ## If something goes wrong
@@ -63,7 +138,10 @@ Straight after the talk, run `restore` (TAMPER_DEMO.md) and click the file's sta
 | --- | --- |
 | The network drops or staging does not answer | Switch to the backup video at the same step; it follows this script |
 | Unlock or a download hangs for more than ~10 s | Say "this is where it would…", switch to the video for that step |
-| The tamper download unexpectedly succeeds | `list`: if the file is not marked TAMPERED, the `flip` did not run; show the video's step 4 |
+| The passphrase dialog appears at download or share | Type the passphrase and carry on; it is the design, not an error |
+| Bob's list does not show the new share or the Modified row | Click the refresh control on the list, or click into the window again; it reloads when it comes to the front |
+| The tamper download unexpectedly succeeds | The `flip` was not in place (someone ran `restore`, or `list` shows no TAMPERED mark); show the video's step 4 and the Modified screenshot |
+| The Security agent tab shows no Critical finding | The file has not been checked since the flip; it appears after the refused download in step 4, press Refresh on the tab. Otherwise show the screenshot |
 | A step was mis-clicked | Do not repair it live; go to the next step |
 
 ## The backup video

@@ -49,7 +49,7 @@ const currentError = computed(() =>
 const passphraseError = computed(() => {
   if (!submitted.value) return ''
   if (passphraseLength(passphrase.value) < PASSPHRASE_MIN_LENGTH) {
-    return t('register.usernameTooShort', { min: PASSPHRASE_MIN_LENGTH })
+    return t('register.passphraseTooShort', { min: PASSPHRASE_MIN_LENGTH })
   }
   if (passphrase.value === current.value) return t('changePassphrase.same')
   return weakPassphraseMessage(

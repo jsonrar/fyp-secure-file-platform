@@ -18,6 +18,19 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Demo readiness: errors look like errors, checks show progress, the key stays open while you work / 演示准备：错误按错误显示，检查有进度，用着的时候密钥不再锁
+
+- On the Files page, a failed list load, delete or integrity check used to appear in the blue "done" style, and a 500 showed the raw "Request failed with status code 500". They now use the red error line with the API's own message. The status badge and the Details drawer's "Check integrity" button show a spinner and "Checking…" while the server re-hashes the file, which for a large file takes a few seconds and used to look like nothing happened. The list reloads quietly when the tab comes back to the front (at most once every five seconds), so a recipient sees a revocation or a restored file without pressing Refresh.
+- 文件页里列表加载失败、删除失败、完整性检查失败原来都用蓝色"完成"样式显示，500 时直接露出 "Request failed with status code 500"。现在都走红色错误行并显示接口的实际信息。状态徽章和详情抽屉的 "Check integrity" 按钮在服务器重新算哈希期间显示转圈和 "Checking…"，大文件要几秒，以前看起来像没反应。标签页回到前台时列表会静默重新加载（最多每五秒一次），接收方不用按 Refresh 就能看到撤销或恢复后的状态。
+- Sharing: only an HTTP 404 means "no such account"; a network error or a 500 is shown as what it is instead of "No account matches". Sharing a file with yourself is refused in the dialog as soon as the lookup returns your own account, with the Confirm button disabled, instead of the server's "canonical owner grant" message.
+- 分享：只有 HTTP 404 才表示"没有这个账号"，网络错误或 500 按原样提示，不再一律显示 "No account matches"。分享给自己时，查到的是自己的账号就立刻在对话框里拒绝并禁用确认按钮，不再出现服务器的 "canonical owner grant" 那条提示。
+- The unlocked account key relocked after fifteen minutes without a decryption, even while the person was clicking around, which on stage meant a surprise passphrase prompt. Any click, key press, pointer press or return to the tab now extends the fifteen minutes (checked at most once every thirty seconds); fifteen idle minutes still relock it. Covered by fake-timer unit tests.
+- 解锁的账户密钥原来是 15 分钟内没有解密操作就重新锁上，哪怕人一直在点页面，演示时会突然弹出口令框。现在任何点击、按键、指针按下或切回标签页都会把 15 分钟续上（每 30 秒最多计一次），15 分钟完全没动才重锁。有假定时器的单元测试。
+- Chinese wording fixes from the machine draft: "篡改明显审计日志" is now "防篡改审计日志", wrapped and sealed both read "封装", recovery officer reads "恢复审批人", "单向指纹识别" reads "单向指纹", two garbled sentences in the registration and passphrase-reset cards were rewritten, and English full stops inside Chinese sentences were replaced. The passphrase-too-short message no longer borrows the username key. The unused placeholder `FileTable.vue` is gone.
+- 修正了机翻中文："篡改明显审计日志"改为"防篡改审计日志"，wrapped 和 sealed 统一译"封装"，recovery officer 译"恢复审批人"，"单向指纹识别"改"单向指纹"，注册页和口令重设卡片的两句病句重写，中文句子里的英文句号换成中文句号。口令过短的提示不再借用用户名的文案。没人用的占位组件 `FileTable.vue` 已删除。
+- `docs/presentation/DEMO_SCRIPT.md`: the tamper step is now prepared the day before with `demo_tamper.py flip` (full commands, what the nightly sweep and the agent do to the flipped file, nothing restores it by itself), the stage shows one refused download and then the Security agent's Critical finding, and recovery is a slide with screenshots. The checklists add the recovery-key check, a small demo file, `npm ci` for a local build, and the new unlock behaviour.
+- `docs/presentation/DEMO_SCRIPT.md`：篡改改为前一天用 `demo_tamper.py flip` 准备好（完整命令、夜间扫描和代理会对翻过字节的文件做什么、没有任何东西会自动恢复），现场只展示一次被拒的下载，紧接着看安全代理的 Critical 发现，恢复用截图放在幻灯片上。清单里补了恢复公钥检查、用小文件演示、本机构建先 `npm ci`，以及新的解锁行为。
+
 ### Ops: pre-deploy backup pruning installed and run on staging / 运维：部署前备份清理已安装并在 staging 上运行
 
 - The #204 `mcs21-deploy` was installed in `/usr/local/sbin` on 2026-10-08 (the previous script kept in `/root`), and a forced redeploy of `f826165` ran the first prune: 175 old sets removed, 10 kept, `/var/backups/mcs21-deploy` 81 GB → 7.5 GB, root disk 69 % → 51 %. The deployment itself succeeded and the site stayed healthy; the audit log records `deploy_backups_pruned removed=175 kept=10`.
