@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import contextlib
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import UUID
@@ -105,17 +106,21 @@ class FakeReauthentication:
         self.began: list[str] = []
         self.failures: list[dict] = []
         self.cleared = 0
+        self.times: list = []
 
     def begin_reauthentication(self, *, username: str, context, now):
         self.began.append(username)
+        self.times.append(now)
         if self.blocked:
             raise AuthenticationRateLimitedError(retry_after_seconds=300)
         return (("REAUTH_ACCOUNT", "hash-account"), ("REAUTH_IP", "hash-ip"))
 
     def record_reauthentication_failure(self, *, user, buckets, context, now, action, description):
+        self.times.append(now)
         self.failures.append({"user": user, "buckets": buckets, "action": action})
 
     def clear_reauthentication_throttle(self, *, buckets, now) -> None:
+        self.times.append(now)
         self.cleared += 1
 
 
@@ -309,3 +314,18 @@ def test_a_correct_password_clears_the_account_bucket() -> None:
 
     assert fakes.reauth.cleared == 1
     assert fakes.reauth.failures == []
+
+
+@pytest.mark.parametrize("password", ["correct-horse", "not-it"])
+def test_the_throttle_gets_the_naive_second_resolution_time_it_stores(password: str) -> None:
+    # The throttle rows hold naive UTC to the second. Handing them this service's aware
+    # clock made the comparison raise a TypeError, which the live stack saw as a 500.
+    service, fakes = _service()
+
+    with contextlib.suppress(InvalidCurrentPasswordError):
+        service.delete_account(actor=_actor(), password=password, context=_context())
+
+    assert fakes.reauth.times
+    for value in fakes.reauth.times:
+        assert value.tzinfo is None
+        assert value.microsecond == 0

@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.core.security import PasswordManager
-from app.core.time import utc_now
+from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import UserStatus
 from app.domain.errors import (
@@ -88,6 +88,9 @@ class AccountDeletionService:
         on an unattended machine should not be enough to trigger it.
         """
         now = self._clock()
+        # The throttle rows are second-resolution naive UTC, the way AuthService writes them.
+        # Comparing them with this service's aware clock raised a TypeError (a 500).
+        throttle_now = to_second_resolution_utc(now)
         object_keys: list[str] = []
         avatar_key: str | None = None
 
@@ -100,7 +103,7 @@ class AccountDeletionService:
             buckets = self.reauthentication.begin_reauthentication(
                 username=account.username,
                 context=context,
-                now=now,
+                now=throttle_now,
             )
 
             user = self.auth.lock_user(actor.user_id)
@@ -114,12 +117,12 @@ class AccountDeletionService:
                     user=user,
                     buckets=buckets,
                     context=context,
-                    now=now,
+                    now=throttle_now,
                     action="ACCOUNT_DELETION_PASSWORD_FAILED",
                     description="Account deletion password verification failed",
                 )
                 raise InvalidCurrentPasswordError()
-            self.reauthentication.clear_reauthentication_throttle(buckets=buckets, now=now)
+            self.reauthentication.clear_reauthentication_throttle(buckets=buckets, now=throttle_now)
 
             avatar_key = user.avatar_object_key
             user.avatar_object_key = None
