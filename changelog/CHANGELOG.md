@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Home and sign-in pages quote the 2026-10-09 load test / 首页和登录页改用 2026-10-09 的压测数字
+
+- The proof figures on the home page and beside the sign-in and registration forms still showed the 2026-10-03/04 run ("0 / 5,094" downloads failed their integrity check, "102 / 102" uploads at 100 users). They now show the after-fix run through the public URL: 0 of 7,444 downloads failed their integrity check, and 0 server errors with 100 concurrent users. Both figures come from `src/data/proof.ts`, which now points to the report and to `docs/TESTING_SUMMARY.md` so they are updated together.
+- 首页以及登录、注册表单旁边的数字还是 2026-10-03/04 那次的（"0 / 5,094" 次下载未通过完整性检查、100 个用户时 "102 / 102" 次上传成功）。现在改成修复后经公网 URL 跑的结果：7,444 次下载里 0 次未通过完整性检查，100 个并发用户时 0 个服务器错误。这两个数字都来自 `src/data/proof.ts`，文件里注明了报告和 `docs/TESTING_SUMMARY.md`，以后一起更新。
+
 ### Load test re-run after the fixes, and one testing summary / 修复后重跑压测，加一页测试总结
 
 - The 2026-10-03/04 load test went through an SSH tunnel and found uploads failing with HTTP 500 at 100 users. After the pool fix, the deadlock retry log and today's review fixes, the whole matrix except the long soaks was run again on 2026-10-09 through the public URL with nginx and its limits on, the path a real user takes: 18,256 operations, 7,444 SHA-256-verified downloads, 0 integrity failures and no server 5xx; 100 users now give 0 server errors (the 429s are one address hitting the 50-uploads-in-flight limit); 36 files across six types and six sizes round-trip byte-exact. Server CPU averaged 4.5 % and a single 500 MiB transfer ran at 87 to 98 Mbit/s, so the VPS's 100 Mbit/s port is the limit, not the code. The report is `docs/performance/REPORT-2026-10-09.md` (EN and zh) with raw data, server metrics and charts; the 10-03 report stays as the before-fix baseline.
