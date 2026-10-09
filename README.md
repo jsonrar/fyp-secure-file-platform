@@ -140,8 +140,8 @@ Read the test conditions before quoting a number:
 in [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md).
 
 **Upload limits (threat model F-09):** each account may store 2 GiB and upload 5 GiB per 24 hours,
-uploads stop while the storage disk is below a free-space floor, nginx allows ten uploads in flight
-per address, and the security agent reports upload bursts. Because the server only ever holds
+uploads stop while the storage disk is below a free-space floor, nginx allows fifty uploads in flight
+per address (a venue network arrives as one address), and the security agent reports upload bursts. Because the server only ever holds
 ciphertext it cannot scan for malware, so a recipient is warned before saving a shared program or
 macro-capable file. See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §11.3.
 
