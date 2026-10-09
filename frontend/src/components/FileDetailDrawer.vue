@@ -28,7 +28,8 @@ interface DetailFile {
   sha256?: string
 }
 
-const props = defineProps<{ file: DetailFile; downloadBusy: boolean; downloading: boolean }>()
+/** `checking` is the page's own integrity-check state, so the button here and the row's badge agree. */
+const props = defineProps<{ file: DetailFile; downloadBusy: boolean; downloading: boolean; checking?: boolean }>()
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'download'): void
@@ -208,8 +209,11 @@ watch(() => props.file.id, loadPeople, { immediate: true })
           <button v-if="file.owned" type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm hover:bg-secondary" @click="emit('share')">
             <Share2 class="h-4 w-4" /> Share
           </button>
-          <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm hover:bg-secondary" @click="emit('check')">
-            <Shield class="h-4 w-4" /> Check integrity
+          <!-- The panel stays open during the check so the status badge above shows the result. -->
+          <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm hover:bg-secondary disabled:cursor-wait disabled:opacity-70" :disabled="checking" :aria-busy="checking" @click="emit('check')">
+            <Loader2 v-if="checking" class="h-4 w-4 animate-spin" />
+            <Shield v-else class="h-4 w-4" />
+            {{ checking ? 'Checking…' : 'Check integrity' }}
           </button>
           <button type="button" class="inline-flex h-10 items-center justify-center gap-2 rounded-lg border border-border px-3 text-sm hover:bg-secondary" @click="emit('history')">
             <Activity class="h-4 w-4" /> Access history

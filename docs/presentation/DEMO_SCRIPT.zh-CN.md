@@ -12,15 +12,15 @@
 | --- | --- | --- |
 | 演讲者（“Alice”） | 浏览器窗口 A，屏幕左半边 | `demo-alice` |
 | 同事（“Bob”） | 浏览器窗口 B，屏幕右半边，**使用另一个浏览器用户配置**，两个会话互不干扰 | `demo-bob` |
-| 攻击者 | 一个终端，到第 4 步之前先最小化 | VPS 的 root |
+| 管理员 | 浏览器窗口 C，第三个用户配置，预先打开 Admin → Security agent，第 5 步之前最小化 | 团队在 staging 上的 ADMIN 账号 |
 
 `demo-alice` 和 `demo-bob` 已经在 staging 上建好（2026-10-04 用种子脚本创建，不需要邮箱验证码；登录密码 `mcs21666`，
 passphrase 由项目负责人保管）。用户名必须以 `demo-` 开头，因为篡改工具会拒绝其他账号。两个账号的口令要互不相同，也不要和任何真实
 账号相同。
 
-展示前，用 `demo-alice` 上传 `quarterly-results.txt`（一个简短、能直接看懂的文本文件），并分享给
-`demo-bob`。第 4 步篡改的就是这个预先分享好的文件，这样可以提前查好它的 id；第 1 步现场上传的文件
-是新的，它的 id 事先不知道。
+展示前，用 `demo-alice` 上传 `quarterly-results.txt`（一个简短、能直接看懂的文本文件），分享给 `demo-bob`，然后在服务器上用
+`demo_tamper.py flip` 把它改掉一个字节（具体步骤见下面“前一天准备被篡改的文件”）。这样现场 Bob 有两个共享文件：现场上传的
+`board-minutes.pdf` 能打开，`quarterly-results.txt` 会被拒绝。演示过程中不用终端。
 
 ## 脚本
 
@@ -29,28 +29,74 @@ passphrase 由项目负责人保管）。用户名必须以 `demo-` 开头，因
 | 0:00–0:15 | 交代场景 | 指一下两个窗口 | “Alice 要把一份机密报告发给 Bob。他们俩都不信任服务器，你们也不应该信任。” |
 | 0:15–1:15 | **1. 上传** | 窗口 A：Upload → 选择 `board-minutes.pdf` → Start Encryption，让步骤动画播完 | “你看到的每一步耗时都是真实测出来的：在浏览器里用一把新密钥加密，再把这把密钥包装起来，然后上传。看这些字节：原文件开头是 `%PDF`，服务器收到的是一堆乱码。” |
 | 1:15–2:05 | **2. 分享** | 窗口 A：My Files → `board-minutes.pdf` → Share → 输入 `demo-bob` → Share。确认页显示 Bob 的密钥指纹 → **Confirm and share**。窗口 B：Settings 里显示同一个指纹 | “发送之前，Alice 能看到文件会被锁到哪一把密钥上。Bob 从自己的设置页读出指纹：两边一致，所以只有 Bob 能打开。服务器从头到尾没拿到过这把密钥。”然后点 Confirm and share |
-| 2:05–2:45 | **3. 打开** | 窗口 B：My Files → Shared with me → `board-minutes.pdf` → **Download and decrypt**，输入 Bob 的口令，打开保存下来的文件 | “Bob 用的是他自己的口令，不是 Alice 的。文件取出时先校验，再在他自己的设备上解密。” |
-| 2:45–3:40 | **4. 篡改** | 切到终端，对 `quarterly-results.txt` 执行 [TAMPER_DEMO.zh-CN.md](TAMPER_DEMO.zh-CN.md) 里的 `flip`。窗口 B：下载这个文件 | “现在假设我是服务器管理员，或者入侵了服务器的人。我把一个存储的文件改掉一个字节。”下载被拒绝，这一行变成 **Modified**。“改过了，所以被拒绝。不需要任何人相信我们。” |
+| 2:05–2:45 | **3. 打开** | 窗口 B：My Files → Shared with me → `board-minutes.pdf` → 点下载图标（鼠标悬停显示 **Download and decrypt**）。如果弹出口令框就输入 Bob 的口令。打开保存下来的文件 | “Bob 用的是他自己的口令，不是 Alice 的。文件取出时先校验，再在他自己的设备上解密。”如果弹了口令框：“他的密钥是用口令封住的，所以浏览器会问一次。” |
+| 2:45–3:15 | **4. 篡改** | 还在窗口 B 的 Shared with me。指一下 `quarterly-results.txt`，这是 Alice 分享的第二个文件，上台前已经在服务器上被改过（准备步骤见下）。点它的下载图标 | “昨晚这个文件在服务器磁盘上被改了一个字节，管理员或者入侵者都做得到。Bob 来取它。”下载被拒绝，提示 “The encrypted file could not be verified”，列表下方出现红色提示，这一行变成 **Modified**，什么都没有保存。“改过了，所以被拒绝。不需要任何人相信我们。” |
+| 3:15–3:40 | **5. 代理看到了** | 窗口 C（管理员）：Admin → **Security agent**。最上面一条是 **Critical** 的 `INTEGRITY_DAMAGE`，点名 `quarterly-results.txt` | “管理员不用自己去发现。安全代理每天读审计日志和完整性检查，把需要处理的事排好序：这里是一个损坏的文件，连恢复命令都给出来了。从加密备份恢复它在下一页幻灯片。” |
 | 3:40–4:00 | 收尾 | 切回幻灯片 | “离开设备前就加密，只有指定的人能打开，被改动就拒绝。” |
 
-讲完之后马上执行 `restore`（见 TAMPER_DEMO），再用 `demo-alice` 点一下该文件的状态标签，让它变回
-Verified。
+现场不开终端。篡改在前一天做好，恢复（AC4a）用 `docs/presentation/screenshots/`（随幻灯片素材一起加入） 里恢复前后的截图在幻灯片上讲，不现场做。
+
+### 前一天准备被篡改的文件
+
+工具是 `backend/scripts/demo_tamper.py`，它**在 VPS 上**跑，不是在演示电脑上，因为它直接改存储的对象。它只碰用户名以 `demo-` 开头的账号，
+会备份原始字节，并且在 restore 之前拒绝第二次 flip。完整说明见 [TAMPER_DEMO.zh-CN.md](TAMPER_DEMO.zh-CN.md)。
+
+1. 用 `demo-alice` 上传 `quarterly-results.txt`（几 KB 的短文本文件，能直接看懂），分享给 `demo-bob`。用 `demo-bob` 下载一次，确认能打开。
+2. 终端里 `ssh mcs21-vps`，然后加载服务环境：
+
+   ```bash
+   cd /opt/mcs21/current/backend && set -a && . /etc/fyp-secure-file-platform/backend.env && set +a
+   ```
+
+3. 查文件 id：
+
+   ```bash
+   sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_CA,ENCRYPTED_FILE_DIR PYTHONPATH=$PWD .venv/bin/python scripts/demo_tamper.py list --owner demo-alice
+   ```
+
+   它列出 `demo-alice` 名下所有文件的 id 和状态。复制 `quarterly-results.txt` 的 id。
+4. 改一个字节：
+
+   ```bash
+   sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL_CA,ENCRYPTED_FILE_DIR PYTHONPATH=$PWD .venv/bin/python scripts/demo_tamper.py flip --owner demo-alice --file-id <id>
+   ```
+
+   不到一秒跑完，打印改了哪个字节。再跑一次 `list`，这个文件已经标着 `TAMPERED`。
+5. 把 `restore` 那行（同一条命令，`flip` 换成 `restore`）存在文本文件里，讲完用。
+
+翻过字节的文件过夜会发生什么，提前说清楚免得意外：
+
+- 没有任何东西会自动把它改回来。唯一的恢复方式是 `restore`，或者用 `restore_file.py` 从备份恢复，都是人手动跑。
+- 每天 05:30（吉隆坡时间）的完整性扫描会发现字节变了，记一条 `MODIFIED` 检查并把文件状态改成 `CORRUPTED`。从那以后 Bob 打开列表时这一行已经显示 **Modified**。
+  这对演示没影响：现场要看的是下载被拒，标签反正都是 Modified。
+- 安全代理 06:00 跑一次，因为有 Critical 的发现，会给团队的告警邮箱发邮件。答辩当天早上会收到这封邮件，不用理。这也正是第 5 步能看到的东西：Admin 页显示的就是同一条 `INTEGRITY_DAMAGE`。
+- 上台前不要用 `demo-alice` 点这个文件的状态标签或者下载它。点了也不影响结果，但第一次被拒最好留给观众看。
+
+讲完之后粘贴 `restore` 命令，再用 `demo-alice` 点一下这个文件的 **Modified** 标签。它会先显示 “Checking…” 几秒钟，服务器重新算完哈希后变回
+Verified，代理下一次报告里这条发现就消失了。
 
 ## 前一天
 
-- [ ] 两个演示账号都能登录 staging，`quarterly-results.txt` 已从 Alice 分享给 Bob。
-- [ ] `demo_tamper.py list --owner demo-alice` 能列出这个文件，并且没有任何文件标着 TAMPERED；
-      `flip` 和 `restore` 两条命令已经填好文件 id，可以直接粘贴。
-- [ ] 完整计时预演一次，最后执行 `restore`。
+- [ ] 两个演示账号都能登录 staging，`quarterly-results.txt` 已从 Alice 分享给 Bob，Bob 打开过一次。
+- [ ] 已对 `quarterly-results.txt` 执行 `demo_tamper.py flip`，`list` 显示它标着 TAMPERED；`restore` 命令已填好文件 id，讲完用。
+- [ ] 管理员窗口能打开 Admin → Security agent；文件被拒过一次（或者 05:30 的扫描跑过）之后，这个页面显示 Critical 的 `INTEGRITY_DAMAGE`。
+- [ ] 完整计时预演一次。预演被拒下载可以另外准备一个一次性文件；或者接受预演已经把这一行变成 Modified，每次下载都会再被拒一次，现场照样成立。
+- [ ] staging 的恢复公钥是 **ACTIVE**：管理员在 Admin → Recovery key 能看到；或者直接开始预演上传，不是 ACTIVE 会立刻报
+      “The recovery key is not active”。每次上传都要把文件密钥包装到这把公钥上，没有它什么都传不了。
+- [ ] `board-minutes.pdf` 最多几 MB。浏览器会把整个文件读进内存，加密，再解密一遍自检，然后才上传，大文件在台上只会慢，没有任何好处；
+      500 MiB 的上限留给幻灯片讲，不要在现场试。
 - [ ] 备用视频已经录好（见下文），并拷到演示用的电脑上。
+- [ ] 如果不用 staging 而是本机构建演示，先在 `frontend/` 下跑 `npm ci`。2026-10-05 之前装的 `node_modules` 没有自托管字体包，构建会失败。
 - [ ] 展示前两小时内不要往 `main` 合并任何东西。合并会触发自动部署，服务会重启几秒钟。
 
 ## 开始前 30 分钟
 
 - [ ] 健康检查：`https://secureview.tech/health/live` 返回 200。
-- [ ] 两个窗口都已登录并且**已经解锁**（各自先打开一个文件），免得观众等口令的密钥派生。
+- [ ] 两个窗口都已登录，并且各自解锁过账户密钥（随便下载一个文件）。15 分钟内没有任何点击、按键或切回标签页，密钥就会重新锁上，
+      所以这一步要在上台前几分钟做，并且让两个窗口一直有操作。就算口令框还是弹出来了也不是故障：说一句密钥是用口令封住的，输入就行。
 - [ ] 浏览器缩放 125%；关掉通知和聊天软件；关掉密码管理器的弹窗。
 - [ ] `board-minutes.pdf` 放在桌面上；如果 Alice 的 My Files 里有之前上传的同名文件，先删掉。
+- [ ] 窗口 C 已用管理员登录并停在 Admin → Security agent，第 5 步只需要一次点击。
 - [ ] 准备好手机热点，以防会场网络出问题。
 
 ## 出问题时
@@ -59,7 +105,10 @@ Verified。
 | --- | --- |
 | 断网，或者 staging 没有响应 | 切到备用视频的同一步；视频和本脚本步骤一致 |
 | 解锁或下载卡住超过约 10 秒 | 说一句“这里本来会……”，切到视频的这一步 |
-| 篡改后下载居然成功了 | 执行 `list`：如果文件没有标 TAMPERED，说明 `flip` 没执行成功；播放视频的第 4 步 |
+| 下载或分享时弹出口令框 | 输入口令继续；这是设计，不是错误 |
+| Bob 的列表没显示新分享或 Modified 那行 | 点列表的刷新按钮，或者再点一下窗口；窗口回到前台时会自动重新加载 |
+| 篡改后下载居然成功了 | `flip` 没有生效（有人跑了 `restore`，或者 `list` 里没有 TAMPERED 标记）；播放视频的第 4 步并展示 Modified 的截图 |
+| Security agent 页没有 Critical 发现 | 文件在 flip 之后还没被检查过；第 4 步下载被拒之后就会出现，点页面的 Refresh。还没有就展示截图 |
 | 点错了 | 不要现场补救，直接进入下一步 |
 
 ## 备用视频

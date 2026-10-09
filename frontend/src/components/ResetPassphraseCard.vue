@@ -47,7 +47,7 @@ onBeforeUnmount(() => {
 const passphraseError = computed(() => {
   if (!submitted.value) return ''
   if (passphraseLength(passphrase.value) < PASSPHRASE_MIN_LENGTH) {
-    return t('register.usernameTooShort', { min: PASSPHRASE_MIN_LENGTH })
+    return t('register.passphraseTooShort', { min: PASSPHRASE_MIN_LENGTH })
   }
   return weakPassphraseMessage(
     weakPassphraseReason(passphrase.value, [auth.user?.username ?? '', auth.user?.email ?? '']),

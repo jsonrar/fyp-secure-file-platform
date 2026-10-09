@@ -1,3 +1,4 @@
+import { AxiosError, type AxiosResponse } from 'axios'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import { toBase64 } from './encoding'
@@ -57,11 +58,24 @@ describe('lookupRecipient', () => {
     await expect(lookupRecipient('bob')).rejects.toBeInstanceOf(RecipientKeyMismatchError)
   })
 
-  it('treats any lookup failure as no such recipient', async () => {
-    respond = () => Promise.reject(new TypeError('network down'))
+  it('treats a 404 as no such recipient', async () => {
+    respond = () =>
+      Promise.reject(new AxiosError('Not Found', 'ERR_BAD_REQUEST', undefined, undefined, { status: 404 } as AxiosResponse))
     const outcome = await lookupRecipient('nobody').catch((error: unknown) => error)
     // By name: under vi.mock the class can be loaded twice, which defeats instanceof.
     expect((outcome as Error).name).toBe(RecipientNotFoundError.name)
+  })
+
+  it('passes any other failure through, so a server error is not blamed on the spelling', async () => {
+    // A 500 or a dead network used to come back as "no account matches", sending the sender
+    // off to re-check a name that was right all along.
+    const failure = new AxiosError('Internal Server Error', 'ERR_BAD_RESPONSE', undefined, undefined, { status: 500 } as AxiosResponse)
+    respond = () => Promise.reject(failure)
+    await expect(lookupRecipient('bob')).rejects.toBe(failure)
+
+    const offline = new TypeError('network down')
+    respond = () => Promise.reject(offline)
+    await expect(lookupRecipient('bob')).rejects.toBe(offline)
   })
 })
 

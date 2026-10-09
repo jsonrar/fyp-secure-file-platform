@@ -46,17 +46,35 @@ import {
 const unlockedKeys = new Map<string, CryptoKey>()
 
 /**
- * How long an unlocked key survives without being used.
+ * How long an unlocked key survives without any sign of the person.
  *
  * Without this the key stays open for as long as the tab does, which on a shared or
- * unattended machine means "indefinitely". The clock is reset by *use* rather than by
- * mouse movement: a key nobody has decrypted with for fifteen minutes should relock even
- * if the person is still reading something else in the tab.
+ * unattended machine means "indefinitely". The clock used to be reset only by decrypting,
+ * which relocked the key under someone who was plainly still at the keyboard -- reading a
+ * file list, filing folders, writing a share -- and sent them back to the passphrase dialog
+ * mid-task. It is now reset by any activity in the page (see `ACTIVITY_EVENTS`) as well as
+ * by use, so only a tab nobody has touched for fifteen minutes relocks.
  */
 export const UNLOCK_IDLE_TIMEOUT_MS = 15 * 60 * 1000
 
+/**
+ * Page events that count as the person still being there. Mouse movement is deliberately
+ * not one of them: a cat on the desk is not activity, and a listener per pixel is wasteful.
+ * `visibilitychange` is handled separately, because only the change *to* visible counts.
+ */
+const ACTIVITY_EVENTS = ['click', 'keydown', 'pointerdown'] as const
+
+/**
+ * A burst of typing must not restart the timer on every keystroke. One restart per half
+ * minute is indistinguishable from continuous renewal at the fifteen-minute scale.
+ */
+export const ACTIVITY_THROTTLE_MS = 30 * 1000
+
 let idleTimer: ReturnType<typeof setTimeout> | undefined
 const relockListeners = new Set<() => void>()
+/** When the idle clock last restarted, so activity within the throttle window is ignored. */
+let lastRestartAt = 0
+let listeningForActivity = false
 
 /** Notified when the keys relock on their own, so a view can stop claiming to be unlocked. */
 export function onRelock(listener: () => void): () => void {
@@ -73,15 +91,54 @@ function clearIdleTimer(): void {
 
 function restartIdleTimer(): void {
   clearIdleTimer()
+  lastRestartAt = Date.now()
   idleTimer = setTimeout(() => {
     if (unlockedKeys.size === 0) return
     unlockedKeys.clear()
+    stopListeningForActivity()
     for (const listener of relockListeners) listener()
   }, UNLOCK_IDLE_TIMEOUT_MS)
 }
 
+/** Activity renews the key only while there is a key to renew, and at most once per window. */
+function onActivity(): void {
+  if (unlockedKeys.size === 0) return
+  if (Date.now() - lastRestartAt < ACTIVITY_THROTTLE_MS) return
+  restartIdleTimer()
+}
+
+/** Coming back to the tab is activity; leaving it is not. */
+function onVisibilityChange(): void {
+  if (document.visibilityState === 'visible') onActivity()
+}
+
+/**
+ * Listeners exist only while a key is open, so a locked session costs nothing per click and
+ * cannot restart a timer that is not running. Guarded for the unit tests, which run in Node.
+ */
+function startListeningForActivity(): void {
+  if (listeningForActivity || typeof window === 'undefined' || typeof document === 'undefined') return
+  for (const event of ACTIVITY_EVENTS) window.addEventListener(event, onActivity, { passive: true })
+  document.addEventListener('visibilitychange', onVisibilityChange)
+  listeningForActivity = true
+}
+
+function stopListeningForActivity(): void {
+  if (!listeningForActivity) return
+  for (const event of ACTIVITY_EVENTS) window.removeEventListener(event, onActivity)
+  document.removeEventListener('visibilitychange', onVisibilityChange)
+  listeningForActivity = false
+}
+
+/** Called whenever a key has just been opened: arm the clock and start watching for the person. */
+function keyOpened(): void {
+  restartIdleTimer()
+  startListeningForActivity()
+}
+
 export function forgetUnlockedKeys(): void {
   clearIdleTimer()
+  stopListeningForActivity()
   unlockedKeys.clear()
 }
 
@@ -112,7 +169,7 @@ async function openBundle(
     private_key_bundle: bundle.private_key_bundle,
   } as SealedAccountKey
   unlockedKeys.set(sealed.key_id, await unlockAccountPrivateKey(sealed, passphrase))
-  restartIdleTimer()
+  keyOpened()
   return sealed.key_id
 }
 
@@ -182,7 +239,7 @@ export async function unlockWithPrivateKeyPem(pem: string, keyId?: string): Prom
   await assertKeyPairMatches(privateKey, key.public_key_pem)
 
   unlockedKeys.set(key.key_id, privateKey)
-  restartIdleTimer()
+  keyOpened()
   return key.key_id
 }
 

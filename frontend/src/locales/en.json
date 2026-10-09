@@ -98,6 +98,7 @@
     "title": "Create Account",
     "afterDeletion": "Your previous account and its files were deleted. You can register again with the same username and email if you want them.",
     "usernameTooShort": "Use at least {min} characters.",
+    "passphraseTooShort": "Use a passphrase of at least {min} characters.",
     "usernameTooLong": "Use at most {max} characters.",
     "usernameCharacters": "Use only letters, numbers, underscore, dot, and hyphen.",
     "confirmEmpty": "Repeat your password.",

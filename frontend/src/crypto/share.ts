@@ -11,6 +11,8 @@
  * field present -- while the UI reported "Share request sent". Nothing was ever shared.
  */
 
+import axios from 'axios'
+
 import { fileApi } from '@/api/file_api'
 import { keyApi } from '@/api/key_api'
 import { shareApi } from '@/api/share_api'
@@ -84,10 +86,15 @@ export async function lookupRecipient(identifier: string): Promise<RecipientCand
   let recipient
   try {
     recipient = (await keyApi.activePublicKeyByIdentifier(name)).data.data
-  } catch {
-    // A 404 is the ordinary case -- a typo in a colleague's name -- and everything else
-    // here is equally "cannot share with them", so it is not worth splitting further.
-    throw new RecipientNotFoundError(name)
+  } catch (error) {
+    // A 404 is the ordinary case -- a typo in a colleague's name -- and gets the "no such
+    // account" message. Anything else (the server down, a 500, an expired session) used to
+    // be folded into it too, which told someone to check the spelling of a name that was
+    // spelled perfectly. Those keep their own message, so the dialog can say what happened.
+    if (axios.isAxiosError(error) && error.response?.status === 404) {
+      throw new RecipientNotFoundError(name)
+    }
+    throw error
   }
   const fingerprint = await publicKeyFingerprint(recipient.public_key_pem)
   if (recipient.fingerprint && recipient.fingerprint.toLowerCase() !== fingerprint) {
@@ -122,6 +129,12 @@ export async function shareFileWithRecipient(
 
   const metadata = (await fileApi.getFile(fileId)).data.data as FileOut
   const envelope = metadata.crypto_envelope
+  // The envelope is the sender's own wrapping, so its key id is the sender's active key. The
+  // sender's own username or email resolves like anyone else's, but they already hold the
+  // file; refusing here keeps a pointless grant off the server and the audit log, and does it
+  // without reading the signed-in user from a store, so this module stays usable from tests
+  // and scripts that have no Pinia.
+  if (recipient.keyId === envelope.key_id) throw new ShareWithSelfError()
 
   const privateKey = unlockedKeyFor(envelope.key_id)
   if (privateKey === undefined) {
