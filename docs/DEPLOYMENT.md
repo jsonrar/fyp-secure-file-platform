@@ -96,6 +96,42 @@ application `file_too_large` response means the request passed nginx but the bac
 still stale. File media type is independent of both size checks: unknown types are stored as
 `application/octet-stream`.
 
+### Per-address limits and the venue network
+
+nginx, fail2ban and the backend all have limits keyed on the client address. On a venue or campus
+Wi-Fi every visitor arrives as the same address, so those limits were resized on 2026-10-09 for a
+room of about a hundred people (the table is in [THREAT_MODEL.md §11.6](THREAT_MODEL.md)). None of
+these three files is installed by `mcs21-deploy` or the CI promote: the tracked copies under
+`deployment/server/` are installed by hand, so a change to them is complete only once the files on
+the VPS match and the services have reloaded.
+
+```bash
+cd /opt/mcs21/current
+sudo install -m 0644 deployment/server/nginx-secureview-limits.conf /etc/nginx/conf.d/secureview-limits.conf
+sudo install -m 0644 deployment/server/nginx-secureview.conf /etc/nginx/sites-available/fyp-secure-file-platform
+sudo nginx -t && sudo systemctl reload nginx
+sudo install -m 0644 deployment/server/fail2ban/filter-secureview-auth.conf /etc/fail2ban/filter.d/secureview-auth.conf
+sudo install -m 0644 deployment/server/fail2ban/jail-secureview.conf /etc/fail2ban/jail.d/secureview.conf
+sudo fail2ban-client -t && sudo systemctl reload fail2ban
+sudo fail2ban-client status secureview-auth
+```
+
+Diff the live nginx file against the tracked copy before installing it: certbot writes the
+certificate lines, and a renewal may have touched the port-80 block. The last command lists any
+address fail2ban currently bans; on the day of a presentation it should be empty, and
+`sudo fail2ban-client set secureview-auth unbanip <address>` lifts one that is not.
+
+The backend's own per-address thresholds are defaults in `backend/app/core/config.py` and apply
+after the release deploys, unless `/etc/fyp-secure-file-platform/backend.env` overrides them.
+Check that it does not pin the old values:
+
+```bash
+sudo grep -E 'IP_MAX|MAX_ATTEMPTS|PER_WINDOW' /etc/fyp-secure-file-platform/backend.env
+```
+
+Any line it prints wins over the code default; remove it or raise it to the current value, then
+`sudo systemctl restart fyp-backend`.
+
 ## Account-host scope
 
 The tracked files deliberately use `fyp_user@localhost`. This safe default is directly usable
