@@ -30,17 +30,21 @@ refused. No terminal is used during the talk.
 
 | Time | Step | Do | Say |
 | --- | --- | --- | --- |
-| 0:00–0:15 | Set the scene | Point at the two windows | "Alice wants to send Bob a confidential report. Neither of them trusts the server, and neither should you." |
-| 0:15–1:15 | **1. Upload** | In A: Upload → choose `board-minutes.pdf` → Start Encryption. Let the steps play | "Every step you see is timed for real: encrypt in the browser with a fresh key, wrap that key, upload. Look at the bytes: the file starts `%PDF`; what the server receives is noise." |
-| 1:15–2:05 | **2. Share** | In A: My Files → `board-minutes.pdf` → Share → type `demo-bob` → Share. The confirmation shows Bob's key fingerprint → **Confirm and share**. In B: Settings shows the same fingerprint | "Before anything is sent, Alice sees which key the file will be locked to. Bob reads his fingerprint from his own Settings: they match, so only Bob can open it. The server never had the key." Then Confirm and share |
-| 2:05–2:45 | **3. Open** | In B: My Files → Shared with me → `board-minutes.pdf` → the download icon (its tooltip reads **Download and decrypt**). If the passphrase dialog appears, type Bob's passphrase. Open the saved file | "Bob unlocks with his own passphrase, never Alice's. The file is checked on the way out, then decrypted on his device." If the dialog appears: "His key is sealed under his passphrase, so the browser asks for it once." |
+| 0:00–0:15 | Set the scene | Window A is already on **Education** with the AES-256-GCM card open (AC6); point at it, then at the two windows | "Everything the app does is explained here, with a playground. Alice wants to send Bob a confidential report. Neither of them trusts the server, and neither should you." |
+| 0:15–1:05 | **1. Upload** | In A: Upload → choose `board-minutes.pdf` → Start Encryption. Let the four stages play (AC7), then close the receipt with its close button | "Every step you see is timed for real: encrypt in the browser with a fresh key, wrap that key, upload. Look at the bytes: the file starts `%PDF`; what the server receives is noise." |
+| 1:05–1:45 | **2. Share** | In A: My Files → `board-minutes.pdf` → Share → type `demo-bob` → Share. The confirmation shows Bob's key fingerprint → **Confirm and share**. In B: Settings shows the same fingerprint | "Before anything is sent, Alice sees which key the file will be locked to. Bob reads his fingerprint from his own Settings: they match, so only Bob can open it. The server never had the key." Then Confirm and share |
+| 1:45–2:20 | **3. Open** | In B: My Files → Shared with me → `board-minutes.pdf` → the download icon (its tooltip reads **Download and decrypt**). If the passphrase dialog appears, type Bob's passphrase. Open the saved file | "Bob unlocks with his own passphrase, never Alice's. The file is checked on the way out, then decrypted on his device." If the dialog appears: "His key is sealed under his passphrase, so the browser asks for it once." |
+| 2:20–2:45 | **3b. Audit** | In A: My Files → `board-minutes.pdf` → Details → **Access history** | "Alice can see who opened it and when: her upload, her share, and Bob's download a few seconds ago. Every entry is chained to the one before, so the log itself cannot be quietly edited." |
 | 2:45–3:15 | **4. Tamper** | Still in B, Shared with me. Point at `quarterly-results.txt`, the second file Alice shared, which was changed on the server before the talk (preparation below). Press its download icon | "Last night one byte of this file was changed on the server's disk, the way an administrator or an intruder could. Bob asks for it." The download is refused with "The encrypted file could not be verified", a red line appears under the list, the row reads **Modified**, and nothing is saved. "Changed, so refused. Nobody was asked to trust us." |
 | 3:15–3:40 | **5. The agent saw it** | In window C (the administrator): Admin → **Security agent**. The top finding is **Critical**, `INTEGRITY_DAMAGE`, naming `quarterly-results.txt` | "The administrator did not have to notice. The security agent reads the audit log and the integrity checks every day and ranks what needs attention: here, one damaged file, with the restore command. Restoring it from the encrypted backup is on the next slide." |
 | 3:40–4:00 | Close | Back to the slides | "Encrypted before it leaves the device, opened only by the named person, refused if changed." |
 
 No terminal is opened on stage. The tampering is done the day before, and the recovery (AC4a) is
-shown on a slide with the before-and-after screenshots from
-`docs/presentation/screenshots/` (added together with the slide material), not performed live.
+shown on a slide with the before-and-after screenshots in
+[`screenshots/`](screenshots/) (Modified, the refused download, Admin → Integrity, the agent's
+Critical finding, Verified again after restore), not performed live. Which acceptance criterion each
+step proves, and the tests behind it, is in [RTM_DEMO_MAP.md](RTM_DEMO_MAP.md); it also says when
+registration (AC1) is shown live.
 
 ### Preparing the tampered file, the day before
 
@@ -100,6 +104,8 @@ Verified, and the agent finding disappears on the next report.
       and opened once by Bob.
 - [ ] `demo_tamper.py flip` has been run on `quarterly-results.txt` and `list` shows it marked
       TAMPERED; the `restore` command is written out with the file id for after the talk.
+- [ ] Window A can open Education and the AES-256-GCM card, and `board-minutes.pdf`'s Details
+      drawer shows **Access history** for Alice.
 - [ ] The administrator window can open Admin → Security agent, and once the file has been refused
       once (or the 05:30 sweep has run) the tab shows the Critical `INTEGRITY_DAMAGE` finding.
 - [ ] One full rehearsal, timed. Rehearse the refused download with a second throw-away file,
@@ -117,6 +123,14 @@ Verified, and the agent finding disappears on the next report.
       A `node_modules` from before 2026-10-05 lacks the self-hosted font package and the build fails.
 - [ ] Nothing is merged to `main` from two hours before the talk. A merge triggers the automatic
       deploy, which restarts the service for a few seconds.
+
+## The morning of the talk
+
+- [ ] Register a throw-away `demo-carol-<date>` on staging from the presentation laptop. If the email
+      code arrives within a minute, AC1 is shown live at the start of the slot; if not, it stays on
+      the slide ([RTM_DEMO_MAP.md](RTM_DEMO_MAP.md), "AC1 on the day").
+- [ ] The 06:00 Security agent alert email about `quarterly-results.txt` has arrived. That is
+      expected; it means the flip is still in place.
 
 ## 30 minutes before
 

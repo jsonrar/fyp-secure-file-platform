@@ -43,11 +43,13 @@ const algorithm = ref<EncryptionAlgorithm>(DEFAULT_ENCRYPTION_ALGORITHM)
 const algorithmChoices = ref<EncryptionAlgorithm[]>([DEFAULT_ENCRYPTION_ALGORITHM])
 
 /**
- * Offer only what this browser can actually do.
+ * Every suite, on every browser.
  *
- * AES-192-GCM is specified but absent from some WebCrypto implementations, and an
- * unsupported key length fails at encryption time with an opaque error -- after the user has
- * chosen it and picked their files. Probing first keeps the menu honest.
+ * AES-192-GCM is specified but absent from some WebCrypto implementations (Chromium), so the
+ * crypto layer probes once and performs it in the same JavaScript library as the SIV and
+ * ChaCha suites where the platform refuses it. The probe also confirms AES-256-GCM, which
+ * has no fallback; if that fails the list stays at the default and the upload itself
+ * explains why.
  */
 onMounted(async () => {
   try {
@@ -66,7 +68,7 @@ const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
     'ChaCha20-Poly1305 with a 24-byte nonce, long enough to choose at random without ever repeating. What libsodium recommends. Fast in the browser.',
   'ChaCha20-Poly1305':
     'A different construction, not a different key length: a stream cipher authenticated by Poly1305. The usual choice on devices without AES hardware; here it runs in a JavaScript library.',
-  'AES-192-GCM': 'AES at an intermediate key length. Not available in every browser.',
+  'AES-192-GCM': 'AES at an intermediate key length. Chrome and Edge lack it in WebCrypto, so there it runs in a JavaScript library; the files are identical either way.',
   'AES-128-GCM': 'AES at the shortest of its three key lengths. Still considered secure.',
 }
 

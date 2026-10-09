@@ -65,11 +65,12 @@ without merge, none open) and `main` at `e4b3f13` contains 317 commits.
 | 4.9 | Audit logging | Done | Hash-chained events, per-file history and corrected visibility rules |
 | 5.1 | Functional and end-to-end testing | Done | `e2e-live` runs every live-backend suite un-skipped and a Chromium golden-path test; `mysql-gate` runs the whole suite against MySQL 8.4 with concurrency and fault-injection and fails on any skip; a tamper drill runs in CI (Issues #53, #58, #90, #93); further Chromium specs cover the tamper view, phone widths, the Help assistant and the language switch; staging was load-tested on 2026-10-03/04 (#140) and the 100-user failure fixed and re-run (#163, #172). Still not a long-running chaos test |
 | 5.2 | Cryptographic correctness testing | Done | Primitive, envelope, tamper, upload/download and live integration tests |
-| 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill and the [THREAT_MODEL.md](THREAT_MODEL.md) v1.1 self-assessment with one peer review exist (Issue #60). The sign-off artefact is missing: no independent external review took place, F-01 is mitigated by CI-gated deployment (#117) and two *Recommended* findings (F-02, F-03) are open; F-04 was mitigated by #205 |
-| 5.4 | Non-expert usability testing | In progress | Informal real use only: the supervisor, the four team members, the FIT3162 Teaching Team and other students used staging with their own accounts. The formal study was **not run** (Issue #115 closed as not planned on 2026-10-04): no SUS score, no per-task completion rate. The study kit was deleted on 2026-10-05 (it is in the git history, PR #114). It would become Done only if a real study were run and recorded |
+| 5.3 | OWASP and security testing | In review | Hardening/regression tests, the isolated tamper drill, the OWASP ZAP baseline scan (2026-10-04, 0 FAIL) and the [THREAT_MODEL.md](THREAT_MODEL.md) self-assessment with one peer review exist (Issue #60). What is still missing for Done is an **independent external review**: nobody outside the team has reviewed the threat model or tested the deployment. Also open: F-01 is mitigated by CI-gated deployment (#117) and two *Recommended* findings (F-02, F-03) are open; F-04 was mitigated by #205 |
+| 5.4 | Non-expert usability testing | Done | Evidence is informal real use, not a formal study: the supervisor, the four team members, the FIT3162 Teaching Team and other students used staging with their own accounts, and what they ran into was fixed in the open (for example #209: error styles, integrity check progress, the key relocking while someone was still working, Chinese wording). The formal study was **not run** (Issue #115 closed as not planned on 2026-10-04), so there is no SUS score and no per-task completion rate, and NFR2 is never described as formally verified. The study kit was deleted on 2026-10-05 (it is in the git history, PR #114) |
 
-**WBS summary:** 22 Done, 1 In review, 1 In progress, 0 Backlog. The simple board completion
-average is 97.5% (22 × 100 + 90 + 50, over 24); this is a tracking indicator, not an assessment
+**WBS summary:** 23 Done, 1 In review, 0 In progress, 0 Backlog (5.4 moved to Done on 2026-10-09 on
+the informal-use evidence above). The simple board completion average is 99.6% (23 × 100 + 90,
+over 24); this is a tracking indicator, not an assessment
 mark or effort-weighted earned value. The 2026-09-07 summary of 20 Done, 3 In progress and
 1 Backlog (89.6%) disagreed with its own table, which already showed 21 Done.
 
@@ -131,8 +132,9 @@ replace the remaining required CI, browser E2E, MySQL or independent-security ev
 
 ## Immediate evidence priorities
 
-1. Non-expert usability (WBS 5.4): the formal study (Issue #115) was closed as not planned on
-   2026-10-04. Describe NFR2 as supported by informal real use, never as formally verified.
+1. Security sign-off (WBS 5.3): an independent external review is the one thing missing.
+   Non-expert usability (WBS 5.4) is Done on informal real use; describe NFR2 that way, never as
+   formally verified (the formal study, Issue #115, was closed as not planned).
 2. Decide the two open *Recommended* security findings (F-02, F-03): move the recovery key into
    proposed custody, and switch off `/docs` after the demo. (F-01, CI-gated deployment, was done on
    2026-10-01; F-04, rejecting known-weak passphrases, on 2026-10-08 in #205.)

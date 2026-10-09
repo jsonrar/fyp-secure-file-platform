@@ -21,6 +21,11 @@
 # HTML report to E2E_BROWSER_REPORT_DIR (default ./e2e-browser-reports). Chromium must be
 # installed first: `cd frontend && npx playwright install chromium`.
 #
+# E2E_BROWSER=capture runs neither: it takes the AC4a slide screenshots instead
+# (frontend/browser-tests/capture/, docs/presentation/screenshots/) and writes them to
+# E2E_CAPTURE_DIR. That run is the only one given the seeded admin's password, because the
+# Admin Integrity and Security agent screens need it. Never used by CI.
+#
 # Every password and passphrase is generated here per run. Private keys, the mailbox and
 # the uploaded objects live in a temporary directory that is removed on exit, and nothing
 # in it is ever written to the report directory.
@@ -42,7 +47,9 @@ case "${E2E_BROWSER:-0}" in
   0) RUN_NODE_SUITES=1 RUN_BROWSER=0 ;;
   1) RUN_NODE_SUITES=1 RUN_BROWSER=1 ;;
   only) RUN_NODE_SUITES=0 RUN_BROWSER=1 ;;
-  *) echo "E2E_BROWSER must be 0, 1 or only" >&2; exit 2 ;;
+  capture) RUN_NODE_SUITES=0 RUN_BROWSER=0
+    : "${E2E_CAPTURE_DIR:?E2E_CAPTURE_DIR is required with E2E_BROWSER=capture}" ;;
+  *) echo "E2E_BROWSER must be 0, 1, only or capture" >&2; exit 2 ;;
 esac
 REPORT_DIR="${E2E_REPORT_DIR:-$PWD/e2e-reports}"
 mkdir -p "$REPORT_DIR"
@@ -194,4 +201,16 @@ if [ "$RUN_BROWSER" = "1" ]; then
     exit "$status"
   fi
   "$PYTHON_BIN" "$BACKEND_DIR/scripts/check_no_skips.py" "$BROWSER_REPORT_DIR/junit.xml"
+fi
+
+if [ "${E2E_BROWSER:-0}" = "capture" ]; then
+  echo "== AC4a screenshots (Chromium) =="
+  mkdir -p "$E2E_CAPTURE_DIR"
+  CAPTURE_DIR="$(cd "$E2E_CAPTURE_DIR" && pwd)"
+  VITE_API_BASE_URL="$API_ROOT/api/v1" npx vite build --logLevel warn \
+    --outDir "$WORK_DIR/web" --emptyOutDir
+  E2E_MAILBOX_DIR="$E2E_MAILBOX_DIR" E2E_WEB_DIR="$WORK_DIR/web" \
+  E2E_BROWSER_REPORT_DIR="$WORK_DIR/capture-report" E2E_CAPTURE_DIR="$CAPTURE_DIR" \
+  E2E_ADMIN_USERNAME="$ADMIN_USER" E2E_ADMIN_PASSWORD="$ADMIN_PASSWORD" \
+    npx playwright test --config playwright.capture.config.ts
 fi

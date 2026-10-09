@@ -257,6 +257,12 @@ suite the user chose (AES-128/192/256-GCM, AES-256-GCM-SIV or ChaCha20-Poly1305 
 nonce; XChaCha20-Poly1305 with a 192-bit nonce; AES-256-GCM by default), encrypts the file
 locally, and wraps the DEK twice with
 RSA-OAEP-SHA256: once to its own active public key and once to the recovery public key.
+AES-GCM runs on the browser's WebCrypto; AES-256-GCM-SIV and both ChaCha suites run in
+`@noble/ciphers`. AES-192-GCM is the one suite some browsers lack natively (Chromium never
+shipped it), so the client probes WebCrypto once per key length and, where it refuses, performs
+AES-GCM in `@noble/ciphers` too. The two produce identical ciphertext and tags, so all six suites
+are offered in every browser and a file sealed in one browser opens in any other. AES-256-GCM
+never falls back: the account key envelopes depend on it, and a browser without it is refused.
 It then sends a multipart request containing the ciphertext and a JSON metadata envelope.
 
 ```text
@@ -322,7 +328,11 @@ sender fetches recipient's active public key
 
 The server never receives the sender's private key or plaintext DEK. It can verify that the
 submitted bytes have the correct RSA ciphertext length, but cannot prove they encrypt the
-correct DEK; the sharing client must self-test before submission where practical. The target
+correct DEK. The client does not decrypt the file before sharing either, because that would
+mean downloading all of it first; what it relies on is that RSA-OAEP unwrapping is
+authenticated and `unwrapDek` checks the key length, so the DEK it rewraps is the one sealed at
+upload, and that a wrong DEK would only make the recipient's download fail its AEAD tag check
+(see `docs/crypto/FILE_ENVELOPE.md`, section 6). The target
 cannot receive `can_download` or `can_share` when the sender lacks the corresponding capability,
 so delegated sharing cannot use another account to regain a denied capability. The canonical
 owner grant is immutable, and an unrelated delegated sharer cannot overwrite or revive an
@@ -337,6 +347,65 @@ cannot scan ciphertext.
 Revocation requires REVOKE permission, cannot target the canonical owner, and atomically
 revokes the target grant and its active user wrappings. It prevents future server-mediated
 access but cannot erase ciphertext, DEKs, or plaintext already copied by a recipient.
+
+### Sharing, end to end
+
+The order below is the order of the calls in `frontend/src/crypto/share.ts`,
+`frontend/src/components/ShareDialog.vue` and `backend/app/services/sharing_service.py`. If the
+sender's key is still locked, the share stops before anything is fetched, the passphrase dialog
+opens, and the dialog comes back to the confirmation step, so the unlock always happens before
+the DEK is unwrapped.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Alice (sender)
+    participant AB as Alice's browser
+    participant API as SecureView API
+    participant DB as MySQL
+    participant BB as Bob's browser
+    actor B as Bob (recipient)
+
+    A->>AB: Share, type "bob"
+    AB->>API: GET /keys/users/by-identifier/bob/active
+    API->>DB: Bob's active public key
+    API-->>AB: user_id, key_id, public_key_pem, fingerprint
+    AB->>AB: SHA-256 of the key itself, must equal the server's fingerprint
+    AB-->>A: Bob and his fingerprint (warn if it changed since last time)
+    A->>AB: Confirm and share
+    alt Alice's account key is locked
+        AB-->>A: passphrase dialog
+        A->>AB: passphrase
+        AB->>API: GET /keys/me (sealed key bundle)
+        API-->>AB: wrapped AMK, encrypted private key, KDF parameters
+        AB->>AB: Argon2id KEK, open AMK, HKDF, open private key (kept in memory only)
+        AB->>API: GET /keys/users/by-identifier/bob/active (lookup again)
+        API-->>AB: same key, fingerprint checked again
+        A->>AB: Confirm and share
+    end
+    AB->>API: GET /files/{file_id}
+    API-->>AB: metadata and crypto_envelope (Alice's wrapped_file_key, key_id)
+    AB->>AB: refuse if Bob's key_id is Alice's own
+    AB->>AB: RSA-OAEP unwrap the DEK with Alice's private key, check its length
+    AB->>AB: RSA-OAEP-SHA256 wrap the same DEK to Bob's public key
+    AB->>API: POST /files/{file_id}/share (target_user_id, target_key_id, wrapped_file_key, can_download, can_share)
+    API->>DB: lock file, check SHARE permission, cut capabilities to Alice's grant
+    API->>DB: lock Bob and his key, check the wrapping length, upsert grant and wrapping
+    API->>DB: FILE_SHARED audit event, commit
+    API-->>AB: 200 created
+    API-->>B: email notice (after commit, best effort)
+    B->>BB: Shared with me, Download and decrypt
+    BB->>API: GET /files/{file_id}
+    API-->>BB: crypto_envelope with Bob's wrapped_file_key
+    BB->>API: POST /files/{file_id}/download
+    API->>API: SHA-256 of the stored ciphertext against the recorded hash
+    API-->>BB: ciphertext (or refused if it does not match)
+    BB->>BB: unwrap DEK with Bob's private key, AEAD decrypt, tag checked
+    BB-->>B: the original file
+```
+
+The server sees the wrapped DEK for Bob and the ciphertext. It never sees the DEK, either
+private key or the plaintext.
 
 ## Offline Recovery Boundary
 

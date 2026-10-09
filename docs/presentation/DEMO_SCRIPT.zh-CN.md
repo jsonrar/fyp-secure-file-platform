@@ -26,15 +26,18 @@ passphrase 由项目负责人保管）。用户名必须以 `demo-` 开头，因
 
 | 时间 | 步骤 | 操作 | 讲解 |
 | --- | --- | --- | --- |
-| 0:00–0:15 | 交代场景 | 指一下两个窗口 | “Alice 要把一份机密报告发给 Bob。他们俩都不信任服务器，你们也不应该信任。” |
-| 0:15–1:15 | **1. 上传** | 窗口 A：Upload → 选择 `board-minutes.pdf` → Start Encryption，让步骤动画播完 | “你看到的每一步耗时都是真实测出来的：在浏览器里用一把新密钥加密，再把这把密钥包装起来，然后上传。看这些字节：原文件开头是 `%PDF`，服务器收到的是一堆乱码。” |
-| 1:15–2:05 | **2. 分享** | 窗口 A：My Files → `board-minutes.pdf` → Share → 输入 `demo-bob` → Share。确认页显示 Bob 的密钥指纹 → **Confirm and share**。窗口 B：Settings 里显示同一个指纹 | “发送之前，Alice 能看到文件会被锁到哪一把密钥上。Bob 从自己的设置页读出指纹：两边一致，所以只有 Bob 能打开。服务器从头到尾没拿到过这把密钥。”然后点 Confirm and share |
-| 2:05–2:45 | **3. 打开** | 窗口 B：My Files → Shared with me → `board-minutes.pdf` → 点下载图标（鼠标悬停显示 **Download and decrypt**）。如果弹出口令框就输入 Bob 的口令。打开保存下来的文件 | “Bob 用的是他自己的口令，不是 Alice 的。文件取出时先校验，再在他自己的设备上解密。”如果弹了口令框：“他的密钥是用口令封住的，所以浏览器会问一次。” |
+| 0:00–0:15 | 交代场景 | 窗口 A 事先停在 **Education**，打开 AES-256-GCM 卡片（AC6）；先指一下它，再指两个窗口 | “这个应用做的每件事这里都有讲解，还有可以动手试的 playground。Alice 要把一份机密报告发给 Bob。他们俩都不信任服务器，你们也不应该信任。” |
+| 0:15–1:05 | **1. 上传** | 窗口 A：Upload → 选择 `board-minutes.pdf` → Start Encryption，让四个阶段播完（AC7），然后用关闭按钮关掉回执 | “你看到的每一步耗时都是真实测出来的：在浏览器里用一把新密钥加密，再把这把密钥包装起来，然后上传。看这些字节：原文件开头是 `%PDF`，服务器收到的是一堆乱码。” |
+| 1:05–1:45 | **2. 分享** | 窗口 A：My Files → `board-minutes.pdf` → Share → 输入 `demo-bob` → Share。确认页显示 Bob 的密钥指纹 → **Confirm and share**。窗口 B：Settings 里显示同一个指纹 | “发送之前，Alice 能看到文件会被锁到哪一把密钥上。Bob 从自己的设置页读出指纹：两边一致，所以只有 Bob 能打开。服务器从头到尾没拿到过这把密钥。”然后点 Confirm and share |
+| 1:45–2:20 | **3. 打开** | 窗口 B：My Files → Shared with me → `board-minutes.pdf` → 点下载图标（鼠标悬停显示 **Download and decrypt**）。如果弹出口令框就输入 Bob 的口令。打开保存下来的文件 | “Bob 用的是他自己的口令，不是 Alice 的。文件取出时先校验，再在他自己的设备上解密。”如果弹了口令框：“他的密钥是用口令封住的，所以浏览器会问一次。” |
+| 2:20–2:45 | **3b. 审计** | 窗口 A：My Files → `board-minutes.pdf` → Details → **Access history** | “Alice 能看到谁在什么时候打开过它：她自己的上传、分享，还有 Bob 几秒钟前的下载。每条记录都和前一条串成哈希链，所以日志本身也没法被悄悄改掉。” |
 | 2:45–3:15 | **4. 篡改** | 还在窗口 B 的 Shared with me。指一下 `quarterly-results.txt`，这是 Alice 分享的第二个文件，上台前已经在服务器上被改过（准备步骤见下）。点它的下载图标 | “昨晚这个文件在服务器磁盘上被改了一个字节，管理员或者入侵者都做得到。Bob 来取它。”下载被拒绝，提示 “The encrypted file could not be verified”，列表下方出现红色提示，这一行变成 **Modified**，什么都没有保存。“改过了，所以被拒绝。不需要任何人相信我们。” |
 | 3:15–3:40 | **5. 代理看到了** | 窗口 C（管理员）：Admin → **Security agent**。最上面一条是 **Critical** 的 `INTEGRITY_DAMAGE`，点名 `quarterly-results.txt` | “管理员不用自己去发现。安全代理每天读审计日志和完整性检查，把需要处理的事排好序：这里是一个损坏的文件，连恢复命令都给出来了。从加密备份恢复它在下一页幻灯片。” |
 | 3:40–4:00 | 收尾 | 切回幻灯片 | “离开设备前就加密，只有指定的人能打开，被改动就拒绝。” |
 
-现场不开终端。篡改在前一天做好，恢复（AC4a）用 `docs/presentation/screenshots/`（随幻灯片素材一起加入） 里恢复前后的截图在幻灯片上讲，不现场做。
+现场不开终端。篡改在前一天做好，恢复（AC4a）用 [`screenshots/`](screenshots/) 里恢复前后的截图在幻灯片上讲（Modified、被拒绝的下载、
+Admin → Integrity、代理的 Critical 发现、恢复后重新 Verified），不现场做。每一步证明哪条验收标准、背后有哪些测试，见
+[RTM_DEMO_MAP.zh-CN.md](RTM_DEMO_MAP.zh-CN.md)；注册（AC1）什么时候现场演示也写在那里。
 
 ### 前一天准备被篡改的文件
 
@@ -79,6 +82,7 @@ Verified，代理下一次报告里这条发现就消失了。
 
 - [ ] 两个演示账号都能登录 staging，`quarterly-results.txt` 已从 Alice 分享给 Bob，Bob 打开过一次。
 - [ ] 已对 `quarterly-results.txt` 执行 `demo_tamper.py flip`，`list` 显示它标着 TAMPERED；`restore` 命令已填好文件 id，讲完用。
+- [ ] 窗口 A 能打开 Education 和 AES-256-GCM 卡片，`board-minutes.pdf` 的 Details 抽屉里能看到 Alice 的 **Access history**。
 - [ ] 管理员窗口能打开 Admin → Security agent；文件被拒过一次（或者 05:30 的扫描跑过）之后，这个页面显示 Critical 的 `INTEGRITY_DAMAGE`。
 - [ ] 完整计时预演一次。预演被拒下载可以另外准备一个一次性文件；或者接受预演已经把这一行变成 Modified，每次下载都会再被拒一次，现场照样成立。
 - [ ] staging 的恢复公钥是 **ACTIVE**：管理员在 Admin → Recovery key 能看到；或者直接开始预演上传，不是 ACTIVE 会立刻报
@@ -88,6 +92,12 @@ Verified，代理下一次报告里这条发现就消失了。
 - [ ] 备用视频已经录好（见下文），并拷到演示用的电脑上。
 - [ ] 如果不用 staging 而是本机构建演示，先在 `frontend/` 下跑 `npm ci`。2026-10-05 之前装的 `node_modules` 没有自托管字体包，构建会失败。
 - [ ] 展示前两小时内不要往 `main` 合并任何东西。合并会触发自动部署，服务会重启几秒钟。
+
+## 答辩当天早上
+
+- [ ] 用答辩电脑在 staging 上注册一个临时账号 `demo-carol-<日期>`。一分钟内收到邮件验证码，就在演示时段开头现场展示 AC1；收不到就留在幻灯片上讲
+      （[RTM_DEMO_MAP.zh-CN.md](RTM_DEMO_MAP.zh-CN.md) 的“当天的 AC1”）。
+- [ ] 06:00 安全代理关于 `quarterly-results.txt` 的告警邮件已经收到。这是预期的，说明 flip 还在。
 
 ## 开始前 30 分钟
 

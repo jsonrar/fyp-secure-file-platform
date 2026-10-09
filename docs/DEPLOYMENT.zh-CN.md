@@ -91,6 +91,36 @@ curl --fail https://secureview.tech/health/live
 `file_too_large`，说明请求已通过 nginx，但后端上限仍旧过期。文件媒体类型与这两项大小检查无关：
 无法识别的类型会以 `application/octet-stream` 存储。
 
+### 按地址的限制与会场网络
+
+nginx、fail2ban 和后端都有按客户端地址计数的限制。在会场或校园 Wi-Fi 上所有访客到服务器都是同一个地址，所以这些限制在
+2026-10-09 按"一个房间约一百人"重新设定（数值表见 [THREAT_MODEL.zh-CN.md 第 11.6 节](THREAT_MODEL.zh-CN.md)）。这三份文件
+都不由 `mcs21-deploy` 或 CI 的 promote 安装：`deployment/server/` 下的是跟踪副本，要手动装到 VPS 上，服务器上的文件和仓库一致并
+且服务重载之后改动才算完成。
+
+```bash
+cd /opt/mcs21/current
+sudo install -m 0644 deployment/server/nginx-secureview-limits.conf /etc/nginx/conf.d/secureview-limits.conf
+sudo install -m 0644 deployment/server/nginx-secureview.conf /etc/nginx/sites-available/fyp-secure-file-platform
+sudo nginx -t && sudo systemctl reload nginx
+sudo install -m 0644 deployment/server/fail2ban/filter-secureview-auth.conf /etc/fail2ban/filter.d/secureview-auth.conf
+sudo install -m 0644 deployment/server/fail2ban/jail-secureview.conf /etc/fail2ban/jail.d/secureview.conf
+sudo fail2ban-client -t && sudo systemctl reload fail2ban
+sudo fail2ban-client status secureview-auth
+```
+
+装 nginx 文件之前先把线上文件和跟踪副本 diff 一下：证书那几行是 certbot 写的，续期可能动过 80 端口块。最后一条命令列出 fail2ban
+当前封着的地址；答辩当天应该是空的，不空就用 `sudo fail2ban-client set secureview-auth unbanip <地址>` 解封。
+
+后端自己的按地址阈值是 `backend/app/core/config.py` 里的默认值，发布部署后生效，除非
+`/etc/fyp-secure-file-platform/backend.env` 里有覆盖。检查它没有钉住旧值：
+
+```bash
+sudo grep -E 'IP_MAX|MAX_ATTEMPTS|PER_WINDOW' /etc/fyp-secure-file-platform/backend.env
+```
+
+打印出来的任何一行都会盖过代码默认值；删掉或者改成当前值，然后 `sudo systemctl restart fyp-backend`。
+
 ## `localhost` 与远程账户来源
 
 仓库中的三份 SQL 默认使用 ``'fyp_user'@'localhost'``，适用于应用从数据库主机连接的

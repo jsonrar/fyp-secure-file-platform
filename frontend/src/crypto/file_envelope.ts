@@ -28,11 +28,10 @@ import {
   DEFAULT_ENCRYPTION_ALGORITHM,
   ENCRYPTION_ALGORITHMS,
   type EncryptionAlgorithm,
-  aesGcmDecryptDetached,
-  aesGcmEncryptDetached,
+  aesGcmOpenDetached,
+  aesGcmSealDetached,
   chacha20Poly1305DecryptDetached,
   chacha20Poly1305EncryptDetached,
-  importAesGcmKey,
   importRsaOaepPublicKey,
   isEncryptionAlgorithm,
   isLibraryAead,
@@ -207,7 +206,9 @@ async function sealWith(params: {
   if (isLibraryAead(algorithm)) {
     return libraryAeadEncryptDetached({ algorithm, key: dek, nonce, plaintext, aad })
   }
-  return aesGcmEncryptDetached({ key: await importAesGcmKey(dek), nonce, plaintext, aad })
+  // AES-GCM at 128, 192 or 256 bits: WebCrypto, or the library where this browser lacks the
+  // key length. Same bytes either way.
+  return aesGcmSealDetached({ key: dek, nonce, plaintext, aad })
 }
 
 /** Open under whichever AEAD the identity names. Raises `AuthenticationFailure` either way. */
@@ -226,13 +227,7 @@ async function openWith(params: {
   if (isLibraryAead(algorithm)) {
     return libraryAeadDecryptDetached({ algorithm, key: dek, nonce, ciphertext, authTag, aad })
   }
-  return aesGcmDecryptDetached({
-    key: await importAesGcmKey(dek),
-    nonce,
-    ciphertext,
-    authTag,
-    aad,
-  })
+  return aesGcmOpenDetached({ key: dek, nonce, ciphertext, authTag, aad })
 }
 
 /**

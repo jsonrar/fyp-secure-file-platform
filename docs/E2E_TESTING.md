@@ -94,7 +94,7 @@ keeps.
 | Logout | Both the access and the refresh token stop working |
 | Unlock | Another account's passphrase is refused; the right one opens the key |
 | File algorithms | AES-128/192/256-GCM, AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305 each round-trip binary content, report the right algorithm, and serve ciphertext only |
-| Share and revoke | The recipient decrypts with their own passphrase, cannot re-share, and after revocation gets a uniform 404 on read and download |
+| Share and revoke | For each of the six suites: the recipient sees the file in their list, decrypts it with their own passphrase (not the sender's) to the same bytes, the server's integrity check reports VALID, the recipient cannot re-share, and after revocation gets a uniform 404 on read, download and integrity check |
 | Audit visibility | The owner sees the recipient's download; the recipient sees only rows about themselves |
 | Role denial | Anonymous callers get 401; an ordinary user gets 403 on admin, chain-verification and recovery-key routes; the admin gets in and the chain verifies |
 | Account deletion | A wrong password leaves the account intact; deletion ends sessions and sign-in, destroys owned files, and leaves a valid audit chain |
@@ -164,6 +164,16 @@ free. Results land in `E2E_BROWSER_REPORT_DIR` (default `./e2e-browser-reports`)
 and `html/` (`npx playwright show-report e2e-browser-reports/html`). Each run registers new
 accounts, and the verification-code limit is 20 sends per IP per window, so for many repeated
 runs recreate the database in between.
+
+#### Slide screenshots (`E2E_BROWSER=capture`)
+
+`E2E_BROWSER=capture E2E_CAPTURE_DIR=docs/presentation/screenshots` runs neither suite. It runs
+`frontend/browser-tests/capture/ac4a-recovery.capture.ts` with its own config
+(`playwright.capture.config.ts`) and writes the seven AC4a screenshots: the file Verified, Modified
+after one byte is flipped, the refused download, Admin → Integrity, the Security agent's Critical
+`INTEGRITY_DAMAGE` finding, Verified again after the original bytes are put back, and Admin →
+Integrity clean. It is the only mode that passes the seeded admin's password to the browser, and CI
+never uses it. The flip has the same disposable-directory guard as the tamper test.
 
 #### What CI keeps, and what it never records
 

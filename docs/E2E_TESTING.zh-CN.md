@@ -85,7 +85,7 @@ passphrase，`@example.com` 地址），提升一个新管理员，启动 `backe
 | 登出 | 访问令牌和刷新令牌都失效 |
 | 解锁 | 别人的 passphrase 被拒绝；正确的能打开密钥 |
 | 文件算法 | AES-128/192/256-GCM、AES-256-GCM-SIV、ChaCha20-Poly1305 和 XChaCha20-Poly1305 都能往返二进制内容、报告正确的算法，且只提供密文 |
-| 分享与撤销 | 接收者用自己的 passphrase 解密、不能再分享，撤销后读取和下载都得到统一的 404 |
+| 分享与撤销 | 对六种套件各做一次：接收者在列表里看到文件、用自己的 passphrase（而不是发送方的）解出相同字节、服务器完整性检查返回 VALID、接收者不能再分享，撤销后读取、下载和完整性检查都得到统一的 404 |
 | 审计可见性 | 所有者看到接收者的下载；接收者只看到与自己有关的行 |
 | 角色拒绝 | 匿名调用得到 401；普通用户访问管理员、链校验和恢复公钥接口得到 403；管理员可以进入且链校验通过 |
 | 注销账户 | 密码错误时账户不受影响；注销会结束会话和登录、销毁自有文件，并保持审计链有效 |
@@ -148,6 +148,14 @@ E2E_BROWSER=only DB_HOST=... bash backend/tests/e2e/run_live_stack.sh
 `E2E_BROWSER_REPORT_DIR`（默认 `./e2e-browser-reports`）：`junit.xml` 和 `html/`
 （`npx playwright show-report e2e-browser-reports/html`）。每次运行都会注册新账户，而验证码限制为每个 IP 每个
 时间窗 20 次，所以反复运行多次时请在中间重建数据库。
+
+#### 幻灯片截图（`E2E_BROWSER=capture`）
+
+`E2E_BROWSER=capture E2E_CAPTURE_DIR=docs/presentation/screenshots` 不跑任何测试套件，只用单独的配置
+（`playwright.capture.config.ts`）运行 `frontend/browser-tests/capture/ac4a-recovery.capture.ts`，截下 AC4a 的七张图：
+文件 Verified、翻转一个字节后 Modified、被拒绝的下载、Admin → Integrity、安全代理的 Critical `INTEGRITY_DAMAGE` 发现、
+写回原始字节后重新 Verified、Admin → Integrity 恢复干净。只有这个模式会把种子管理员的密码交给浏览器，CI 从不使用它。
+翻转字节和篡改测试一样有一次性目录的保护。
 
 #### CI 保留什么、从不记录什么
 

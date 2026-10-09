@@ -4,7 +4,7 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 
 | | |
 |---|---|
-| Version | 1.1 — Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 |
+| Version | 1.3, 2026-10-09. Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 and 2026-10-08; see §14 for every revision |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
 | Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech`. Register statuses rechecked 2026-10-07 against `e4b3f13` (schema `0010_shared_file_folders`) |
@@ -137,7 +137,7 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 
 | ID | Threat | Control | Status |
 |---|---|---|---|
-| T-S1 | Password guessing against login | Argon2id hashes; per-account and per-IP throttles in `auth_login_throttles`; nginx `secureview_auth` at 12 requests per minute per IP | Mitigated |
+| T-S1 | Password guessing against login | Argon2id hashes; per-account and per-IP throttles in `auth_login_throttles` (10 failures per account, 500 per address); nginx `secureview_auth` at 60 credential checks per minute per IP; fail2ban after 60 rejected credentials in ten minutes (§11.5) | Mitigated |
 | T-S2 | Account enumeration through registration, code sending or password reset | Code sending and password reset answer identically whether or not the account exists, and spend the allowance either way | Mitigated 2026-10-09: `POST /auth/register` now consumes the verification code before looking at the email, and a registered address answers the same `422 invalid_verification_code` as a wrong code. Only a taken username is reported (`409`, before the code), and usernames are public because sharing resolves them. → F-08 |
 | T-S3 | Session hijack by token theft | Tokens stored only as SHA-256; access 30 min, refresh 7 days, absolute 7 days; a replayed refresh token revokes the whole session family (`AUTH_REFRESH_REPLAY_DETECTED`) | Partial — see T-I4 for where tokens are kept |
 | T-S4 | Substituted **recovery public key**, so every future upload is wrapped to an attacker | Browser recomputes the fingerprint from the PEM and displays it; the API's own fingerprint field is never trusted | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The highest-impact of the three substitutions, and the first to fix if the project continues. |
@@ -184,8 +184,8 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 
 | ID | Threat | Control | Status |
 |---|---|---|---|
-| T-D1 | Request flooding | nginx `secureview_api` at 10 requests per second per IP, burst 20 | Partial — per-IP only |
-| T-D2 | Upload abuse filling the disk | 500 MiB per upload; per-account 2 GiB storage and 5 GiB per 24 h; uploads refused below a free-disk floor; 10 uploads in flight per IP in nginx; `UPLOAD_BURST` agent rule; 85 % filesystem alert | Mitigated — one account can no longer fill the disk; many accounts still could, slowly, and registration is gated by email verification. → F-09 |
+| T-D1 | Request flooding | nginx `secureview_api` at 30 requests per second per IP, burst 60 (sized for a venue network that arrives as one address, §11.5) | Partial — per-IP only |
+| T-D2 | Upload abuse filling the disk | 500 MiB per upload; per-account 2 GiB storage and 5 GiB per 24 h; uploads refused below a free-disk floor; 50 uploads in flight per IP in nginx; `UPLOAD_BURST` agent rule; 85 % filesystem alert | Mitigated — one account can no longer fill the disk; many accounts still could, slowly, and registration is gated by email verification. → F-09 |
 | T-D3 | Very large uploads exhaust the **browser** | — | Accepted — the in-memory design peaks near four times the file size; owned by the upload work, not this model → F-19 |
 | T-D4 | Lock-out by envelope overwrite | See T-T3 | Mitigated |
 
@@ -475,15 +475,15 @@ could take over sessions. This raises T-I6 from the low severity recorded in v0.
 
 ### 11.3 Upload abuse
 
-Each upload is capped at 500 MiB, in both nginx and the backend, and `/api/` is rate-limited to 10
-requests per second per IP with a burst of 20. Since 2026-10-04 the backend also refuses an upload
+Each upload is capped at 500 MiB, in both nginx and the backend, and `/api/` is rate-limited to 30
+requests per second per IP with a burst of 60. Since 2026-10-04 the backend also refuses an upload
 that would take an account over 2 GiB of stored ciphertext (`USER_STORAGE_QUOTA_BYTES`, 413
 `storage_quota_exceeded`) or over 5 GiB uploaded in the last 24 hours, deleted files included so
 that delete-and-reupload does not reset it (`USER_DAILY_UPLOAD_BYTES`, 429 `upload_daily_limit`),
 and refuses every upload that would leave the storage filesystem below a floor
 (`UPLOAD_MIN_FREE_DISK_BYTES`, 507 `server_storage_low`; 20 GiB on staging, which shares its disk
 with other services). The checks use the declared size, which is then verified against the bytes
-received, and run before anything is stored. nginx allows ten uploads in flight per address, and
+received, and run before anything is stored. nginx allows fifty uploads in flight per address, and
 the security agent's `UPLOAD_BURST` rule reports 30+ uploads by one account in ten minutes. What
 remains is many accounts filling the disk together, which needs that many verified email
 addresses and is still caught by the floor and the 85 % alert → F-09. Separately, in-browser encryption holds about four times the file size in memory
@@ -512,6 +512,36 @@ around it:
 - One RECOVERY_OFFICER may both approve and execute a request → F-13.
 - An execution package already delivered cannot be recalled after revocation. This was already
   recorded in [SECURITY_FLOWS.md](SECURITY_FLOWS.md#offline-recovery-boundary) and is accepted.
+
+### 11.6 Shared networks: every per-address limit is really per-room
+
+Every limit keyed on the client address assumes one address is one person. On a campus or
+venue Wi-Fi it is not: the whole room sits behind one NAT and reaches the server as a single IP.
+With the original values a lecture hall using the site at the same time would have tripped the
+limits by itself, and worse, fail2ban matched every 401 under `/api/v1/auth/`, including the
+`/auth/me` call that every open tab makes once its thirty-minute access token has expired, so a
+few idle tabs could ban the entire venue for an hour. On 2026-10-09, before the final
+presentation, the per-address limits were resized for about a hundred people behind one address
+while the per-account limits stayed as they were:
+
+| Layer | Limit | Was | Now |
+| --- | --- | --- | --- |
+| nginx `secureview_api` | requests per second per address, burst | 10, 20 | 30, 60 |
+| nginx `secureview_auth` | credential checks per minute per address, burst | 12, 8, on all of `/api/v1/auth/` | 60, 30, only on login, register, password reset, change password, delete account and code sending |
+| nginx `secureview_upload_conn` | uploads in flight per address | 10 | 50 |
+| fail2ban `secureview-auth` | rejected credentials in ten minutes, then ban | 20 then 1 h, any 401 or 429 under `/api/v1/auth/` | 60 then 15 min, only a 401 on the credential routes |
+| backend `AUTH_LOGIN_IP_MAX_FAILURES` | failed sign-ins per address in 15 min | 50 | 500 |
+| backend `AUTH_REAUTH_IP_MAX_FAILURES` | failed password re-checks per address | 20 | 200 |
+| backend `AUTH_REGISTRATION_MAX_ATTEMPTS` | registrations per address per hour | 10 | 200 |
+| backend `VERIFICATION_SEND_IP_MAX_PER_WINDOW` | codes sent per address per hour | 20 | 300 |
+| backend `VERIFICATION_CHECK_IP_MAX_FAILURES` | wrong codes per address per hour | 50 | 500 |
+
+What still protects an account is unchanged: ten failed sign-ins block the account for five
+minutes, five failed re-checks block password change, five wrong codes burn a code, five codes
+per email address per hour. What the per-address limits now stop is a script, not a crowd: sixty
+wrong passwords in ten minutes is one every ten seconds, which a guessing tool reaches in its
+first minute and a room of people mistyping does not. The residual risk is the one T-D1 already
+records: a flood from many addresses is not stopped at this layer.
 
 ## 12. Findings register
 
@@ -589,3 +619,4 @@ F-02 in particular.
 | 1.0 | §11: supply chain (point-in-time scans clean), CSP exceptions, upload abuse, token storage and recovery operations. T-I6 raised to Medium: `/docs` runs an unpinned third-party script on the token-bearing origin. §12: register of 20 findings with severity, disposition, owner and evidence. §13: review record, stating that no independent external review took place. |
 | 1.1 | Register statuses refreshed against the live staging state on 2026-10-01: F-10, F-11, F-20 resolved; F-12 partly resolved and F-19 mitigated; F-01 records that branch protection needs a paid plan. No analysis changed. |
 | 1.2 | F-01 and T-E5 updated: deployment is gated on CI (#117, installed 2026-10-01). No analysis changed. |
+| 1.3 | 2026-10-09. §11.6 added with the per-address limits resized for a venue network behind one NAT (#210). F-04 recorded as mitigated by #205 (2026-10-08), which v1.2 had not picked up, and the version line above brought in line with this table. Sharing (T-S5): the client does not decrypt the file before a share; [FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md) §6 now says what it checks instead and why a wrong rewrap is a share that does not work rather than a disclosure. No other analysis changed. |

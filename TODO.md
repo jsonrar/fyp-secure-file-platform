@@ -16,9 +16,9 @@ items below still need product, operations, security-review, or deployment evide
 work is not marked complete.
 
 The proposal audit is recorded in
-[`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): 22 of 24 WBS packages are
-Done, one is In review and one is In progress (non-expert usability: the product has had informal
-real use, but the formal study was not run and #115 was closed as not planned). Every product acceptance criterion is Done; the last one, the dismissible progress pipeline (AC7),
+[`docs/PROPOSAL_TRACEABILITY.md`](docs/PROPOSAL_TRACEABILITY.md): 23 of 24 WBS packages are
+Done and one is In review (security testing, waiting for an independent external review). Non-expert
+usability is Done on informal real use; the formal study was not run and #115 was closed as not planned. Every product acceptance criterion is Done; the last one, the dismissible progress pipeline (AC7),
 closed with [PR #200](https://github.com/jsonrar/fyp-secure-file-platform/pull/200). Milestone M3 is Done based on
 the supervisor-reviewed and signed MVP/UI checkpoint; the supervisor's 70–80% whole-project
 assessment describes that historical checkpoint rather than an exact current completion value.
@@ -62,6 +62,7 @@ Features lane was retired from the home page in that redesign (#177).
   now has a labelled, numbered question column, and the footer has no empty track ([PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)).
   Headings and intros site-wide: one line where they fit, breaks only between sentences, no two-sentence
   headings, checked by `text-audit.mjs` ([PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195)).
+- [x] Every upload suite in every browser (2026-10-09): AES-192-GCM falls back to `@noble/ciphers` where WebCrypto lacks it, all six suites are shared end to end in the live suite, and the backend checks `docs/crypto/test_vectors.json` itself.
 
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.

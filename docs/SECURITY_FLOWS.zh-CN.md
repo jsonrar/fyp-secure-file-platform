@@ -195,7 +195,12 @@ Argon2id 校验，以及统一的公开失败响应。成功登录会生成相�
 
 客户端先取得活跃恢复公钥，按用户所选套件生成随机 DEK 和 nonce（AES-128/192/256-GCM、
 AES-256-GCM-SIV、ChaCha20-Poly1305 使用 96-bit nonce，XChaCha20-Poly1305 使用 192-bit nonce，
-默认 AES-256-GCM），在本地加密文件，再用 RSA-OAEP-SHA256 将 DEK 分别包装给自己的活跃公钥和恢复公钥。随后发送一个
+默认 AES-256-GCM），在本地加密文件，再用 RSA-OAEP-SHA256 将 DEK 分别包装给自己的活跃公钥和恢复公钥。
+AES-GCM 由浏览器的 WebCrypto 执行；AES-256-GCM-SIV 和两种 ChaCha 套件由 `@noble/ciphers` 执行。
+AES-192-GCM 是唯一一种部分浏览器原生没有的套件（Chromium 从未提供），所以客户端会按密钥长度探测一次
+WebCrypto，被拒绝时也改用 `@noble/ciphers` 做 AES-GCM。两者产生的密文和 tag 完全相同，因此六种套件
+在所有浏览器里都可选，在一个浏览器里封装的文件在任何浏览器里都能打开。AES-256-GCM 不会回退：账户
+密钥信封依赖它，没有它的浏览器会被直接拒绝。随后发送一个
 multipart 请求，其中包含密文和 JSON 元数据信封。
 
 ```text
@@ -249,7 +254,10 @@ DEK 及可选加密 manifest。`POST /files/{file_id}/download` 校验存储密�
 ```
 
 服务器不会取得发送方私钥或明文 DEK。它能确认提交字节的 RSA 密文长度正确，但无法证明其中
-加密的是正确 DEK；可行时，共享客户端应在提交前自测。若发送方没有对应能力，目标就不能取得
+加密的是正确 DEK。客户端在分享前也不会先解密文件，因为那意味着先把整个文件下载下来；它依赖的是
+RSA-OAEP 解包本身带认证、`unwrapDek` 会检查密钥长度，所以它 rewrap 的 DEK 就是上传时封装的那把，
+而一把错的 DEK 只会让接收方下载时过不了 AEAD tag 校验（见 `docs/crypto/FILE_ENVELOPE.zh-CN.md`
+第 6 节）。若发送方没有对应能力，目标就不能取得
 `can_download` 或 `can_share`，因此委托分享不能借另一个账户重新获得被拒绝的能力。规范所有者
 授权不可变，无关的委托分享者也不能覆盖或复活已有非所有者授权。
 
@@ -259,6 +267,62 @@ DEK 及可选加密 manifest。`POST /files/{file_id}/download` 校验存储密�
 
 撤销要求 REVOKE 权限，不得针对规范所有者，并原子撤销目标授权及其活跃用户包装。它能阻止
 未来由服务器介导的访问，但无法删除接收者已经复制的密文、DEK 或明文。
+
+### 分享的完整时序
+
+下图的顺序就是 `frontend/src/crypto/share.ts`、`frontend/src/components/ShareDialog.vue` 和
+`backend/app/services/sharing_service.py` 里调用的顺序。如果发送方的密钥还没解锁，分享在请求任何东西之前就停下，
+弹出口令对话框，解锁后回到确认这一步，所以解锁一定发生在解包 DEK 之前。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Alice（发送方）
+    participant AB as Alice 的浏览器
+    participant API as SecureView API
+    participant DB as MySQL
+    participant BB as Bob 的浏览器
+    actor B as Bob（接收方）
+
+    A->>AB: 分享，输入 "bob"
+    AB->>API: GET /keys/users/by-identifier/bob/active
+    API->>DB: 查 Bob 当前的公钥
+    API-->>AB: user_id、key_id、public_key_pem、fingerprint
+    AB->>AB: 自己对公钥算 SHA-256，必须和服务器给的指纹一致
+    AB-->>A: 显示 Bob 和他的指纹（和上次不同就警告）
+    A->>AB: 确认并分享
+    alt Alice 的账户密钥还锁着
+        AB-->>A: 口令对话框
+        A->>AB: 输入口令
+        AB->>API: GET /keys/me（加密的密钥包）
+        API-->>AB: 封装的 AMK、加密的私钥、KDF 参数
+        AB->>AB: Argon2id 派生 KEK，解开 AMK，HKDF，解开私钥（只放在内存里）
+        AB->>API: GET /keys/users/by-identifier/bob/active（重新查一次）
+        API-->>AB: 同一把公钥，再核对一次指纹
+        A->>AB: 确认并分享
+    end
+    AB->>API: GET /files/{file_id}
+    API-->>AB: 元数据和 crypto_envelope（Alice 的 wrapped_file_key、key_id）
+    AB->>AB: 如果 Bob 的 key_id 就是 Alice 自己的，拒绝
+    AB->>AB: 用 Alice 的私钥 RSA-OAEP 解包 DEK，检查长度
+    AB->>AB: 用 Bob 的公钥 RSA-OAEP-SHA256 重新封装同一个 DEK
+    AB->>API: POST /files/{file_id}/share（target_user_id、target_key_id、wrapped_file_key、can_download、can_share）
+    API->>DB: 锁文件，检查 SHARE 权限，把权限削到不超过 Alice 自己的
+    API->>DB: 锁 Bob 和他的密钥，检查封装长度，写入或更新授权和封装
+    API->>DB: 写 FILE_SHARED 审计事件，提交
+    API-->>AB: 200 created
+    API-->>B: 邮件通知（提交之后发，失败不影响分享）
+    B->>BB: 与我共享，下载并解密
+    BB->>API: GET /files/{file_id}
+    API-->>BB: 带 Bob 的 wrapped_file_key 的 crypto_envelope
+    BB->>API: POST /files/{file_id}/download
+    API->>API: 存储的密文算 SHA-256，和记录的哈希比对
+    API-->>BB: 密文（不一致就拒绝）
+    BB->>BB: 用 Bob 的私钥解包 DEK，AEAD 解密并校验 tag
+    BB-->>B: 原文件
+```
+
+服务器能看到给 Bob 的封装 DEK 和密文，看不到 DEK、任何一方的私钥或明文。
 
 ## 离线恢复边界
 
