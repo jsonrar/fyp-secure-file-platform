@@ -74,6 +74,24 @@ export const STORY_SCENES: StoryScene[] = [
 ]
 
 /** The advantages, for the comparison section: ordinary cloud storage versus SecureView. */
+/**
+ * How long a scene stays up before the explainer moves on by itself.
+ *
+ * A fixed 7 s felt slow in the supervisor meeting: most viewers had read the caption and were
+ * waiting. Each scene now gets 4 s, plus a little for captions longer than the short first one,
+ * so the longest stays about 5 s. Anyone who wants longer presses Pause.
+ */
+export const SCENE_BASE_MS = 4000
+export const SCENE_MAX_MS = 5000
+const SHORT_CAPTION_CHARS = 150
+const MS_PER_EXTRA_CHAR = 6
+
+export function sceneDuration(scene: StoryScene): number {
+  const chars = scene.title.length + scene.body.length + scene.why.length
+  const extra = Math.max(0, chars - SHORT_CAPTION_CHARS) * MS_PER_EXTRA_CHAR
+  return Math.min(SCENE_MAX_MS, SCENE_BASE_MS + extra)
+}
+
 export interface Comparison {
   question: string
   ordinary: string

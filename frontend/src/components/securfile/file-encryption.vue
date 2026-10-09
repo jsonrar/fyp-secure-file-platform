@@ -15,6 +15,7 @@ import {
   classifyUploadSize,
   encryptAndUpload,
   fetchUploadRecipients,
+  filesStillToUpload,
   MAX_UPLOAD_BYTES,
   type UploadEvent,
   type UploadRecipients,
@@ -60,16 +61,33 @@ onMounted(async () => {
   }
 })
 
+/**
+ * A short grade after each name, so someone who does not know the ciphers can still pick one.
+ * Every suite here is safe; "Max" is a 256-bit key (or ChaCha20, which only has 256), "High" is
+ * a shorter AES key that is still secure, not a weak option.
+ */
+const ALGORITHM_LABELS: Record<EncryptionAlgorithm, string> = {
+  'AES-256-GCM': 'AES-256-GCM · Max · Recommended',
+  'AES-256-GCM-SIV': 'AES-256-GCM-SIV · Max · Extra safety net',
+  'XChaCha20-Poly1305': 'XChaCha20-Poly1305 · Max · Long nonce',
+  'ChaCha20-Poly1305': 'ChaCha20-Poly1305 · Max · Fast on phones',
+  'AES-192-GCM': 'AES-192-GCM · High',
+  'AES-128-GCM': 'AES-128-GCM · High · Standard',
+}
+
 const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {
-  'AES-256-GCM': 'The default, and what the recovery path is tested against.',
+  'AES-256-GCM':
+    'The default and our recommendation. Most computers and phones have AES built into the processor, so it is fast, and it is the algorithm the recovery process is tested with.',
   'AES-256-GCM-SIV':
-    'AES with a synthetic IV (RFC 8452): a repeated nonce would reveal only that the same file was encrypted twice, never the key. Runs in a JavaScript library, so it is noticeably slower than the default on very large files.',
+    'AES-256 with an extra safety net (RFC 8452). If a random nonce were ever repeated, an attacker would only learn that the same file was encrypted twice, never its contents. Runs in a JavaScript library, so it is slower than the default on very large files.',
   'XChaCha20-Poly1305':
-    'ChaCha20-Poly1305 with a 24-byte nonce, long enough to choose at random without ever repeating. What libsodium recommends. Fast in the browser.',
+    'ChaCha20-Poly1305 with a 24-byte nonce, long enough to pick at random without ever repeating. What libsodium recommends, and a good choice on devices without AES hardware.',
   'ChaCha20-Poly1305':
-    'A different construction, not a different key length: a stream cipher authenticated by Poly1305. The usual choice on devices without AES hardware; here it runs in a JavaScript library.',
-  'AES-192-GCM': 'AES at an intermediate key length. Chrome and Edge lack it in WebCrypto, so there it runs in a JavaScript library; the files are identical either way.',
-  'AES-128-GCM': 'AES at the shortest of its three key lengths. Still considered secure.',
+    'A stream cipher authenticated by Poly1305, built differently from AES rather than with a different key length. It is designed to be fast in plain software, which is why phones without AES hardware use it. Here it runs in a JavaScript library.',
+  'AES-192-GCM':
+    'AES with its middle key length. Rarely used in practice. Chrome and Edge do not offer it in WebCrypto, so there it runs in a JavaScript library and is slower; the encrypted file is the same either way.',
+  'AES-128-GCM':
+    'AES with its shortest key. Still considered secure and widely used in HTTPS. Pick it if you need to match a system that expects 128-bit keys.',
 }
 
 /** A file over the limit can never upload, so the batch cannot start until it is removed. */
@@ -179,10 +197,13 @@ const removeFile = (index: number) => {
  *
  * The recipient public keys are fetched once for the whole batch rather than per file.
  * Each file reports its own outcome, because one rejected filename should not hide the
- * files that did upload.
+ * files that did upload. Retrying after a failure sends only the files that failed.
  */
 const handleEncrypt = async () => {
-  if (!files.value.length || hasOversizeFile.value) return
+  // Only files that have not uploaded yet. Before, a second press after "Encryption Complete"
+  // went round the whole list again and uploaded every file a second time.
+  const queue = filesStillToUpload(files.value)
+  if (!queue.length || isEncrypting.value || hasOversizeFile.value) return
   isEncrypting.value = true
   errorMessage.value = ''
   isEncrypted.value = false
@@ -198,8 +219,8 @@ const handleEncrypt = async () => {
   }
 
   let failures = 0
-  const paced = files.value.length <= PACED_BATCH_LIMIT
-  for (const file of files.value) {
+  const paced = queue.length <= PACED_BATCH_LIMIT
+  for (const file of queue) {
     file.status = 'encrypting'
     file.error = ''
     progress.value = startProgress(file)
@@ -218,7 +239,7 @@ const handleEncrypt = async () => {
   isEncrypting.value = false
   isEncrypted.value = failures === 0
   if (failures > 0) {
-    errorMessage.value = `${failures} of ${files.value.length} file(s) failed. See each file below.`
+    errorMessage.value = `${failures} of ${queue.length} file(s) failed. See each file below.`
   }
 }
 
@@ -309,9 +330,14 @@ const goToFiles = () => {
                     class="h-10 min-w-0 max-w-full font-mono text-sm text-foreground bg-transparent border border-input rounded-md px-2 py-1 disabled:opacity-50"
                   >
                     <option v-for="choice in algorithmChoices" :key="choice" :value="choice">
-                      {{ choice }}
+                      {{ ALGORITHM_LABELS[choice] }}
                     </option>
                   </select>
+                </div>
+                <!-- What the chosen algorithm is good at, so the grade in the list is not the only hint. -->
+                <div class="rounded-md border border-border bg-background p-3" data-testid="algorithm-detail">
+                  <p translate="no" class="font-mono text-sm text-foreground">{{ algorithm }}</p>
+                  <p class="mt-1 text-sm text-muted-foreground">{{ ALGORITHM_NOTES[algorithm] }}</p>
                 </div>
                 <div class="flex justify-between text-sm">
                   <span class="text-muted-foreground">File key wrapping</span>
@@ -326,9 +352,7 @@ const goToFiles = () => {
                 </div>
               </div>
               <p class="text-sm text-muted-foreground">
-                <!-- The note is its own element so it is translated on its own: joined to the sentence
-                     below it was one text node that matched nothing in the dictionary. -->
-                <span>{{ ALGORITHM_NOTES[algorithm] }}</span> A fresh key is generated per file and wrapped, with
+                A fresh key is generated per file and wrapped, with
                 RSA-OAEP, to your public key and to the recovery key. (SHA-256 appears in that name
                 because OAEP uses it inside its padding; it is not a checksum of your file.) Neither
                 the file key nor your readable file leaves this browser unprotected.
@@ -355,9 +379,24 @@ const goToFiles = () => {
             />
 
             <div class="mt-8">
-              <button :disabled="!files.length || isEncrypting || hasOversizeFile" class="w-full h-12 inline-flex items-center justify-center gap-2 rounded-lg bg-primary font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50" @click="handleEncrypt">
+              <!-- Once everything has uploaded this is a status, not a button: pressing it used to
+                   upload the same files again. Adding a file brings the button back. -->
+              <div
+                v-if="isEncrypted"
+                role="status"
+                class="w-full h-12 inline-flex items-center justify-center gap-2 rounded-lg bg-[#7ce0b5] font-medium text-[#07090d]"
+                data-testid="encryption-complete"
+              >
+                <Check class="h-4 w-4" /> Encryption Complete
+              </div>
+              <button
+                v-else
+                :disabled="!files.length || isEncrypting || hasOversizeFile"
+                class="w-full h-12 inline-flex items-center justify-center gap-2 rounded-lg bg-primary font-medium text-primary-foreground hover:bg-primary/90 disabled:opacity-50"
+                data-testid="start-encryption"
+                @click="handleEncrypt"
+              >
                 <template v-if="isEncrypting"><RefreshCw class="h-4 w-4 animate-spin" /> Encrypting...</template>
-                <template v-else-if="isEncrypted"><Check class="h-4 w-4" /> Encryption Complete</template>
                 <template v-else><Lock class="h-4 w-4" /> Start Encryption</template>
               </button>
               <button v-if="isEncrypted" class="w-full h-11 mt-4 inline-flex items-center justify-center gap-2 rounded-md border border-border hover:bg-secondary" @click="goToFiles">

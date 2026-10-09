@@ -136,7 +136,7 @@ test('ciphertext tampering is visible, blocks download, persists, and heals afte
       buffer: fileBytes,
     })
     await page.getByRole('button', { name: 'Start Encryption' }).click()
-    await expect(page.getByRole('button', { name: 'Encryption Complete' })).toBeVisible({
+    await expect(page.getByTestId('encryption-complete')).toBeVisible({
       timeout: 60_000,
     })
 
