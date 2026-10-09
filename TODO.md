@@ -81,7 +81,7 @@ The reason and evidence for shipped behavior belong in
 | Frontend live suites (`e2e-live`) | 959 passed, 0 skipped; statements 79.05 % | Every suite against a disposable API and MySQL |
 | Browser specs (`e2e-live`) | 57 passed | Playwright |
 | Tamper drill | Passed | Isolated attacker container (#90) |
-| Live staging | Running `0bb6238`, schema `0011_must_change_password` | `/health/ready` answers ready; the 0011 SQL was applied by hand before `c3569c8` was deploy, as DEPLOYMENT.md requires |
+| Live staging | Running `0bb6238`, schema `0011_must_change_password` | `/health/ready` answers ready; the 0011 SQL was applied by hand before `c3569c8` was deployed, as DEPLOYMENT.md requires |
 | Schema head | `0011_must_change_password` | Adds the admin-reset flag (#212) |
 
 ## Verified on 2026-10-07 (`main` at `e4b3f13`)
