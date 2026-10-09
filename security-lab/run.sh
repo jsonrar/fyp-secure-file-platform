@@ -22,6 +22,10 @@ compose() {
   docker compose --env-file "$ENV_FILE" -f "$COMPOSE_FILE" "$@"
 }
 
+# The project name is fixed, so a run that was cancelled before its trap fired leaves its
+# volumes behind, and MySQL then refuses this run's new random root password. Start clean.
+compose down --volumes --remove-orphans >/dev/null 2>&1 || true
+
 compose build target attacker
 compose up -d --wait mysql
 # Named volumes start root-owned. A one-shot initializer grants only the unprivileged lab uid

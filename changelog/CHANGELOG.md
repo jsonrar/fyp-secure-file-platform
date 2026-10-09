@@ -26,6 +26,8 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - 算法下拉框原来只有名字，导师指出普通用户根本不知道该选哪个。现在每一项后面都有一个简单等级：AES-256-GCM 是 “最高 · 推荐”（仍是默认），GCM-SIV 是 “额外保护”，XChaCha20 是 “长随机数”，ChaCha20 是 “手机上快”，AES-192 是 “高”，AES-128 是 “高 · 标准”。下拉框下面有一个说明框，用大白话解释当前选中的算法。128 位 AES 标成 “高” 而不是 “低”，因为它目前仍然安全；也没有写任何我们没实测过的速度数字。
 - The "What happens to your file" explainer on the Upload page waited 7 seconds on every step, which felt slow. Each step now stays about 3 seconds, up to 3.5 for longer captions (`sceneDuration` in `security-story.ts`). Pause and the arrows work as before; the full-screen `?present` view used for recording keeps its fixed timing.
 - 上传页的 “What happens to your file” 动画每一步都停 7 秒，看起来太慢。现在每步大约 3 秒，字多的步骤最多 3.5 秒（`security-story.ts` 里的 `sceneDuration`）。暂停和左右箭头不变；录视频用的全屏 `?present` 页面保持原来的固定时长。
+- CI: the tamper drill failed with "Access denied for user 'root'" after an earlier run on the same self-hosted runner was cancelled, because that run's MySQL volume was still there with a different random password. `security-lab/run.sh` now removes any leftover lab containers and volumes before it starts.
+- CI：同一台自托管 runner 上前一次运行被取消后，tamper drill 报 "Access denied for user 'root'"，因为那次的 MySQL 数据卷还在，密码是另一个随机值。`security-lab/run.sh` 现在启动前会先清掉残留的实验容器和数据卷。
 - The Encrypted preview shows 8 rows (128 bytes) of ciphertext and stays as it is. The server already stores the full ciphertext and "Download encrypted file" hands all of it to the owner, and AES-GCM is built to stay safe when an attacker sees every byte of it. This is recorded as T-I10 in `THREAT_MODEL.md` (version 1.4).
 - Encrypted preview 显示 8 行（128 字节）密文，保持不变。服务器本来就存着完整密文，“Download encrypted file” 也会把全部密文给所有者，而 AES-GCM 的设计前提就是攻击者能看到全部密文也安全。这一判断记录在 `THREAT_MODEL.md` 的 T-I10（版本 1.4）。
 
