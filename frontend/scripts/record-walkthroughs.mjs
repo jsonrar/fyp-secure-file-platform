@@ -87,9 +87,15 @@ await recordFlow('encrypt-upload', async (page) => {
   await unpoint(picker)
   await pause(page, 1200)
 
-  await caption(page, 4, 'Pick the cipher — AES-256-GCM is the default', 'AES-GCM-SIV, ChaCha20, XChaCha20 and AES-128/192 are here too. All of them detect tampering.')
-  await point(page.getByRole('combobox').first(), 2200)
-  await unpoint(page.getByRole('combobox').first())
+  await caption(page, 4, 'Pick the cipher — AES-256-GCM is the default', 'Each of the six choices shows a short grade. All of them detect tampering.')
+  // The language switcher in the header is also a combobox, and it comes first.
+  const cipher = page.getByRole('combobox', { name: 'File contents' })
+  await point(cipher, 2200)
+  await unpoint(cipher)
+  const detail = page.getByTestId('algorithm-detail')
+  await caption(page, 4, 'What the chosen cipher is good at', 'The box under the list explains the current choice in plain words.')
+  await point(detail, 2600)
+  await unpoint(detail)
 
   await caption(page, 5, 'Start Encryption', 'Your browser encrypts the file with a new random key. Only the scrambled result is uploaded.')
   await click(page.getByRole('button', { name: 'Start Encryption' }), 1000)
@@ -98,6 +104,10 @@ await recordFlow('encrypt-upload', async (page) => {
   await caption(page, 5, 'Every step is real and timed', 'Read, encrypt and self-check, wrap the key, upload. The bytes below are the file’s real first bytes and what the server received.')
   await point(steps, 4500)
   await unpoint(steps)
+  const done = page.getByTestId('encryption-complete')
+  await caption(page, 5, 'Encryption Complete', 'A status, not a button: the file is already uploaded, so there is nothing to press twice.')
+  await point(done, 2200)
+  await unpoint(done)
 
   await caption(page, 6, 'Your file is now stored encrypted')
   await click(page.getByRole('button', { name: 'View Encrypted Files' }))

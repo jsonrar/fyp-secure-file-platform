@@ -44,8 +44,9 @@ export const HELP_VIDEOS: HelpVideo[] = [
     steps: [
       'Sign in with your password (it only signs you in).',
       'Open Upload and choose a file.',
-      'Keep AES-256-GCM or pick another authenticated cipher.',
+      'Keep AES-256-GCM or pick another of the six ciphers; each shows a grade, and the box below explains the one chosen.',
       'Press Start Encryption: the file is encrypted before it is sent.',
+      'When it is done, Encryption Complete is a green status, not a button: the file is already uploaded.',
       'In My Files the sizes match — the tag is stored separately.',
       'Encrypted preview shows what the server holds: random-looking bytes.',
     ],

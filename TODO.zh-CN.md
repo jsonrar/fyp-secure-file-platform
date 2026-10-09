@@ -23,7 +23,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 （[PR #202](https://github.com/jsonrar/fyp-secure-file-platform/pull/202)）；为两条 npm 公告升级到 Vue 3.5.43（[PR #203](https://github.com/jsonrar/fyp-secure-file-platform/pull/203)）；部署前备份清理，当天已装到 VPS（删除 175 份旧备份，腾出 73 GB）
 （[PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)）；以及在浏览器中拒绝弱口令，威胁模型 F-04（[PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)）。
 
-首页图文指南（六张带标记的截图，中英文各一套）和帮助页视频已在“Sealed”改版后重新拍摄并上线 staging（#192）。
+首页图文指南（六张带标记的截图，中英文各一套）和帮助页视频已在“Sealed”改版后重新拍摄并上线 staging（#192）；2026-10-10 又按 #215 之后的上传页重拍了图文指南和两段帮助页演示视频。
 横向滚动的 Core Features 在那次改版中已从首页移除（#177）。
 
 - [x] 邮箱验证码注册与重置登录密码、登录与服务端撤销会话的登出、后端会话撤销端点、refresh 轮换、
@@ -256,8 +256,9 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 4 分钟现场演示的脚本——[docs/presentation/DEMO_SCRIPT.zh-CN.md](docs/presentation/DEMO_SCRIPT.zh-CN.md)
 - [x] 在 staging 上建好演示账号 `demo-alice` / `demo-bob`（2026-10-04）
 - [x] 录备用视频——[docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)
-- [ ] 账户安全这批改动上线到 staging 之后，重录备用视频 [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4) 和帮助页视频
-  `frontend/public/videos/encrypt-upload.mp4`：两者拍到的仍是 [PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215) 之前的上传页面
+- [x] 按 [PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215) 之后的上传页重录帮助页视频 `frontend/public/videos/encrypt-upload.mp4` 和 `share-open.mp4`，并重拍首页图文指南（2026-10-10）
+- [ ] 重录备用视频 [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)：拍到的仍是 PR #215 之前的上传页面，
+  也没有访问记录（AC5）和 Security agent（AC8）这两步
 - [x] 在 staging 上用 `demo-alice` 上传 `quarterly-results.txt` 并分享给 `demo-bob`（2026-10-08 核实：已分享且有效；现场篡改那一步要用）
 - [x] 文件行操作：下载（解密）、分享、删除三个按钮带文字直接显示，其余收进"更多"；修掉约 800 px 宽度下助手按钮压住操作的问题（[PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159)）
 - [x] 重新截取首页图文指南：截图里还是旧的六个图标（2026-10-04 已更新；第 5 步现在显示带密钥指纹的接收方确认）

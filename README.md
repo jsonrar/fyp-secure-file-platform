@@ -106,7 +106,8 @@ The homepage's picture guide offers six annotated screenshots from the real UI, 
 Chinese, covering file selection, encryption, sharing, unlock, and recipient download. Visitors
 can pause, enlarge images, swipe on phones, or let 8-second autoplay run with a visible progress
 bar. Completed steps show a check. The pictures use fabricated data and mobile crops; they were
-re-shot after the redesign on 2026-10-05 (#192) and are live on staging.
+re-shot after the redesign on 2026-10-05 (#192), and again on 2026-10-10 for the upload page's
+graded algorithm list (#215).
 
 The remaining work is production hardening rather than an unfinished basic demo: a UI for
 successor keys (the API exists), the two open *Recommended* security
