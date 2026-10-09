@@ -149,6 +149,14 @@ E2E_BROWSER=only DB_HOST=... bash backend/tests/e2e/run_live_stack.sh
 （`npx playwright show-report e2e-browser-reports/html`）。每次运行都会注册新账户，而验证码限制为每个 IP 每个
 时间窗 20 次，所以反复运行多次时请在中间重建数据库。
 
+#### 幻灯片截图（`E2E_BROWSER=capture`）
+
+`E2E_BROWSER=capture E2E_CAPTURE_DIR=docs/presentation/screenshots` 不跑任何测试套件，只用单独的配置
+（`playwright.capture.config.ts`）运行 `frontend/browser-tests/capture/ac4a-recovery.capture.ts`，截下 AC4a 的七张图：
+文件 Verified、翻转一个字节后 Modified、被拒绝的下载、Admin → Integrity、安全代理的 Critical `INTEGRITY_DAMAGE` 发现、
+写回原始字节后重新 Verified、Admin → Integrity 恢复干净。只有这个模式会把种子管理员的密码交给浏览器，CI 从不使用它。
+翻转字节和篡改测试一样有一次性目录的保护。
+
 #### CI 保留什么、从不记录什么
 
 在 CI 中，这个测试在 `e2e-live` 任务里紧跟 Node 测试运行，使用同一个环境。只安装 Chromium

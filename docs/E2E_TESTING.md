@@ -165,6 +165,16 @@ and `html/` (`npx playwright show-report e2e-browser-reports/html`). Each run re
 accounts, and the verification-code limit is 20 sends per IP per window, so for many repeated
 runs recreate the database in between.
 
+#### Slide screenshots (`E2E_BROWSER=capture`)
+
+`E2E_BROWSER=capture E2E_CAPTURE_DIR=docs/presentation/screenshots` runs neither suite. It runs
+`frontend/browser-tests/capture/ac4a-recovery.capture.ts` with its own config
+(`playwright.capture.config.ts`) and writes the seven AC4a screenshots: the file Verified, Modified
+after one byte is flipped, the refused download, Admin → Integrity, the Security agent's Critical
+`INTEGRITY_DAMAGE` finding, Verified again after the original bytes are put back, and Admin →
+Integrity clean. It is the only mode that passes the seeded admin's password to the browser, and CI
+never uses it. The flip has the same disposable-directory guard as the tamper test.
+
 #### What CI keeps, and what it never records
 
 In CI the test runs inside the `e2e-live` job right after the Node suites, against the same

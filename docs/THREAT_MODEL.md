@@ -4,7 +4,7 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 
 | | |
 |---|---|
-| Version | 1.1 — Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 |
+| Version | 1.3, 2026-10-09. Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 and 2026-10-08; see §14 for every revision |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
 | Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech`. Register statuses rechecked 2026-10-07 against `e4b3f13` (schema `0010_shared_file_folders`) |
@@ -619,3 +619,4 @@ F-02 in particular.
 | 1.0 | §11: supply chain (point-in-time scans clean), CSP exceptions, upload abuse, token storage and recovery operations. T-I6 raised to Medium: `/docs` runs an unpinned third-party script on the token-bearing origin. §12: register of 20 findings with severity, disposition, owner and evidence. §13: review record, stating that no independent external review took place. |
 | 1.1 | Register statuses refreshed against the live staging state on 2026-10-01: F-10, F-11, F-20 resolved; F-12 partly resolved and F-19 mitigated; F-01 records that branch protection needs a paid plan. No analysis changed. |
 | 1.2 | F-01 and T-E5 updated: deployment is gated on CI (#117, installed 2026-10-01). No analysis changed. |
+| 1.3 | 2026-10-09. §11.6 added with the per-address limits resized for a venue network behind one NAT (#210). F-04 recorded as mitigated by #205 (2026-10-08), which v1.2 had not picked up, and the version line above brought in line with this table. Sharing (T-S5): the client does not decrypt the file before a share; [FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md) §6 now says what it checks instead and why a wrong rewrap is a share that does not work rather than a disclosure. No other analysis changed. |

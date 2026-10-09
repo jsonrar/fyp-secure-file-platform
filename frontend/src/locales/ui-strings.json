@@ -1404,6 +1404,7 @@
   "Shared with you by {0}. You open it with your own key, and the server never sees the file.",
   "Shares",
   "Shares sent",
+  "Sharing details are hidden while this file fails its integrity check. They come back once it is restored.",
   "Sharing gives one named account access, and can be revoked. There is no public link to leak.",
   "Sharing re-seals the key for Bob; the file is not copied.",
   "Sharing re-seals the key, not the file",
