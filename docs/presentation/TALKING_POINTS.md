@@ -75,7 +75,18 @@ on the night of 2026-10-03/04.
 (HTTP 500) to **102 of 102 succeeded**, with 0 integrity failures on 102 decrypted downloads
 ([evidence](../performance/pool-fix-2026-10-04/README.md)).
 
-**Key numbers:**
+**Re-measured after all fixes (2026-10-09, release `ac5e2b0`):** this time through the public URL
+`https://secureview.tech`, the same path a real user takes (HTTPS, nginx, limits on).
+18,256 operations; 7,444 downloads decrypted and SHA-256-compared, **0 integrity failures and 0 server
+errors (no 5xx)**. Every request up to 50 users succeeded (upload p95 134 ms at 1 user, 3.3 s at 50).
+At 100 users the server still returned **no 500**. The 644 uploads refused in the two 100-user steps
+were 429s from nginx's limit of 50 uploads in flight per address, because all the load came from one
+laptop. That is the per-address limit doing its job; real users come from different addresses. All
+36 files (six types, 1 to 500 MiB) round-tripped byte-exact, including share and recipient download.
+Throughput levels off at about 8 to 9 MiB/s each way while server CPU averages 4.5 % and API memory
+stays at 199 MiB, so the VPS's 100 Mbit/s port is the limit, not the application ([report](../performance/REPORT-2026-10-09.md)).
+
+**Key numbers (before-fix baseline, 2026-10-03/04):**
 - 22,264 operations; 5,094 downloads decrypted and SHA-256-compared with the original, **0 integrity failures**
 - pdf/png/jpg/mp4/zip/exe from 1 MB to 500 MB all round-trip byte-exact (144/144)
 - 5 users on a mixed load for 108 minutes in total (19,372 operations) with no server error; no server
@@ -86,16 +97,20 @@ on the night of 2026-10-03/04.
 - Simultaneous sign-ins: by design the server verifies two passwords at a time (Argon2id is
   memory-hard); extra requests get an immediate 429 to retry, and nothing crashes
 
-**Evidence:** `docs/performance/REPORT-2026-10-03.md` (with charts), the conclusions at the end of
+**Evidence:** `docs/performance/REPORT-2026-10-09.md` (after the fixes) and
+`docs/performance/REPORT-2026-10-03.md` (before-fix baseline), both with charts, the conclusions at the end of
 `docs/PERFORMANCE_TESTING.md`, raw data in `docs/performance/raw/`, the server sampler CSV.
 
 **Conditions you must state:** the generator was a laptop on a home connection, so every transfer
 figure is bounded by that link (~24 Mbit/s up, ~13 Mbit/s down); the server's own port is ~100 Mbit/s.
-The report's "Test conditions" section says so.
+The report's "Test conditions" section says so. On 2026-10-09 the home link was much faster (speedtest.net:
+821 Mbit/s down, 493 Mbit/s up), so the VPS port (measured 94 down, 97 up) became the limit at
+about 8 to 9 MiB/s of file data each way.
 
 **Likely question:** why does 500 MB take minutes?
 **Answer:** that is the test link's bandwidth, not the server. Server CPU stayed low throughout; its
-port tops out at about 100 Mbit/s, which still means 40-plus seconds for 500 MB.
+port tops out at about 100 Mbit/s, which still means 40-plus seconds for 500 MB. On the faster link
+used on 2026-10-09 a 500 MiB file took about 48 s up and 43 s down.
 
 **Likely question:** it fails at 100 users?
 **Answer:** it did, and then we fixed it. The test pointed at the database pool, not the hardware.
@@ -105,7 +120,9 @@ pool whose threads were all waiting for connections. After the fix (PR #163), th
 machine at 100 users: **80 % of uploads failed → 0 %, 0.33 → 56 operations per second**. Show the two
 charts in `docs/performance/pool-fix-2026-10-04/` side by side. The same 100-user step was then re-run on
 staging (2026-10-04 evening): 102 of 102 uploads and 102 of 102 verified downloads succeeded
-([staging re-run](../performance/pool-fix-2026-10-04/staging-rerun/REPORT.md), #172).
+([staging re-run](../performance/pool-fix-2026-10-04/staging-rerun/REPORT.md), #172). The matrix
+(all but the long soaks) was re-run through the public URL on 2026-10-09: at 100 users, 0 server errors instead of 65 to
+78 % HTTP 500 ([report](../performance/REPORT-2026-10-09.md)).
 
 **How to tell it:** this is the strongest engineering story in the project: measure, find the bottleneck,
 be wrong once and prove it, fix the real cause, measure again.
@@ -310,8 +327,8 @@ examples; the live passphrase-reset suite changes a real account's passphrase an
 uploaded before; the golden-path browser test closes the receipt and changes the passphrase in Settings.
 Every product acceptance criterion and milestone M7 are now Done in PROPOSAL_TRACEABILITY.
 
-**Also worth one sentence (operations):** deadlock retries are now logged, so the next load test can say
-whether any fired (#202); the deploy script stopped hoarding pre-deploy backups (76 GB) and keeps the
+**Also worth one sentence (operations):** deadlock retries are now logged (#202), and the 2026-10-09 load
+test used it: 8 deadlocks, each retried once and succeeded, so no user saw an error; the deploy script stopped hoarding pre-deploy backups (76 GB) and keeps the
 newest 10 (#204).
 
 **Likely question:** can't a malicious client skip the passphrase check?
@@ -323,8 +340,8 @@ control, because the server never sees the passphrase by design.
 | Question | One-line answer | See |
 | --- | --- | --- |
 | Is it really encrypted? | The upload shows each step's measured time and the bytes before and after; the live tamper demo shows a changed byte being refused; CI also runs a tamper drill | 1, 2 |
-| How many users can it take? | The 100-user failure was found, explained and fixed: 80 % failed uploads → 0 %, 0.33 → 56 ops/s (local re-measure) | 3 |
-| What about large files? | Six types up to 500 MB byte-exact; 5,094 downloads, 0 integrity failures | 3 |
+| How many users can it take? | Through the public URL on 2026-10-09: every request OK up to 50 users and 0 server errors at 100 (before the fix, 65 to 78 % of uploads at 100 users were HTTP 500). The only refusals at 100 were 429s from the per-address upload limit, because all load came from one laptop | 3 |
+| What about large files? | Six types up to 500 MiB byte-exact, including share and recipient download (36/36 on 2026-10-09); 7,444 downloads, 0 integrity failures | 3 |
 | Did testing find anything? | Two concurrency deadlocks, fixed, with a regression test and zero recurrences on staging | 4 |
 | How would you know something broke? | Monitoring emails an alert; each of the three overloads on test night sent one | 5 |
 | What if someone floods uploads? | Rate limits and email verification already; the quota gap was in the threat model and is now closed (PR #157) | 7 |

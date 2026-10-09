@@ -8,7 +8,8 @@
 **状态（2026-10-04）：** 完整测试矩阵已于 2026-10-03 至 04 夜间在 staging 上跑完。报告、图表、原始汇总、服务器采样
 CSV 和运行日志都在 [`performance/`](performance/REPORT-2026-10-03.md)，结论填在本页末尾。引用任何数字之前请先读报告里的
 “Test conditions”：所有传输类数字受限于压测端的家庭网络，而不是服务器。由
-[#140](https://github.com/jsonrar/fyp-secure-file-platform/issues/140) 跟踪。
+[#140](https://github.com/jsonrar/fyp-secure-file-platform/issues/140) 跟踪。修复之后，2026-10-09 经公网地址重跑了测试矩阵
+（[报告](performance/REPORT-2026-10-09.zh-CN.md)），结论见本页末尾。
 
 ## 测的是什么，服务器实际做了什么
 
@@ -62,6 +63,7 @@ SecureView 在浏览器里加密。服务器从不加密或解密文件：上传
 | 在另一台服务器上压测（如 j1900） | 从那台机器开同样的隧道 | 与直连相同，带宽取决于那台机器 | 需要在那台机器上装 loadtest 环境 |
 
 PR #210 之后入口限制是每秒 30 个请求（突发 60），所以经公网地址的单台压测机能比上表压得更高。
+2026-10-09 修复后的那次压测用 `loadtest/run_staging.sh` 走公网地址，限流全程开着，不需要隧道，也不用改 sshd。
 
 在 VPS 本机上跑压测工具虽然没有网络瓶颈，但会抢占被测服务器的 CPU，所以不推荐。
 
@@ -101,7 +103,8 @@ Match User root
 **上传限额：** 自 2026-10-04 起，每个账户最多存储 2 GiB、24 小时内最多上传 5 GiB，nginx 限制每个地址同时最多 50 个上传。
 光是 `sizes` 场景就会从一个账户上传约 5 GiB，soak 更多，所以做容量测试时要在 `/etc/fyp-secure-file-platform/backend.env`
 里设置 `USER_STORAGE_QUOTA_BYTES=0` 和 `USER_DAILY_UPLOAD_BYTES=0`，重启 `fyp-backend`，测完再改回来。SSH 隧道绕过了 nginx，
-所以连接数限制不影响测试。`UPLOAD_MIN_FREE_DISK_BYTES` 保持不变：它能防止压测把与其他服务共用的磁盘写满。
+所以连接数限制不影响测试。`UPLOAD_MIN_FREE_DISK_BYTES` 保持不变：它能防止压测把与其他服务共用的磁盘写满。自 2026-10-09 起，`sizes` 场景
+按文件类型各用一个账号，每个文件验证完就删除，所以不会超出配额，那次压测配额也是开着的。
 
 1. 在服务器上创建测试账号（文件权限 0600，只含测试账号）：
 
@@ -128,6 +131,9 @@ Match User root
    ```
 
    目标不是本机时，没有 `--confirm-remote` 工具会拒绝运行。
+
+   如果要走公网地址，`LOAD_ACCOUNTS=loadtest-accounts.json bash loadtest/run_staging.sh` 会按顺序跑完各场景，默认目标是
+   `https://secureview.tech/api/v1`。大文件矩阵（每个方向约 5 GiB）只有设置 `LOAD_LARGE_FILES=1` 时才会跑。
 4. 停止采样（Ctrl-C），把 CSV 复制回来，生成报告：
    `.venv/bin/python -m secureview_load.report results --server-metrics loadtest-metrics.csv --out results/REPORT.md`
 5. 通过 API 删除测试账号及其全部文件：
@@ -146,7 +152,28 @@ DB_HOST=127.0.0.1 DB_PORT=3310 DB_USER=root DB_PASSWORD=... DB_NAME=fyp_loadtest
 
 工具自身的测试：`cd loadtest && .venv/bin/python -m pytest tests`。
 
-## 结论（staging 实测，2026-10-03/04）
+## 结论
+
+### 2026-10-09 重跑（修复后，公网地址）
+
+版本 `ac5e2b0`，从家里宽带的笔记本经 `https://secureview.tech`（HTTPS 和 nginx，限流开着）压测。完整数字和测试条件见
+[2026-10-09 报告](performance/REPORT-2026-10-09.zh-CN.md)。
+
+- **完整性和错误：** 共 18,256 次操作；7,444 次下载解密后做了 SHA-256 校验，完整性失败 0 次；服务器 5xx 为 0（后端日志
+  共 25,637 个请求，没有一个 500）。
+- **容量：** 50 个并发用户以内所有请求都成功（上传 p95：1 人 134 ms，50 人 3.3 s；下载 p95：1 人 76 ms，50 人 9.5 s）。
+  100 个用户时服务器没有出错。两次 100 用户步骤里被拒绝的 644 次上传，都是 nginx"每个地址最多 50 个上传同时进行"返回的
+  429，因为所有负载都来自同一个地址。修复前同一步有 65% 到 78% 的上传返回 HTTP 500。
+- **大文件：** pdf、png、jpg、mp4、zip、exe，1 到 500 MiB：36 个文件全部完成上传、分享和接收方下载，72 次下载全部逐字节
+  一致。500 MiB 在这条网络上上传约 48 秒，下载约 43 秒。
+- **瓶颈：** 从 10 个用户开始，吞吐停在每个方向约 8 到 9 MiB/s（约 70 Mbit/s），而服务器 CPU 平均 4.5%（峰值 42%），
+  API 内存一直是 199 MiB。瓶颈是网络，不是程序。
+- **限流和重试：** 共 713 个 429（644 个是同时上传数限制，1 个是 API 请求速率，68 个是登录并发上限和凭证校验限制），都是限制
+  按设计起作用；1 个 413 来自每个账号 2 GiB 的配额（同一个文件随后用空账号重新上传成功）。MySQL 报了 8 次死锁，每次都被
+  #139 的重试重试一次就成功，这是 #202 的日志才看得到的。
+- **没有重跑：** 15、30、60 分钟的长时间压测。
+
+### 修复前的对照（staging 实测，2026-10-03/04）
 
 来自会议纪要，按 [staging 报告](performance/REPORT-2026-10-03.md) 填写：
 

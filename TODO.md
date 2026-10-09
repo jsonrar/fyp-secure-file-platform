@@ -201,6 +201,11 @@ not a release pass.
   [Report](docs/performance/REPORT-2026-10-03.md); conclusions in
   [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md). Transfer figures are bounded by the
   generator's home link; read the report's test conditions first.
+  Re-run after the fixes on 2026-10-09 through the public URL (release `ac5e2b0`, HTTPS and nginx,
+  limits on): 18,256 operations, 7,444 verified downloads with 0 integrity failures, 0 server 5xx;
+  every request OK up to 50 users and 0 server errors at 100, where the only refusals were 429s from
+  the per-address upload limit. [Report](docs/performance/REPORT-2026-10-09.md). The 2026-10-03/04
+  report stays as the before-fix baseline.
 - [x] [#139 Two MySQL deadlocks under concurrent use return HTTP 500](https://github.com/jsonrar/fyp-secure-file-platform/issues/139)
   — fixed in [PR #154](https://github.com/jsonrar/fyp-secure-file-platform/pull/154) by retrying MySQL
   1213/1205; the regression test reproduced the deadlock ~7/10 times before the fix and never after.
@@ -328,6 +333,7 @@ Strongly recommended (Award):
 - [x] Fix the DB-pool bottleneck, with a before/after measurement at 100 users (locally:
   80 % failed → 0 %, [PR #163](https://github.com/jsonrar/fyp-secure-file-platform/pull/163))
 - [x] Re-run the #140 `steps` on staging after PR #163 deploys: 100 users went from 78 % failed uploads to 0 of 102 ([evidence](docs/performance/pool-fix-2026-10-04/staging-rerun/REPORT.md))
+- [x] Re-run the load matrix (all but the long soaks) after all fixes through the public URL (2026-10-09, release `ac5e2b0`): 100 users went from 65 to 78 % HTTP 500 uploads to 0 server errors, 7,444 verified downloads with 0 integrity failures, 36/36 files (six types, 1 to 500 MiB) byte-exact ([report](docs/performance/REPORT-2026-10-09.md))
 - [x] ~~#115 usability study with SUS~~ — not planned (#115 closed 2026-10-04); informal real use instead
 - [x] Confirm the recipient before sharing, with their key fingerprint (key verification) —
   [PR #160](https://github.com/jsonrar/fyp-secure-file-platform/pull/160); threat model T-S5 now mitigated against a data writer
