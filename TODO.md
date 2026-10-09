@@ -70,18 +70,18 @@ Features lane was retired from the home page in that redesign (#177).
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.
 
-## Verified on 2026-10-09 (`main` at `c3569c8`)
+## Verified on 2026-10-09 (`main` at `0bb6238`)
 
 | Gate | Result | Interpretation |
 | --- | --- | --- |
-| GitHub Actions on `c3569c8` | All test jobs green | Backend, frontend, `mysql-gate`, `e2e-live` and `tamper-drill` |
-| Backend (`mysql-gate`) | 728 passed, 0 skipped | Also runs the MySQL release gate and the backup/restore drill, both passing |
-| Backend (`backend` job, no MySQL) | 661 passed; coverage 81.24 % | Unit and API tests without MySQL |
-| Frontend (`frontend` job) | 875 passed, 78 skipped; statements 73.09 % | The skips are live-backend suites, run in `e2e-live` |
-| Frontend live suites (`e2e-live`) | 953 passed, 0 skipped | Every suite against a disposable API and MySQL |
+| GitHub Actions on `0bb6238` (PR #217) | All test jobs green | Backend, frontend, `mysql-gate`, `e2e-live` and `tamper-drill` |
+| Backend (`mysql-gate`) | 759 passed, 0 skipped; coverage 86.52 % | Also runs the MySQL release gate and the backup/restore drill, both passing |
+| Backend (`backend` job, no MySQL) | 691 passed; coverage 81.67 % | Unit and API tests without MySQL |
+| Frontend (`frontend` job) | 881 passed, 78 skipped; statements 74.89 % | The skips are live-backend suites, run in `e2e-live` |
+| Frontend live suites (`e2e-live`) | 959 passed, 0 skipped; statements 79.05 % | Every suite against a disposable API and MySQL |
 | Browser specs (`e2e-live`) | 57 passed | Playwright |
 | Tamper drill | Passed | Isolated attacker container (#90) |
-| Live staging | Running `c3569c8`, schema `0011_must_change_password` | `/health/ready` answers ready; the 0011 SQL was applied by hand before the deploy, as DEPLOYMENT.md requires |
+| Live staging | Running `0bb6238`, schema `0011_must_change_password` | `/health/ready` answers ready; the 0011 SQL was applied by hand before `c3569c8` was deploy, as DEPLOYMENT.md requires |
 | Schema head | `0011_must_change_password` | Adds the admin-reset flag (#212) |
 
 ## Verified on 2026-10-07 (`main` at `e4b3f13`)

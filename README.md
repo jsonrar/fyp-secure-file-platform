@@ -142,7 +142,8 @@ network port, not the application, is the limit. Read the test conditions before
 [docs/performance/REPORT-2026-10-09.md](docs/performance/REPORT-2026-10-09.md) and the conclusions
 in [docs/PERFORMANCE_TESTING.md](docs/PERFORMANCE_TESTING.md). The before-fix baseline, where 65 to
 78 % of uploads failed with HTTP 500 at 100 users, is in
-[REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) (#140, fixed by #163).
+[REPORT-2026-10-03.md](docs/performance/REPORT-2026-10-03.md) (#140, fixed by #163). Every test count,
+coverage figure and load-test result in one place: [docs/TESTING_SUMMARY.md](docs/TESTING_SUMMARY.md).
 
 **Upload limits (threat model F-09):** each account may store 2 GiB and upload 5 GiB per 24 hours,
 uploads stop while the storage disk is below a free-space floor, nginx allows fifty uploads in flight

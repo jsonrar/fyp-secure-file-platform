@@ -54,18 +54,18 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
 
-## 2026-10-09 已核验（`main` 位于 `c3569c8`）
+## 2026-10-09 已核验（`main` 位于 `0bb6238`）
 
 | 门禁 | 结果 | 含义 |
 | --- | --- | --- |
-| `c3569c8` 上的 GitHub Actions | 所有测试 Job 全部通过 | 后端、前端、`mysql-gate`、`e2e-live` 和 `tamper-drill` |
-| 后端（`mysql-gate`） | 728 passed，0 skipped | 同时运行 MySQL 发布门禁和备份/恢复演练，均通过 |
-| 后端（`backend` Job，无 MySQL） | 661 passed；覆盖率 81.24% | 不需要 MySQL 的单元和 API 测试 |
-| 前端（`frontend` Job） | 875 passed，78 skipped；语句覆盖率 73.09% | 被跳过的是真实后端测试套件，在 `e2e-live` 里运行 |
-| 前端实时测试（`e2e-live`） | 953 passed，0 skipped | 全部套件针对一次性 API 与 MySQL 运行 |
+| `0bb6238`（PR #217）上的 GitHub Actions | 所有测试 Job 全部通过 | 后端、前端、`mysql-gate`、`e2e-live` 和 `tamper-drill` |
+| 后端（`mysql-gate`） | 759 passed，0 skipped；覆盖率 86.52% | 同时运行 MySQL 发布门禁和备份/恢复演练，均通过 |
+| 后端（`backend` Job，无 MySQL） | 691 passed；覆盖率 81.67% | 不需要 MySQL 的单元和 API 测试 |
+| 前端（`frontend` Job） | 881 passed，78 skipped；语句覆盖率 74.89% | 被跳过的是真实后端测试套件，在 `e2e-live` 里运行 |
+| 前端实时测试（`e2e-live`） | 959 passed，0 skipped；语句覆盖率 79.05% | 全部套件针对一次性 API 与 MySQL 运行 |
 | 浏览器测试（`e2e-live`） | 57 passed | Playwright |
 | 篡改演练 | 通过 | 隔离的攻击容器（#90） |
-| 线上 staging | 运行 `c3569c8`，schema `0011_must_change_password` | `/health/ready` 返回 ready；按 DEPLOYMENT.md 的要求，部署前先手动执行了 0011 的 SQL |
+| 线上 staging | 运行 `0bb6238`，schema `0011_must_change_password` | `/health/ready` 返回 ready；按 DEPLOYMENT.md 的要求，部署前先手动执行了 0011 的 SQL |
 | Schema head | `0011_must_change_password` | 新增管理员重置标记（#212） |
 
 ## 2026-10-07 已核验（`main` 位于 `e4b3f13`）

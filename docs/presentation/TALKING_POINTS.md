@@ -138,9 +138,9 @@ whole transaction, up to three times.
 
 **Evidence:**
 - A new regression test reproduced the deadlock about 7 times in 10 before the fix, and never after
-- All 627 backend tests passed at the fix, 85.17 % coverage; on 2026-10-09 (CI on `c3569c8`) the full
-  MySQL suite is 728 tests with no skips and the backend unit run is 661 tests at 81.24 % coverage, alongside
-  953 frontend live tests and 57 browser tests
+- All 627 backend tests passed at the fix, 85.17 % coverage; on 2026-10-09 (CI on `0bb6238`) the full
+  MySQL suite is 759 tests with no skips and the backend unit run is 691 tests at 81.67 % coverage, alongside
+  959 frontend live tests and 57 browser tests
 - 28,540 requests on staging that night, not one deadlock
 
 **How to say it:** "Our testing wasn't a formality: it found a real concurrency bug before users did, we

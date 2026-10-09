@@ -99,7 +99,8 @@ CI 门禁部署、MySQL 8.4 发布门禁、加密异地备份、洁净主机恢�
 所以瓶颈是 VPS 的 100 Mbit/s 网口，不是程序。引用数字前请先读测试条件：
 [docs/performance/REPORT-2026-10-09.zh-CN.md](docs/performance/REPORT-2026-10-09.zh-CN.md) 和
 [docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md) 末尾的结论。修复前的对照（100 个用户时 65% 到 78%
-的上传返回 HTTP 500）见 [REPORT-2026-10-03.zh-CN.md](docs/performance/REPORT-2026-10-03.zh-CN.md)（#140，由 #163 修复）。
+的上传返回 HTTP 500）见 [REPORT-2026-10-03.zh-CN.md](docs/performance/REPORT-2026-10-03.zh-CN.md)（#140，由 #163 修复）。所有测试数量、覆盖率和压测结果都汇总在
+[docs/TESTING_SUMMARY.zh-CN.md](docs/TESTING_SUMMARY.zh-CN.md)。
 
 **上传限额（威胁模型 F-09）：** 每个账户最多存储 2 GiB、24 小时内最多上传 5 GiB；存储磁盘剩余空间低于底线时停止接受上传；
 nginx 限制每个地址同时最多 50 个上传（整个会场的网络到服务器只是一个地址）；安全 Agent 会报告上传突增。服务器始终只保存密文，无法扫描恶意软件，所以接收者在保存
