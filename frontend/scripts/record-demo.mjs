@@ -110,7 +110,7 @@ async function prepare(browser) {
     await page.getByRole('navigation').getByRole('link', { name: 'Upload', exact: true }).click()
     await page.getByLabel('Select Files').setInputFiles(file)
     await page.getByRole('button', { name: 'Start Encryption' }).click()
-    await page.getByRole('button', { name: 'Encryption Complete' }).waitFor({ timeout: 60_000 })
+    await page.getByTestId('encryption-complete').waitFor({ timeout: 60_000 })
     await myFiles(page).click()
     await rowFor(page, TAMPER_FILE).waitFor()
   }
@@ -232,7 +232,7 @@ try {
   await pause(a.page, 800)
   await caption(a.page, 1, 'Start Encryption', 'A fresh random key for this file, then that key is sealed with Alice’s public key.')
   await click(a.page.getByRole('button', { name: 'Start Encryption' }), 900)
-  await a.page.getByRole('button', { name: 'Encryption Complete' }).waitFor({ timeout: 60_000 })
+  await a.page.getByTestId('encryption-complete').waitFor({ timeout: 60_000 })
   const steps = a.page.getByTestId('encryption-progress')
   await caption(a.page, 1, 'Every step is real and timed', 'Read, encrypt and self-check, wrap the key, upload the ciphertext.')
   await point(steps, 2500)

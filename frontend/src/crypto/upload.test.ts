@@ -6,6 +6,7 @@ import { publicKeyFingerprint } from './primitives'
 import {
   classifyUploadSize,
   DEFAULT_MIME_TYPE,
+  filesStillToUpload,
   isMemoryExhaustion,
   LARGE_FILE_WARNING_BYTES,
   MAX_UPLOAD_BYTES,
@@ -255,6 +256,21 @@ describe('prepareUpload', () => {
         recipients: await recipientsFor(pem, pem),
       }),
     ).rejects.toThrow(/path separator/)
+  })
+})
+
+describe('filesStillToUpload', () => {
+  it('sends nothing again once every file has uploaded', () => {
+    expect(filesStillToUpload([{ status: 'done' }, { status: 'done' }])).toEqual([])
+  })
+
+  it('sends only the new or failed files when a finished batch gets more', () => {
+    const files = [
+      { name: 'a', status: 'done' },
+      { name: 'b', status: 'failed' },
+      { name: 'c', status: 'pending' },
+    ]
+    expect(filesStillToUpload(files).map((file) => file.name)).toEqual(['b', 'c'])
   })
 })
 

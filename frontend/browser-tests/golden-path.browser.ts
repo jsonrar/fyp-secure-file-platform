@@ -14,7 +14,7 @@
 import { randomBytes, randomUUID } from 'node:crypto'
 import { readFile } from 'node:fs/promises'
 
-import { expect, test, type Browser, type Page } from '@playwright/test'
+import { expect, test, type Browser, type Page, type Request } from '@playwright/test'
 
 import { takeVerificationCode } from './mailbox'
 
@@ -164,10 +164,24 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
       mimeType: 'application/octet-stream',
       buffer: fileBytes,
     })
+    // Count every upload the page sends, so a second press cannot re-upload the file unseen.
+    let uploads = 0
+    const countUpload = (request: Request) => {
+      if (request.method() === 'POST' && new URL(request.url()).pathname.endsWith('/files/upload')) uploads += 1
+    }
+    owner.on('request', countUpload)
     await owner.getByRole('button', { name: 'Start Encryption' }).click()
-    await expect(owner.getByRole('button', { name: 'Encryption Complete' })).toBeVisible({
-      timeout: 60_000,
-    })
+    const complete = owner.getByTestId('encryption-complete')
+    await expect(complete).toBeVisible({ timeout: 60_000 })
+    expect(uploads).toBe(1)
+    // Finished is a status, not a button: nothing to press, and pressing it sends nothing.
+    await expect(complete).toHaveRole('status')
+    await expect(owner.getByRole('button', { name: 'Encryption Complete' })).toHaveCount(0)
+    await expect(owner.getByRole('button', { name: 'Start Encryption' })).toHaveCount(0)
+    await complete.click()
+    await owner.waitForTimeout(500)
+    expect(uploads).toBe(1)
+    owner.off('request', countUpload)
     // The seal receipt (AC7) stays until it is put away, then leaves the page.
     const receipt = owner.getByTestId('encryption-progress')
     await expect(receipt).toContainText('Sealed')
