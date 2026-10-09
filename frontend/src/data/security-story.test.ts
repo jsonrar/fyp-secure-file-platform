@@ -26,7 +26,7 @@ describe('the explainer story', () => {
     expect(STORY_SCENES.find((s) => s.id === 'share')!.why).toContain('no public link')
   })
 
-  it('moves on after about 4 to 5 seconds, a little longer for longer captions', () => {
+  it('moves on after about 3 seconds, a little longer for longer captions', () => {
     const durations = STORY_SCENES.map(sceneDuration)
     for (const ms of durations) {
       expect(ms).toBeGreaterThanOrEqual(SCENE_BASE_MS)

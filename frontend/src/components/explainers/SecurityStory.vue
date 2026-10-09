@@ -12,7 +12,7 @@ import { STORY_SCENES, sceneDuration } from '@/data/security-story'
  * from `src/data/security-story.ts`. It plays by itself once it scrolls into view, pauses when
  * the viewer takes control, and with reduced motion it never autoplays and does not animate.
  * `autoplay` starts at once (for the recorded video); `compact` drops the step list.
- * Each scene stays up for `sceneDuration` (about 4 to 5 s) unless `sceneMs` fixes one length
+ * Each scene stays up for `sceneDuration` (about 3 s) unless `sceneMs` fixes one length
  * for every scene, which the full-screen recording does.
  */
 const props = withDefaults(defineProps<{ autoplay?: boolean; compact?: boolean; sceneMs?: number }>(), {
