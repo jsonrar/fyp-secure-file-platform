@@ -39,6 +39,8 @@ export interface AuthUserOut {
   created_at: string
   last_login_at: string | null
   has_avatar: boolean
+  /** True after an administrator reset the login password, until the holder sets their own. */
+  must_change_password: boolean
 }
 
 export interface AuthMeData {

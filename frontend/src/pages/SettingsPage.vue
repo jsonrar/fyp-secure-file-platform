@@ -1,8 +1,8 @@
 <script setup lang="ts">
-import { ref } from 'vue'
-import { LogOut, Monitor, Moon, Sun, UserRound } from 'lucide-vue-next'
+import { computed, ref } from 'vue'
+import { LogOut, Monitor, Moon, ShieldAlert, Sun, UserRound } from 'lucide-vue-next'
 import { useI18n } from 'vue-i18n'
-import { RouterLink, useRouter } from 'vue-router'
+import { RouterLink, useRoute, useRouter } from 'vue-router'
 import PageHeader from '@/components/securfile/PageHeader.vue'
 import ChangePasswordCard from '@/components/ChangePasswordCard.vue'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
@@ -14,10 +14,19 @@ import { useAuthStore } from '@/stores/auth_store'
 import { LOCALES, setLocale } from '@/i18n'
 
 const router = useRouter()
+const route = useRoute()
 const auth = useAuthStore()
 const { preference, setPreference } = useTheme()
 const showDelete = ref(false)
 const { t, locale } = useI18n()
+
+/**
+ * An administrator reset the login password. The store knows once login or `/auth/me` has
+ * answered; the query is set by the guard so the notice is there from the first paint too.
+ */
+const passwordChangeRequired = computed(
+  () => auth.mustChangePassword || route.query.password === 'required',
+)
 
 const themeOptions: { value: ThemePreference; label: string; hint: string; icon: typeof Sun }[] = [
   { value: 'system', label: 'theme.system', hint: 'theme.systemHint', icon: Monitor },
@@ -46,6 +55,19 @@ function onDeleted() {
   <section class="product-page">
     <div class="page-container">
       <PageHeader :title="t('settings.title')" :subtitle="t('settings.intro', { name: auth.displayName })" />
+
+      <div
+        v-if="passwordChangeRequired"
+        class="mb-6 flex items-start gap-3 rounded-xl border border-amber-500/50 bg-amber-500/10 p-4"
+        role="alert"
+        data-testid="password-change-required"
+      >
+        <ShieldAlert class="mt-0.5 h-5 w-5 shrink-0 text-amber-600 dark:text-amber-400" />
+        <div>
+          <p class="text-sm font-semibold text-foreground">{{ t('settings.passwordResetTitle') }}</p>
+          <p class="mt-1 text-sm text-muted-foreground">{{ t('settings.passwordResetBody') }}</p>
+        </div>
+      </div>
 
       <div class="grid gap-6 lg:grid-cols-2">
         <div class="flex flex-col gap-6">
@@ -129,7 +151,7 @@ function onDeleted() {
       </div>
 
       <div class="mt-6 flex flex-col gap-6">
-        <ChangePasswordCard />
+        <ChangePasswordCard :required="passwordChangeRequired" />
         <ChangePassphraseCard />
         <ResetPassphraseCard />
 

@@ -231,6 +231,10 @@ class AdminService:
             user.password_hash = self.hash_password(temporary)
             user.password_changed_at = now
             user.updated_at = now
+            # The temporary password has been seen by the administrator and travels by
+            # hand, so the holder is sent to choose their own at the next sign-in. Only the
+            # frontend acts on it; the API does not lock the account out of anything else.
+            user.must_change_password = True
             revoked = self.auth_repository.revoke_all_session_families(
                 user.id, now=now, reason="admin_password_reset"
             )

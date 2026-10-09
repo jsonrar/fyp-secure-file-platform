@@ -124,7 +124,7 @@ not a release pass.
   judged against `deploy`, so it can no longer cancel a code commit's run and leave that code unpromoted.
 - [x] [#53 Run the full MySQL 8.4 and schema-parity release gate in CI](https://github.com/jsonrar/fyp-secure-file-platform/issues/53)
   — the `mysql-gate` job provisions MySQL 8.4 with verified TLS, exercises every migration through
-  the head (`0010_shared_file_folders` today), runs `alembic current`/`check`, runs the whole backend suite (coverage
+  the head (`0011_must_change_password` today), runs `alembic current`/`check`, runs the whole backend suite (coverage
   floor 82%) and fails on any skipped test, and checks runtime-vs-admin grants and live schema
   parity. The two gaps once deferred here are closed: the migration-lock race now runs 8 randomized
   iterations that must each show one applier and one waiter, and restores are compared by per-table

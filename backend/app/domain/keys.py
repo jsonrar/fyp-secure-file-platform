@@ -54,16 +54,6 @@ class ClientKeyRegistration:
 
 
 @dataclass(frozen=True, slots=True)
-class GeneratedAccountKey:
-    key_id: UUID
-    public_key_pem: str
-    algorithm: str
-    key_size_bits: int
-    protection: KeyProtectionProfileInput = field(repr=False)
-    private_key_bundle: EncryptedPrivateKeyBundleInput = field(repr=False)
-
-
-@dataclass(frozen=True, slots=True)
 class ClientKeyAddition:
     """A new key encrypted under the account's existing AMK protection profile."""
 

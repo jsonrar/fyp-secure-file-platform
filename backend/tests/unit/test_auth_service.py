@@ -7,6 +7,7 @@ from typing import Any
 from uuid import UUID
 
 import pytest
+from sqlalchemy.exc import IntegrityError
 
 from app.core.config import Settings
 from app.core.security import (
@@ -24,6 +25,7 @@ from app.domain.enums import (
     VerificationPurpose,
 )
 from app.domain.errors import (
+    AccountIdentifierUnavailableError,
     AuthenticationError,
     AuthenticationRateLimitedError,
     InvalidCredentialsError,
@@ -141,7 +143,8 @@ class SequenceFactory:
 
 class FakeAuthRepository:
     def __init__(self) -> None:
-        self.identifier_taken = False
+        self.username_taken = False
+        self.email_taken = False
         self.user_by_username: User | None = None
         self.locked_user: User | None = None
         self.user: User | None = None
@@ -164,8 +167,11 @@ class FakeAuthRepository:
         self.clear_throttle_calls: list[tuple[LoginThrottleScope, str]] = []
         self.throttles: dict[tuple[LoginThrottleScope, str], SimpleNamespace] = {}
 
-    def identifier_exists(self, username: str, email: str) -> bool:
-        return self.identifier_taken
+    def username_exists(self, username: str) -> bool:
+        return self.username_taken
+
+    def email_exists(self, email: str) -> bool:
+        return self.email_taken
 
     def add_user(self, user: User) -> None:
         self.added_users.append(user)
@@ -1013,3 +1019,168 @@ def test_reset_password_rejects_a_weak_new_password_before_touching_the_code() -
         )
 
     assert harness.verification.consumed == []
+
+
+def _duplicate_key_error(constraint: str) -> IntegrityError:
+    """What pymysql raises when a users unique key is hit: MySQL error 1062."""
+    original = Exception(1062, f"Duplicate entry 'x' for key 'users.{constraint}'")
+    return IntegrityError("INSERT INTO users", {}, original)
+
+
+def test_register_reports_a_taken_username_before_spending_the_code() -> None:
+    # Usernames are public, so saying so is fine, and saying so first means the caller can
+    # pick another name without requesting a fresh code.
+    harness = _harness()
+    harness.repository.username_taken = True
+
+    with pytest.raises(AccountIdentifierUnavailableError):
+        harness.service.register(
+            username="alice",
+            email="alice@example.com",
+            password="A unique and lengthy passphrase!",
+            verification_code="123456",
+            key_material=_key_material(),
+            context=CONTEXT,
+        )
+
+    assert harness.verification.consumed == []
+    assert harness.repository.added_users == []
+
+
+def test_register_answers_a_taken_email_exactly_like_a_bad_code() -> None:
+    # Whether an email has an account is not public. The code is checked first and the
+    # answer is the same 422 a wrong code gets, so nothing distinguishes the two.
+    harness = _harness()
+    harness.repository.email_taken = True
+
+    with pytest.raises(VerificationCodeInvalidError):
+        harness.service.register(
+            username="alice",
+            email="alice@example.com",
+            password="A unique and lengthy passphrase!",
+            verification_code="123456",
+            key_material=_key_material(),
+            context=CONTEXT,
+        )
+
+    assert len(harness.verification.consumed) == 1
+    assert harness.repository.added_users == []
+    assert harness.audit.events == []
+    assert harness.db.rollbacks == 1
+
+
+@pytest.mark.parametrize(
+    ("constraint", "expected"),
+    [
+        ("uq_users_username", AccountIdentifierUnavailableError),
+        ("uq_users_email", VerificationCodeInvalidError),
+    ],
+)
+def test_register_maps_a_duplicate_key_race_to_the_same_answers(constraint, expected) -> None:
+    # A row inserted between the checks and the insert must not leak more than the checks.
+    harness = _harness()
+
+    def flush_with_duplicate() -> None:
+        raise _duplicate_key_error(constraint)
+
+    harness.repository.flush = flush_with_duplicate  # type: ignore[method-assign]
+
+    with pytest.raises(expected):
+        harness.service.register(
+            username="alice",
+            email="alice@example.com",
+            password="A unique and lengthy passphrase!",
+            verification_code="123456",
+            key_material=_key_material(),
+            context=CONTEXT,
+        )
+
+    assert harness.db.rollbacks == 1
+
+
+def test_change_password_clears_the_administrator_reset_marker() -> None:
+    harness = _harness()
+    user = _user()
+    user.must_change_password = True
+    harness.repository.user = user
+    harness.repository.locked_user = user
+
+    harness.service.change_password(
+        actor=_actor(),
+        current_password="Current secure passphrase!",
+        new_password="A completely new secure phrase!",
+        context=CONTEXT,
+    )
+
+    assert user.must_change_password is False
+
+
+def test_reset_password_clears_the_administrator_reset_marker() -> None:
+    harness = _harness()
+    user = _user()
+    user.must_change_password = True
+    harness.repository.user_by_username = user
+    harness.repository.locked_user = user
+
+    harness.service.reset_password(
+        username="alice",
+        email="alice@example.com",
+        verification_code="123456",
+        new_password="A brand new lengthy passphrase!",
+        context=CONTEXT,
+    )
+
+    assert user.must_change_password is False
+
+
+def test_account_snapshot_carries_the_reset_marker() -> None:
+    harness = _harness()
+    user = _user()
+    user.must_change_password = True
+    harness.repository.user = user
+
+    assert harness.service.get_me(actor=_actor()).must_change_password is True
+    user.must_change_password = False
+    assert harness.service.get_me(actor=_actor()).must_change_password is False
+
+
+def test_reauthentication_failure_is_counted_under_the_action_the_caller_names() -> None:
+    harness = _harness()
+    user = _user()
+
+    buckets = harness.service.begin_reauthentication(username="alice", context=CONTEXT, now=NOW_DB)
+    harness.service.record_reauthentication_failure(
+        user=user,
+        buckets=buckets,
+        context=CONTEXT,
+        now=NOW_DB,
+        action="ACCOUNT_DELETION_PASSWORD_FAILED",
+        description="Account deletion password verification failed",
+    )
+
+    assert {scope for scope, _ in buckets} == {
+        LoginThrottleScope.REAUTH_ACCOUNT,
+        LoginThrottleScope.REAUTH_IP,
+    }
+    assert all(harness.repository.throttles[bucket].failed_count == 1 for bucket in buckets)
+    assert harness.audit.events[-1]["action"] == "ACCOUNT_DELETION_PASSWORD_FAILED"
+    assert harness.audit.events[-1]["result"] == "FAIL"
+    assert harness.db.commits == 2
+
+
+def test_reauthentication_refuses_while_the_shared_bucket_is_blocked() -> None:
+    # Guessing through delete-account must not get fresh attempts after change-password
+    # has already blocked the account: the two share the REAUTH buckets.
+    harness = _harness()
+    for bucket in harness.service._reauthentication_buckets("alice", CONTEXT):
+        harness.repository.throttles[bucket] = SimpleNamespace(
+            failed_count=harness.service.settings.AUTH_REAUTH_ACCOUNT_MAX_FAILURES,
+            window_started_at=NOW_DB,
+            blocked_until=NOW_DB + timedelta(minutes=5),
+            updated_at=NOW_DB,
+        )
+
+    with pytest.raises(AuthenticationRateLimitedError) as exc_info:
+        harness.service.begin_reauthentication(username="alice", context=CONTEXT, now=NOW_DB)
+
+    assert exc_info.value.headers["Retry-After"] == "300"

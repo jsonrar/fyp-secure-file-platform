@@ -26,6 +26,8 @@ class AccountSnapshot:
     created_at: datetime
     last_login_at: datetime | None = None
     has_avatar: bool = False
+    # Set by an administrator's password reset; cleared when the holder sets their own.
+    must_change_password: bool = False
 
 
 @dataclass(frozen=True, slots=True)

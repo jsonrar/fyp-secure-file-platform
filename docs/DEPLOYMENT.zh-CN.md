@@ -172,7 +172,7 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 
 chain-head 列默认值和初始行都先使用 `0002_auth_identity_sessions`。运行时授权和
 `alembic_version` 标记成功后，脚本先把列默认值恢复为最终 Schema 值，再由最后一条语句
-显式发布 singleton 的 `0010_shared_file_folders`。因此部分完成的安装不能通过 readiness，完整
+显式发布 singleton 的 `0011_must_change_password`。因此部分完成的安装不能通过 readiness，完整
 安装后的 Schema 又与 ORM 和 Alembic head 等价。
 
 空库保护失败、任何对象已存在或任何 DDL 报错时，必须立即停止。MySQL DDL 可能部分提交；
@@ -214,9 +214,9 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
   `schema_revision`；routine、role、default-role 和 proxy 结果为空，服务器没有会向应用
   账户附加权限的 mandatory role；
 - 应用表集合、关键 Schema metadata、版本标记及约束符合当前快照；
-- `alembic_version` 恰好为 `0010_shared_file_folders`；
+- `alembic_version` 恰好为 `0011_must_change_password`；
 - `audit_chain_heads` 恰好包含一个 `id = 1`、空 `last_log_id`、64 个零哈希且
-  `schema_revision = '0010_shared_file_folders'` 的单例行。
+  `schema_revision = '0011_must_change_password'` 的单例行。
 
 任何 `REVIEW`、缺失项、多余账户或多余权限都必须阻止应用启动。核验 SQL 只读取状态，不会
 自动修复账户、权限或 Schema。
@@ -232,7 +232,7 @@ mysql --host=<mysql-host> --port=3306 --user=<administrator> --password \
 应用不得持有 root/管理员凭据，也不得获得 DDL 或账户管理权限。
 
 启动后，实例加入服务前必须同时通过 `GET /health/live` 与 `GET /health/ready`。
-Readiness 会探测数据库并要求精确 Schema revision `0010_shared_file_folders`；它只诊断漂移，
+Readiness 会探测数据库并要求精确 Schema revision `0011_must_change_password`；它只诊断漂移，
 不会执行 migration 或 stamp。
 
 ## 5. 在 nginx 终止 TLS

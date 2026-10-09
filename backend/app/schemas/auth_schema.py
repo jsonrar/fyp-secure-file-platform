@@ -57,6 +57,9 @@ class AuthUserResponse(_AuthResponse):
     created_at: datetime
     last_login_at: datetime | None = None
     has_avatar: bool = False
+    # True after an administrator reset the login password, until the holder sets their own.
+    # The frontend sends the holder to Settings on it; no API is refused because of it.
+    must_change_password: bool = False
 
 
 class AvatarMetaResponse(_AuthResponse):

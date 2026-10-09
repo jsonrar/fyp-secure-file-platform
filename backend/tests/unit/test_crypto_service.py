@@ -1,19 +1,14 @@
-import hashlib
-from dataclasses import replace
 from uuid import UUID
 
 import pytest
 from cryptography.hazmat.primitives import hashes, serialization
 from cryptography.hazmat.primitives.asymmetric import padding, rsa
 
-from app.core.security import PasswordManager
-from app.domain.keys import GeneratedAccountKey
-from app.services.crypto_service import SERVER_MANAGED_KEY_FORMAT_VERSION, CryptoService
+from app.services.crypto_service import CryptoService
 
 KEY_ID = UUID("11111111-1111-4111-8111-111111111111")
 PROFILE_ID = UUID("22222222-2222-4222-8222-222222222222")
 BUNDLE_ID = UUID("33333333-3333-4333-8333-333333333333")
-PASSWORD = "A long login password for encryption!"
 
 
 def _public_key_pem() -> str:
@@ -25,25 +20,6 @@ def _public_key_pem() -> str:
             format=serialization.PublicFormat.SubjectPublicKeyInfo,
         )
         .decode("ascii")
-    )
-
-
-@pytest.fixture(scope="module")
-def password_manager() -> PasswordManager:
-    return PasswordManager(max_concurrent_operations=1)
-
-
-@pytest.fixture(scope="module")
-def generated_registration(password_manager: PasswordManager) -> GeneratedAccountKey:
-    return CryptoService().generate_account_key(
-        password=PASSWORD,
-        password_manager=password_manager,
-        key_id=KEY_ID,
-        profile_id=PROFILE_ID,
-        bundle_id=BUNDLE_ID,
-        key_size=2048,
-        kdf_iterations=1,
-        kdf_parallelism=1,
     )
 
 
@@ -61,115 +37,77 @@ def test_public_key_fingerprint_is_stable_sha256_identity() -> None:
     assert service.public_key_fingerprint(second_public_key) != first_fingerprint
 
 
-def test_generated_password_wrapped_key_decrypts_and_matches_public_key(
-    password_manager: PasswordManager,
-    generated_registration: GeneratedAccountKey,
-) -> None:
+def test_load_rsa_public_key_rejects_the_wrong_size_or_exponent() -> None:
     service = CryptoService()
+    public_key_pem = _public_key_pem()
 
-    private_key = service.decrypt_account_private_key(
-        password=PASSWORD,
-        password_manager=password_manager,
-        registration=generated_registration,
+    assert service.load_rsa_public_key(public_key_pem, expected_key_size=2048).key_size == 2048
+    with pytest.raises(ValueError, match="does not match the declared key size"):
+        service.load_rsa_public_key(public_key_pem, expected_key_size=3072)
+
+    small_key = rsa.generate_private_key(public_exponent=65537, key_size=1024)
+    small_pem = (
+        small_key.public_key()
+        .public_bytes(
+            encoding=serialization.Encoding.PEM,
+            format=serialization.PublicFormat.SubjectPublicKeyInfo,
+        )
+        .decode("ascii")
     )
-    public_key = service.load_rsa_public_key(generated_registration.public_key_pem)
-
-    assert generated_registration.protection.format_version == SERVER_MANAGED_KEY_FORMAT_VERSION
-    assert (
-        generated_registration.private_key_bundle.format_version
-        == SERVER_MANAGED_KEY_FORMAT_VERSION
-    )
-    assert generated_registration.key_size_bits == 2048
-    assert private_key.public_key().public_numbers() == public_key.public_numbers()
-    assert len(generated_registration.protection.wrapped_amk) == 32
-    assert len(generated_registration.private_key_bundle.auth_tag) == 16
+    with pytest.raises(ValueError, match="at least 2048 bits"):
+        service.load_rsa_public_key(small_pem)
 
 
-def test_wrong_password_and_tampered_ciphertext_cannot_decrypt_generated_key(
-    password_manager: PasswordManager,
-    generated_registration: GeneratedAccountKey,
-) -> None:
+def test_wrapped_file_key_must_be_exactly_one_rsa_block() -> None:
     service = CryptoService()
+    public_key_pem = _public_key_pem()
 
-    with pytest.raises(ValueError, match="password or encrypted key material"):
-        service.decrypt_account_private_key(
-            password="The wrong login password!",
-            password_manager=password_manager,
-            registration=generated_registration,
-        )
+    service.validate_wrapped_file_key(b"\x00" * 256, public_key_pem)
+    with pytest.raises(ValueError, match="does not match the recipient RSA key"):
+        service.validate_wrapped_file_key(b"\x00" * 255, public_key_pem)
 
-    bundle = generated_registration.private_key_bundle
-    tampered_ciphertext = (
-        bytes([bundle.encrypted_private_key[0] ^ 1]) + bundle.encrypted_private_key[1:]
+
+def test_aad_and_hkdf_info_follow_the_documented_byte_layout() -> None:
+    # The layout is written out in backend/README.md so another client can reproduce it:
+    # domain string, one 0x00 byte, unsigned 32-bit big-endian integers, raw 16-byte UUIDs,
+    # and the fingerprint as its raw 32 bytes.
+    fingerprint = "ab" * 32
+
+    protection_aad = CryptoService.key_protection_aad(
+        profile_id=PROFILE_ID, format_version=1, aad_version=1
     )
-    tampered_bundle = replace(
-        bundle,
-        encrypted_private_key=tampered_ciphertext,
-        ciphertext_sha256=hashlib.sha256(tampered_ciphertext).hexdigest(),
-    )
-    with pytest.raises(ValueError, match="password or encrypted key material"):
-        service.decrypt_account_private_key(
-            password=PASSWORD,
-            password_manager=password_manager,
-            registration=replace(
-                generated_registration,
-                private_key_bundle=tampered_bundle,
-            ),
-        )
-
-    with pytest.raises(ValueError, match="password or encrypted key material"):
-        service.decrypt_account_private_key(
-            password=PASSWORD,
-            password_manager=password_manager,
-            registration=replace(
-                generated_registration,
-                key_id=UUID("44444444-4444-4444-8444-444444444444"),
-            ),
-        )
-
-
-def test_password_rewrap_preserves_profile_identity_and_rotates_envelope(
-    password_manager: PasswordManager,
-    generated_registration: GeneratedAccountKey,
-) -> None:
-    service = CryptoService()
-    protection = generated_registration.protection
-    new_password = "A different long login password!"
-
-    rewrapped = service.rewrap_key_protection_profile(
-        current_password=PASSWORD,
-        new_password=new_password,
-        password_manager=password_manager,
-        protection=protection,
+    assert protection_aad == (
+        b"FYP-KEY-PROTECTION\x00" + (1).to_bytes(4, "big") * 2 + PROFILE_ID.bytes
     )
 
-    assert rewrapped.profile_id == protection.profile_id
-    assert rewrapped.format_version == protection.format_version
-    assert rewrapped.aad_version == protection.aad_version
-    assert rewrapped.kdf_algorithm == protection.kdf_algorithm
-    assert rewrapped.kdf_version == protection.kdf_version
-    assert rewrapped.kdf_memory_kib == protection.kdf_memory_kib
-    assert rewrapped.kdf_iterations == protection.kdf_iterations
-    assert rewrapped.kdf_parallelism == protection.kdf_parallelism
-    assert rewrapped.derived_key_length == protection.derived_key_length
-    assert rewrapped.amk_wrapping_algorithm == protection.amk_wrapping_algorithm
-    assert rewrapped.kdf_salt != protection.kdf_salt
-    assert rewrapped.amk_nonce != protection.amk_nonce
-    assert rewrapped.wrapped_amk != protection.wrapped_amk
-    assert rewrapped.amk_auth_tag != protection.amk_auth_tag
-
-    updated_registration = replace(generated_registration, protection=rewrapped)
-    service.decrypt_account_private_key(
-        password=new_password,
-        password_manager=password_manager,
-        registration=updated_registration,
+    bundle_aad = CryptoService.private_key_bundle_aad(
+        key_id=KEY_ID,
+        profile_id=PROFILE_ID,
+        bundle_id=BUNDLE_ID,
+        public_key_fingerprint=fingerprint,
+        format_version=1,
+        aad_version=2,
     )
-    with pytest.raises(ValueError, match="password or encrypted key material"):
-        service.decrypt_account_private_key(
-            password=PASSWORD,
-            password_manager=password_manager,
-            registration=updated_registration,
-        )
+    assert bundle_aad == (
+        b"FYP-PRIVATE-KEY-BUNDLE\x00"
+        + (1).to_bytes(4, "big")
+        + (2).to_bytes(4, "big")
+        + PROFILE_ID.bytes
+        + KEY_ID.bytes
+        + BUNDLE_ID.bytes
+        + bytes.fromhex(fingerprint)
+    )
+
+    info = CryptoService.private_key_derivation_info(
+        key_id=KEY_ID, profile_id=PROFILE_ID, bundle_id=BUNDLE_ID, format_version=1
+    )
+    assert info == (
+        b"FYP-PRIVATE-KEY-DERIVATION\x00"
+        + (1).to_bytes(4, "big")
+        + PROFILE_ID.bytes
+        + KEY_ID.bytes
+        + BUNDLE_ID.bytes
+    )
 
 
 def test_rsa_pss_signature_authorizes_exact_payload_only() -> None:
@@ -203,4 +141,10 @@ def test_rsa_pss_signature_authorizes_exact_payload_only() -> None:
             public_key_pem=public_key_pem,
             message=payload + b"!",
             signature=signature,
+        )
+    with pytest.raises(ValueError, match="length does not match"):
+        service.verify_rsa_pss_sha256_signature(
+            public_key_pem=public_key_pem,
+            message=payload,
+            signature=signature[:-1],
         )

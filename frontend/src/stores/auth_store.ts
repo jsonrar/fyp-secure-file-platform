@@ -32,6 +32,12 @@ export const useAuthStore = defineStore('auth', {
     displayName: (state) => state.user?.username ?? 'Account',
     initials: (state) => (state.user ? toInitials(state.user.username) : '?'),
     isAdmin: (state) => state.user?.role === 'ADMIN',
+    /**
+     * An administrator reset this account's login password to a temporary one. The server
+     * only reports it; the router guard is what sends the holder to Settings until they
+     * have chosen a password of their own.
+     */
+    mustChangePassword: (state) => state.user?.must_change_password === true,
     /** ADMIN and RECOVERY_OFFICER can review recovery requests. */
     isRecoveryReviewer: (state) => {
       const role = state.user?.role
@@ -52,6 +58,16 @@ export const useAuthStore = defineStore('auth', {
     /** Adopt a token the refresh interceptor has already written to storage. */
     syncFromStorage() {
       this.accessToken = readAccessToken()
+    },
+    /**
+     * Keep the account the login response already carries.
+     *
+     * Login returns the same `user` object as `/auth/me`. Storing it here means the guard
+     * knows about `must_change_password` on the very first navigation after signing in,
+     * instead of only after the account menu has asked `/auth/me` for it.
+     */
+    adoptUser(user: AuthUserOut) {
+      this.user = user
     },
     _revokeAvatarUrl() {
       if (this.avatarObjectUrl) {

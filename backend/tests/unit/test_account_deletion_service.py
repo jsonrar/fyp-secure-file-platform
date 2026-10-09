@@ -8,7 +8,11 @@ import pytest
 
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
-from app.domain.errors import AuthenticationError, InvalidCurrentPasswordError
+from app.domain.errors import (
+    AuthenticationError,
+    AuthenticationRateLimitedError,
+    InvalidCurrentPasswordError,
+)
 from app.services.account_deletion_service import AccountDeletionService
 
 NOW = datetime(2026, 8, 26, 12, 0, tzinfo=UTC)
@@ -57,6 +61,9 @@ class FakeAuthRepo:
         self.revoked_reason: str | None = None
         self.released: str | None = None
 
+    def get_user(self, _user_id: int):
+        return self.user
+
     def lock_user(self, _user_id: int):
         return self.user
 
@@ -90,6 +97,28 @@ class FakeStorage:
         self.deleted.append(key)
 
 
+class FakeReauthentication:
+    """Stands in for AuthService's shared re-entry throttle: records, never touches a database."""
+
+    def __init__(self, *, blocked: bool = False) -> None:
+        self.blocked = blocked
+        self.began: list[str] = []
+        self.failures: list[dict] = []
+        self.cleared = 0
+
+    def begin_reauthentication(self, *, username: str, context, now):
+        self.began.append(username)
+        if self.blocked:
+            raise AuthenticationRateLimitedError(retry_after_seconds=300)
+        return (("REAUTH_ACCOUNT", "hash-account"), ("REAUTH_IP", "hash-ip"))
+
+    def record_reauthentication_failure(self, *, user, buckets, context, now, action, description):
+        self.failures.append({"user": user, "buckets": buckets, "action": action})
+
+    def clear_reauthentication_throttle(self, *, buckets, now) -> None:
+        self.cleared += 1
+
+
 class FakeAudit:
     def __init__(self) -> None:
         self.entries: list[dict] = []
@@ -109,7 +138,7 @@ def _file(pk: int, key: str):
     )
 
 
-def _service(*, password="correct-horse", files=None, user=None):
+def _service(*, password="correct-horse", files=None, user=None, blocked=False):
     user = user or SimpleNamespace(
         id=7,
         username="waldo",
@@ -127,17 +156,25 @@ def _service(*, password="correct-horse", files=None, user=None):
     file_repo = FakeFileRepo(files if files is not None else [])
     storage = FakeStorage()
     audit = FakeAudit()
+    reauth = FakeReauthentication(blocked=blocked)
     service = AccountDeletionService(
         db=db,
         passwords=FakePasswords(correct=password),
         storage=storage,
+        reauthentication=reauth,
         auth_repository=auth_repo,
         file_repository=file_repo,
         audit_service=audit,
         clock=lambda: NOW,
     )
     return service, SimpleNamespace(
-        db=db, auth=auth_repo, files=file_repo, storage=storage, audit=audit, user=user
+        db=db,
+        auth=auth_repo,
+        files=file_repo,
+        storage=storage,
+        audit=audit,
+        user=user,
+        reauth=reauth,
     )
 
 
@@ -231,3 +268,44 @@ def test_records_what_was_destroyed_against_the_real_username() -> None:
     assert entry["action"] == "ACCOUNT_DELETED"
     assert entry["metadata"]["username"] == "waldo"
     assert entry["metadata"]["files_deleted"] == 1
+
+
+def test_a_wrong_password_counts_against_the_shared_reauthentication_buckets() -> None:
+    # Same buckets as change-password, so guesses made here and there add up, and the
+    # failure is written to the audit log under its own action.
+    service, fakes = _service()
+
+    with pytest.raises(InvalidCurrentPasswordError):
+        service.delete_account(actor=_actor(), password="not-it", context=_context())
+
+    assert fakes.reauth.began == ["waldo"]
+    (failure,) = fakes.reauth.failures
+    assert failure["action"] == "ACCOUNT_DELETION_PASSWORD_FAILED"
+    assert failure["user"] is fakes.user
+    assert fakes.reauth.cleared == 0
+    assert fakes.audit.entries == []
+
+
+def test_a_blocked_account_is_refused_before_the_password_is_checked() -> None:
+    # The 429 comes from the shared throttle and nothing below it runs: no hash comparison,
+    # no file touched, no row changed.
+    service, fakes = _service(files=[_file(1, "objects/a")], blocked=True)
+    verified: list[str] = []
+    service.passwords.verify = lambda candidate, _hash: verified.append(candidate) or True  # type: ignore[method-assign]
+
+    with pytest.raises(AuthenticationRateLimitedError):
+        service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    assert verified == []
+    assert fakes.files.files[0].status == "ACTIVE"
+    assert fakes.user.status is UserStatus.ACTIVE
+    assert fakes.db.committed == 0
+
+
+def test_a_correct_password_clears_the_account_bucket() -> None:
+    service, fakes = _service()
+
+    service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    assert fakes.reauth.cleared == 1
+    assert fakes.reauth.failures == []
