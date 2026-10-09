@@ -47,6 +47,20 @@ const exampleFile = {
   created_at:'2026-09-05T10:00:00Z', updated_at:'2026-09-05T10:00:00Z',
 };
 
+/** Show the cipher <select> as a list of all its options, on its own line under its label. */
+function expandCipherList(select) {
+  select.size = select.options.length;
+  Object.assign(select.style, {height:'auto', flexBasis:'100%', width:'100%', fontSize:'12px'});
+  Object.assign(select.parentElement.style, {flexWrap:'wrap'});
+}
+
+/** Put the cipher <select> back as the page draws it. */
+function collapseCipherList(select) {
+  select.removeAttribute('size');
+  for (const name of ['height', 'flex-basis', 'width', 'font-size']) select.style.removeProperty(name);
+  select.parentElement.style.removeProperty('flex-wrap');
+}
+
 async function mark(page, locator, number) {
   await page.locator('[data-capture-mark]').evaluateAll(nodes => nodes.forEach(n => n.remove()));
   const box = await locator.boundingBox();
@@ -161,26 +175,34 @@ async function capture(page, area, name, target, number) {
     await capture(page,upload,'01-select',select,'1');
     await capture(page,columns.nth(0),'01-select-mobile',select,'1');
     await page.locator('input[type=file]').setInputFiles({name:filename,mimeType:'text/plain',buffer:Buffer.alloc(1024,65)});
+    // The cipher list is a native <select>, whose pop-up the OS draws outside the page, so a
+    // screenshot never shows it. For this one capture the same element is shown as a list of all
+    // its options (size = option count, on its own line under its label), then put back.
+    const cipher = page.locator('#content-algorithm');
+    await cipher.evaluate(expandCipherList);
+    await capture(page,upload,'01b-cipher',cipher,'2');
+    await capture(page,columns.nth(1),'01b-cipher-mobile',cipher,'2');
+    await cipher.evaluate(collapseCipherList);
     const encrypt = page.getByRole('button',{name:'Start Encryption',exact:true});
-    await capture(page,upload,'02-encrypt',encrypt,'2');
-    await capture(page,columns.nth(1),'02-encrypt-mobile',encrypt,'2');
+    await capture(page,upload,'02-encrypt',encrypt,'3');
+    await capture(page,columns.nth(1),'02-encrypt-mobile',encrypt,'3');
     await encrypt.click();
     await page.getByRole('button',{name:'View Encrypted Files',exact:true}).click();
     await page.getByText(filename,{exact:true}).waitFor();
     const files = page.getByTestId('files-card');
     const share = page.getByTitle('Share',{exact:true});
-    await capture(page,files,'03-file',share,'3');
+    await capture(page,files,'03-file',share,'4');
     await page.setViewportSize({width:600,height:1100});
-    await capture(page,files,'03-file-mobile',share,'3');
+    await capture(page,files,'03-file-mobile',share,'4');
     await page.setViewportSize({width:1200,height:1100});
     await share.click();
     const modal = page.locator('.fixed.inset-0 > .max-w-md');
     await page.getByRole('heading',{name:'Unlock your files'}).waitFor();
     await page.getByPlaceholder('Your encryption passphrase').fill(passphrase);
     const unlock = page.getByRole('button',{name:'Unlock',exact:true});
-    await capture(page,modal,'05-unlock',unlock,'4');
+    await capture(page,modal,'05-unlock',unlock,'5');
     await page.setViewportSize({width:600,height:1100});
-    await capture(page,modal,'05-unlock-mobile',unlock,'4');
+    await capture(page,modal,'05-unlock-mobile',unlock,'5');
     await page.setViewportSize({width:1200,height:1100});
     await unlock.click();
     await page.getByText('Nobody yet — only you can open this file.').waitFor();
@@ -189,18 +211,18 @@ async function capture(page, area, name, target, number) {
     // The share is confirmed against the recipient's key fingerprint before anything is sent.
     await page.getByTestId('recipient-fingerprint').waitFor();
     const submitShare = modal.getByRole('button',{name:'Confirm and share',exact:true});
-    await capture(page,modal,'04-recipient',submitShare,'5');
+    await capture(page,modal,'04-recipient',submitShare,'6');
     await page.setViewportSize({width:600,height:1100});
-    await capture(page,modal,'04-recipient-mobile',submitShare,'5');
+    await capture(page,modal,'04-recipient-mobile',submitShare,'6');
     await page.setViewportSize({width:1200,height:1100});
     recipient = true;
     await page.goto(base+'/files');
     await page.getByRole('button',{name:/Shared with me/}).click();
     await page.getByText('Shared by sam').waitFor();
     const download = page.getByTitle('Download and decrypt',{exact:true});
-    await capture(page,files,'06-download',download,'6');
+    await capture(page,files,'06-download',download,'7');
     await page.setViewportSize({width:600,height:1100});
-    await capture(page,files,'06-download-mobile',download,'6');
+    await capture(page,files,'06-download-mobile',download,'7');
     await context.close();
   } finally {
     if (browser) await browser.close();

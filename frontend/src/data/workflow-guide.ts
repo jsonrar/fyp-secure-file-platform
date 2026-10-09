@@ -12,6 +12,17 @@ export const workflowSlides = [
     mobile: '01-select-mobile',
   },
   {
+    id: '01b-cipher',
+    short: 'Choose a cipher',
+    page: 'Upload',
+    title: 'Choose a cipher.',
+    action: 'Open the File contents list to see the six ciphers, each with a short grade. Pick one and the box below the list explains what it is good at.',
+    result: 'Your choice stays selected for this upload. AES-256-GCM, the default, is our recommendation.',
+    tip: 'Want to know more? Education in the sidebar explains every cipher step by step.',
+    alt: 'The Upload page with the File contents list opened to show all six ciphers and their grades, outlined in blue and marked 2.',
+    mobile: '01b-cipher-mobile',
+  },
+  {
     id: '02-encrypt',
     short: 'Encrypt & upload',
     page: 'Upload',
@@ -19,7 +30,7 @@ export const workflowSlides = [
     action: 'Once your file is selected, click Start Encryption and wait for it to finish.',
     result: 'Encryption Complete appears. Click View Encrypted Files to continue.',
     tip: 'Encryption and upload happen together. Keep the tab open until they finish.',
-    alt: 'A selected Project notes.txt file on the Upload page, with Start Encryption outlined and marked 2.',
+    alt: 'A selected Project notes.txt file on the Upload page, with Start Encryption outlined and marked 3.',
     mobile: '02-encrypt-mobile',
   },
   {
@@ -30,7 +41,7 @@ export const workflowSlides = [
     action: 'In My Files, find the file you just uploaded. Click the black Share button under Actions.',
     result: 'The Share this file window opens.',
     tip: 'Share is the black button next to the red Delete icon; the icon after it opens this file’s access history. You can share files that you own.',
-    alt: 'The My Files table with Project notes.txt and its Share icon outlined and marked 3.',
+    alt: 'The My Files table with Project notes.txt and its Share icon outlined and marked 4.',
     mobile: '03-file-mobile',
   },
   {
@@ -41,7 +52,7 @@ export const workflowSlides = [
     action: 'Enter your encryption passphrase and click Unlock. If your files are already unlocked, this step is skipped.',
     result: 'The Share this file window opens after your account key is ready.',
     tip: 'Unlocking comes before recipient entry, so you never need to type the recipient twice.',
-    alt: 'The actual Unlock your files dialog, with a masked example passphrase and Unlock marked 4.',
+    alt: 'The actual Unlock your files dialog, with a masked example passphrase and Unlock marked 5.',
     mobile: '05-unlock-mobile',
   },
   {
@@ -52,7 +63,7 @@ export const workflowSlides = [
     action: 'Enter their exact SecureView username or email address and click Share. Check the name and key fingerprint, then click Confirm and share.',
     result: 'Their name appears under Currently shared with.',
     tip: 'They need their own SecureView account. Sharing uses their public key, never either person’s passphrase.',
-    alt: 'The actual Share this file window asking to share with the example account alex, showing their key fingerprint, with Confirm and share marked 5.',
+    alt: 'The actual Share this file window asking to share with the example account alex, showing their key fingerprint, with Confirm and share marked 6.',
     mobile: '04-recipient-mobile',
   },
   {
@@ -63,7 +74,7 @@ export const workflowSlides = [
     action: 'They sign in, open My Files → Shared with me, and click the download arrow beside your file.',
     result: 'They unlock with their own encryption passphrase if asked. The decrypted file is saved to their device.',
     tip: 'Never send your passphrase to your teammate. Each person uses their own.',
-    alt: 'The recipient’s Shared with me tab, showing Project notes.txt shared by sam, with the download arrow marked 6.',
+    alt: 'The recipient’s Shared with me tab, showing Project notes.txt shared by sam, with the download arrow marked 7.',
     mobile: '06-download-mobile',
   },
 ] as const

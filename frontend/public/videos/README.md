@@ -7,7 +7,7 @@ Recorded from the real product, not mocked, by `frontend/scripts/record-walkthro
 | File | What it shows |
 | --- | --- |
 | `how-it-works.mp4` | The animated explainer (`/how-it-works?present`), seven scenes at eight seconds each |
-| `encrypt-upload.mp4` | Sign in, choose a file, pick the cipher, Start Encryption, the timed encryption steps and byte comparison, the encrypted preview |
+| `encrypt-upload.mp4` | Sign in, choose a file, the six ciphers with their grades and what two of them are good at, where Education explains more, Start Encryption, the timed encryption steps and byte comparison, the encrypted preview |
 | `share-open.mp4` | Share with another account after checking their key fingerprint, that account decrypts it with its own passphrase, then files it in a folder of its own |
 
 Each has a `.jpg` poster. The accounts are made up (`sam`, `alex`, `@example.com`) on a disposable

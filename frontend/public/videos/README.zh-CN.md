@@ -7,7 +7,7 @@
 | 文件 | 内容 |
 | --- | --- |
 | `how-it-works.mp4` | 动画讲解（`/how-it-works?present`），七个场景，每个八秒 |
-| `encrypt-upload.mp4` | 登录、选择文件、选择加密算法、点 Start Encryption、带计时的加密步骤与字节对比、密文预览 |
+| `encrypt-upload.mp4` | 登录、选择文件、展示六种加密算法及等级并看两种的说明、提示可去学习中心深入了解、点 Start Encryption、带计时的加密步骤与字节对比、密文预览 |
 | `share-open.mp4` | 核对对方密钥指纹后分享给另一个账户，该账户用自己的 passphrase 解密，再把文件放进自己的文件夹 |
 
 每个视频都有一张 `.jpg` 封面。账户是虚构的（`sam`、`alex`、`@example.com`），运行在一次性的本地环境里；

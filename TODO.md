@@ -30,7 +30,7 @@ current passphrase ([PR #201](https://github.com/jsonrar/fyp-secure-file-platfor
 ([PR #203](https://github.com/jsonrar/fyp-secure-file-platform/pull/203)); pre-deploy backup pruning, installed on the VPS the same day (175 old sets removed, 73 GB freed) ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204));
 and browser-side rejection of weak passphrases, threat model F-04 ([PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)).
 
-The homepage picture guide (six annotated screenshots, English and Chinese) and the Help videos
+The homepage picture guide (seven annotated screenshots, English and Chinese) and the Help videos
 were re-shot after the "Sealed" redesign and are live on staging (#192); the guide and the two Help
 walkthroughs were re-shot again on 2026-10-10 for the upload page after #215. The scrolling Core
 Features lane was retired from the home page in that redesign (#177).

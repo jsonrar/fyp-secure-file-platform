@@ -102,8 +102,8 @@ Headings fit on one line where they can, and two-sentence intros break only betw
 (`SentenceLines`); `frontend/scripts/text-audit.mjs` checks this on every page. See
 [changelog/CHANGELOG.md](changelog/CHANGELOG.md#ui-layout-and-navigation-consistency-junyan9--界面排版与导航一致性junyan9).
 
-The homepage's picture guide offers six annotated screenshots from the real UI, in English and
-Chinese, covering file selection, encryption, sharing, unlock, and recipient download. Visitors
+The homepage's picture guide offers seven annotated screenshots from the real UI, in English and
+Chinese, covering file selection, the cipher list, encryption, sharing, unlock, and recipient download. Visitors
 can pause, enlarge images, swipe on phones, or let 8-second autoplay run with a visible progress
 bar. Completed steps show a check. The pictures use fabricated data and mobile crops; they were
 re-shot after the redesign on 2026-10-05 (#192), and again on 2026-10-10 for the upload page's

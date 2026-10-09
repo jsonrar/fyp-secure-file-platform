@@ -23,7 +23,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 （[PR #202](https://github.com/jsonrar/fyp-secure-file-platform/pull/202)）；为两条 npm 公告升级到 Vue 3.5.43（[PR #203](https://github.com/jsonrar/fyp-secure-file-platform/pull/203)）；部署前备份清理，当天已装到 VPS（删除 175 份旧备份，腾出 73 GB）
 （[PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)）；以及在浏览器中拒绝弱口令，威胁模型 F-04（[PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)）。
 
-首页图文指南（六张带标记的截图，中英文各一套）和帮助页视频已在“Sealed”改版后重新拍摄并上线 staging（#192）；2026-10-10 又按 #215 之后的上传页重拍了图文指南和两段帮助页演示视频。
+首页图文指南（七张带标记的截图，中英文各一套）和帮助页视频已在“Sealed”改版后重新拍摄并上线 staging（#192）；2026-10-10 又按 #215 之后的上传页重拍了图文指南和两段帮助页演示视频。
 横向滚动的 Core Features 在那次改版中已从首页移除（#177）。
 
 - [x] 邮箱验证码注册与重置登录密码、登录与服务端撤销会话的登出、后端会话撤销端点、refresh 轮换、
