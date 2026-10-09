@@ -179,3 +179,42 @@ def test_like_wildcards_in_the_keyword_are_literal_on_mysql(auth_mysql_engine: E
     assert descriptions(f"{marker}_") == {f"{marker}_tail"}
     # The search is case-insensitive, as the file search is (utf8mb4_unicode_ci).
     assert descriptions(f"{marker.upper()}_TAIL") == {f"{marker}_tail"}
+
+
+def test_an_owned_file_id_that_collides_with_an_account_id_does_not_reveal_that_account(
+    auth_mysql_engine: Engine, tmp_path: Path
+) -> None:
+    # The upload's file id is chosen by the client, so an owner can give a file the same id as
+    # another person's account or key. Rows about that account carry the id as their resource
+    # id; they are not about the file and must stay off the owner's page.
+    marker = uuid4().hex[:12]
+    owner = register_real_user(auth_mysql_engine, prefix="audit-collide-owner")
+    victim = register_real_user(auth_mysql_engine, prefix="audit-collide-victim")
+    with active_recovery_key(auth_mysql_engine) as recovery:
+        owned = upload_file(auth_mysql_engine, tmp_path, owner, recovery)
+    colliding = str(owned.file_id)
+
+    for action, resource_type in (
+        ("AUTH_LOGIN_SUCCEEDED", "USER"),
+        ("USER_KEY_ADDED", "AUTH"),
+        ("FILE_DOWNLOAD_AUTHORIZED", "FILE"),
+        ("FILE_SHARED", "SHARE"),
+    ):
+        _append(
+            auth_mysql_engine,
+            action=action,
+            result="SUCCESS",
+            actor_user_id=victim.user_id,
+            resource_type=resource_type,
+            resource_id=colliding,
+            description=f"collide {marker}",
+        )
+
+    seen = {row[0] for row in _visible(auth_mysql_engine, owner, q=marker)}
+    assert seen == {"FILE_DOWNLOAD_AUTHORIZED", "FILE_SHARED"}
+    assert {row[0] for row in _visible(auth_mysql_engine, victim, q=marker)} == {
+        "AUTH_LOGIN_SUCCEEDED",
+        "USER_KEY_ADDED",
+        "FILE_DOWNLOAD_AUTHORIZED",
+        "FILE_SHARED",
+    }

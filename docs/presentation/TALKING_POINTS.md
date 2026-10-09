@@ -121,8 +121,9 @@ whole transaction, up to three times.
 
 **Evidence:**
 - A new regression test reproduced the deadlock about 7 times in 10 before the fix, and never after
-- All 627 backend tests passed at the fix, 85.17 % coverage; on 2026-10-07 (CI on `e4b3f13`) the full
-  MySQL suite is 632 tests at 85.27 % branch coverage, alongside 866 frontend live tests and 57 browser specs
+- All 627 backend tests passed at the fix, 85.17 % coverage; on 2026-10-09 (CI on `c3569c8`) the full
+  MySQL suite is 728 tests with no skips and the backend unit run is 661 tests at 81.24 % coverage, alongside
+  953 frontend live tests and 57 browser tests
 - 28,540 requests on staging that night, not one deadlock
 
 **How to say it:** "Our testing wasn't a formality: it found a real concurrency bug before users did, we
@@ -157,7 +158,7 @@ be trusted.
 **Controls that already existed:**
 - Only accounts registered with an emailed verification code can upload; registration and code sending
   are rate-limited
-- nginx limits each IP: 10 API requests per second (burst 20), 12 sign-ins per minute
+- nginx limits each IP: 30 API requests per second (burst 60), 60 sign-in and other password checks per minute (burst 30)
 - 500 MB per file; nginx receives the whole upload before passing it on, so slow clients cannot tie up the backend
 - Disk above 85 % and error bursts email an alert; the security agent detects password guessing,
   download bursts and share bursts
@@ -168,7 +169,7 @@ per-account storage quota, so one account could in principle fill the disk.
 **The hardening (PR #157, merged and deployed):**
 1. Each account may store 2 GB and upload 5 GB per 24 hours (deleted files count), with a clear message
    when exceeded; all uploads are refused when free disk would fall below a floor
-2. nginx allows 10 uploads in flight per IP (not lower, because a campus network puts many people behind one address)
+2. nginx allows 50 uploads in flight per IP (raised from 10 in PR #210, because a campus network puts many people behind one address)
 3. A new `UPLOAD_BURST` rule in the security agent
 4. A warning before downloading a program or macro-capable file someone shared (.exe, .bat, .js, .docm, …)
 
@@ -281,7 +282,8 @@ it becomes a bottom sheet.
 
 **What it shows:** Admin → Users → Details shows an account's email, status, sign-in times and counts.
 "Reset login password" gives a random temporary password, shown once, signs the account out everywhere
-and emails the holder, who then picks their own in Settings.
+and emails the holder. Since PR #212 the next sign-in takes the holder straight to Settings, and the
+app keeps them there until they pick a new password.
 
 **What to say:** "Our administrators cannot read passwords, because there is nothing to read. The login
 password is stored as a one-way hash, and the encryption passphrase never reaches the server. So the

@@ -52,7 +52,7 @@ Features lane was retired from the home page in that redesign (#177).
   [OpenAPI JSON](https://secureview.tech/openapi.json).
 - [x] Public product pages and signed-in account chrome: landing `/`, Education
   (`/education`: algorithms, playground, knowledge), Help (`/help`: How to Use walkthroughs),
-  supervisor profile and Development Team cards under Contact us (`/team`), header active-tab theme colour, and the avatar menu with
+  Contact us (`/team`: a feedback form, the supervisor profile and Development Team cards), header active-tab theme colour, and the avatar menu with
   `/profile` and `/settings`. Evidence and rationale live in
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) under `[Unreleased]`.
 
@@ -62,11 +62,27 @@ Features lane was retired from the home page in that redesign (#177).
   now has a labelled, numbered question column, and the footer has no empty track ([PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)).
   Headings and intros site-wide: one line where they fit, breaks only between sentences, no two-sentence
   headings, checked by `text-audit.mjs` ([PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195)).
-- [x] Access Records filters (2026-10-09): event type, result, date range and keyword on `GET /audit-logs`, inside the same visibility rule, and pages of 100 with Load more instead of fetching 1,000 events up front.
-- [x] Every upload suite in every browser (2026-10-09): AES-192-GCM falls back to `@noble/ciphers` where WebCrypto lacks it, all six suites are shared end to end in the live suite, and the backend checks `docs/crypto/test_vectors.json` itself.
+- [x] Access Records filters (2026-10-09): event type, result, date range and keyword on `GET /audit-logs`, inside the same visibility rule, and pages of 100 with Load more instead of fetching 1,000 events up front ([PR #213](https://github.com/jsonrar/fyp-secure-file-platform/pull/213)).
+- [x] Every upload suite in every browser (2026-10-09): AES-192-GCM falls back to `@noble/ciphers` where WebCrypto lacks it, all six suites are shared end to end in the live suite, and the backend checks `docs/crypto/test_vectors.json` itself ([PR #211](https://github.com/jsonrar/fyp-secure-file-platform/pull/211)).
+- [x] Account fixes (2026-10-09): registration answers a registered email the same as a wrong code, account deletion is throttled and writes an audit row, an administrator's password reset makes the holder pick a new password at the next sign-in (`must_change_password`, schema `0011`), and dead crypto code and `app/utils` are removed ([PR #212](https://github.com/jsonrar/fyp-secure-file-platform/pull/212)).
+- [x] Upload fixes from supervisor feedback (2026-10-09): a file is never uploaded twice, the finished state is a green status instead of a button, the algorithm dropdown shows a grade for each choice (for example Max · Recommended) with an explanation box, and the explainer steps take about 3 s ([PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215)).
 
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.
+
+## Verified on 2026-10-09 (`main` at `c3569c8`)
+
+| Gate | Result | Interpretation |
+| --- | --- | --- |
+| GitHub Actions on `c3569c8` | All test jobs green | Backend, frontend, `mysql-gate`, `e2e-live` and `tamper-drill` |
+| Backend (`mysql-gate`) | 728 passed, 0 skipped | Also runs the MySQL release gate and the backup/restore drill, both passing |
+| Backend (`backend` job, no MySQL) | 661 passed; coverage 81.24 % | Unit and API tests without MySQL |
+| Frontend (`frontend` job) | 875 passed, 78 skipped; statements 73.09 % | The skips are live-backend suites, run in `e2e-live` |
+| Frontend live suites (`e2e-live`) | 953 passed, 0 skipped | Every suite against a disposable API and MySQL |
+| Browser specs (`e2e-live`) | 57 passed | Playwright |
+| Tamper drill | Passed | Isolated attacker container (#90) |
+| Live staging | Running `c3569c8`, schema `0011_must_change_password` | `/health/ready` answers ready; the 0011 SQL was applied by hand before the deploy, as DEPLOYMENT.md requires |
+| Schema head | `0011_must_change_password` | Adds the admin-reset flag (#212) |
 
 ## Verified on 2026-10-07 (`main` at `e4b3f13`)
 
@@ -137,7 +153,7 @@ not a release pass.
   30-day bucket lock), a least-privilege backup account, and failure emails. A real set was
   restored on a separate machine with the offline key in 6.97 s and matched the live database
   and files exactly ([docs/BACKUP_AND_RECOVERY.md](docs/BACKUP_AND_RECOVERY.md) §5). Follow-ups:
-  time the 4 h whole-service RTO on a fresh VPS, and prune `mcs21-deploy`'s pre-deploy dumps.
+  time the 4 h whole-service RTO on a fresh VPS. Pruning `mcs21-deploy`'s pre-deploy dumps is done ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)).
 - [x] [#61 Keep README, TODO, Issues, changelog, PRs, and deployments synchronized](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   — this synchronization PR installs the shared records and evidence checklist; future changes
   use the same rule.
@@ -219,6 +235,7 @@ not a release pass.
   partly and F-19 mitigated; F-01 mitigated the same day by CI-gated deploys (#117, below). Two
   *Recommended* findings remain unimplemented: F-02 recovery-key custody and F-03 disabling `/docs` on
   staging. F-04 weak-passphrase rejection was mitigated on 2026-10-08 ([PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)).
+  The current version is v1.5 (2026-10-09), which also records F-08 as mitigated by #212.
 
 ## P3 — planned product UX
 
@@ -252,12 +269,12 @@ Each Issue carries its acceptance criteria under [#61](https://github.com/jsonra
   the Issue.
 - [x] [#146 Help assistant: floating bot for how-to, how-it-works and comparison questions (no LLM in v1)](https://github.com/jsonrar/fyp-secure-file-platform/issues/146)
   — approved 2026-10-02 to come before #74. Client-side retrieval over curated intents and the
-  existing Help/Education content; no network call, cited comparisons. The Issue closes once the
-  deployment is verified and recorded on it. See [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
+  existing Help/Education content; no network call, cited comparisons. Deployed, verified and closed
+  on 2026-10-02. See [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 - [x] [#148 Help assistant v2: answer questions about the signed-in visitor's own account](https://github.com/jsonrar/fyp-secure-file-platform/issues/148)
   — seven read-only checks (who has access, a file's history, what I shared, what is shared with
   me, files marked Modified, recent activity, an overview) using the existing My Files and Access
-  Records requests. No LLM; nothing is changed from the panel. Closes once deployed and verified.
+  Records requests. No LLM; nothing is changed from the panel. Deployed, verified and closed on 2026-10-02.
 - [x] [#74 Add persistent English and Simplified Chinese language switching](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   — English / 简体中文 switcher in the header, the phone menu and Settings, remembered per device
   and restored before the first paint. Shared chrome uses keyed vue-i18n messages; the rest of the

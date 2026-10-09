@@ -161,7 +161,13 @@ const toUploadedFile = (file: File): UploadedFile => ({
   error: '',
 })
 
+/**
+ * The list cannot change while a batch runs. The batch works from the files it started with,
+ * so a file removed mid-run was still uploaded, and one added mid-run was left pending under
+ * a green "Encryption Complete".
+ */
 const addFiles = (fileList: FileList) => {
+  if (isEncrypting.value) return
   files.value = [...files.value, ...Array.from(fileList, toUploadedFile)]
   isEncrypted.value = false
   errorMessage.value = ''
@@ -170,6 +176,7 @@ const addFiles = (fileList: FileList) => {
 const handleDrag = (e: DragEvent) => {
   e.preventDefault()
   e.stopPropagation()
+  if (isEncrypting.value) return
   dragActive.value = e.type === 'dragenter' || e.type === 'dragover'
 }
 
@@ -183,11 +190,13 @@ const handleDrop = (e: DragEvent) => {
 
 const handleFileInput = (e: Event) => {
   const target = e.target as HTMLInputElement
-  if (!target.files?.length) return
-  addFiles(target.files)
+  if (target.files?.length) addFiles(target.files)
+  // Cleared so choosing the same file again, after removing it, still fires a change.
+  target.value = ''
 }
 
 const removeFile = (index: number) => {
+  if (isEncrypting.value) return
   files.value = files.value.filter((_, i) => i !== index)
   isEncrypted.value = false
 }
@@ -233,11 +242,15 @@ const handleEncrypt = async () => {
       failures += 1
       file.status = 'failed'
       file.error = apiErrorMessage(error, 'Encryption failed')
+      // The receipt would otherwise stay on the failed step with its spinner running; the
+      // file's own row says what went wrong.
+      progress.value = null
     }
   }
 
   isEncrypting.value = false
-  isEncrypted.value = failures === 0
+  // Complete only when nothing is left to send, not merely when this run had no failures.
+  isEncrypted.value = failures === 0 && filesStillToUpload(files.value).length === 0
   if (failures > 0) {
     errorMessage.value = `${failures} of ${queue.length} file(s) failed. See each file below.`
   }
@@ -263,9 +276,10 @@ const goToFiles = () => {
           <!-- The drop zone grows to the height of the Encryption column, so its bottom edge lines
                up with the Start Encryption button instead of stopping short of it. -->
           <div class="flex flex-col">
-            <label class="text-foreground mb-4 block text-lg font-medium">Upload Files</label>
+            <h2 class="text-foreground mb-4 block text-lg font-medium">Upload Files</h2>
             <div
-              :class="`flex min-h-[18rem] flex-1 flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragActive ? 'border-foreground bg-secondary' : 'border-input bg-background hover:border-foreground/50'}`"
+              :class="`flex min-h-[18rem] flex-1 flex-col items-center justify-center border-2 border-dashed rounded-xl p-8 text-center transition-colors ${dragActive ? 'border-foreground bg-secondary' : 'border-input bg-background hover:border-foreground/50'} ${isEncrypting ? 'opacity-50' : ''}`"
+              :aria-disabled="isEncrypting"
               @dragenter="handleDrag"
               @dragleave="handleDrag"
               @dragover="handleDrag"
@@ -274,8 +288,11 @@ const goToFiles = () => {
               <Upload class="h-12 w-12 text-muted-foreground mx-auto mb-4" />
               <p class="text-foreground mb-2">Drag files here</p>
               <p class="text-muted-foreground text-sm mb-4">or</p>
-              <label class="inline-flex h-9 px-4 items-center rounded-md border border-border cursor-pointer hover:bg-secondary transition-colors">
-                <input type="file" multiple class="hidden" @change="handleFileInput" />
+              <label
+                class="inline-flex h-9 px-4 items-center rounded-md border border-border transition-colors"
+                :class="isEncrypting ? 'cursor-not-allowed' : 'cursor-pointer hover:bg-secondary'"
+              >
+                <input type="file" multiple class="hidden" :disabled="isEncrypting" @change="handleFileInput" />
                 <span>Select Files</span>
               </label>
             </div>
@@ -307,7 +324,14 @@ const goToFiles = () => {
                 <div class="flex items-center gap-2">
                   <RefreshCw v-if="file.status === 'encrypting'" class="h-4 w-4 animate-spin text-primary" />
                   <Check v-else-if="file.status === 'done'" class="h-4 w-4 text-success" />
-                  <button v-else class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary" @click="removeFile(index)">
+                  <button
+                    v-else-if="!isEncrypting"
+                    type="button"
+                    class="h-8 w-8 inline-flex items-center justify-center rounded-md hover:bg-secondary"
+                    aria-label="Remove file"
+                    title="Remove file"
+                    @click="removeFile(index)"
+                  >
                     <X class="h-4 w-4" />
                   </button>
                 </div>
@@ -316,7 +340,7 @@ const goToFiles = () => {
           </div>
 
           <div>
-            <label class="text-foreground mb-4 block text-lg font-medium">Encryption</label>
+            <h2 class="text-foreground mb-4 block text-lg font-medium">Encryption</h2>
             <div class="space-y-4">
               <div class="p-3 rounded-lg bg-secondary/50 border border-border space-y-2">
                 <div class="flex justify-between text-sm items-center gap-3">

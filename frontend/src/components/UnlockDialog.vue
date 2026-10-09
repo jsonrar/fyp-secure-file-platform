@@ -3,6 +3,7 @@ import { RouterLink } from 'vue-router'
 import { nextTick, onMounted, ref } from 'vue'
 import { KeyRound, Upload } from 'lucide-vue-next'
 
+import { apiErrorMessage } from '@/api/http'
 import PasswordField from '@/components/PasswordField.vue'
 import {
   PrivateKeyMismatchError,
@@ -57,9 +58,7 @@ async function unlock() {
     errorMessage.value =
       error instanceof PassphraseRejectedError
         ? 'That passphrase does not open your account key.'
-        : error instanceof Error
-          ? error.message
-          : 'Could not unlock the account key'
+        : apiErrorMessage(error, 'Could not unlock the account key')
     await nextTick()
     field.value?.focus()
   } finally {
@@ -90,9 +89,7 @@ async function useKeyFile(event: Event) {
     errorMessage.value =
       error instanceof PrivateKeyMismatchError
         ? 'That key file does not match this account key. Check you saved it from this account.'
-        : error instanceof Error
-          ? error.message
-          : 'Could not read that key file'
+        : apiErrorMessage(error, 'Could not read that key file')
   } finally {
     isUnlocking.value = false
   }

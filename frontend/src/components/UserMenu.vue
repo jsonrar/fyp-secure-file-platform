@@ -109,8 +109,10 @@ onMounted(() => {
   // Only mounted while signed in, so this is the natural place to learn who that is.
   void auth.loadUser().then(() => {
     // A reload lands on whatever page was open before the guard knows about the marker;
-    // once `/auth/me` has answered, finish what the guard would have done.
-    if (auth.mustChangePassword && router.currentRoute.value.path !== SETTINGS_PATH) {
+    // once `/auth/me` has answered, finish what the guard would have done. Like the guard,
+    // only signed-in pages are redirected; a public page stays where it is.
+    const route = router.currentRoute.value
+    if (auth.mustChangePassword && route.meta.requiresAuth && route.path !== SETTINGS_PATH) {
       void router.push(PASSWORD_CHANGE_REQUIRED)
     }
   })

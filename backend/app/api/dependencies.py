@@ -150,6 +150,8 @@ def get_admin_service(
         db=db,
         audit_service=audit,
         notices=AccountNoticeService(settings=settings),
+        # The app's manager, so a reset shares the same cap on concurrent hashes as sign-in.
+        hash_password=request.app.state.password_manager.hash,
         integrity_service=IntegrityService(
             db=db,
             settings=settings,

@@ -12,7 +12,8 @@
 
 每个视频都有一张 `.jpg` 封面。账户是虚构的（`sam`、`alex`、`@example.com`），运行在一次性的本地环境里；
 密码和 passphrase 由页面遮挡，且都是用完即弃的值。三个视频均在 2026-10-05 “Sealed”改版（侧边栏、
-居中页头、两栏设置页、新登录页）之后重新录制。字幕为英文，视频没有声音。字幕、描边和登录辅助函数与
+居中页头、两栏设置页、新登录页）之后重新录制。那是在 PR #215 之前，所以 `encrypt-upload.mp4` 里仍是旧的算法下拉框
+（没有等级和说明框），完成后也仍是旧的“Encryption Complete”按钮，现在页面上显示的是绿色状态。字幕为英文，视频没有声音。字幕、描边和登录辅助函数与
 演示备用视频共用，位于 `frontend/scripts/lib/video.mjs`。
 
 界面改动后重新录制：启动本地环境（API、MySQL、`npx vite`），用 `backend/scripts/seed_test_account.py`

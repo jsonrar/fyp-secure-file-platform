@@ -57,7 +57,6 @@ backend/app/
 |-- repositories/        Persistence operations without independent commits
 |-- schemas/             Strict Pydantic transport DTOs
 |-- services/            Use-case coordinators and capability services
-|-- utils/               Pure helpers
 `-- main.py              Application factory and composition root
 
 backend/migrations/      Alembic authoring history for development/CI
@@ -65,7 +64,8 @@ database/mysql/          Reviewed administrator SQL for production delivery
 backend/tests/
 |-- unit/                Policy, validation, crypto, storage, and service tests
 |-- api/                 HTTP contract/dependency-override tests
-`-- integration/         MySQL, migration, repository, and storage tests
+|-- integration/         MySQL, migration, repository, and storage tests
+`-- e2e/                 Live API server and runner for the frontend live-backend suites
 ```
 
 The request-scoped SQLAlchemy `Session` is the unit of work. Each service is responsible for

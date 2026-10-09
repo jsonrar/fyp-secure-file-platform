@@ -4,10 +4,10 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 
 | | |
 |---|---|
-| Version | 1.4, 2026-10-09. Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 and 2026-10-08; see §14 for every revision |
+| Version | 1.5, 2026-10-09. Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 and 2026-10-08; see §14 for every revision |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
-| Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech`. Register statuses rechecked 2026-10-07 against `e4b3f13` (schema `0010_shared_file_folders`) |
+| Reflects | `main` at `c3569c8` (2026-10-09), schema revision `0011_must_change_password`, staging at `https://secureview.tech`. Register statuses rechecked 2026-10-07 against `e4b3f13`, and F-08 on 2026-10-09 |
 
 This document states what SecureView protects, from whom, where the trust boundaries lie, and
 which threats each boundary does and does not stop. It consolidates controls that are
@@ -89,7 +89,7 @@ credit the system with protections it does not claim.
 
 | ID | Actor | Legitimate capability | Must not be able to |
 |---|---|---|---|
-| U1 | Anonymous internet user | Register, request a verification code, log in | Brute-force logins, reach any file, enumerate accounts (only partly prevented — T-S2) |
+| U1 | Anonymous internet user | Register, request a verification code, log in | Brute-force logins, reach any file, enumerate accounts by email (T-S2; usernames are public) |
 | U2 | Authenticated USER | Upload, download, share and revoke own files; request recovery for own key | Read others' files or metadata; escalate role |
 | U3 | Share recipient | Decrypt files shared to them while the grant is live | Re-share without `can_share`; keep server-mediated access after revocation |
 | U4 | RECOVERY_OFFICER | Approve or reject recovery requests; run offline rewrap | Approve their own request; obtain a file DEK online; read plaintext |
@@ -126,7 +126,7 @@ credit the system with protections it does not claim.
 | TB4 | FastAPI ↔ object storage | Ciphertext | Service user owns a mode-0700 root; SHA-256 recorded at upload and checked at download |
 | TB5 | FastAPI ↔ email provider | Verification codes to user addresses | HTTPS API; codes stored only as HMAC digests |
 | TB6 | GitHub ↔ VPS | Release code | Read-only deploy key; release gate with database verification and quarantine |
-| TB7 | VPS ↔ off-server storage | Encrypted backups, HMAC checkpoints | Backup host holds only a public key (installed and running on staging). A 30-day bucket lock is part of the design, but the staging installation record does not verify it. Checkpoints are not yet uploaded from staging |
+| TB7 | VPS ↔ off-server storage | Encrypted backups, HMAC checkpoints | Backup host holds only a public key (installed and running on staging). A 30-day bucket lock is part of the design, but the staging installation record does not verify it. HMAC checkpoints are uploaded hourly from staging, and one was verified off the host (F-10) |
 | TB8 | Networked systems ↔ offline custody | Recovery and backup private keys | Procedural only, and not yet in effect on staging (A6). What *is* enforced in code: no endpoint accepts a recovery private key |
 
 ## 7. STRIDE analysis
@@ -137,7 +137,7 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 
 | ID | Threat | Control | Status |
 |---|---|---|---|
-| T-S1 | Password guessing against login | Argon2id hashes; per-account and per-IP throttles in `auth_login_throttles` (10 failures per account, 500 per address); nginx `secureview_auth` at 60 credential checks per minute per IP; fail2ban after 60 rejected credentials in ten minutes (§11.5) | Mitigated |
+| T-S1 | Password guessing against login | Argon2id hashes; per-account and per-IP throttles in `auth_login_throttles` (10 failures per account, 500 per address); nginx `secureview_auth` at 60 credential checks per minute per IP; fail2ban after 60 rejected credentials in ten minutes (§11.6) | Mitigated |
 | T-S2 | Account enumeration through registration, code sending or password reset | Code sending and password reset answer identically whether or not the account exists, and spend the allowance either way | Mitigated 2026-10-09: `POST /auth/register` now consumes the verification code before looking at the email, and a registered address answers the same `422 invalid_verification_code` as a wrong code. Only a taken username is reported (`409`, before the code), and usernames are public because sharing resolves them. → F-08 |
 | T-S3 | Session hijack by token theft | Tokens stored only as SHA-256; access 30 min, refresh 7 days, absolute 7 days; a replayed refresh token revokes the whole session family (`AUTH_REFRESH_REPLAY_DETECTED`) | Partial — see T-I4 for where tokens are kept |
 | T-S4 | Substituted **recovery public key**, so every future upload is wrapped to an attacker | Browser recomputes the fingerprint from the PEM and displays it; the API's own fingerprint field is never trusted | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The highest-impact of the three substitutions, and the first to fix if the project continues. |
@@ -150,12 +150,12 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 | ID | Threat | Control | Status |
 |---|---|---|---|
 | T-T1 | Altering ciphertext at rest or in transit | AEAD tag; the server also verifies SHA-256 before serving | Mitigated |
-| T-T1a | Altering a stored object **and** the `files.encrypted_sha256` column so they agree | The upload's audit row records the ciphertext SHA-256 in the hash chain; every check and download compares against it too. A daily sweep (`scripts/integrity_sweep.py`) finds tampering with files nobody opens. `scripts/restore_file.py` puts the original back from an encrypted backup ([BACKUP_AND_RECOVERY.md §9](BACKUP_AND_RECOVERY.md)) | Mitigated for files uploaded since the digest was recorded; older files fall back to the column. A file newer than the last nightly backup cannot be restored. The sweep timer is not installed until deliberately enabled. |
+| T-T1a | Altering a stored object **and** the `files.encrypted_sha256` column so they agree | The upload's audit row records the ciphertext SHA-256 in the hash chain; every check and download compares against it too. A daily sweep (`scripts/integrity_sweep.py`) finds tampering with files nobody opens. `scripts/restore_file.py` puts the original back from an encrypted backup ([BACKUP_AND_RECOVERY.md §9](BACKUP_AND_RECOVERY.md)) | Mitigated for files uploaded since the digest was recorded; older files fall back to the column. A file newer than the last nightly backup cannot be restored. The sweep timer runs daily at 05:30 on staging (checked 2026-10-09). |
 | T-T2 | Relabelling a file's name, MIME type, size or algorithm | All bound into AAD-3; any change fails authentication ([FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md)) | Mitigated |
 | T-T3 | Replacing a user's key envelopes with garbage to lock them out | Rewrap, key addition and passphrase reset all require an RSA-PSS signature by the account private key, each under its own domain label | Mitigated |
 | T-T4 | **Rolling back** a key bundle, protection profile or file to an earlier valid version | Optimistic revisions stop concurrent writers; files are immutable and AAD-3 binds `file_id`, so one file cannot be served as another | Accepted at FYP scope — [§10.2](#102-public-key-identity-rollback-and-the-trust-anchor). The dangerous case, re-activating a retired public key, is the substitution case again. |
 | T-T5 | Malicious dependency version | Lockfiles; `@noble/ciphers` chosen for zero transitive dependencies | Partial — no provenance or audit gate. → F-12 |
-| T-T6 | Rewriting the audit log consistently | Hash chain in the database; external HMAC-authenticated chain-head checkpoints implemented in `backend/scripts/audit_checkpoint.py`, with the HMAC key never given to the backend | Partial — the hash chain is live. The external checkpoints exist in the repository, but the first staging upload and its off-host verification are still pending, so no external trust anchor is in operation yet. |
+| T-T6 | Rewriting the audit log consistently | Hash chain in the database; external HMAC-authenticated chain-head checkpoints implemented in `backend/scripts/audit_checkpoint.py`, with the HMAC key never given to the backend | Partial — the hash chain is live, and the external checkpoints have been published hourly from staging since 2026-09-25, when one was verified on a separate machine (F-10, Issue #59). A checkpoint only covers rows written before it was taken. |
 | T-T7 | Tampering with an execution package during offline recovery | Server rechecks identities, lengths and the live grant before accepting the rewrap | Partial — the offline workstation is procedural (TB8) |
 
 ### 7.3 Repudiation
@@ -163,7 +163,7 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 | ID | Threat | Control | Status |
 |---|---|---|---|
 | T-R1 | A user denies having shared, requested a download of, or reset | Every such action appends an audit event with actor, target, IP and user agent in the same transaction | Mitigated for what is recorded. A download is recorded as `FILE_DOWNLOAD_AUTHORIZED` when the server authorizes the request and has verified the ciphertext, **before** streaming it. That is evidence of an authorized request, not proof that the client received the whole stream or decrypted it. |
-| T-R2 | An operator denies altering records | External HMAC checkpoints (T-T6), once operating | Partial — not yet operating on staging, and even then they cover the chain head, not who ran what on the host |
+| T-R2 | An operator denies altering records | External HMAC checkpoints (T-T6), operating on staging since 2026-09-25 (F-10) | Partial — they cover the chain head, not who ran what on the host |
 | T-R3 | A recovery officer denies approving or executing | Approval and execution are separate audited events; a requester cannot review their own request | Partial — one officer may both approve and execute ([SECURITY_FLOWS.md § Offline Recovery](SECURITY_FLOWS.md#offline-recovery-boundary)) |
 
 ### 7.4 Information disclosure
@@ -185,7 +185,7 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 
 | ID | Threat | Control | Status |
 |---|---|---|---|
-| T-D1 | Request flooding | nginx `secureview_api` at 30 requests per second per IP, burst 60 (sized for a venue network that arrives as one address, §11.5) | Partial — per-IP only |
+| T-D1 | Request flooding | nginx `secureview_api` at 30 requests per second per IP, burst 60 (sized for a venue network that arrives as one address, §11.6) | Partial — per-IP only |
 | T-D2 | Upload abuse filling the disk | 500 MiB per upload; per-account 2 GiB storage and 5 GiB per 24 h; uploads refused below a free-disk floor; 50 uploads in flight per IP in nginx; `UPLOAD_BURST` agent rule; 85 % filesystem alert | Mitigated — one account can no longer fill the disk; many accounts still could, slowly, and registration is gated by email verification. → F-09 |
 | T-D3 | Very large uploads exhaust the **browser** | — | Accepted — the in-memory design peaks near four times the file size; owned by the upload work, not this model → F-19 |
 | T-D4 | Lock-out by envelope overwrite | See T-T3 | Mitigated |
@@ -622,3 +622,4 @@ F-02 in particular.
 | 1.2 | F-01 and T-E5 updated: deployment is gated on CI (#117, installed 2026-10-01). No analysis changed. |
 | 1.3 | 2026-10-09. §11.6 added with the per-address limits resized for a venue network behind one NAT (#210). F-04 recorded as mitigated by #205 (2026-10-08), which v1.2 had not picked up, and the version line above brought in line with this table. Sharing (T-S5): the client does not decrypt the file before a share; [FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md) §6 now says what it checks instead and why a wrong rewrap is a share that does not work rather than a disclosure. No other analysis changed. |
 | 1.4 | 2026-10-09. T-I10 added: the Encrypted preview does not weaken a file, so it stays as it is. No other analysis changed. |
+| 1.5 | 2026-10-09. T-S2 / F-08 recorded as mitigated by #212 (the table already said so, but no revision row did). Two fixes after #213: the access log shows a user rows about a file they own only when the row really is about a file (the file, its shares, checks and recovery), so a client-chosen file id that equals someone's user or key id no longer reveals that person's account rows; and sending a verification code answers the same for a registered and an unregistered email. Stale references fixed: TB7, T-T6 and T-R2 now say the external checkpoints run on staging (F-10); T-S1 and T-D1 point to §11.6; U1 matches T-S2; schema `0011_must_change_password`. No other analysis changed. |

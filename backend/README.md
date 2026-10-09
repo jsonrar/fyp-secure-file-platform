@@ -214,8 +214,9 @@ trusted. It never touches `audit_logs` or `audit_chain_heads` (append-only, hash
 and the runtime grant is `SELECT, INSERT` so this cannot happen by accident), the file
 tables, the identity and key-custody tables, or `recovery_requests`.
 
-`deployment/server/mcs21-reconcile.{service,timer}` run it daily. They are tracked but not
-installed; enabling them is a deliberate step, after a report-only run has been read.
+`deployment/server/mcs21-reconcile.{service,timer}` run it daily. On staging they were installed
+on 2026-09-24 after a report-only run had been read, and the timer has run daily since 2026-09-25
+(#57, closed). On a new deployment, read a report-only run before enabling them.
 
 ## Database Changes
 

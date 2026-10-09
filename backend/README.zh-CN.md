@@ -175,7 +175,7 @@ AUTH_TEST_DATABASE_URL='mysql+pymysql://USER:PASSWORD@127.0.0.1:3306/fyp_secure_
 
 默认仅报告是有意为之：对账任务的 bug 往往要靠"它删掉了什么"才被发现，因此在某个部署上的首次运行应当被阅读，而不是被信任。它绝不触碰 `audit_logs` 与 `audit_chain_heads`（只追加、有哈希链，且运行时授权仅为 `SELECT, INSERT`，因此不可能误删）、文件相关表、身份与密钥托管表，以及 `recovery_requests`。
 
-`deployment/server/mcs21-reconcile.{service,timer}` 会每日运行它。这两个文件已纳入版本管理但**未安装**；启用它们是一个需要明确决定的步骤，且应在阅读过一次仅报告的运行结果之后再进行。
+`deployment/server/mcs21-reconcile.{service,timer}` 会每日运行它。在 staging 上，阅读过一次仅报告的运行结果之后，它们已于 2026-09-24 安装，定时器从 2026-09-25 起每天运行（#57，已关闭）。新的部署也应先阅读一次仅报告的运行结果，再启用它们。
 
 ## 数据库变更
 

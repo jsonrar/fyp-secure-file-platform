@@ -17,11 +17,16 @@ import pytest
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
 from pydantic import ValidationError
+from sqlalchemy import Column, MetaData, Table, create_engine, insert
+from sqlalchemy.orm import Session
 
 from app.api.dependencies import get_audit_query_service, get_current_actor
 from app.api.v1.routers.audit_router import router
 from app.domain.auth import ActorContext
 from app.domain.enums import SystemRole, UserStatus
+from app.models.audit_log import AuditLog
+from app.models.file import File
+from app.models.user import User
 from app.repositories.audit_repository import AuditRepository
 from app.schemas.audit_schema import AUDIT_ACTIONS, AuditLogQuery
 from app.services.audit_query_service import AuditQueryService
@@ -187,6 +192,72 @@ def test_without_a_keyword_the_files_table_is_not_joined() -> None:
     db = _CapturingDb()
     sql = _list(db, action="AUTH_LOGIN_FAILED")
     assert "LEFT OUTER JOIN files" not in sql
+
+
+# --- the visibility rule on a real database --------------------------------------------------
+
+
+def _visibility_db() -> Session:
+    """SQLite copies of the three tables the query reads, with no constraints or defaults.
+
+    The real tables use MySQL-only defaults and checks, so they are copied column by column.
+    That is enough to run the real statement and see which rows it returns.
+    """
+    metadata = MetaData()
+    for model in (User, File, AuditLog):
+        table = model.__table__
+        Table(
+            table.name,
+            metadata,
+            *[Column(c.name, c.type, primary_key=c.primary_key) for c in table.columns],
+        )
+    engine = create_engine("sqlite://")
+    metadata.create_all(engine)
+    return Session(engine)
+
+
+def test_an_owned_file_id_equal_to_someone_elses_account_id_does_not_reveal_their_rows() -> None:
+    # The upload's file id is chosen by the client, so user 7 can upload a file whose id is
+    # user 9's public id (or one of their key ids). Rows about user 9's account carry that same
+    # id as their resource id, and must stay out of user 7's page.
+    colliding = "99999999-9999-4999-8999-999999999999"
+    db = _visibility_db()
+    db.execute(insert(File.__table__), [{"id": 1, "file_uuid": colliding, "owner_id": 7}])
+    rows = [
+        ("AUTH_LOGIN_SUCCEEDED", "USER"),
+        ("ADMIN_PASSWORD_RESET", "USER"),
+        ("USER_KEY_ADDED", "AUTH"),
+        ("RECOVERY_KEY_ROTATED", "RECOVERY"),
+        ("FILE_DOWNLOAD_AUTHORIZED", "FILE"),
+        ("FILE_SHARED", "SHARE"),
+        ("RECOVERY_REQUEST_APPROVED", "RECOVERY"),
+    ]
+    db.execute(
+        insert(AuditLog.__table__),
+        [
+            {
+                "id": index,
+                "actor_user_id": 9,
+                "action": action,
+                "resource_type": resource_type,
+                "resource_id": colliding,
+                "result": "SUCCESS",
+                "created_at": datetime(2026, 10, 1, 12, index),
+            }
+            for index, (action, resource_type) in enumerate(rows, start=1)
+        ],
+    )
+
+    visible = AuditRepository(db).list_logs(actor_user_id=7, admin=False, limit=50, offset=0)
+
+    # The owner still sees what was done to their file by someone else.
+    assert {log.action for log, _actor, _target in visible} == {
+        "FILE_DOWNLOAD_AUTHORIZED",
+        "FILE_SHARED",
+        "RECOVERY_REQUEST_APPROVED",
+    }
+    # An administrator is not narrowed by ownership at all.
+    assert len(AuditRepository(db).list_logs(actor_user_id=7, admin=True, limit=50, offset=0)) == 7
 
 
 # --- the service ----------------------------------------------------------------------------

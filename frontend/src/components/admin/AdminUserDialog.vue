@@ -38,6 +38,8 @@ function formatTimestamp(value: string | null | undefined): string {
 }
 
 const roleLabel = (role: string) => (role === 'ADMIN' ? 'Admin' : role === 'RECOVERY_OFFICER' ? 'Recovery officer' : 'User')
+const STATUS_LABELS: Record<string, string> = { ACTIVE: 'Active', DISABLED: 'Disabled', DELETED: 'Deleted' }
+const statusLabel = (status: string) => STATUS_LABELS[status] ?? status
 
 async function resetPassword() {
   if (!detail.value) return
@@ -132,7 +134,7 @@ onBeforeUnmount(() => {
           <dt class="text-muted-foreground">Role</dt>
           <dd>{{ roleLabel(detail.role) }}</dd>
           <dt class="text-muted-foreground">Status</dt>
-          <dd>{{ detail.status }}</dd>
+          <dd>{{ statusLabel(detail.status) }}</dd>
           <dt class="text-muted-foreground">Created</dt>
           <dd>{{ formatTimestamp(detail.created_at) }}</dd>
           <dt class="text-muted-foreground">Last sign-in</dt>

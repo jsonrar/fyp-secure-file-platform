@@ -9,10 +9,17 @@ from uuid import UUID
 
 import pytest
 
-from app.core.security import password_policy_error
+from app.api.dependencies import get_admin_service
+from app.core.config import Settings
+from app.core.security import PasswordOperationCapacityError, password_policy_error
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
-from app.domain.errors import AuthorizationError, ConflictError, ResourceNotFoundError
+from app.domain.errors import (
+    AuthenticationRateLimitedError,
+    AuthorizationError,
+    ConflictError,
+    ResourceNotFoundError,
+)
 from app.repositories.admin_repository import AdminRepository
 from app.services.account_notice_service import AccountNoticeService
 from app.services.admin_service import AdminService, temporary_password
@@ -150,6 +157,46 @@ def test_a_failed_notice_does_not_undo_the_reset() -> None:
     assert notice_sent is False
     assert user.password_hash == f"hashed:{temporary}"
     assert db.commits == 1
+
+
+def test_no_memory_for_a_password_hash_is_a_brief_429_and_changes_nothing() -> None:
+    user = _user()
+    notices = FakeNotices()
+    service, db, audit, auth = _service(user, notices=notices)
+
+    def no_capacity(_value: str) -> str:
+        raise PasswordOperationCapacityError()
+
+    service.hash_password = no_capacity
+
+    with pytest.raises(AuthenticationRateLimitedError) as excinfo:
+        service.reset_user_password(actor=_actor(), user_id=TARGET_ID, context=RequestContext())
+
+    assert excinfo.value.headers["Retry-After"] == "1"
+    assert user.password_hash == "old-hash" and user.must_change_password is False
+    assert (db.commits, db.rollbacks) == (0, 1)
+    assert auth.calls == [] and audit.events == [] and notices.calls == []
+
+
+def test_the_route_hashes_with_the_apps_password_manager() -> None:
+    # The app's manager carries the cap on concurrent hashes; the module-level one does not
+    # share it, so a reset could otherwise add memory-hard work past the cap.
+    class Manager:
+        def hash(self, value: str) -> str:
+            return f"app:{value}"
+
+    manager = Manager()
+    request = SimpleNamespace(
+        app=SimpleNamespace(
+            state=SimpleNamespace(
+                settings=Settings(_env_file=None, APP_ENV="test"), password_manager=manager
+            )
+        )
+    )
+
+    service = get_admin_service(request, db=FakeDb())  # type: ignore[arg-type]
+
+    assert service.hash_password("x") == "app:x"
 
 
 def test_an_administrator_cannot_reset_their_own_password_here() -> None:

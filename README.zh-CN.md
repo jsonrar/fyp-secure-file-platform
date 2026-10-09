@@ -225,7 +225,7 @@ Schema revision 精确等于 `0011_must_change_password`。本地默认提供 `/
 fyp-secure-file-platform/
 |-- backend/
 |   |-- app/                 api/v1/routers, core, domain, models, repositories, schemas, services
-|   |-- migrations/          Alembic revisions 0001-0010
+|   |-- migrations/          Alembic revisions 0001-0011
 |   |-- scripts/             ops and drills: reconcile, integrity sweep, restore_file, audit
 |   |                        checkpoint, observe, security agent, backups, tamper demo, seeding
 |   |-- tests/               unit, api, integration (MySQL 8.4), e2e (live stack)
@@ -513,14 +513,14 @@ loopback 可访问的 metrics snapshot，并由五分钟阈值 watcher 检查；
 loopback nginx，公网 origin 对 `/internal/` 显式返回 404。安装方式、阈值负责人、checkpoint 独立验证与
 事故处理流程见
 [`docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md`](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.zh-CN.md)。
-在精确 merged SHA 部署并补齐 staging 证据表之前，新增 timer 仍刻意保持 opt-in。
+这些 timer 已在 staging 上安装并启用；staging 证据已于 2026-09-25 记录，[#59](https://github.com/jsonrar/fyp-secure-file-platform/issues/59) 已关闭。
 
 `backend/scripts/reconcile.py` 清除已失效的会话、刷新令牌、限流桶、验证码以及未被引用的密文对象；它从不
 触碰审计、身份、密钥保管或恢复相关的表。它默认只报告，从截止线两侧展示每个类别；带 `--apply` 时若数量
 异常则拒绝删除任何东西（退出码 3）。`deployment/server/mcs21-reconcile.{service,timer}` 在同机备份之后、
 每天 05:00（Asia/Kuala_Lumpur）运行它，`mcs21-alert@.service` 在它或任一备份任务失败时发邮件通知到人。
-在 [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md) 中的 report-only 审查
-被记录之前，这些都不会在 staging 上启用（[#57](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)）。
+[docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md) 中的 report-only 审查记录完成后，
+它已于 2026-09-24 安装到 staging，从 2026-09-25 起每天运行（[#57](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)，已关闭）。
 
 ## 重要安全说明
 

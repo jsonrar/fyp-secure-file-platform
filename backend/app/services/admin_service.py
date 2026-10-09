@@ -7,11 +7,16 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
-from app.core.security import hash_password, password_policy_error
+from app.core.security import PasswordOperationCapacityError, hash_password, password_policy_error
 from app.core.time import to_api_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
-from app.domain.errors import AuthorizationError, ConflictError, ResourceNotFoundError
+from app.domain.errors import (
+    AuthenticationRateLimitedError,
+    AuthorizationError,
+    ConflictError,
+    ResourceNotFoundError,
+)
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.auth_repository import AuthRepository
 from app.schemas.admin_schema import (
@@ -250,6 +255,11 @@ class AdminService:
                 metadata={"revoked_sessions": revoked},
             )
             self.db.commit()
+        except PasswordOperationCapacityError as exc:
+            # No memory budget for another hash right now: the same brief 429 that sign-in
+            # gives, rather than a 500. Nothing was changed.
+            self.db.rollback()
+            raise AuthenticationRateLimitedError(retry_after_seconds=1) from exc
         except Exception:
             self.db.rollback()
             raise

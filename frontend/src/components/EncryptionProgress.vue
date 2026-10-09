@@ -89,7 +89,7 @@ onBeforeUnmount(() => clearInterval(timer))
 </script>
 
 <template>
-  <div class="rounded-xl border border-border bg-card p-5" data-testid="encryption-progress" aria-live="polite">
+  <div class="rounded-xl border border-border bg-card p-5" data-testid="encryption-progress">
     <div class="mb-4 flex items-start justify-between gap-3">
       <div class="min-w-0">
         <p class="font-mono text-[0.68rem] uppercase tracking-[0.14em] text-muted-foreground">Seal receipt</p>
@@ -98,7 +98,10 @@ onBeforeUnmount(() => clearInterval(timer))
         </p>
       </div>
       <div class="flex shrink-0 items-center gap-1.5">
+        <!-- Only the badge and the step list are live. The whole receipt used to be, and the byte
+             scramble below rewrites itself every 35 ms, which a screen reader would keep reading. -->
         <span
+          aria-live="polite"
           class="rounded-md px-2.5 py-1 font-mono text-xs uppercase"
           :class="done ? 'bg-success-soft text-success' : 'bg-muted text-muted-foreground'"
         >{{ done ? 'Sealed' : 'Sealing…' }}</span>
@@ -116,7 +119,7 @@ onBeforeUnmount(() => clearInterval(timer))
       </div>
     </div>
 
-    <ol class="space-y-3">
+    <ol class="space-y-3" aria-live="polite">
       <li v-for="step in steps" :key="step.stage" class="flex items-start gap-3">
         <span
           class="mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-full border transition-colors"

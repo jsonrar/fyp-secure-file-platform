@@ -112,7 +112,7 @@ driven by Playwright, clicks the built pages through the golden path:
 | Register two accounts | The two-step register form: account details with **Send code**, **Next**, then the encryption passphrase and **Register** |
 | Email verification | The code is read from the stack's mailbox directory (the same one `e2e/live-stack` reads) and typed into the form; nothing is sent |
 | Sign in | The login form |
-| Upload | The file picker and **Start Encryption** on `/upload`, then **View Encrypted Files**; before that the seal receipt is closed with **Close the seal receipt** and must leave the page (#200) |
+| Upload | The file picker and **Start Encryption** on `/upload`, then **View Encrypted Files**; before that the seal receipt is closed with **Close the seal receipt** and must leave the page (#200). The test counts `POST /files/upload` requests and expects exactly one; the finished state must be a status, not a button, and clicking it must send nothing (#215) |
 | Encrypted preview | **Encrypted preview** on the row shows the stored bytes, and they do not start like the original |
 | Folders | The file is added to a folder and moved back to **All files** |
 | Unlock the key vault | The passphrase dialog raised by **Download and decrypt** |

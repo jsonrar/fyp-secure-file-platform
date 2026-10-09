@@ -302,7 +302,7 @@ a deployment can unmount all three with `APP_DOCS_ENABLED`.
 fyp-secure-file-platform/
 |-- backend/
 |   |-- app/                 api/v1/routers, core, domain, models, repositories, schemas, services
-|   |-- migrations/          Alembic revisions 0001-0010
+|   |-- migrations/          Alembic revisions 0001-0011
 |   |-- scripts/             ops and drills: reconcile, integrity sweep, restore_file, audit
 |   |                        checkpoint, observe, security agent, backups, tamper demo, seeding
 |   |-- tests/               unit, api, integration (MySQL 8.4), e2e (live stack)
@@ -633,8 +633,8 @@ trusted-proxy boundary is loopback nginx only and the public origin explicitly r
 `/internal/`. Installation, threshold ownership, independent checkpoint verification, and
 incident procedures are in
 [`docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md`](docs/OBSERVABILITY_AND_INCIDENT_RESPONSE.md).
-The new timers remain deliberately opt-in until the exact merged SHA is deployed and the
-staging evidence table is completed.
+These timers are installed and enabled on staging; the staging evidence was recorded on
+2026-09-25 and [#59](https://github.com/jsonrar/fyp-secure-file-platform/issues/59) is closed.
 
 `backend/scripts/reconcile.py` removes lapsed sessions, refresh tokens, throttle buckets,
 verification codes, and unreferenced ciphertext objects; it never touches audit, identity,
@@ -642,9 +642,9 @@ key-custody, or recovery tables. It reports by default, shows each category on b
 its cutoff, and with `--apply` refuses to delete anything (exit 3) when the volume is unusual.
 `deployment/server/mcs21-reconcile.{service,timer}` run it daily at 05:00 Asia/Kuala_Lumpur,
 after the same-host backup, and `mcs21-alert@.service` emails a person when it or any backup
-job fails. None of this is enabled on staging until the report-only review in
-[docs/RECONCILIATION_RUNBOOK.md](docs/RECONCILIATION_RUNBOOK.md) is recorded
-([#57](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)).
+job fails. This was installed on staging on 2026-09-24 after the report-only review in
+[docs/RECONCILIATION_RUNBOOK.md](docs/RECONCILIATION_RUNBOOK.md) was recorded, and the timer has run
+daily since 2026-09-25 ([#57](https://github.com/jsonrar/fyp-secure-file-platform/issues/57), closed).
 
 ## Important Security Note
 
