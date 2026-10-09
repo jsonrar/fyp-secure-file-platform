@@ -177,7 +177,9 @@
     "fingerprintTitle": "Your key fingerprint",
     "fingerprintBody": "When someone shares a file with you, their screen shows this fingerprint for your key. Reading it out to each other and checking it matches proves the file is sealed to you and not to a key someone substituted.",
     "fingerprintLoading": "Working out your fingerprint…",
-    "fingerprintError": "Your fingerprint could not be loaded. Sign in again and reopen Settings."
+    "fingerprintError": "Your fingerprint could not be loaded. Sign in again and reopen Settings.",
+    "passwordResetTitle": "An administrator reset your login password",
+    "passwordResetBody": "You signed in with a temporary password that the administrator has seen. Set a password of your own in the Login password card below before you carry on. Your files and encryption passphrase are not affected."
   },
   "common": {
     "cancel": "Cancel",
@@ -240,7 +242,7 @@
     "access_denied": "You do not have permission to do that.",
     "resource_not_found": "That item could not be found.",
     "conflict": "That conflicts with the current state. Refresh and try again.",
-    "account_identifier_unavailable": "That username or email address cannot be used. Choose another.",
+    "account_identifier_unavailable": "That username is already taken. Choose another.",
     "invalid_input": "Some of the details are not valid. Check them and try again.",
     "request_validation_failed": "Some of the details are not valid. Check them and try again.",
     "password_unchanged": "The new password must be different from the current one.",

@@ -137,7 +137,10 @@ class AuthService:
         self._consume_registration_attempt(context)
 
         try:
-            if self.repository.identifier_exists(normalized_username, normalized_email):
+            # Usernames are public (sharing resolves them), so a taken one may be reported
+            # outright, and reporting it before the code is consumed means the caller does
+            # not have to request a new code just to pick another name.
+            if self.repository.username_exists(normalized_username):
                 raise AccountIdentifierUnavailableError()
 
             self.verification.consume(
@@ -146,6 +149,13 @@ class AuthService:
                 code=verification_code,
                 context=context,
             )
+
+            # Whether an email has an account is not public. The send endpoint already
+            # answers the same way for a registered address (and sends nothing), so a
+            # valid code for a registered email should not exist; if one arrives anyway,
+            # answer exactly as for a bad code rather than confirm the account exists.
+            if self.repository.email_exists(normalized_email):
+                raise VerificationCodeInvalidError()
 
             now = self._now()
             # The two key-custody tables are DATETIME(6); everything else here is
@@ -261,8 +271,13 @@ class AuthService:
             return result
         except IntegrityError as exc:
             self.db.rollback()
-            if self._is_account_identifier_conflict(exc):
+            # A row inserted between the checks above and this insert. Same answers as the
+            # checks give, so the race cannot be used to learn what the checks hide.
+            conflict = self._account_identifier_conflict(exc)
+            if conflict == "username":
                 raise AccountIdentifierUnavailableError() from exc
+            if conflict == "email":
+                raise VerificationCodeInvalidError() from exc
             raise
         except PasswordOperationCapacityError as exc:
             self.db.rollback()
@@ -324,6 +339,8 @@ class AuthService:
             locked_user.password_hash = replacement_hash
             locked_user.password_changed_at = now
             locked_user.updated_at = now
+            # Same as change-password: a password the holder set replaces the temporary one.
+            locked_user.must_change_password = False
             revoked = self.repository.revoke_all_session_families(
                 locked_user.id,
                 now=now,
@@ -762,6 +779,8 @@ class AuthService:
             locked_user.password_hash = replacement_hash
             locked_user.password_changed_at = now
             locked_user.updated_at = now
+            # The holder chose this password, so an administrator's temporary one is gone.
+            locked_user.must_change_password = False
             revoked = self.repository.revoke_all_session_families(
                 locked_user.id,
                 now=now,
@@ -1020,18 +1039,67 @@ class AuthService:
         context: RequestContext,
         now: datetime,
     ) -> None:
+        self.record_reauthentication_failure(
+            user=user,
+            buckets=buckets,
+            context=context,
+            now=now,
+            action="AUTH_PASSWORD_CHANGE_FAILED",
+            description="Current password verification failed",
+        )
+
+    # Re-entering the password while signed in (change password, delete account) shares
+    # one set of throttle buckets, so guessing through one action cannot bypass the limit
+    # set by the other. These three are the public face of that for other services.
+
+    def begin_reauthentication(
+        self,
+        *,
+        username: str,
+        context: RequestContext,
+        now: datetime,
+    ) -> tuple[tuple[LoginThrottleScope, str], ...]:
+        """Refuse with 429 while the account or IP is blocked; otherwise return the buckets.
+
+        Commits on its own, like the login check it wraps, so the caller must not hold row
+        locks it still needs across this call.
+        """
+        buckets = self._reauthentication_buckets(username, context)
+        self._check_login_attempt_allowed(buckets, now=now)
+        return buckets
+
+    def record_reauthentication_failure(
+        self,
+        *,
+        user: User,
+        buckets: tuple[tuple[LoginThrottleScope, str], ...],
+        context: RequestContext,
+        now: datetime,
+        action: str,
+        description: str,
+    ) -> None:
+        """Count the failure and commit its audit event before the caller rolls back."""
         self._record_login_failure(buckets, now=now)
         self.audit.append(
-            action="AUTH_PASSWORD_CHANGE_FAILED",
+            action=action,
             result="FAIL",
             actor_user_id=user.id,
             target_user_id=user.id,
             resource_id=str(user.user_uuid),
             context_ip_address=self._safe_ip(context),
             context_user_agent=self._safe_user_agent(context),
-            description="Current password verification failed",
+            description=description,
         )
         self.db.commit()
+
+    def clear_reauthentication_throttle(
+        self,
+        *,
+        buckets: tuple[tuple[LoginThrottleScope, str], ...],
+        now: datetime,
+    ) -> None:
+        """A correct password resets the account bucket; the IP bucket keeps counting."""
+        self._clear_successful_account_throttle(buckets, now=now)
 
     def _reject_password_capacity_exhaustion(
         self,
@@ -1197,6 +1265,7 @@ class AuthService:
             created_at=to_api_utc(user.created_at),
             last_login_at=to_api_utc(user.last_login_at),
             has_avatar=bool(user.avatar_object_key),
+            must_change_password=bool(user.must_change_password),
         )
 
     def _session_snapshot(
@@ -1260,11 +1329,15 @@ class AuthService:
         return context.user_agent[:512]
 
     @staticmethod
-    def _is_account_identifier_conflict(exc: IntegrityError) -> bool:
+    def _account_identifier_conflict(exc: IntegrityError) -> str | None:
+        """Which users unique key a MySQL 1062 duplicate hit: "username", "email" or None."""
         original_args = getattr(exc.orig, "args", ())
         mysql_error_code = original_args[0] if original_args else None
         message = str(original_args[1] if len(original_args) > 1 else exc.orig).casefold()
-        return mysql_error_code == 1062 and any(
-            constraint.casefold() in message
-            for constraint in ("uq_users_username", "uq_users_email")
-        )
+        if mysql_error_code != 1062:
+            return None
+        if "uq_users_username" in message:
+            return "username"
+        if "uq_users_email" in message:
+            return "email"
+        return None

@@ -43,7 +43,7 @@ PR #49（看板最后一次同步在 2026-09-07，此后未再同步）；关闭
 | 2.3 | 目标用户与相关方 | Done | 提案中的相关方，以及已实现的用户/RBAC 角色 |
 | 3.1 | UI/UX 与 Figma 原型 | Done | 已实现并部署的用户流程和 PR #46 |
 | 3.2 | REST API 与 FastAPI 模块设计 | Done | `docs/API_DESIGN.md` 和公开的 OpenAPI/Swagger 契约 |
-| 3.3 | MySQL Schema 与迁移设计 | Done | Alembic head `0010_shared_file_folders`、生产 SQL、PR #1、#24、#103、#106 和 #145 |
+| 3.3 | MySQL Schema 与迁移设计 | Done | Alembic head `0011_must_change_password`、生产 SQL、PR #1、#24、#103、#106 和 #145 |
 | 3.4 | AES/RSA 混合流程设计 | Done | `docs/SECURITY_FLOWS.md` 和带认证的信封实现 |
 | 3.5 | 教育页面设计 | Done | `/education`、算法浏览器、练习区和知识搜索 |
 | 4.1 | Vue 前端 | Done | Vue 3/TypeScript 应用、测试、类型检查和构建 |

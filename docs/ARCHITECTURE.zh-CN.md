@@ -225,7 +225,7 @@ MySQL 因死锁（1213）或锁等待超时（1205）中止的事务会从头重
 
 ## Schema 与交付规则
 
-- ORM metadata 及截至 `0010_shared_file_folders` 的有序 Alembic revision 是开发/CI Schema
+- ORM metadata 及截至 `0011_must_change_password` 的有序 Alembic revision 是开发/CI Schema
   编写权威。
 - `database/mysql/02-schema.sql` 是由该权威派生、经评审的生产空库工件；奇偶校验测试比较表、
   列、索引及约束。

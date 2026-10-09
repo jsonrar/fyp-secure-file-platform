@@ -194,7 +194,7 @@ onBeforeUnmount(() => {
             </div>
             <ul class="list-disc space-y-1 pl-5 text-xs leading-relaxed text-muted-foreground">
               <li>Give it to them in person or over a channel you trust.</li>
-              <li>They should sign in with it and choose a new one in Settings.</li>
+              <li>When they sign in with it they are taken straight to Settings to choose their own.</li>
               <li>Sessions signed out: {{ reset.revoked_sessions }}.</li>
               <li>{{ reset.notice_sent ? 'They have been emailed that it changed.' : 'The notice email could not be sent.' }}</li>
               <li>Their files and encryption passphrase are unchanged.</li>

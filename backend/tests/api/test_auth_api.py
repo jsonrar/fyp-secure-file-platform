@@ -301,6 +301,7 @@ def test_register_contract_normalizes_input_and_disables_caching(
     assert response.headers["cache-control"] == "no-store, no-cache, must-revalidate"
     assert response.headers["pragma"] == "no-cache"
     assert response.json()["data"]["user"]["id"] == str(USER_PUBLIC_ID)
+    assert response.json()["data"]["user"]["must_change_password"] is False
     assert response.json()["data"]["key_id"] == str(KEY_ID)
     assert "private_key_pem" not in response.text
     method, values = service.calls[-1]

@@ -98,6 +98,12 @@ class User(Base):
     avatar_bytes: Mapped[int | None] = mapped_column(INTEGER(unsigned=True), nullable=True)
     avatar_updated_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
+    # Set by an administrator's password reset (revision 0011_must_change_password) and
+    # cleared when the holder sets a password of their own. Advisory for the frontend only.
+    must_change_password: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default="0"
+    )
+
     keys = relationship("UserKey", back_populates="user", cascade="all, delete-orphan")
     key_protection_profile = relationship(
         "UserKeyProtectionProfile",

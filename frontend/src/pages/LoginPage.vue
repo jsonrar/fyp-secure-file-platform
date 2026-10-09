@@ -9,7 +9,7 @@ import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
 import PasswordField from '@/components/PasswordField.vue'
 import { useAuthStore } from '@/stores/auth_store'
-import { HOME_AFTER_LOGIN } from '@/router/guard'
+import { HOME_AFTER_LOGIN, PASSWORD_CHANGE_REQUIRED } from '@/router/guard'
 
 const username = ref('')
 const password = ref('')
@@ -37,6 +37,14 @@ async function login() {
     }
     // The refresh token is what keeps the session alive past the access token's 30 minutes.
     auth.setSession(token, res.data?.data?.refresh_token ?? '')
+    const user = res.data?.data?.user
+    if (user) auth.adoptUser(user)
+    // A temporary password from an administrator goes straight to the Login password card;
+    // the page they were reaching for can wait until they have a password of their own.
+    if (user?.must_change_password) {
+      router.push(PASSWORD_CHANGE_REQUIRED)
+      return
+    }
     const redirect = typeof route.query.redirect === 'string' ? route.query.redirect : HOME_AFTER_LOGIN
     router.push(redirect)
   } catch (error) {

@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import { KeyRound, Loader2 } from 'lucide-vue-next'
 import { useRouter } from 'vue-router'
 
@@ -21,6 +21,18 @@ import { evaluatePassword, passwordRequirementHint } from '@/utils/password-poli
  * This is the login password only. Files open with the encryption passphrase, which is changed
  * in the card below with the private key file.
  */
+const props = withDefaults(
+  defineProps<{
+    /**
+     * An administrator reset the login password and the holder has been sent here to choose
+     * their own. The card is the same; it only takes the cursor so the next thing they type
+     * is the temporary password they were given.
+     */
+    required?: boolean
+  }>(),
+  { required: false },
+)
+
 const auth = useAuthStore()
 const router = useRouter()
 
@@ -30,6 +42,11 @@ const repeat = ref('')
 const submitted = ref(false)
 const busy = ref(false)
 const errorMessage = ref('')
+const currentField = ref<InstanceType<typeof PasswordField> | null>(null)
+
+onMounted(() => {
+  if (props.required) currentField.value?.focus()
+})
 
 const policy = computed(() => evaluatePassword(next.value, [auth.user?.username ?? '', auth.user?.email ?? '']))
 const nextError = computed(() => (submitted.value || next.value ? (policy.value.ok ? '' : policy.value.message) : ''))
@@ -61,7 +78,12 @@ async function submit() {
 </script>
 
 <template>
-  <div class="rounded-xl border border-border bg-card p-6" data-testid="change-password">
+  <div
+    id="login-password"
+    class="rounded-xl border bg-card p-6"
+    :class="required ? 'border-amber-500/60' : 'border-border'"
+    data-testid="change-password"
+  >
     <h2 class="flex items-center gap-2 text-lg font-semibold text-foreground">
       <KeyRound class="h-5 w-5" /> Login password
     </h2>
@@ -71,7 +93,12 @@ async function submit() {
     </p>
 
     <form class="mt-4 grid gap-4 md:grid-cols-3" novalidate @submit.prevent="submit">
-      <PasswordField v-model="current" label="Current password" autocomplete="current-password" />
+      <PasswordField
+        ref="currentField"
+        v-model="current"
+        label="Current password"
+        autocomplete="current-password"
+      />
       <PasswordField
         v-model="next"
         label="New password"

@@ -7,7 +7,7 @@ from uuid import uuid4
 from sqlalchemy.orm import Session
 
 from app.core.security import PasswordManager
-from app.core.time import utc_now
+from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import UserStatus
 from app.domain.errors import (
@@ -18,6 +18,7 @@ from app.domain.errors import (
 from app.repositories.auth_repository import AuthRepository
 from app.repositories.file_repository import FileRepository
 from app.services.audit_log_service import AuditLogService
+from app.services.auth_service import AuthService
 from app.services.avatar_storage_service import AvatarStorageService
 from app.services.file_storage_service import FileStorageService, StorageObjectError
 
@@ -53,6 +54,7 @@ class AccountDeletionService:
         db: Session,
         passwords: PasswordManager,
         storage: FileStorageService,
+        reauthentication: AuthService,
         avatar_storage: AvatarStorageService | None = None,
         auth_repository: AuthRepository | None = None,
         file_repository: FileRepository | None = None,
@@ -62,6 +64,10 @@ class AccountDeletionService:
         self.db = db
         self.passwords = passwords
         self.storage = storage
+        # The password check here shares the change-password throttle buckets, so a wrong
+        # guess costs the same wherever it is made. Required, not optional: a wiring that
+        # forgot it would quietly leave this endpoint open to unlimited guessing.
+        self.reauthentication = reauthentication
         self.avatar_storage = avatar_storage
         self.auth = auth_repository or AuthRepository(db)
         self.files = file_repository or FileRepository(db)
@@ -82,16 +88,41 @@ class AccountDeletionService:
         on an unattended machine should not be enough to trigger it.
         """
         now = self._clock()
+        # The throttle rows are second-resolution naive UTC, the way AuthService writes them.
+        # Comparing them with this service's aware clock raised a TypeError (a 500).
+        throttle_now = to_second_resolution_utc(now)
         object_keys: list[str] = []
         avatar_key: str | None = None
 
         try:
+            # Read without a lock first: the throttle check commits, which would release
+            # a row lock taken before it. The locked read comes after.
+            account = self.auth.get_user(actor.user_id)
+            if account is None or account.status is not UserStatus.ACTIVE:
+                raise AuthenticationError()
+            buckets = self.reauthentication.begin_reauthentication(
+                username=account.username,
+                context=context,
+                now=throttle_now,
+            )
+
             user = self.auth.lock_user(actor.user_id)
             if user is None or user.status is not UserStatus.ACTIVE:
                 raise AuthenticationError()
 
             if not self.passwords.verify(password, user.password_hash):
+                # Committed on its own, so the count and the audit row outlive the
+                # rollback below.
+                self.reauthentication.record_reauthentication_failure(
+                    user=user,
+                    buckets=buckets,
+                    context=context,
+                    now=throttle_now,
+                    action="ACCOUNT_DELETION_PASSWORD_FAILED",
+                    description="Account deletion password verification failed",
+                )
                 raise InvalidCurrentPasswordError()
+            self.reauthentication.clear_reauthentication_throttle(buckets=buckets, now=throttle_now)
 
             avatar_key = user.avatar_object_key
             user.avatar_object_key = None

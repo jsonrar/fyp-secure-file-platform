@@ -85,6 +85,7 @@ describe('auth store logout', () => {
       created_at: '2026-01-01T00:00:00Z',
       last_login_at: null,
       has_avatar: false,
+      must_change_password: false,
     }
     expect(auth.isAdmin).toBe(true)
     expect(auth.isRecoveryReviewer).toBe(true)
@@ -96,5 +97,33 @@ describe('auth store logout', () => {
     auth.user = { ...auth.user, role: 'USER', username: 'member' }
     expect(auth.isAdmin).toBe(false)
     expect(auth.isRecoveryReviewer).toBe(false)
+  })
+
+  it('adopts the user from the login response and reports the reset marker', () => {
+    // Login carries the same `user` as `/auth/me`; keeping it means the guard knows about a
+    // temporary password on the very first navigation rather than after the menu loads.
+    const auth = useAuthStore()
+    expect(auth.mustChangePassword).toBe(false)
+
+    auth.adoptUser({
+      id: '2',
+      username: 'reset-me',
+      email: 'reset-me@example.com',
+      role: 'USER',
+      status: 'ACTIVE',
+      email_verified: true,
+      created_at: '2026-01-01T00:00:00Z',
+      last_login_at: null,
+      has_avatar: false,
+      must_change_password: true,
+    })
+    expect(auth.user?.username).toBe('reset-me')
+    expect(auth.mustChangePassword).toBe(true)
+
+    auth.user = { ...auth.user!, must_change_password: false }
+    expect(auth.mustChangePassword).toBe(false)
+
+    auth.clearLocalSession()
+    expect(auth.mustChangePassword).toBe(false)
   })
 })

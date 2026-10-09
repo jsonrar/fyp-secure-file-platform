@@ -20,8 +20,9 @@ def test_migration_history_is_a_single_ordered_chain() -> None:
     scripts = ScriptDirectory.from_config(_alembic_config())
     revisions = list(scripts.walk_revisions())
 
-    assert scripts.get_heads() == ["0010_shared_file_folders"]
+    assert scripts.get_heads() == ["0011_must_change_password"]
     assert [(revision.revision, revision.down_revision) for revision in revisions] == [
+        ("0011_must_change_password", "0010_shared_file_folders"),
         ("0010_shared_file_folders", "0009_more_aead_suites"),
         ("0009_more_aead_suites", "0008_avatars"),
         ("0008_avatars", "0007_file_folders"),
@@ -84,6 +85,10 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     assert "'XChaCha20-Poly1305' AND OCTET_LENGTH(iv) = 24" in rendered_sql
     assert "0010_shared_file_folders" in rendered_sql
     assert "fk_file_access_grants_folder" in rendered_sql
+    assert "0011_must_change_password" in rendered_sql
+    assert (
+        "ALTER TABLE users ADD COLUMN must_change_password BOOL NOT NULL DEFAULT 0" in rendered_sql
+    )
     assert "CREATE TABLE user_key_protection_profiles" in rendered_sql
     assert "CREATE TABLE encrypted_private_key_bundles" in rendered_sql
     assert "LEGACY_EXTERNAL" in rendered_sql
@@ -95,12 +100,12 @@ def test_full_migration_chain_renders_as_mysql_sql() -> None:
     )
     final_structure_position = rendered_sql.index("CREATE INDEX idx_audit_logs_created_id")
     final_default_position = rendered_sql.index(
-        "ALTER COLUMN schema_revision SET DEFAULT '0010_shared_file_folders'"
+        "ALTER COLUMN schema_revision SET DEFAULT '0011_must_change_password'"
     )
     completed_marker_position = rendered_sql.index(
-        "SET schema_revision = '0010_shared_file_folders' WHERE id = 1"
+        "SET schema_revision = '0011_must_change_password' WHERE id = 1"
     )
-    alembic_marker_position = rendered_sql.index("SET version_num='0010_shared_file_folders'")
+    alembic_marker_position = rendered_sql.index("SET version_num='0011_must_change_password'")
     assert initial_marker_position < final_structure_position < final_default_position
     assert final_default_position < completed_marker_position
     assert completed_marker_position < alembic_marker_position

@@ -30,12 +30,19 @@ class AuthRepository:
         self.db = db
 
     def identifier_exists(self, username: str, email: str) -> bool:
-        """Registration must reject a username or an email that is already taken."""
+        """True when either the username or the email is already taken.
+
+        Registration checks the two separately (see `AuthService.register`) so that it can
+        answer differently for each; this combined check is kept for the seed scripts.
+        """
         statement = select(User.id).where(or_(User.username == username, User.email == email))
         return self.db.scalar(statement.limit(1)) is not None
 
     def username_exists(self, username: str) -> bool:
         return self.db.scalar(select(User.id).where(User.username == username).limit(1)) is not None
+
+    def email_exists(self, email: str) -> bool:
+        return self.db.scalar(select(User.id).where(User.email == email).limit(1)) is not None
 
     def get_user_by_username(self, username: str) -> User | None:
         return self.db.scalar(select(User).where(User.username == username).limit(1))

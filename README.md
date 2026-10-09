@@ -290,7 +290,7 @@ and refresh are the main public endpoints. Other endpoints require a bearer toke
 responses use the `success/status/message/data/code` envelope, while centralized handlers
 map domain failures to stable HTTP responses. `/health/live` checks the process;
 `/health/ready` also queries MySQL and requires the stored schema revision to equal
-`0010_shared_file_folders`. Local development exposes `/docs`, `/redoc`, and `/openapi.json`;
+`0011_must_change_password`. Local development exposes `/docs`, `/redoc`, and `/openapi.json`;
 a deployment can unmount all three with `APP_DOCS_ENABLED`.
 
 ## Repository Structure
@@ -401,7 +401,7 @@ template carries this checklist.
 All backend business routers are operational. Health, readiness, and OpenAPI are available;
 protected routes require bearer authentication and the admin/recovery routes enforce RBAC.
 Readiness checks both database connectivity and the exact
-`0010_shared_file_folders` schema revision.
+`0011_must_change_password` schema revision.
 
 `MAX_REQUEST_BODY_BYTES` limits ordinary JSON/form bodies (1 MiB by default, configurable up
 to 8 MiB). Encrypted multipart upload has a separate
@@ -530,7 +530,7 @@ npm run build
 ```
 
 A third job, `mysql-gate`, provisions a disposable MySQL 8.4 service with verified TLS, runs
-every migration from empty through `0010_shared_file_folders`, then `alembic current` and
+every migration from empty through `0011_must_change_password`, then `alembic current` and
 `alembic check`, then the whole backend suite against it — unit tests plus every MySQL
 integration test, including the multi-connection concurrency and fault-injection suites —
 failing the job if any test is skipped or branch coverage falls below 82%, followed by grant-
@@ -583,7 +583,9 @@ for the individual check scripts, and `TODO.md` for what remains deferred.
 Admin → **Users** lists accounts with their email; **Details** shows one account's status, sign-in and
 password-change times and counts (files, bytes stored, shares, open sessions). **Reset login password**
 sets a random temporary password shown once, signs the account out everywhere and emails the holder;
-the holder then chooses their own under Settings → Login password. No screen ever shows a password:
+the holder then chooses their own under Settings → Login password. Until they do, the account is marked
+`must_change_password` and signing in takes them straight to that card, so a temporary password the
+administrator has seen does not stay in use. No screen ever shows a password:
 the login password is stored only as a one-way hash, and the encryption passphrase never reaches the
 server, so a reset cannot open or lose anyone's files.
 

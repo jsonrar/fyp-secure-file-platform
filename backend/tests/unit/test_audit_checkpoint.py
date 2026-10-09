@@ -28,7 +28,7 @@ def _head() -> dict[str, object]:
     return {
         "last_log_id": 42,
         "current_hash": "a" * 64,
-        "schema_revision": "0010_shared_file_folders",
+        "schema_revision": "0011_must_change_password",
         "updated_at": "2026-09-25T04:00:00.000000Z",
     }
 
@@ -85,6 +85,9 @@ def test_serialized_checkpoint_contains_only_anchor_metadata() -> None:
 
     assert "current_hash" in rendered
     assert "last_log_id" in rendered
+    # The schema revision is a public constant and its name may contain a word from the
+    # list below (0011_must_change_password does); it is not a leaked value.
+    rendered = rendered.replace(str(_head()["schema_revision"]), "")
     for forbidden in (
         "password",
         "passphrase",

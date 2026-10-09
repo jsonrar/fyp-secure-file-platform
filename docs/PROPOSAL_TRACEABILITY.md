@@ -51,7 +51,7 @@ without merge, none open) and `main` at `e4b3f13` contains 317 commits.
 | 2.3 | Target users and stakeholders | Done | Proposal stakeholders and implemented user/RBAC roles |
 | 3.1 | UI/UX and Figma prototypes | Done | Implemented/deployed user journeys and PR #46 |
 | 3.2 | REST API and FastAPI module design | Done | `docs/API_DESIGN.md` and public OpenAPI/Swagger contract |
-| 3.3 | MySQL schema and migration design | Done | Alembic head `0010_shared_file_folders`, production SQL, PRs #1, #24, #103, #106 and #145 |
+| 3.3 | MySQL schema and migration design | Done | Alembic head `0011_must_change_password`, production SQL, PRs #1, #24, #103, #106 and #145 |
 | 3.4 | AES/RSA hybrid workflow design | Done | `docs/SECURITY_FLOWS.md` and authenticated envelope implementation |
 | 3.5 | Educational-page design | Done | `/education`, algorithm explorer, playground and knowledge search |
 | 4.1 | Vue frontend | Done | Vue 3/TypeScript application, tests, typecheck and build |

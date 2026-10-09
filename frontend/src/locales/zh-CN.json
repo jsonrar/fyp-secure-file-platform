@@ -177,7 +177,9 @@
     "fingerprintTitle": "你的密钥指纹",
     "fingerprintBody": "别人给你分享文件时，他的屏幕上会显示你这把密钥的指纹。你们互相念一遍、确认一致，就能证明文件是加密给你的，而不是加密给被人替换掉的某把密钥。",
     "fingerprintLoading": "正在计算你的指纹…",
-    "fingerprintError": "无法加载你的指纹。请重新登录后再打开设置。"
+    "fingerprintError": "无法加载你的指纹。请重新登录后再打开设置。",
+    "passwordResetTitle": "管理员重置了你的登录密码",
+    "passwordResetBody": "你刚才用的是管理员签发的临时密码，管理员看到过它。请先在下面的“登录密码”卡片里设置自己的密码，再继续使用。你的文件和加密口令不受影响。"
   },
   "common": {
     "cancel": "取消",
@@ -240,7 +242,7 @@
     "access_denied": "你没有执行该操作的权限。",
     "resource_not_found": "该项目找不到。",
     "conflict": "这与当前状态冲突。刷新并再次尝试。",
-    "account_identifier_unavailable": "该用户名或电子邮件地址无法使用。请选择另一个。",
+    "account_identifier_unavailable": "该用户名已被使用，请换一个。",
     "invalid_input": "一些细节无效。检查它们并再次尝试。",
     "request_validation_failed": "一些细节无效。检查它们并再次尝试。",
     "password_unchanged": "新密码必须与当前密码不同。",

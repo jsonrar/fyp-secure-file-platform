@@ -44,6 +44,10 @@ The current ordered history is:
    becomes per-suite (24 bytes for XChaCha20-Poly1305, 12 for every other suite).
 10. `0010_shared_file_folders`: `file_access_grants.folder_id`, so a recipient can file a shared
     file into one of their own folders without moving the owner's placement.
+11. `0011_must_change_password`: `users.must_change_password` (`BOOL NOT NULL DEFAULT 0`), set by an
+    administrator's login-password reset and cleared when the holder sets a password of their
+    own. Login and `/auth/me` report it; the frontend keeps the holder on Settings while it is
+    true. The API refuses nothing because of it.
 
 Revisions 0005, 0006 and 0009 refuse to downgrade while any file uses a suite they added,
 rather than delete intact files. `database/mysql/04-backup-account.sql` is a separate,
@@ -169,8 +173,9 @@ cannot express them cleanly:
    KEK-wrapped AMK protection profile, encrypted private-key bundle, and audit event. A
    plaintext RSA private key and encryption passphrase never enter the API or database.
 6. Password change atomically replaces the Argon2id hash, records `password_changed_at`,
-   revokes every active session family, and appends its audit event. It does not alter the
-   independent client-side encryption passphrase or account-key envelopes.
+   clears `must_change_password`, revokes every active session family, and appends its audit
+   event. It does not alter the independent client-side encryption passphrase or account-key
+   envelopes.
 7. An `email_verification_codes` row stores only an HMAC-SHA-256 digest keyed by secret,
    purpose, and address, never the emailed code. Issuing a code invalidates the account's
    other pending codes for the same purpose. A row is `CONSUMED` exactly once, and
@@ -179,7 +184,8 @@ cannot express them cleanly:
    back. Without that, the per-code attempt counter and the verification throttle buckets
    would vanish with the rollback and leave a live code open to unlimited guessing.
 9. Password reset atomically replaces the Argon2id hash, records `password_changed_at`,
-   revokes every session family, burns the challenge, and appends its audit event. Like
+   clears `must_change_password`, revokes every session family, burns the challenge, and
+   appends its audit event. Like
    password change, it leaves the key-protection profile and encrypted private-key bundle
    untouched, so the account keeps access to its encrypted files.
 10. Creating a file atomically creates its metadata, owner grant, owner key wrapping,
