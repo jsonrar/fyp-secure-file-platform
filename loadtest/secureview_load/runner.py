@@ -322,8 +322,14 @@ async def sizes(
     report: Callable[[Step], None],
 ) -> list[Step]:
     """Each type at each size: upload, download and verify, share, recipient downloads and
-    verifies with their own key. One at a time, so a time is the time for that file alone."""
-    owner, recipient = await fleet.sign_in(2, concurrency=login_concurrency)
+    verifies with their own key. One at a time, so a time is the time for that file alone.
+
+    Each type has its own owner account and every file is deleted once it is verified. The
+    whole matrix is about 5 GiB, more than one account's 2 GiB storage and 5 GiB daily upload
+    allowance, and those limits stay on during a run against staging."""
+    signed_in = await fleet.sign_in(len(types) + 1, concurrency=login_concurrency)
+    owners = dict(zip(types, signed_in[: len(types)], strict=True))
+    recipient = signed_in[len(types)]
     recovery = fleet.recovery
     assert recovery is not None
     out: list[Step] = []
@@ -332,6 +338,7 @@ async def sizes(
         step = Step(label, {"size": label, "types": list(types), "repeat": repeat}, time.time())
         t0 = time.perf_counter()
         for file_type in types:
+            owner = owners[file_type]
             for _ in range(repeat):
                 plaintext = fixtures.make(file_type, size)
                 digest = envelope.sha256(plaintext)
@@ -361,6 +368,9 @@ async def sizes(
                     )
                     got.kind = "recipient_download"
                     step.ops.append(got)
+                removed = await owner.delete_file(file_id)
+                removed.size_label, removed.file_type = label, file_type
+                step.ops.append(removed)
                 del plaintext
         step.duration_s = time.perf_counter() - t0
         out.append(step)

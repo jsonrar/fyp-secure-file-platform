@@ -352,6 +352,25 @@ class VirtualUser:
             request_ms=elapsed,
         )
 
+    async def delete_file(self, file_id: str) -> Op:
+        """Delete one of this user's files, as the My Files delete button does."""
+        await self._fresh_token()
+        started, t0 = time.time(), time.perf_counter()
+        try:
+            res = await self.http.post(f"/files/{file_id}/delete", headers=self._auth())
+        except httpx.HTTPError as exc:
+            return self._op("delete", started=started, ok=False, error=type(exc).__name__)
+        elapsed = (time.perf_counter() - t0) * 1000
+        ok = res.status_code == 200
+        return self._op(
+            "delete",
+            started=started,
+            ok=ok,
+            status=res.status_code,
+            error=None if ok else f"http_{res.status_code}",
+            request_ms=elapsed,
+        )
+
     async def delete_account(self) -> int:
         """Close the account through the API; the server destroys every file it owns."""
         res = await self.http.post(

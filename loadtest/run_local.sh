@@ -10,7 +10,7 @@
 # deletes the accounts through the API. The numbers it produces describe this laptop, not the
 # server: the point is that the tool, the accounts and the report all work before the real run.
 #
-# Optional: LOAD_USERS (default 6), LOAD_PORT (default 8010), LOAD_RESULTS (default
+# Optional: LOAD_USERS (default 7: `sizes` needs one owner per file type plus a recipient), LOAD_PORT (default 8010), LOAD_RESULTS (default
 # ./loadtest-results), LOAD_QUICK=1 for an even shorter run.
 set -euo pipefail
 
@@ -29,7 +29,7 @@ case "$DB_NAME" in
   *) echo "DB_NAME must contain _test: this run writes accounts and files" >&2; exit 2 ;;
 esac
 
-LOAD_USERS="${LOAD_USERS:-6}"
+LOAD_USERS="${LOAD_USERS:-7}"
 LOAD_PORT="${LOAD_PORT:-8010}"
 RESULTS="${LOAD_RESULTS:-$PWD/loadtest-results}"
 mkdir -p "$RESULTS"

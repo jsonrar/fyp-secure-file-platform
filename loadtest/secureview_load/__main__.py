@@ -131,23 +131,39 @@ def _print_step(step: runner.Step) -> None:
             print(f"   {'':<20}errors: {r['errors']}")
 
 
+CLEANUP_ATTEMPTS = 8
+
+
 async def _cleanup(args: argparse.Namespace, accounts: list[Account]) -> int:
+    """Delete every account. Sign-in and delete-account are both credential checks, which nginx
+    allows 60 a minute per address, so a 429 here means wait and try again, not "gone". On the
+    first staging run through the public URL, giving up on 429 left 32 of 100 accounts behind."""
     failures = 0
     for account in accounts:
         user = VirtualUser(
             account, base_url=args.base_url, timeout=args.timeout, verify_tls=not args.insecure
         )
         try:
-            login = await user.login()
+            for attempt in range(CLEANUP_ATTEMPTS):
+                login = await user.login()
+                if login.status != 429:
+                    break
+                await asyncio.sleep(2 * 2**attempt)
             if not login.ok:
-                print(f"{account.username}: sign-in {login.error} (already deleted?)")
+                print(f"{account.username}: sign-in {login.error} (already deleted?)", flush=True)
+                failures += login.status == 429
                 continue
-            status = await user.delete_account()
-            print(f"{account.username}: delete-account HTTP {status}")
+            for attempt in range(CLEANUP_ATTEMPTS):
+                status = await user.delete_account()
+                if status != 429:
+                    break
+                await asyncio.sleep(2 * 2**attempt)
+            print(f"{account.username}: delete-account HTTP {status}", flush=True)
             failures += status != 200
         finally:
             await user.close()
-        await asyncio.sleep(0.2)
+        # Two credential checks per account; this keeps a full cleanup under nginx's 60 a minute.
+        await asyncio.sleep(2.0)
     return 1 if failures else 0
 
 
@@ -257,8 +273,9 @@ def main(argv: list[str] | None = None) -> int:
         return 2
     if host not in LOCAL_HOSTS and args.base_url.startswith("https://"):
         print(
-            "note: through nginx each source IP is limited to 10 API requests/s (burst 20) and "
-            "12 sign-ins/min, so a single generator measures that limit, not the server. "
+            "note: through nginx each source IP is limited to 30 API requests/s (burst 60), "
+            "60 credential checks/min and 50 uploads in flight, so expect HTTP 429 from one "
+            "generator; count it as the limiter working, not as a server error. "
             "See docs/PERFORMANCE_TESTING.md.",
             file=sys.stderr,
         )

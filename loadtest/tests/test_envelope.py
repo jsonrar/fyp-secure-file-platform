@@ -33,7 +33,19 @@ def test_the_aad_matches_the_browser_vectors(case: dict) -> None:
     assert aad.hex() == case["aad_hex"]
 
 
-@pytest.mark.parametrize("case", VECTORS["file_envelope"], ids=lambda c: c["case"])
+#: The load tool implements AES-GCM and ChaCha20-Poly1305 only (see loadtest/README.md). The shared
+#: vector file also has GCM-SIV and XChaCha20 envelopes, which this test used to seal as AES-GCM.
+IMPLEMENTED_ENVELOPES = [
+    case for case in VECTORS["file_envelope"] if case["encryption_algorithm"] in envelope.ALGORITHMS
+]
+
+
+def test_every_suite_the_tool_implements_has_a_vector() -> None:
+    covered = {case["encryption_algorithm"] for case in IMPLEMENTED_ENVELOPES}
+    assert covered >= {"AES-256-GCM", "ChaCha20-Poly1305"}
+
+
+@pytest.mark.parametrize("case", IMPLEMENTED_ENVELOPES, ids=lambda c: c["case"])
 def test_the_ciphertext_matches_the_browser_vectors(case: dict) -> None:
     aad = envelope.file_content_aad(
         file_id=UUID(case["file_id"]),
