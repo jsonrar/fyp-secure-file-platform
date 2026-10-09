@@ -1,18 +1,25 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import PageHeader from '@/components/securfile/PageHeader.vue'
-import { Activity, AlertTriangle, ChevronDown, ChevronUp, Clock, Download, FileIcon, RefreshCw, Share2, User } from 'lucide-vue-next'
-import { auditApi } from '@/api/audit_api'
+import { Activity, AlertTriangle, ChevronDown, ChevronUp, Clock, Download, FileIcon, Filter, RefreshCw, Share2, User } from 'lucide-vue-next'
+import { auditApi, type AuditLogFilters } from '@/api/audit_api'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
 import { useAuthStore } from '@/stores/auth_store'
 import {
   auditActionLabel,
+  auditActionOptions,
   auditFileLabel,
   auditSubjectFileId,
   isDownloadAction,
   isShareAction,
 } from '@/utils/audit-actions'
-import { fetchAuditTrail } from '@/utils/audit-trail'
+import {
+  EMPTY_AUDIT_FILTERS,
+  fetchAuditPage,
+  hasAuditFilters,
+  toAuditLogFilters,
+  type AuditFilterForm,
+} from '@/utils/audit-trail'
 
 interface AccessEvent {
   id: string
@@ -138,21 +145,78 @@ const statCards: StatCard[] = [
   { key: 'uniqueUsers', label: 'Unique Users', icon: User, wrapperClass: 'bg-secondary', iconClass: 'text-foreground' },
 ]
 
-const trailIsPartial = ref(false)
+/**
+ * The filter bar, in two halves.
+ *
+ * `filterForm` is what the controls hold while the person is still choosing; `appliedFilters`
+ * is what the last Apply sent. Typing in the keyword box must not refetch on every keystroke,
+ * and the "no events match" message has to describe the filters that produced the page, not
+ * the ones half-typed since.
+ */
+const filterForm = ref<AuditFilterForm>({ ...EMPTY_AUDIT_FILTERS })
+const appliedFilters = ref<AuditLogFilters>({})
+const filtersActive = computed(() => Object.keys(appliedFilters.value).length > 0)
+const actionOptions = auditActionOptions()
 
+/** The server has rows after the ones loaded; Load more asks for the next page of them. */
+const hasMore = ref(false)
+const isLoadingMore = ref(false)
+
+/**
+ * The first page for the applied filters.
+ *
+ * The page used to walk the whole trail before drawing anything: ten requests and a
+ * thousand rows on a long-lived account, and a hard stop at a thousand with no way past it.
+ * Now one page (100 rows, the server's cap) loads, and the next only when asked.
+ */
 const loadLogs = async () => {
   isLoading.value = true
   errorMessage.value = ''
   try {
-    const trail = await fetchAuditTrail()
-    logs.value = trail.logs
-    trailIsPartial.value = trail.partial
+    const page = await fetchAuditPage(appliedFilters.value, 0)
+    logs.value = page.logs
+    hasMore.value = page.hasMore
   } catch (error) {
     errorMessage.value = error instanceof Error ? error.message : 'Failed to load audit logs'
   } finally {
     isLoading.value = false
   }
 }
+
+const loadMore = async () => {
+  if (isLoadingMore.value || !hasMore.value) return
+  isLoadingMore.value = true
+  errorMessage.value = ''
+  try {
+    // Offset by what is on screen, so a page that came back short still lines up.
+    const page = await fetchAuditPage(appliedFilters.value, logs.value.length)
+    logs.value = [...logs.value, ...page.logs]
+    hasMore.value = page.hasMore
+  } catch (error) {
+    errorMessage.value = error instanceof Error ? error.message : 'Failed to load audit logs'
+  } finally {
+    isLoadingMore.value = false
+  }
+}
+
+/** Apply what the bar holds and start again from the first page. */
+const applyFilters = () => {
+  const { from, to } = filterForm.value
+  if (from && to && from > to) {
+    errorMessage.value = 'The start date is after the end date.'
+    return
+  }
+  appliedFilters.value = toAuditLogFilters(filterForm.value)
+  loadLogs()
+}
+
+const clearFilters = () => {
+  filterForm.value = { ...EMPTY_AUDIT_FILTERS }
+  appliedFilters.value = {}
+  loadLogs()
+}
+
+const canClear = computed(() => filtersActive.value || hasAuditFilters(filterForm.value))
 
 /**
  * Verify the tamper-evident chain, for administrators only.
@@ -212,7 +276,7 @@ const toggle = (id: string) => {
         </template>
       </PageHeader>
 
-      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-8">
+      <div class="grid grid-cols-2 md:grid-cols-4 gap-4 mb-2">
         <div v-for="card in statCards" :key="card.key" class="bg-card border border-border rounded-xl p-4">
           <div class="flex items-center gap-3">
             <div class="p-2 rounded-lg" :class="card.wrapperClass">
@@ -226,20 +290,85 @@ const toggle = (id: string) => {
         </div>
       </div>
 
+      <p v-if="logs.length" class="mb-4 text-xs text-muted-foreground" data-testid="records-totals-note">
+        <template v-if="filtersActive">Totals cover the {{ logs.length }} loaded events that match the filters.</template>
+        <template v-else>Totals cover the {{ logs.length }} loaded events.</template>
+      </p>
+
+      <form
+        class="mt-2 mb-6 rounded-xl border border-border bg-card p-4"
+        aria-label="Filter events"
+        data-testid="records-filters"
+        @submit.prevent="applyFilters"
+      >
+        <div class="mb-3 flex items-center gap-2 text-sm text-muted-foreground"><Filter class="h-4 w-4" /><span>Filter events</span></div>
+        <div class="grid grid-cols-1 gap-3 sm:grid-cols-2 lg:grid-cols-5">
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">
+            Event type
+            <select v-model="filterForm.action" class="h-10 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground" data-testid="records-filter-action">
+              <option value="">All event types</option>
+              <option v-for="option in actionOptions" :key="option.value" :value="option.value">{{ option.label }}</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">
+            Result
+            <select v-model="filterForm.result" class="h-10 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground" data-testid="records-filter-result">
+              <option value="">All results</option>
+              <option value="SUCCESS">Success</option>
+              <option value="FAIL">Failed</option>
+            </select>
+          </label>
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">
+            From
+            <input v-model="filterForm.from" type="date" :max="filterForm.to || undefined" class="h-10 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground" data-testid="records-filter-from" />
+          </label>
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">
+            To
+            <input v-model="filterForm.to" type="date" :min="filterForm.from || undefined" class="h-10 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground" data-testid="records-filter-to" />
+          </label>
+          <label class="flex flex-col gap-1 text-xs text-muted-foreground">
+            Keyword
+            <input
+              v-model="filterForm.q"
+              type="search"
+              maxlength="100"
+              placeholder="Search descriptions and file names"
+              class="h-10 w-full rounded-md border border-border bg-background px-2 text-sm text-foreground placeholder:text-muted-foreground"
+              data-testid="records-filter-q"
+            />
+          </label>
+        </div>
+        <div class="mt-3 flex flex-wrap items-center gap-2">
+          <button type="submit" class="h-10 rounded-md bg-primary px-4 text-sm font-medium text-primary-foreground hover:bg-primary/90" data-testid="records-filter-apply">
+            Apply
+          </button>
+          <button
+            type="button"
+            class="h-10 rounded-md border border-border bg-card px-4 text-sm hover:bg-secondary disabled:opacity-50"
+            :disabled="!canClear"
+            data-testid="records-filter-clear"
+            @click="clearFilters"
+          >
+            Clear
+          </button>
+        </div>
+      </form>
+
       <p v-if="errorMessage" class="text-center text-sm text-destructive mb-4">{{ errorMessage }}</p>
       <p v-if="groups.length" class="mb-4 flex items-center gap-2 text-sm text-muted-foreground" data-testid="records-hint">
         <ChevronDown class="h-4 w-4 shrink-0" />
         Select a file below to open its full access history: who uploaded, shared or downloaded it, and when.
-      </p>
-      <p v-if="trailIsPartial" class="text-center text-xs text-muted-foreground mb-4">
-        Showing the most recent {{ logs.length }} events; totals cover these only.
       </p>
 
       <div v-if="isLoading && !groups.length" class="text-center py-12 text-muted-foreground">
         Loading audit logs...
       </div>
 
-      <div v-else-if="!groups.length" class="text-center py-12 text-muted-foreground max-w-xl mx-auto">
+      <div v-else-if="!groups.length && filtersActive" class="text-center py-12 text-muted-foreground max-w-xl mx-auto" data-testid="records-empty-filtered">
+        No events match these filters. Clear them to see everything.
+      </div>
+
+      <div v-else-if="!groups.length" class="text-center py-12 text-muted-foreground max-w-xl mx-auto" data-testid="records-empty">
         No audit logs yet. Actions such as upload, download, and share will appear here.
       </div>
 
@@ -308,6 +437,25 @@ const toggle = (id: string) => {
             </div>
           </div>
         </article>
+      </div>
+
+      <div v-if="logs.length" class="mt-6 flex flex-col items-center gap-3" data-testid="records-paging">
+        <p class="text-sm text-muted-foreground">
+          <template v-if="hasMore">Showing {{ logs.length }} events, more available</template>
+          <template v-else>Showing all {{ logs.length }} events</template>
+        </p>
+        <button
+          v-if="hasMore"
+          type="button"
+          class="h-10 inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 text-sm hover:bg-secondary disabled:opacity-50"
+          :disabled="isLoadingMore"
+          data-testid="records-load-more"
+          @click="loadMore"
+        >
+          <RefreshCw v-if="isLoadingMore" class="h-4 w-4 animate-spin" />
+          <template v-if="isLoadingMore">Loading more...</template>
+          <template v-else>Load more</template>
+        </button>
       </div>
     </div>
   </section>

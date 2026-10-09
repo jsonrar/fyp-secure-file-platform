@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Audit log: filters and real paging on the access records page / 审计日志：访问记录页加筛选和真正的分页
+
+- `GET /audit-logs` takes optional `action` (whitelisted, anything else is a 422), `result` (`SUCCESS` or `FAIL`), `from` and `to` (ISO 8601 UTC, inclusive) and `q` (a keyword of at most 100 characters over the description and the resolved file name, with `%` and `_` taken literally). Every filter is applied on top of the existing visibility rule, so a non-admin who filters still sees only their own rows; a MySQL integration test proves a stranger searching for the owner's file name gets nothing of the owner's. The access records page gets a filter bar (event type, result, date range, keyword, Apply and Clear), loads 100 events at a time with a Load more button and says how many are shown, and its stat cards now say they cover the loaded events. It used to walk the whole trail before drawing anything: ten requests and a hard stop at a thousand rows on a long-lived account, with no way to look for one event. The demo shows this page, and a demo account has months of history.
+- `GET /audit-logs` 新增可选参数 `action`（白名单校验，其它值返回 422）、`result`（`SUCCESS` 或 `FAIL`）、`from` 和 `to`（ISO 8601 UTC，闭区间）以及 `q`（最多 100 个字符的关键词，匹配描述和解析出的文件名，`%` 和 `_` 按字面匹配）。所有筛选都叠加在原有的可见范围规则之上，非管理员筛选后仍然只能看到自己的记录；MySQL 集成测试证明陌生人搜索文件所有者的文件名时拿不到所有者的任何记录。访问记录页新增筛选栏（事件类型、结果、日期范围、关键词，应用和清除按钮），每次加载 100 条并提供"加载更多"按钮和已显示数量，统计卡注明只统计已加载的事件。原来页面在渲染之前要把整条记录拉完：长期账号首屏要发 10 个请求，1000 条封顶，而且没有办法查找某一条事件。演示会展示这个页面，而演示账号有几个月的历史记录。
+
 ### Demo readiness: errors look like errors, checks show progress, the key stays open while you work / 演示准备：错误按错误显示，检查有进度，用着的时候密钥不再锁
 
 - On the Files page, a failed list load, delete or integrity check used to appear in the blue "done" style, and a 500 showed the raw "Request failed with status code 500". They now use the red error line with the API's own message. The status badge and the Details drawer's "Check integrity" button show a spinner and "Checking…" while the server re-hashes the file, which for a large file takes a few seconds and used to look like nothing happened. The list reloads quietly when the tab comes back to the front (at most once every five seconds), so a recipient sees a revocation or a restored file without pressing Refresh.

@@ -5,10 +5,12 @@ from uuid import UUID
 
 from sqlalchemy.orm import Session
 
+from app.core.time import to_database_utc
 from app.domain.auth import ActorContext
 from app.domain.enums import SystemRole
 from app.domain.errors import AuthorizationError, FileResourceNotFoundError
 from app.repositories.audit_repository import AuditRepository
+from app.schemas.audit_schema import AuditLogQuery
 from app.services.audit_log_service import AuditLogService
 
 _SAFE_METADATA_KEYS = {
@@ -49,6 +51,7 @@ class AuditQueryService:
         limit: int,
         offset: int,
         file_id: UUID | None = None,
+        filters: AuditLogQuery | None = None,
     ):
         admin = actor.role is SystemRole.ADMIN
         if (
@@ -57,12 +60,19 @@ class AuditQueryService:
             and not self.repository.can_access_file(actor.user_id, file_id)
         ):
             raise FileResourceNotFoundError()
+        query = filters or AuditLogQuery()
         return self.repository.list_logs(
             actor_user_id=actor.user_id,
             admin=admin,
             limit=limit + 1,
             offset=offset,
             resource_id=str(file_id) if file_id is not None else None,
+            action=query.action,
+            result=query.result,
+            # `audit_logs.created_at` is naive UTC (DATETIME(6)); the filter arrives aware.
+            created_from=to_database_utc(query.from_time) if query.from_time else None,
+            created_to=to_database_utc(query.to_time) if query.to_time else None,
+            keyword=query.q,
         )
 
     def file_labels(self, rows) -> dict[str, tuple[str, bool]]:

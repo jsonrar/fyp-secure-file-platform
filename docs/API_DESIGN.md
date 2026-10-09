@@ -244,13 +244,23 @@ cannot overwrite it. Revocation cannot erase data already copied by the recipien
 
 | Method | Endpoint | Auth | Description |
 |---|---|---|---|
-| GET | `/audit-logs` | Bearer | Return a scoped, redacted log page; ADMIN sees the administrative scope |
+| GET | `/audit-logs` | Bearer | Return a scoped, redacted log page; ADMIN sees the administrative scope. Optional filters `action`, `result`, `from`, `to`, `q` narrow the caller's own scope |
 | GET | `/audit-logs/file/{file_id}` | Bearer + file access | Return scoped logs for one file |
 | POST | `/audit-logs/verify-chain` | ADMIN | Recompute the complete chain and verify its singleton head |
 
 List endpoints use `limit` (`1..100`) and `offset`; returned metadata is allowlisted.
 Verification is a read-only security command but intentionally uses `POST` under the
 repository's application-method policy.
+
+`GET /audit-logs` also accepts, all optional: `action` (one event type, exactly as the API
+writes it, for example `FILE_SHARED`; any other value is a 422), `result` (`SUCCESS` or
+`FAIL`), `from` and `to` (ISO 8601 instants in UTC, an inclusive window on `created_at`,
+and `from` must not be later than `to`) and `q` (a keyword of at most 100 characters,
+matched case-insensitively against the description and the name of the file the row is
+about; `%` and `_` are literal). Filters only narrow: the visibility rule (your own actions,
+actions on you, everything done to a file you own) is applied first and the filters on top,
+so a filtered page is always a subset of the unfiltered one for the same caller. The response
+keeps `limit`, `offset` and `has_more`; `offset + logs.length` asks for the next page.
 
 ## Recovery API
 

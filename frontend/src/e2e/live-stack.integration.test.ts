@@ -439,6 +439,30 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
       }
       expect(logs.some((log) => log.action === 'FILE_UPLOADED')).toBe(false)
     })
+
+    it('lets the recipient filter, but never past what concerns them', async () => {
+      // The owner's upload is called `e2e-chacha20-poly1305.bin` in `files`, and the keyword
+      // filter reaches that name.
+      // Searching for it as the recipient must find nothing of the owner's: the filter is
+      // applied on top of the visibility rule, not instead of it.
+      await signIn(bob)
+      const filtered = unwrapData(
+        await auditApi.listLogs({ limit: 100, action: 'FILE_UPLOADED', q: 'e2e-chacha20' }),
+      ).logs
+      expect(filtered).toEqual([])
+
+      const downloads = unwrapData(
+        await auditApi.listLogs({ limit: 100, action: 'FILE_DOWNLOAD_AUTHORIZED', result: 'SUCCESS' }),
+      ).logs
+      expect(downloads.length).toBeGreaterThan(0)
+      for (const log of downloads) {
+        expect(log.action).toBe('FILE_DOWNLOAD_AUTHORIZED')
+        expect(log.actor_username).toBe(bob.username)
+      }
+
+      const unknown = await raw.get('/audit-logs?action=NOT_AN_ACTION', bearer((await signIn(bob)).access_token))
+      expect(unknown.status).toBe(422)
+    })
   })
 
   describe('role denial', () => {

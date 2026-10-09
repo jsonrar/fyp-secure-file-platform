@@ -14,6 +14,7 @@ from app.schemas.audit_schema import (
     AuditChainVerificationResponse,
     AuditLogListResponse,
     AuditLogOut,
+    AuditLogQuery,
     FileAuditLogListResponse,
 )
 from app.services.audit_query_service import AuditQueryService
@@ -52,10 +53,10 @@ def _output(
 def list_audit_logs(
     actor: ActorDependency,
     service: AuditServiceDependency,
-    limit: Annotated[int, Query(ge=1, le=100)] = 50,
-    offset: Annotated[int, Query(ge=0, le=1_000_000)] = 0,
+    query: Annotated[AuditLogQuery, Query()],
 ) -> JSONResponse:
-    rows = service.list_logs(actor=actor, limit=limit, offset=offset)
+    limit, offset = query.limit, query.offset
+    rows = service.list_logs(actor=actor, limit=limit, offset=offset, filters=query)
     has_more = len(rows) > limit
     labels = service.file_labels(rows[:limit])
     data = AuditLogListResponse(

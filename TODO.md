@@ -62,6 +62,7 @@ Features lane was retired from the home page in that redesign (#177).
   now has a labelled, numbered question column, and the footer has no empty track ([PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)).
   Headings and intros site-wide: one line where they fit, breaks only between sentences, no two-sentence
   headings, checked by `text-audit.mjs` ([PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195)).
+- [x] Access Records filters (2026-10-09): event type, result, date range and keyword on `GET /audit-logs`, inside the same visibility rule, and pages of 100 with Load more instead of fetching 1,000 events up front.
 
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.

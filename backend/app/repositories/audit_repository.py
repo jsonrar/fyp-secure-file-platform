@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections.abc import Iterable
+from datetime import datetime
 from uuid import UUID
 
 from sqlalchemy import and_, or_, select
@@ -22,6 +23,19 @@ _FILE_RECOVERY_ACTIONS = (
 )
 
 
+def _contains(search: str) -> str:
+    """A LIKE pattern for "contains this text", with the wildcards taken literally.
+
+    `%` and `_` are LIKE metacharacters, so an unescaped `_` would match every single
+    character and `%` would match everything. Both are ordinary characters in a file name or a
+    description (`report_v2.pdf`), and a person typing one means it literally. Same escaping
+    as `FileRepository._filename_contains`. Both columns collate `utf8mb4_unicode_ci`, so the
+    match is already case-insensitive without lowering either side.
+    """
+    escaped = search.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+    return f"%{escaped}%"
+
+
 class AuditRepository:
     def __init__(self, db: Session) -> None:
         self.db = db
@@ -34,6 +48,11 @@ class AuditRepository:
         limit: int,
         offset: int,
         resource_id: str | None = None,
+        action: str | None = None,
+        result: str | None = None,
+        created_from: datetime | None = None,
+        created_to: datetime | None = None,
+        keyword: str | None = None,
     ) -> list[tuple[AuditLog, User | None, User | None]]:
         actor_user = aliased(User)
         target_user = aliased(User)
@@ -42,6 +61,15 @@ class AuditRepository:
             .outerjoin(actor_user, actor_user.id == AuditLog.actor_user_id)
             .outerjoin(target_user, target_user.id == AuditLog.target_user_id)
         )
+        if keyword is not None:
+            # The file name is not on the audit row. It is looked up from `files` by the
+            # resource id, the same way `file_labels` names a row after the fact, so a search
+            # for "report" finds every row about `report.pdf` as well as rows whose description
+            # mentions it. An outer join: a row about no file still matches on its description.
+            named_file = aliased(File)
+            statement = statement.outerjoin(
+                named_file, named_file.file_uuid == AuditLog.resource_id
+            )
         # One rule, applied the same way whether or not a file was named:
         #
         #   you see what you did, what was done to you, and everything done to a file you
@@ -71,6 +99,25 @@ class AuditRepository:
                         AuditLog.action.in_(_FILE_RECOVERY_ACTIONS),
                     ),
                 ),
+            )
+        # The optional filters only ever narrow. They are added after the visibility rule
+        # above, so a non-admin who filters still sees a subset of their own page and never a
+        # row that belongs to somebody else.
+        if action is not None:
+            statement = statement.where(AuditLog.action == action)
+        if result is not None:
+            statement = statement.where(AuditLog.result == result)
+        if created_from is not None:
+            statement = statement.where(AuditLog.created_at >= created_from)
+        if created_to is not None:
+            statement = statement.where(AuditLog.created_at <= created_to)
+        if keyword is not None:
+            pattern = _contains(keyword)
+            statement = statement.where(
+                or_(
+                    AuditLog.description.like(pattern, escape="\\"),
+                    named_file.original_filename.like(pattern, escape="\\"),
+                )
             )
         rows = self.db.execute(
             statement.order_by(AuditLog.created_at.desc(), AuditLog.id.desc())

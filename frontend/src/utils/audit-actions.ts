@@ -28,8 +28,19 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   FILE_ACCESS_REVOKED: { label: 'Access revoked', category: 'share' },
   FILE_DELETED: { label: 'Deleted', category: 'other' },
   RECOVERY_REQUEST_CREATED: { label: 'Recovery requested', category: 'other' },
+  RECOVERY_REQUEST_APPROVED: { label: 'Recovery request approved', category: 'other' },
+  RECOVERY_REQUEST_REJECTED: { label: 'Recovery request rejected', category: 'other' },
   RECOVERY_REQUEST_EXECUTED: { label: 'Recovery executed', category: 'other' },
   RECOVERY_REQUEST_CANCELLED: { label: 'Recovery cancelled', category: 'other' },
+  // The rest of the server's vocabulary, so the event type filter can name every action the
+  // API will accept rather than leaving these to the title-case fallback.
+  RECOVERY_KEY_REGISTERED: { label: 'Recovery key registered', category: 'other' },
+  RECOVERY_KEY_ROTATED: { label: 'Recovery key rotated', category: 'other' },
+  RECOVERY_KEY_REVOKED: { label: 'Recovery key revoked', category: 'other' },
+  AVATAR_UPLOADED: { label: 'Avatar uploaded', category: 'other' },
+  AVATAR_DELETED: { label: 'Avatar removed', category: 'other' },
+  USER_DISABLED: { label: 'Account disabled', category: 'other' },
+  USER_ENABLED: { label: 'Account enabled', category: 'other' },
   KEY_PROTECTION_REWRAPPED: { label: 'Passphrase changed', category: 'other' },
   KEY_PROTECTION_RESET_WITH_PRIVATE_KEY: { label: 'Passphrase reset with key file', category: 'other' },
   USER_KEY_ADDED: { label: 'Account key added', category: 'other' },
@@ -68,6 +79,18 @@ export function auditActionLabel(action: string | undefined): string {
     .toLowerCase()
     .replace(/_/g, ' ')
     .replace(/^./, (c) => c.toUpperCase())
+}
+
+/**
+ * Every action with a label, for the event type filter, in label order.
+ *
+ * The values are what `GET /audit-logs?action=` accepts; the server refuses anything else
+ * with a 422, so the dropdown only offers names from this table.
+ */
+export function auditActionOptions(): { value: string; label: string }[] {
+  return Object.entries(ACTIONS)
+    .map(([value, info]) => ({ value, label: info.label }))
+    .sort((a, b) => a.label.localeCompare(b.label, 'en'))
 }
 
 export function auditActionCategory(action: string | undefined): AuditCategory {

@@ -1,43 +1,83 @@
-import { auditApi } from '@/api/audit_api'
+import { auditApi, type AuditLogFilters } from '@/api/audit_api'
 import { unwrapData, type AuditLogOut } from '@/api/types'
 
 /** The server caps a page at 100. */
 export const PAGE_SIZE = 100
 
-/**
- * Stop after this many rows even if more remain.
- *
- * A bound is necessary -- an account used for months should not issue fifty requests to
- * draw four numbers -- and the caller is told when it was reached, so the page can say the
- * totals are partial instead of quietly under-reporting.
- */
-export const MAX_ROWS = 1000
+export type AuditResultFilter = '' | 'SUCCESS' | 'FAIL'
 
-export interface AuditTrail {
-  logs: AuditLogOut[]
-  /** True when MAX_ROWS stopped the walk before the server ran out of rows. */
-  partial: boolean
+/**
+ * What the filter bar holds, as the form controls hold it: strings, empty when unset.
+ *
+ * `from` and `to` are `YYYY-MM-DD` from a date input, in the person's local calendar. They
+ * become UTC instants only when the request is built, see `toAuditLogFilters`.
+ */
+export interface AuditFilterForm {
+  action: string
+  result: AuditResultFilter
+  from: string
+  to: string
+  q: string
+}
+
+export const EMPTY_AUDIT_FILTERS: Readonly<AuditFilterForm> = Object.freeze({
+  action: '',
+  result: '',
+  from: '',
+  to: '',
+  q: '',
+})
+
+export function hasAuditFilters(form: AuditFilterForm): boolean {
+  return Object.values(form).some((value) => value.trim() !== '')
+}
+
+/** A local calendar day, or null when the input is not a complete `YYYY-MM-DD`. */
+function localDay(value: string): [number, number, number] | null {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value.trim())
+  if (!match) return null
+  const [year, month, day] = [Number(match[1]), Number(match[2]), Number(match[3])]
+  const probe = new Date(year, month - 1, day)
+  if (probe.getFullYear() !== year || probe.getMonth() !== month - 1 || probe.getDate() !== day) {
+    return null
+  }
+  return [year, month, day]
 }
 
 /**
- * Every page of the caller's trail, not just the first.
+ * The request the server reads, from what the form holds.
  *
- * The stat cards summarise this. Reading only the first page made them totals of the last
- * fifty events while looking like totals of everything: on a test account holding 83 rows,
- * the first page showed four distinct files, twelve downloads and eight shares, against a
- * true eight, nineteen and thirteen. Sign-ins made it worse -- 22 of those 50 rows were
- * logins, crowding out the file activity the page exists to show.
+ * A date picked in Melbourne means that whole day in Melbourne: `from` is its first instant
+ * and `to` its last, both converted to UTC, so the window the person sees on screen is the
+ * window the server applies. Blank fields are left out entirely.
  */
-export async function fetchAuditTrail(): Promise<AuditTrail> {
-  const logs: AuditLogOut[] = []
-  let offset = 0
+export function toAuditLogFilters(form: AuditFilterForm): AuditLogFilters {
+  const filters: AuditLogFilters = {}
+  if (form.action) filters.action = form.action
+  if (form.result === 'SUCCESS' || form.result === 'FAIL') filters.result = form.result
+  const from = localDay(form.from)
+  if (from) filters.from = new Date(from[0], from[1] - 1, from[2], 0, 0, 0, 0).toISOString()
+  const to = localDay(form.to)
+  if (to) filters.to = new Date(to[0], to[1] - 1, to[2], 23, 59, 59, 999).toISOString()
+  const keyword = form.q.trim()
+  if (keyword) filters.q = keyword.slice(0, 100)
+  return filters
+}
 
-  for (;;) {
-    const page = unwrapData(await auditApi.listLogs({ limit: PAGE_SIZE, offset }))
-    logs.push(...(page?.logs ?? []))
+export interface AuditPage {
+  logs: AuditLogOut[]
+  /** The server has rows after these; `offset + logs.length` asks for them. */
+  hasMore: boolean
+}
 
-    if (!page?.has_more) return { logs, partial: false }
-    if (logs.length >= MAX_ROWS) return { logs, partial: true }
-    offset += PAGE_SIZE
-  }
+/**
+ * One page of the trail, newest first.
+ *
+ * The page used to walk every page up front, a thousand rows and ten requests on a long-lived
+ * account, so that four stat cards could be totals of everything. It now loads one page, shows
+ * it, and loads the next only when asked; the stat cards say they cover what is loaded.
+ */
+export async function fetchAuditPage(filters: AuditLogFilters, offset: number): Promise<AuditPage> {
+  const page = unwrapData(await auditApi.listLogs({ ...filters, limit: PAGE_SIZE, offset }))
+  return { logs: page?.logs ?? [], hasMore: page?.has_more === true }
 }

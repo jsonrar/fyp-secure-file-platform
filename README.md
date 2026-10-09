@@ -194,7 +194,10 @@ and what to do about it, by priority, is in
    and decrypted.
 6. **Audit and account actions:** `/audit-logs` shows sign-in, upload, download, share, and
    revocation events. Owners can inspect activity on their files, recipients see only events
-   involving themselves, and ADMIN can verify the full hash chain. An emailed code resets a
+   involving themselves, and ADMIN can verify the full hash chain. The page loads 100 events
+   at a time with a Load more button, and a filter bar narrows them by event type, result, a
+   date range and a keyword over descriptions and file names, always within what the caller
+   may see. An emailed code resets a
    forgotten login password; a forgotten encryption passphrase requires the separately
    retained `.pem` key, which can unlock the current session or, in `/settings`, set a new
    passphrase without changing the account key or any file. While the passphrase is still known,

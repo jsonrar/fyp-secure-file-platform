@@ -207,12 +207,20 @@ UUID 及预期 profile revision），取得确定性的 32-byte 授权 payload�
 
 | 方法 | 端点 | 认证 | 说明 |
 |---|---|---|---|
-| GET | `/audit-logs` | Bearer | 返回范围受限、已脱敏的日志页；ADMIN 可看管理范围 |
+| GET | `/audit-logs` | Bearer | 返回范围受限、已脱敏的日志页；ADMIN 可看管理范围。可选筛选参数 `action`、`result`、`from`、`to`、`q` 只会在调用者自己的范围内收窄 |
 | GET | `/audit-logs/file/{file_id}` | Bearer + 文件访问 | 返回一个文件的范围化日志 |
 | POST | `/audit-logs/verify-chain` | ADMIN | 重新计算完整链并验证单例链头 |
 
 列表使用 `limit`（`1..100`）与 `offset`；返回的 metadata 经过白名单过滤。链验证逻辑上只读，
 但依照仓库应用方法策略，有意使用 `POST` 作为安全命令。
+
+`GET /audit-logs` 还接受以下可选参数：`action`（单个事件类型，和 API 写入的名字完全一致，例如
+`FILE_SHARED`；其它值返回 422）、`result`（`SUCCESS` 或 `FAIL`）、`from` 和 `to`（ISO 8601 UTC
+时间，对 `created_at` 做闭区间筛选，`from` 不能晚于 `to`）以及 `q`（最多 100 个字符的关键词，
+不区分大小写地匹配描述和该条记录所涉及文件的文件名；`%` 和 `_` 按字面匹配）。筛选只会收窄：
+可见范围规则（自己做的操作、针对自己的操作、自己拥有的文件上的所有操作）先生效，筛选条件叠加在
+它之上，所以同一个调用者筛选后的页面永远是未筛选页面的子集。响应仍然带 `limit`、`offset` 和
+`has_more`；用 `offset + logs.length` 请求下一页。
 
 ## 恢复 API
 
