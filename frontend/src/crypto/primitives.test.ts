@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { bytesToHex, hexToBytes } from './encoding'
 import {
@@ -11,8 +11,11 @@ import {
   AuthenticationFailure,
   CHACHA20_NONCE_BYTES,
   CHACHA20_TAG_BYTES,
+  ENCRYPTION_ALGORITHMS,
   aesGcmDecryptDetached,
   aesGcmEncryptDetached,
+  aesGcmOpenDetached,
+  aesGcmSealDetached,
   chacha20Poly1305DecryptDetached,
   chacha20Poly1305EncryptDetached,
   importAesGcmKey,
@@ -27,7 +30,12 @@ import {
   sha256Hex,
   libraryAeadDecryptDetached,
   libraryAeadEncryptDetached,
+  nobleAesGcmDecryptDetached,
+  nobleAesGcmEncryptDetached,
   nonceBytesForAlgorithm,
+  platformSupportsAesGcm,
+  resetEncryptionCapabilityCache,
+  supportedEncryptionAlgorithms,
 } from './primitives'
 
 /**
@@ -72,6 +80,16 @@ const vectors = JSON.parse(readFileSync(vectorsPath, 'utf8')) as {
   xchacha20_poly1305_detached: DetachedVector[]
   sha256: { case: string; input_utf8: string; digest_hex: string }[]
   public_key_fingerprint: { case: string; public_key_pem: string; fingerprint_hex: string }[]
+  file_envelope: {
+    case: string
+    encryption_algorithm: string
+    dek_hex: string
+    nonce_hex: string
+    aad_hex: string
+    plaintext_hex: string
+    ciphertext_hex: string
+    auth_tag_hex: string
+  }[]
 }
 
 describe('SHA-256', () => {
@@ -189,6 +207,213 @@ describe('AES-256-GCM with a detached tag', () => {
     for (const bytes of [0, 8, 20, 31, 33, 64]) {
       await expect(importAesGcmKey(randomBytes(bytes))).rejects.toBeInstanceOf(RangeError)
     }
+  })
+})
+
+describe('AES-GCM from @noble/ciphers, the fallback for a key length WebCrypto lacks', () => {
+  // Node's WebCrypto performs all three key lengths, so both implementations can run here
+  // side by side. A browser that lacks AES-192 (Chromium) gets the library instead, and
+  // the files it writes must open on a browser that has the platform version, and the
+  // reverse. Byte equality of ciphertext and tag is the property that makes that true.
+  const KEY_LENGTHS = [16, 24, 32] as const
+
+  it.each(KEY_LENGTHS)(
+    'produces the same ciphertext and tag as WebCrypto under a %i-byte key',
+    async (keyBytes) => {
+      for (const length of [0, 1, 15, 16, 17, 1024, 4096 + 17]) {
+        const key = randomBytes(keyBytes)
+        const nonce = randomBytes(AES_GCM_NONCE_BYTES)
+        const aad = randomBytes(37)
+        const plaintext = randomBytes(length)
+        const platform = await aesGcmEncryptDetached({
+          key: await importAesGcmKey(key),
+          nonce,
+          plaintext,
+          aad,
+        })
+        const library = await nobleAesGcmEncryptDetached({ key, nonce, plaintext, aad })
+        expect(bytesToHex(library.ciphertext)).toBe(bytesToHex(platform.ciphertext))
+        expect(bytesToHex(library.authTag)).toBe(bytesToHex(platform.authTag))
+        expect(library.ciphertext.length).toBe(length)
+        expect(library.authTag.length).toBe(AES_GCM_TAG_BYTES)
+      }
+    },
+  )
+
+  it.each(KEY_LENGTHS)('opens what WebCrypto sealed, and the reverse, at %i bytes', async (keyBytes) => {
+    const key = randomBytes(keyBytes)
+    const nonce = randomBytes(AES_GCM_NONCE_BYTES)
+    const aad = new TextEncoder().encode('FYP-FILE-CONTENT')
+    const plaintext = randomBytes(777)
+    const cryptoKey = await importAesGcmKey(key)
+
+    const byPlatform = await aesGcmEncryptDetached({ key: cryptoKey, nonce, plaintext, aad })
+    expect(
+      bytesToHex(await nobleAesGcmDecryptDetached({ key, nonce, aad, ...byPlatform })),
+    ).toBe(bytesToHex(plaintext))
+
+    const byLibrary = await nobleAesGcmEncryptDetached({ key, nonce, plaintext, aad })
+    expect(
+      bytesToHex(await aesGcmDecryptDetached({ key: cryptoKey, nonce, aad, ...byLibrary })),
+    ).toBe(bytesToHex(plaintext))
+  })
+
+  // The primitive vectors are all 256-bit (there is no aes_192_gcm_detached list), which
+  // still pins the library to python-cryptography's GCM rather than to WebCrypto alone. The
+  // 192-bit answers come from the file_envelope list below, whose two AES-192 cases carry
+  // the primitive's inputs and outputs in full.
+  it.each(vectors.aes_256_gcm_detached)('encrypts $case to the reference bytes', async (vector) => {
+    const { ciphertext, authTag } = await nobleAesGcmEncryptDetached({
+      key: hexToBytes(vector.key_hex),
+      nonce: hexToBytes(vector.nonce_hex),
+      plaintext: hexToBytes(vector.plaintext_hex),
+      aad: hexToBytes(vector.aad_hex),
+    })
+    expect(bytesToHex(ciphertext)).toBe(vector.ciphertext_hex)
+    expect(bytesToHex(authTag)).toBe(vector.auth_tag_hex)
+  })
+
+  it.each(vectors.aes_256_gcm_detached)('decrypts $case back to the plaintext', async (vector) => {
+    const plaintext = await nobleAesGcmDecryptDetached({
+      key: hexToBytes(vector.key_hex),
+      nonce: hexToBytes(vector.nonce_hex),
+      ciphertext: hexToBytes(vector.ciphertext_hex),
+      authTag: hexToBytes(vector.auth_tag_hex),
+      aad: hexToBytes(vector.aad_hex),
+    })
+    expect(bytesToHex(plaintext)).toBe(vector.plaintext_hex)
+  })
+
+  const aes192Envelopes = vectors.file_envelope.filter((v) => v.encryption_algorithm === 'AES-192-GCM')
+
+  it('has 192-bit known answers to check against', () => {
+    expect(aes192Envelopes.length).toBeGreaterThanOrEqual(2)
+    for (const vector of aes192Envelopes) expect(hexToBytes(vector.dek_hex).length).toBe(24)
+  })
+
+  it.each(aes192Envelopes)('reproduces the 192-bit file envelope $case', async (vector) => {
+    const key = hexToBytes(vector.dek_hex)
+    const nonce = hexToBytes(vector.nonce_hex)
+    const aad = hexToBytes(vector.aad_hex)
+    const sealed = await nobleAesGcmEncryptDetached({
+      key,
+      nonce,
+      plaintext: hexToBytes(vector.plaintext_hex),
+      aad,
+    })
+    expect(bytesToHex(sealed.ciphertext)).toBe(vector.ciphertext_hex)
+    expect(bytesToHex(sealed.authTag)).toBe(vector.auth_tag_hex)
+    const opened = await nobleAesGcmDecryptDetached({
+      key,
+      nonce,
+      ciphertext: hexToBytes(vector.ciphertext_hex),
+      authTag: hexToBytes(vector.auth_tag_hex),
+      aad,
+    })
+    expect(bytesToHex(opened)).toBe(vector.plaintext_hex)
+  })
+
+  it('refuses a changed byte, tag, AAD or key as an authentication failure', async () => {
+    const key = randomBytes(24)
+    const nonce = randomBytes(AES_GCM_NONCE_BYTES)
+    const aad = new TextEncoder().encode('aad')
+    const sealed = await nobleAesGcmEncryptDetached({ key, nonce, plaintext: randomBytes(50), aad })
+    const open = (overrides: Partial<{ key: Uint8Array; ciphertext: Uint8Array; authTag: Uint8Array; aad: Uint8Array }>) =>
+      nobleAesGcmDecryptDetached({ key, nonce, ...sealed, aad, ...overrides })
+
+    const flipped = sealed.ciphertext.slice()
+    flipped[0]! ^= 1
+    await expect(open({ ciphertext: flipped })).rejects.toBeInstanceOf(AuthenticationFailure)
+    const badTag = sealed.authTag.slice()
+    badTag[15]! ^= 1
+    await expect(open({ authTag: badTag })).rejects.toBeInstanceOf(AuthenticationFailure)
+    await expect(open({ aad: new TextEncoder().encode('other') })).rejects.toBeInstanceOf(AuthenticationFailure)
+    await expect(open({ key: randomBytes(24) })).rejects.toBeInstanceOf(AuthenticationFailure)
+  })
+
+  it('rejects key, nonce and tag lengths that are not the specified ones', async () => {
+    const args = { nonce: randomBytes(AES_GCM_NONCE_BYTES), plaintext: new Uint8Array(), aad: new Uint8Array() }
+    for (const badKey of [0, 8, 20, 31, 33]) {
+      await expect(nobleAesGcmEncryptDetached({ ...args, key: randomBytes(badKey) })).rejects.toBeInstanceOf(RangeError)
+    }
+    await expect(
+      nobleAesGcmEncryptDetached({ ...args, key: randomBytes(24), nonce: randomBytes(16) }),
+    ).rejects.toBeInstanceOf(RangeError)
+    await expect(
+      nobleAesGcmDecryptDetached({ key: randomBytes(24), nonce: args.nonce, ciphertext: new Uint8Array(), authTag: randomBytes(8), aad: args.aad }),
+    ).rejects.toBeInstanceOf(RangeError)
+  })
+})
+
+describe('choosing WebCrypto or the library for AES-GCM', () => {
+  const subtle = globalThis.crypto.subtle
+
+  afterEach(() => {
+    vi.restoreAllMocks()
+    resetEncryptionCapabilityCache()
+  })
+
+  it('offers all six suites and uses WebCrypto for every key length Node provides', async () => {
+    resetEncryptionCapabilityCache()
+    expect(await supportedEncryptionAlgorithms()).toEqual([...ENCRYPTION_ALGORITHMS])
+    for (const keyBytes of [16, 24, 32]) expect(await platformSupportsAesGcm(keyBytes)).toBe(true)
+
+    const encrypt = vi.spyOn(subtle, 'encrypt')
+    await aesGcmSealDetached({
+      key: randomBytes(24),
+      nonce: randomBytes(AES_GCM_NONCE_BYTES),
+      plaintext: randomBytes(10),
+      aad: new Uint8Array(),
+    })
+    expect(encrypt).toHaveBeenCalledTimes(1)
+  })
+
+  it('still offers six suites when WebCrypto refuses AES-192, and performs it in the library', async () => {
+    // What Chromium does: importKey throws for a 24-byte key and only for that length.
+    const realImportKey = subtle.importKey.bind(subtle)
+    vi.spyOn(subtle, 'importKey').mockImplementation(async (format, keyData, ...rest) => {
+      if (format === 'raw' && (keyData as Uint8Array).byteLength === 24) {
+        throw new DOMException('AES key data must be 128 or 256 bits', 'OperationError')
+      }
+      return realImportKey(format, keyData as BufferSource, ...rest)
+    })
+    const encrypt = vi.spyOn(subtle, 'encrypt')
+    const decrypt = vi.spyOn(subtle, 'decrypt')
+    resetEncryptionCapabilityCache()
+
+    expect(await supportedEncryptionAlgorithms()).toEqual([...ENCRYPTION_ALGORITHMS])
+    expect(await platformSupportsAesGcm(24)).toBe(false)
+    expect(await platformSupportsAesGcm(16)).toBe(true)
+    expect(await platformSupportsAesGcm(32)).toBe(true)
+    // The probes themselves encrypt once per key length the platform accepts; nothing after
+    // this point may touch WebCrypto for AES-192.
+    encrypt.mockClear()
+
+    const key = randomBytes(24)
+    const nonce = randomBytes(AES_GCM_NONCE_BYTES)
+    const aad = new TextEncoder().encode('aad')
+    const plaintext = randomBytes(300)
+    const sealed = await aesGcmSealDetached({ key, nonce, plaintext, aad })
+    const opened = await aesGcmOpenDetached({ key, nonce, aad, ...sealed })
+    expect(bytesToHex(opened)).toBe(bytesToHex(plaintext))
+    expect(encrypt).not.toHaveBeenCalled()
+    expect(decrypt).not.toHaveBeenCalled()
+
+    // And what the library wrote is what the platform would have written, so a file from
+    // this browser opens anywhere.
+    const reference = await nobleAesGcmEncryptDetached({ key, nonce, plaintext, aad })
+    expect(bytesToHex(sealed.ciphertext)).toBe(bytesToHex(reference.ciphertext))
+    expect(bytesToHex(sealed.authTag)).toBe(bytesToHex(reference.authTag))
+
+    // AES-256 keeps going to the platform regardless.
+    await aesGcmSealDetached({ key: randomBytes(32), nonce, plaintext, aad })
+    expect(encrypt).toHaveBeenCalledTimes(1)
+  })
+
+  it('refuses to run at all when WebCrypto cannot do AES-256-GCM', async () => {
+    vi.spyOn(subtle, 'importKey').mockRejectedValue(new DOMException('no', 'OperationError'))
+    resetEncryptionCapabilityCache()
+    await expect(supportedEncryptionAlgorithms()).rejects.toThrow(/AES-256-GCM/)
   })
 })
 

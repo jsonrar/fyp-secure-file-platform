@@ -50,8 +50,9 @@ with the private-key file, idle relock,
 authenticated encryption before upload, local decryption after download, filename search,
 sharing by rewrapping the file key to the recipient, revocation, per-file access history,
 silent session refresh, logout, and account deletion. AES-128/192/256-GCM,
-AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305 are selectable per file; AES-256-GCM
-remains the default. The former
+AES-256-GCM-SIV, ChaCha20-Poly1305 and XChaCha20-Poly1305 are selectable per file in every
+browser (AES-192-GCM falls back to `@noble/ciphers` where WebCrypto lacks it, with identical
+bytes); AES-256-GCM remains the default. The former
 hard-coded credential and demo-token fallbacks are gone.
 
 Since the "Sealed" redesign (2026-10-05, #176–#182, #188–#195) the whole site shares one style:
@@ -539,8 +540,9 @@ scenarios locally during development of the gate itself.
 
 The fourth job, `e2e-live`, starts the real API against another disposable MySQL and runs every
 frontend live-backend suite un-skipped: registration with an emailed code, login/refresh/
-replay/logout, unlock, all six file algorithms, sharing and revocation, audit visibility, role
-denial, and account deletion. It then runs a Chromium smoke test (Playwright) that clicks the
+replay/logout, unlock, all six file algorithms (each uploaded, then shared, decrypted by the
+recipient, integrity-checked and revoked), audit visibility, role denial, and account
+deletion. It then runs a Chromium smoke test (Playwright) that clicks the
 built pages through the same golden path, so a button wired to the wrong handler fails CI. Each
 job publishes its JUnit and coverage reports as a build
 artifact, but only after `backend/scripts/check_report_hygiene.py` confirms they hold no keys,

@@ -101,7 +101,7 @@ Each round applies:
 
 AES-128 remains NIST-approved and is widely used (for example in many TLS suites).
 
-**In SecureView:** AES-128-GCM is one of the upload choices. AES-192-GCM (12 rounds) is offered where the browser supports it, AES-256-GCM is the default, and AES-256-GCM-SIV is a variant that tolerates a repeated nonce. See “Which file encryption should I choose?”.
+**In SecureView:** AES-128-GCM is one of the upload choices. AES-192-GCM (12 rounds) is offered in every browser (a JavaScript library fills in where WebCrypto lacks it), AES-256-GCM is the default, and AES-256-GCM-SIV is a variant that tolerates a repeated nonce. See “Which file encryption should I choose?”.
 
 **Note on DES / 3DES:** Those older block ciphers are not taught here. NIST removed 3DES from its recommendations in 2023; use AES instead.`,
   },
@@ -134,7 +134,7 @@ Round operations are the same family as AES-128 (SubBytes, ShiftRows, MixColumns
 | Option | Key | Nonce | Runs in | Pick it when |
 |---|---|---|---|---|
 | **AES-256-GCM** (default) | 256-bit | 96-bit | Browser built-in, usually hardware-accelerated | You have no reason to change it |
-| AES-192-GCM | 192-bit | 96-bit | Browser built-in, where supported (not Chrome) | Comparing AES key lengths |
+| AES-192-GCM | 192-bit | 96-bit | Browser built-in in Firefox and Safari; a JavaScript library in Chrome and Edge, which lack it | Comparing AES key lengths |
 | AES-128-GCM | 128-bit | 96-bit | Browser built-in | Speed matters more than the extra margin |
 | AES-256-GCM-SIV | 256-bit | 96-bit | JavaScript library | You want a mode that survives a repeated nonce |
 | ChaCha20-Poly1305 | 256-bit | 96-bit | JavaScript library | You want a design that does not depend on AES |
@@ -144,7 +144,7 @@ Round operations are the same family as AES-128 (SubBytes, ShiftRows, MixColumns
 
 **Honest note for SecureView:** your browser makes a **new random key for every file**, so a nonce can never repeat under the same key here, whichever option you pick. In SecureView the two newer modes are an extra safety margin and a way to compare designs, not a fix for a problem the platform has.
 
-**Speed.** The AES-GCM options use the browser's own implementation and are the fastest on most computers. The other three run in a JavaScript library; ChaCha20 and XChaCha20 are still quick, while AES-GCM-SIV is noticeably slower on very large files.
+**Speed.** The AES-GCM options use the browser's own implementation and are the fastest on most computers, except AES-192-GCM in Chrome and Edge, which runs in the library. The other three run in a JavaScript library; ChaCha20 and XChaCha20 are still quick, while AES-GCM-SIV is noticeably slower on very large files.
 
 **You do not need to tell anyone which you chose.** The choice is stored with the file and bound into its authentication data, and the recipient's browser uses it automatically.
 

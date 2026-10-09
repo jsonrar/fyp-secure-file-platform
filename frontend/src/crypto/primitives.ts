@@ -1,11 +1,11 @@
 /**
- * WebCrypto wrappers for the algorithm suite.
+ * WebCrypto and @noble/ciphers wrappers for the algorithm suite.
  *
  * Every function here is a thin, testable primitive: it takes bytes and returns bytes.
  * Envelope construction, AAD layout, and business rules live in the modules above this one.
  */
 
-import { gcmsiv } from '@noble/ciphers/aes.js'
+import { gcm, gcmsiv } from '@noble/ciphers/aes.js'
 import { chacha20poly1305, xchacha20poly1305 } from '@noble/ciphers/chacha.js'
 
 import { bytesToHex, fromBase64 } from './encoding'
@@ -46,6 +46,12 @@ export const AES_GCM_TAG_BITS = AES_GCM_TAG_BYTES * 8
  * be reinterpreted as another without the tag failing.
  */
 export const ENCRYPTION_SUITES = Object.freeze({
+  // `platform: true` means WebCrypto performs the suite where it can. AES-256-GCM is always
+  // WebCrypto: the account envelopes depend on it and a browser without it cannot run this
+  // product at all. AES-128 and AES-192 are tried on WebCrypto first and fall back to the
+  // @noble/ciphers GCM below where the browser lacks that key length (Chromium never shipped
+  // AES-192). The two implementations produce identical bytes, so a file sealed by one opens
+  // under the other.
   'AES-256-GCM': Object.freeze({ keyBytes: 32, nonceBytes: 12, tagBytes: 16, platform: true }),
   // From @noble/ciphers, like the two ChaCha entries: WebCrypto offers none of the three, so
   // they need no capability probe and work wherever this code runs.
@@ -104,36 +110,68 @@ export function nonceBytesForAlgorithm(algorithm: string): number {
 /** Every key length any supported algorithm accepts. */
 const LEGAL_KEY_BYTES: readonly number[] = Object.values(ENCRYPTION_KEY_BYTES)
 
+/** One probe per key length, kept for the life of the page: the answer cannot change. */
+const platformAesGcmProbes = new Map<number, Promise<boolean>>()
 let supported: Promise<EncryptionAlgorithm[]> | undefined
 
 /**
- * The algorithms this browser can actually perform, strongest first.
+ * Whether this WebCrypto performs AES-GCM at the given key length.
  *
- * Probed rather than assumed, for the suites that come from the platform. AES-192 is absent
- * from some WebCrypto implementations -- Chromium never shipped it -- and a key length the
- * browser rejects surfaces as a bare `OperationError` at encryption time, after the user has
- * chosen it and picked a file. ChaCha20-Poly1305 is not probed: it is a library, so it works
- * wherever this code runs. Cached, because the answer cannot change within a page.
+ * Probed rather than assumed. AES-192 is absent from some WebCrypto implementations --
+ * Chromium never shipped it -- and the refusal surfaces as a bare `OperationError` from
+ * `importKey` (or, in some builds, from the first `encrypt`), so the probe runs both. A key
+ * length the platform refuses is performed by @noble/ciphers instead; see
+ * {@link aesGcmSealDetached}.
+ */
+export function platformSupportsAesGcm(keyBytes: number): Promise<boolean> {
+  let probe = platformAesGcmProbes.get(keyBytes)
+  if (probe === undefined) {
+    probe = (async () => {
+      try {
+        const key = await importAesGcmKey(new Uint8Array(keyBytes))
+        await subtle().encrypt(
+          { name: 'AES-GCM', iv: new Uint8Array(AES_GCM_NONCE_BYTES), tagLength: AES_GCM_TAG_BITS },
+          key,
+          new Uint8Array(0),
+        )
+        return true
+      } catch {
+        return false
+      }
+    })()
+    platformAesGcmProbes.set(keyBytes, probe)
+  }
+  return probe
+}
+
+/** Forget every probe result. For tests that simulate a different browser; never called by the app. */
+export function resetEncryptionCapabilityCache(): void {
+  platformAesGcmProbes.clear()
+  supported = undefined
+}
+
+/**
+ * The algorithms this browser can perform, strongest first: all six, on every browser.
+ *
+ * The three library suites need no probe. AES-128 and AES-192 are probed, but a refusal no
+ * longer removes them from the menu, because the library performs them instead. What is
+ * still checked is AES-256-GCM on WebCrypto: it is required, not optional, because the
+ * account key envelopes are sealed under it and there is no default to fall back to. Cached,
+ * because the answer cannot change within a page.
  */
 export function supportedEncryptionAlgorithms(): Promise<EncryptionAlgorithm[]> {
   supported ??= (async () => {
-    const usable = await Promise.all(
-      ENCRYPTION_ALGORITHMS.map(async (algorithm) => {
-        if (!ENCRYPTION_SUITES[algorithm].platform) return algorithm
-        try {
-          await importAesGcmKey(new Uint8Array(ENCRYPTION_KEY_BYTES[algorithm]))
-          return algorithm
-        } catch {
-          return undefined
-        }
-      }),
-    )
-    const available = usable.filter((a): a is EncryptionAlgorithm => a !== undefined)
-    // AES-256 is required, not optional: without it there is no default to fall back to.
-    if (!available.includes(DEFAULT_ENCRYPTION_ALGORITHM)) {
+    if (!(await platformSupportsAesGcm(ENCRYPTION_KEY_BYTES[DEFAULT_ENCRYPTION_ALGORITHM]))) {
       throw new Error('This browser cannot perform AES-256-GCM; encryption is unavailable')
     }
-    return available
+    // Warm the remaining probes now, so the first upload under AES-128 or AES-192 does not
+    // pay for one. Their results are irrelevant to the list.
+    await Promise.all(
+      ENCRYPTION_ALGORITHMS.filter((a) => ENCRYPTION_SUITES[a].platform).map((a) =>
+        platformSupportsAesGcm(ENCRYPTION_KEY_BYTES[a]),
+      ),
+    )
+    return [...ENCRYPTION_ALGORITHMS]
   })()
   return supported
 }
@@ -224,7 +262,7 @@ export interface AesGcmCiphertext {
 }
 
 /**
- * AES-256-GCM encryption with a **detached** authentication tag.
+ * AES-GCM encryption on WebCrypto with a **detached** authentication tag.
  *
  * `crypto.subtle.encrypt` returns `ciphertext ‖ tag` as one buffer, but the API stores the
  * tag in its own column and the stored ciphertext excludes it. The split is enforced
@@ -394,7 +432,7 @@ function concat(a: Uint8Array, b: Uint8Array): Uint8Array {
   return out
 }
 
-/** AES-256-GCM decryption, rejoining the detached tag before verification. */
+/** AES-GCM decryption on WebCrypto, rejoining the detached tag before verification. */
 export async function aesGcmDecryptDetached(params: {
   key: CryptoKey
   nonce: Uint8Array
@@ -427,6 +465,110 @@ export async function aesGcmDecryptDetached(params: {
   } catch {
     throw new AuthenticationFailure()
   }
+}
+
+function checkNobleAesGcmParams(key: Uint8Array, nonce: Uint8Array): void {
+  if (!LEGAL_KEY_BYTES.includes(key.length)) {
+    throw new RangeError(
+      `AES-GCM key must be ${LEGAL_KEY_BYTES.join(', ')} bytes, received ${key.length}`,
+    )
+  }
+  if (nonce.length !== AES_GCM_NONCE_BYTES) {
+    throw new RangeError(`AES-GCM nonce must be ${AES_GCM_NONCE_BYTES} bytes`)
+  }
+}
+
+/**
+ * AES-GCM from @noble/ciphers, with the tag detached: the same construction as
+ * {@link aesGcmEncryptDetached}, for a key length this WebCrypto refuses.
+ *
+ * Standard GCM (NIST SP 800-38D) with a 96-bit nonce and a 128-bit tag, which is exactly what
+ * WebCrypto computes, so the ciphertext and tag are byte for byte what the platform would
+ * have produced under the same key, nonce and AAD. The test suite checks that equality
+ * directly. Like the other library suites the key is raw bytes rather than a `CryptoKey`;
+ * see {@link chacha20Poly1305EncryptDetached} for why that matters.
+ */
+export async function nobleAesGcmEncryptDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  plaintext: Uint8Array
+  aad: Uint8Array
+}): Promise<AesGcmCiphertext> {
+  const { key, nonce, plaintext, aad } = params
+  checkNobleAesGcmParams(key, nonce)
+  const joined = gcm(key, nonce, aad).encrypt(plaintext)
+  return {
+    ciphertext: joined.slice(0, joined.length - AES_GCM_TAG_BYTES),
+    authTag: joined.slice(joined.length - AES_GCM_TAG_BYTES),
+  }
+}
+
+/** AES-GCM decryption from @noble/ciphers, rejoining the detached tag before verification. */
+export async function nobleAesGcmDecryptDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  ciphertext: Uint8Array
+  authTag: Uint8Array
+  aad: Uint8Array
+}): Promise<Uint8Array> {
+  const { key, nonce, ciphertext, authTag, aad } = params
+  checkNobleAesGcmParams(key, nonce)
+  if (authTag.length !== AES_GCM_TAG_BYTES) {
+    throw new RangeError(`AES-GCM tag must be ${AES_GCM_TAG_BYTES} bytes`)
+  }
+  try {
+    return gcm(key, nonce, aad).decrypt(concat(ciphertext, authTag))
+  } catch {
+    throw new AuthenticationFailure()
+  }
+}
+
+/**
+ * Whether file content at this key length goes to WebCrypto or to the library.
+ *
+ * AES-256 never falls back: it is the key length the account envelopes use, a browser
+ * without it has already been refused by {@link supportedEncryptionAlgorithms}, and keeping
+ * the default on the platform keeps the key non-extractable there. The shorter lengths go to
+ * the library only where the probe says the platform cannot do them.
+ */
+async function useNobleAesGcm(keyBytes: number): Promise<boolean> {
+  if (keyBytes === AES_KEY_BYTES) return false
+  return !(await platformSupportsAesGcm(keyBytes))
+}
+
+/**
+ * AES-GCM encryption with a detached tag, from raw key bytes, at any supported key length.
+ *
+ * The one entry point file content should use: WebCrypto where the platform performs this
+ * key length, @noble/ciphers where it does not. The two agree byte for byte, so which one
+ * ran is not recorded anywhere and need not be.
+ */
+export async function aesGcmSealDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  plaintext: Uint8Array
+  aad: Uint8Array
+}): Promise<AesGcmCiphertext> {
+  if (await useNobleAesGcm(params.key.length)) {
+    return nobleAesGcmEncryptDetached(params)
+  }
+  const { key, ...rest } = params
+  return aesGcmEncryptDetached({ ...rest, key: await importAesGcmKey(key) })
+}
+
+/** The counterpart of {@link aesGcmSealDetached}. */
+export async function aesGcmOpenDetached(params: {
+  key: Uint8Array
+  nonce: Uint8Array
+  ciphertext: Uint8Array
+  authTag: Uint8Array
+  aad: Uint8Array
+}): Promise<Uint8Array> {
+  if (await useNobleAesGcm(params.key.length)) {
+    return nobleAesGcmDecryptDetached(params)
+  }
+  const { key, ...rest } = params
+  return aesGcmDecryptDetached({ ...rest, key: await importAesGcmKey(key) })
 }
 
 const PEM_PUBLIC_KEY = /-----BEGIN PUBLIC KEY-----([\s\S]+?)-----END PUBLIC KEY-----/
