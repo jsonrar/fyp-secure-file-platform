@@ -91,7 +91,7 @@ export const algorithms: AlgorithmInfo[] = [
     limitations: ['Smaller security margin than AES-256', 'Same key-sharing problem as any symmetric cipher', 'Not the default for SecureView file encryption'],
     keyFacts: [
       'Key length: 128 bits · Rounds: 10 · Block size: 128 bits',
-      'AES-192 sits in between (12 rounds); SecureView offers it where the browser supports it',
+      'AES-192 sits in between (12 rounds); SecureView offers it in every browser, using a JavaScript library where WebCrypto lacks it',
       'NIST approved AES in 2001; AES-128 remains approved for many uses',
     ],
     demo: {
@@ -135,7 +135,7 @@ export const algorithms: AlgorithmInfo[] = [
     keyFacts: [
       'Key length: 256 bits · Rounds: 14 · Block size: 128 bits',
       'AES-256-GCM is SecureView’s default file encryption suite, run by the browser’s built-in (usually hardware-accelerated) WebCrypto',
-      'AES-192 sits in between (12 rounds); SecureView offers it where the browser supports it',
+      'AES-192 sits in between (12 rounds); SecureView offers it in every browser, using a JavaScript library where WebCrypto lacks it',
     ],
     demo: {
       kind: 'animation',

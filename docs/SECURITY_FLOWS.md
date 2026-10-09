@@ -257,6 +257,12 @@ suite the user chose (AES-128/192/256-GCM, AES-256-GCM-SIV or ChaCha20-Poly1305 
 nonce; XChaCha20-Poly1305 with a 192-bit nonce; AES-256-GCM by default), encrypts the file
 locally, and wraps the DEK twice with
 RSA-OAEP-SHA256: once to its own active public key and once to the recovery public key.
+AES-GCM runs on the browser's WebCrypto; AES-256-GCM-SIV and both ChaCha suites run in
+`@noble/ciphers`. AES-192-GCM is the one suite some browsers lack natively (Chromium never
+shipped it), so the client probes WebCrypto once per key length and, where it refuses, performs
+AES-GCM in `@noble/ciphers` too. The two produce identical ciphertext and tags, so all six suites
+are offered in every browser and a file sealed in one browser opens in any other. AES-256-GCM
+never falls back: the account key envelopes depend on it, and a browser without it is refused.
 It then sends a multipart request containing the ciphertext and a JSON metadata envelope.
 
 ```text
@@ -322,7 +328,11 @@ sender fetches recipient's active public key
 
 The server never receives the sender's private key or plaintext DEK. It can verify that the
 submitted bytes have the correct RSA ciphertext length, but cannot prove they encrypt the
-correct DEK; the sharing client must self-test before submission where practical. The target
+correct DEK. The client does not decrypt the file before sharing either, because that would
+mean downloading all of it first; what it relies on is that RSA-OAEP unwrapping is
+authenticated and `unwrapDek` checks the key length, so the DEK it rewraps is the one sealed at
+upload, and that a wrong DEK would only make the recipient's download fail its AEAD tag check
+(see `docs/crypto/FILE_ENVELOPE.md`, section 6). The target
 cannot receive `can_download` or `can_share` when the sender lacks the corresponding capability,
 so delegated sharing cannot use another account to regain a denied capability. The canonical
 owner grant is immutable, and an unrelated delegated sharer cannot overwrite or revive an
