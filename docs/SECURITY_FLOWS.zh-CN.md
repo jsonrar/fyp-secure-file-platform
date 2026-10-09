@@ -268,6 +268,62 @@ RSA-OAEP 解包本身带认证、`unwrapDek` 会检查密钥长度，所以它 r
 撤销要求 REVOKE 权限，不得针对规范所有者，并原子撤销目标授权及其活跃用户包装。它能阻止
 未来由服务器介导的访问，但无法删除接收者已经复制的密文、DEK 或明文。
 
+### 分享的完整时序
+
+下图的顺序就是 `frontend/src/crypto/share.ts`、`frontend/src/components/ShareDialog.vue` 和
+`backend/app/services/sharing_service.py` 里调用的顺序。如果发送方的密钥还没解锁，分享在请求任何东西之前就停下，
+弹出口令对话框，解锁后回到确认这一步，所以解锁一定发生在解包 DEK 之前。
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Alice（发送方）
+    participant AB as Alice 的浏览器
+    participant API as SecureView API
+    participant DB as MySQL
+    participant BB as Bob 的浏览器
+    actor B as Bob（接收方）
+
+    A->>AB: 分享，输入 "bob"
+    AB->>API: GET /keys/users/by-identifier/bob/active
+    API->>DB: 查 Bob 当前的公钥
+    API-->>AB: user_id、key_id、public_key_pem、fingerprint
+    AB->>AB: 自己对公钥算 SHA-256，必须和服务器给的指纹一致
+    AB-->>A: 显示 Bob 和他的指纹（和上次不同就警告）
+    A->>AB: 确认并分享
+    alt Alice 的账户密钥还锁着
+        AB-->>A: 口令对话框
+        A->>AB: 输入口令
+        AB->>API: GET /keys/me（加密的密钥包）
+        API-->>AB: 封装的 AMK、加密的私钥、KDF 参数
+        AB->>AB: Argon2id 派生 KEK，解开 AMK，HKDF，解开私钥（只放在内存里）
+        AB->>API: GET /keys/users/by-identifier/bob/active（重新查一次）
+        API-->>AB: 同一把公钥，再核对一次指纹
+        A->>AB: 确认并分享
+    end
+    AB->>API: GET /files/{file_id}
+    API-->>AB: 元数据和 crypto_envelope（Alice 的 wrapped_file_key、key_id）
+    AB->>AB: 如果 Bob 的 key_id 就是 Alice 自己的，拒绝
+    AB->>AB: 用 Alice 的私钥 RSA-OAEP 解包 DEK，检查长度
+    AB->>AB: 用 Bob 的公钥 RSA-OAEP-SHA256 重新封装同一个 DEK
+    AB->>API: POST /files/{file_id}/share（target_user_id、target_key_id、wrapped_file_key、can_download、can_share）
+    API->>DB: 锁文件，检查 SHARE 权限，把权限削到不超过 Alice 自己的
+    API->>DB: 锁 Bob 和他的密钥，检查封装长度，写入或更新授权和封装
+    API->>DB: 写 FILE_SHARED 审计事件，提交
+    API-->>AB: 200 created
+    API-->>B: 邮件通知（提交之后发，失败不影响分享）
+    B->>BB: 与我共享，下载并解密
+    BB->>API: GET /files/{file_id}
+    API-->>BB: 带 Bob 的 wrapped_file_key 的 crypto_envelope
+    BB->>API: POST /files/{file_id}/download
+    API->>API: 存储的密文算 SHA-256，和记录的哈希比对
+    API-->>BB: 密文（不一致就拒绝）
+    BB->>BB: 用 Bob 的私钥解包 DEK，AEAD 解密并校验 tag
+    BB-->>B: 原文件
+```
+
+服务器能看到给 Bob 的封装 DEK 和密文，看不到 DEK、任何一方的私钥或明文。
+
 ## 离线恢复边界
 
 恢复密钥是由 ADMIN 登记的 RSA 公钥。登记新的活跃密钥会撤销旧密钥用于新上传，但不会重新

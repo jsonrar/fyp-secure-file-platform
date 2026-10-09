@@ -348,6 +348,65 @@ Revocation requires REVOKE permission, cannot target the canonical owner, and at
 revokes the target grant and its active user wrappings. It prevents future server-mediated
 access but cannot erase ciphertext, DEKs, or plaintext already copied by a recipient.
 
+### Sharing, end to end
+
+The order below is the order of the calls in `frontend/src/crypto/share.ts`,
+`frontend/src/components/ShareDialog.vue` and `backend/app/services/sharing_service.py`. If the
+sender's key is still locked, the share stops before anything is fetched, the passphrase dialog
+opens, and the dialog comes back to the confirmation step, so the unlock always happens before
+the DEK is unwrapped.
+
+```mermaid
+sequenceDiagram
+    autonumber
+    actor A as Alice (sender)
+    participant AB as Alice's browser
+    participant API as SecureView API
+    participant DB as MySQL
+    participant BB as Bob's browser
+    actor B as Bob (recipient)
+
+    A->>AB: Share, type "bob"
+    AB->>API: GET /keys/users/by-identifier/bob/active
+    API->>DB: Bob's active public key
+    API-->>AB: user_id, key_id, public_key_pem, fingerprint
+    AB->>AB: SHA-256 of the key itself, must equal the server's fingerprint
+    AB-->>A: Bob and his fingerprint (warn if it changed since last time)
+    A->>AB: Confirm and share
+    alt Alice's account key is locked
+        AB-->>A: passphrase dialog
+        A->>AB: passphrase
+        AB->>API: GET /keys/me (sealed key bundle)
+        API-->>AB: wrapped AMK, encrypted private key, KDF parameters
+        AB->>AB: Argon2id KEK, open AMK, HKDF, open private key (kept in memory only)
+        AB->>API: GET /keys/users/by-identifier/bob/active (lookup again)
+        API-->>AB: same key, fingerprint checked again
+        A->>AB: Confirm and share
+    end
+    AB->>API: GET /files/{file_id}
+    API-->>AB: metadata and crypto_envelope (Alice's wrapped_file_key, key_id)
+    AB->>AB: refuse if Bob's key_id is Alice's own
+    AB->>AB: RSA-OAEP unwrap the DEK with Alice's private key, check its length
+    AB->>AB: RSA-OAEP-SHA256 wrap the same DEK to Bob's public key
+    AB->>API: POST /files/{file_id}/share (target_user_id, target_key_id, wrapped_file_key, can_download, can_share)
+    API->>DB: lock file, check SHARE permission, cut capabilities to Alice's grant
+    API->>DB: lock Bob and his key, check the wrapping length, upsert grant and wrapping
+    API->>DB: FILE_SHARED audit event, commit
+    API-->>AB: 200 created
+    API-->>B: email notice (after commit, best effort)
+    B->>BB: Shared with me, Download and decrypt
+    BB->>API: GET /files/{file_id}
+    API-->>BB: crypto_envelope with Bob's wrapped_file_key
+    BB->>API: POST /files/{file_id}/download
+    API->>API: SHA-256 of the stored ciphertext against the recorded hash
+    API-->>BB: ciphertext (or refused if it does not match)
+    BB->>BB: unwrap DEK with Bob's private key, AEAD decrypt, tag checked
+    BB-->>B: the original file
+```
+
+The server sees the wrapped DEK for Bob and the ciphertext. It never sees the DEK, either
+private key or the plaintext.
+
 ## Offline Recovery Boundary
 
 Recovery keys are RSA public keys registered by an ADMIN. Registering a new active key
