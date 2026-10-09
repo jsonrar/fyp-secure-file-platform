@@ -46,6 +46,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 的 `[Unreleased]`。
 - [x] 面向新用户的讲解（2026-10-02）：`/how-it-works` 和首页的可逐步查看的原理动画，Help 页三段从真实产品录制、
   带字幕的视频，与普通网盘的对比，以及四步快速上手。各自内容见更新日志。对比表的问题列已加标签和编号，页脚中间不再空一块（[PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)）。全站标题和简介：放得下就一行，只在句与句之间换行，不再有两句话的标题，由 `text-audit.mjs` 检查（[PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195)）。
+- [x] 访问记录筛选（2026-10-09）：`GET /audit-logs` 支持按事件类型、结果、日期范围和关键词筛选，可见范围规则不变；每页 100 条、点“加载更多”翻页，不再一打开就拉 1,000 条。
 - [x] 所有浏览器都能用全部六种上传套件（2026-10-09）：WebCrypto 不支持 AES-192 时改用 `@noble/ciphers`，实机测试里六种套件都走完分享，后端也自己校验 `docs/crypto/test_vectors.json`。
 
 已交付行为的原因和证据统一写在

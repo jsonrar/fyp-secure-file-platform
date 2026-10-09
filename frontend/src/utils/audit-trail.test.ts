@@ -2,7 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { auditApi } from '@/api/audit_api'
 
-import { fetchAuditTrail, MAX_ROWS, PAGE_SIZE } from './audit-trail'
+import {
+  EMPTY_AUDIT_FILTERS,
+  fetchAuditPage,
+  hasAuditFilters,
+  PAGE_SIZE,
+  toAuditLogFilters,
+} from './audit-trail'
 
 const row = (i: number) => ({
   action: 'FILE_DOWNLOAD_AUTHORIZED',
@@ -37,54 +43,28 @@ afterEach(() => {
   vi.restoreAllMocks()
 })
 
-describe('fetchAuditTrail', () => {
-  it('stops after one request when the server says there is no more', async () => {
-    const list = vi.spyOn(auditApi, 'listLogs').mockResolvedValue(page(12, false) as never)
+describe('fetchAuditPage', () => {
+  it('asks for exactly one page and reports whether more remain', async () => {
+    // The old walker issued ten requests on a long-lived account before the page could draw
+    // anything. One request per page, and the person decides whether to load the next.
+    const list = vi.spyOn(auditApi, 'listLogs').mockResolvedValue(page(PAGE_SIZE, true) as never)
 
-    const trail = await fetchAuditTrail()
+    const result = await fetchAuditPage({}, 0)
 
-    expect(trail.logs).toHaveLength(12)
-    expect(trail.partial).toBe(false)
+    expect(result.logs).toHaveLength(PAGE_SIZE)
+    expect(result.hasMore).toBe(true)
     expect(list).toHaveBeenCalledOnce()
+    expect(list).toHaveBeenCalledWith({ limit: PAGE_SIZE, offset: 0 })
   })
 
-  it('keeps going while more remain', async () => {
-    // The bug this exists for: the stats read one page and looked like totals. On a real
-    // account, page one held four distinct files where the whole trail held eight.
-    const list = vi
-      .spyOn(auditApi, 'listLogs')
-      .mockResolvedValueOnce(page(PAGE_SIZE, true, 0) as never)
-      .mockResolvedValueOnce(page(PAGE_SIZE, true, PAGE_SIZE) as never)
-      .mockResolvedValueOnce(page(30, false, PAGE_SIZE * 2) as never)
+  it('asks for the next page by offset, with the same filters', async () => {
+    const list = vi.spyOn(auditApi, 'listLogs').mockResolvedValue(page(12, false, 200) as never)
 
-    const trail = await fetchAuditTrail()
+    const result = await fetchAuditPage({ result: 'FAIL', q: 'report' }, 200)
 
-    expect(trail.logs).toHaveLength(PAGE_SIZE * 2 + 30)
-    expect(trail.partial).toBe(false)
-    expect(list).toHaveBeenCalledTimes(3)
-  })
-
-  it('asks for each page by offset, not the same one repeatedly', async () => {
-    const list = vi
-      .spyOn(auditApi, 'listLogs')
-      .mockResolvedValueOnce(page(PAGE_SIZE, true, 0) as never)
-      .mockResolvedValueOnce(page(5, false, PAGE_SIZE) as never)
-
-    await fetchAuditTrail()
-
-    expect(list).toHaveBeenNthCalledWith(1, { limit: PAGE_SIZE, offset: 0 })
-    expect(list).toHaveBeenNthCalledWith(2, { limit: PAGE_SIZE, offset: PAGE_SIZE })
-  })
-
-  it('gives up at the cap and says the totals are partial', async () => {
-    // An account used for months must not issue fifty requests to draw four numbers, and
-    // under-reporting silently is worse than saying the figure is partial.
-    vi.spyOn(auditApi, 'listLogs').mockResolvedValue(page(PAGE_SIZE, true) as never)
-
-    const trail = await fetchAuditTrail()
-
-    expect(trail.partial).toBe(true)
-    expect(trail.logs.length).toBeGreaterThanOrEqual(MAX_ROWS)
+    expect(result.logs).toHaveLength(12)
+    expect(result.hasMore).toBe(false)
+    expect(list).toHaveBeenCalledWith({ result: 'FAIL', q: 'report', limit: PAGE_SIZE, offset: 200 })
   })
 
   it('survives a page that carries no rows at all', async () => {
@@ -92,6 +72,45 @@ describe('fetchAuditTrail', () => {
       data: { success: true, status: 'ok', message: '', code: 200, data: { logs: null, has_more: false } },
     } as never)
 
-    await expect(fetchAuditTrail()).resolves.toEqual({ logs: [], partial: false })
+    await expect(fetchAuditPage({}, 0)).resolves.toEqual({ logs: [], hasMore: false })
+  })
+})
+
+describe('toAuditLogFilters', () => {
+  it('sends nothing for an empty form', () => {
+    expect(toAuditLogFilters({ ...EMPTY_AUDIT_FILTERS })).toEqual({})
+    expect(hasAuditFilters({ ...EMPTY_AUDIT_FILTERS })).toBe(false)
+  })
+
+  it('turns a local calendar day into its first and last UTC instant', () => {
+    // Whatever zone the test runs in, the window is that whole local day: the start is local
+    // midnight and the end is the last millisecond before the next midnight.
+    const filters = toAuditLogFilters({ ...EMPTY_AUDIT_FILTERS, from: '2026-10-01', to: '2026-10-03' })
+
+    expect(filters.from).toBe(new Date(2026, 9, 1, 0, 0, 0, 0).toISOString())
+    expect(filters.to).toBe(new Date(2026, 9, 3, 23, 59, 59, 999).toISOString())
+    expect(filters.from!.endsWith('Z')).toBe(true)
+  })
+
+  it('drops a date that is not a real day instead of sending it', () => {
+    const filters = toAuditLogFilters({ ...EMPTY_AUDIT_FILTERS, from: '2026-02-30', to: 'yesterday' })
+    expect(filters).toEqual({})
+  })
+
+  it('passes the event type and result through and trims the keyword', () => {
+    const filters = toAuditLogFilters({
+      action: 'FILE_SHARED',
+      result: 'FAIL',
+      from: '',
+      to: '',
+      q: '  report  ',
+    })
+    expect(filters).toEqual({ action: 'FILE_SHARED', result: 'FAIL', q: 'report' })
+    expect(hasAuditFilters({ action: 'FILE_SHARED', result: '', from: '', to: '', q: '' })).toBe(true)
+  })
+
+  it('caps the keyword at the 100 characters the server accepts', () => {
+    const filters = toAuditLogFilters({ ...EMPTY_AUDIT_FILTERS, q: 'x'.repeat(140) })
+    expect(filters.q).toHaveLength(100)
   })
 })
