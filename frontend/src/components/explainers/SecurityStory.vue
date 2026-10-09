@@ -2,7 +2,7 @@
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { ChevronLeft, ChevronRight, Pause, Play, RotateCcw } from 'lucide-vue-next'
 
-import { STORY_SCENES } from '@/data/security-story'
+import { STORY_SCENES, sceneDuration } from '@/data/security-story'
 
 /**
  * An animated explainer of what happens to a file in SecureView, from Alice's browser through
@@ -12,11 +12,13 @@ import { STORY_SCENES } from '@/data/security-story'
  * from `src/data/security-story.ts`. It plays by itself once it scrolls into view, pauses when
  * the viewer takes control, and with reduced motion it never autoplays and does not animate.
  * `autoplay` starts at once (for the recorded video); `compact` drops the step list.
+ * Each scene stays up for `sceneDuration` (about 3 s) unless `sceneMs` fixes one length
+ * for every scene, which the full-screen recording does.
  */
 const props = withDefaults(defineProps<{ autoplay?: boolean; compact?: boolean; sceneMs?: number }>(), {
   autoplay: false,
   compact: false,
-  sceneMs: 7000,
+  sceneMs: undefined,
 })
 
 const scenes = STORY_SCENES
@@ -30,6 +32,7 @@ const scene = computed(() => scenes[index.value]!)
 const at = (id: (typeof scenes)[number]['id']) => index.value >= scenes.findIndex((s) => s.id === id)
 const is = (id: (typeof scenes)[number]['id']) => scene.value.id === id
 const atEnd = computed(() => index.value === scenes.length - 1)
+const sceneMs = computed(() => props.sceneMs ?? sceneDuration(scene.value))
 
 let timer: number | undefined
 let lastTick = 0
@@ -37,10 +40,10 @@ function tick(now: number) {
   if (!playing.value) return
   elapsed.value += now - lastTick
   lastTick = now
-  if (elapsed.value >= props.sceneMs) {
+  if (elapsed.value >= sceneMs.value) {
     if (atEnd.value) {
       playing.value = false
-      elapsed.value = props.sceneMs
+      elapsed.value = sceneMs.value
       return
     }
     index.value += 1
@@ -50,7 +53,7 @@ function tick(now: number) {
 }
 
 function play() {
-  if (atEnd.value && elapsed.value >= props.sceneMs) restart()
+  if (atEnd.value && elapsed.value >= sceneMs.value) restart()
   playing.value = true
   lastTick = performance.now()
   cancelAnimationFrame(timer ?? 0)
@@ -69,7 +72,7 @@ function restart() {
   index.value = 0
   elapsed.value = 0
 }
-const progress = computed(() => Math.min(1, elapsed.value / props.sceneMs))
+const progress = computed(() => Math.min(1, elapsed.value / sceneMs.value))
 
 let observer: IntersectionObserver | null = null
 let started = false

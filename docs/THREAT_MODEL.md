@@ -4,7 +4,7 @@ English | [简体中文](THREAT_MODEL.zh-CN.md)
 
 | | |
 |---|---|
-| Version | 1.3, 2026-10-09. Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 and 2026-10-08; see §14 for every revision |
+| Version | 1.4, 2026-10-09. Issue #60 complete as v1.0 (supply chain, CSP, uploads, tokens and recovery operations §11; findings register §12; review record §13); register statuses refreshed on 2026-10-01 and 2026-10-08; see §14 for every revision |
 | Tracks | [Issue #60](https://github.com/jsonrar/fyp-secure-file-platform/issues/60) |
 | Status | **Self-assessment.** Written by the crypto & security lead, who also implemented much of the cryptography it assesses. It is not an independent review and certifies nothing. |
 | Reflects | `main` at the time of writing, schema revision `0008_avatars`, staging at `https://secureview.tech`. Register statuses rechecked 2026-10-07 against `e4b3f13` (schema `0010_shared_file_folders`) |
@@ -179,6 +179,7 @@ Each threat has a stable ID; §12 collects every open, accepted or deferred one 
 | T-I7 | The plaintext PEM export is mishandled by the user | Shown once with a warning; read locally and never uploaded when used | Accepted — custody decided in [§10.1](#101-the-exported-private-key-and-the-limits-of-a-lost-passphrase) |
 | T-I8 | Recovery private key exposure | Custody procedure in [BACKUP_AND_RECOVERY.md § 7](BACKUP_AND_RECOVERY.md#7-recovery-key-custody) | Open — the procedure is marked *proposed*, and the current staging recovery key is held as an unencrypted PEM on a team member's workstation, not offline. → F-02 |
 | T-I9 | A share recipient keeps what they downloaded | — | Accepted (N5) |
+| T-I10 | The **Encrypted preview** shows the first 128 bytes of a file's ciphertext, which could look like it helps an attacker | The preview is only shown to the owner and to people the file is shared with, and it shows what the server already stores: "Download encrypted file" gives the whole ciphertext anyway | Accepted, no change. AES-GCM and the other suites are designed to stay secure when an attacker sees all of the ciphertext, so seeing 128 bytes (8 rows) does not make breaking a file any easier. What protects the file is the key, which never leaves the browser unwrapped. Decided after the 2026-10-09 supervisor meeting |
 
 ### 7.5 Denial of service
 
@@ -620,3 +621,4 @@ F-02 in particular.
 | 1.1 | Register statuses refreshed against the live staging state on 2026-10-01: F-10, F-11, F-20 resolved; F-12 partly resolved and F-19 mitigated; F-01 records that branch protection needs a paid plan. No analysis changed. |
 | 1.2 | F-01 and T-E5 updated: deployment is gated on CI (#117, installed 2026-10-01). No analysis changed. |
 | 1.3 | 2026-10-09. §11.6 added with the per-address limits resized for a venue network behind one NAT (#210). F-04 recorded as mitigated by #205 (2026-10-08), which v1.2 had not picked up, and the version line above brought in line with this table. Sharing (T-S5): the client does not decrypt the file before a share; [FILE_ENVELOPE.md](crypto/FILE_ENVELOPE.md) §6 now says what it checks instead and why a wrong rewrap is a share that does not work rather than a disclosure. No other analysis changed. |
+| 1.4 | 2026-10-09. T-I10 added: the Encrypted preview does not weaken a file, so it stays as it is. No other analysis changed. |

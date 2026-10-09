@@ -208,7 +208,7 @@ test.describe('signed in, on a phone', () => {
 
     await test.step('upload one file', async () => {
       await page.getByRole('button', { name: 'Start Encryption' }).click()
-      await expect(page.getByRole('button', { name: 'Encryption Complete' })).toBeVisible({ timeout: 60_000 })
+      await expect(page.getByTestId('encryption-complete')).toBeVisible({ timeout: 60_000 })
     })
 
     for (const width of PHONE_WIDTHS) {

@@ -48,6 +48,16 @@ export function classifyUploadSize(sizeBytes: number): UploadSizeClass {
 }
 
 /**
+ * The files a press of Start Encryption should send: everything not already uploaded.
+ *
+ * A file marked done is on the server, so sending it again would store a second copy. This is
+ * why the upload page can never re-upload a batch it has just finished.
+ */
+export function filesStillToUpload<T extends { status: string }>(files: readonly T[]): T[] {
+  return files.filter((file) => file.status !== 'done')
+}
+
+/**
  * The browser refuses to allocate a buffer this big as a bare `RangeError` ("Array buffer
  * allocation failed"), or fails the read itself. Neither tells a non-expert what to do.
  */
