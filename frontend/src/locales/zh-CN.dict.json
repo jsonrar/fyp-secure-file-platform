@@ -2114,7 +2114,7 @@
   "A stream cipher authenticated by Poly1305, built differently from AES rather than with a different key length. It is designed to be fast in plain software, which is why phones without AES hardware use it. Here it runs in a JavaScript library.": "一种由 Poly1305 认证的流密码，和 AES 是不同的构造，而不只是密钥长度不同。它的设计在纯软件中就很快，所以没有 AES 硬件加速的手机常用它。这里它在 JavaScript 库中运行。",
   "AES with its middle key length. Rarely used in practice. Chrome and Edge do not offer it in WebCrypto, so there it runs in a JavaScript library and is slower; the encrypted file is the same either way.": "中间密钥长度的 AES，实际中很少用。Chrome 和 Edge 的 WebCrypto 不提供它，所以在这些浏览器中它由 JavaScript 库运行，速度较慢；两种方式加密出来的文件完全一样。",
   "AES with its shortest key. Still considered secure and widely used in HTTPS. Pick it if you need to match a system that expects 128-bit keys.": "密钥最短的 AES。目前仍被认为是安全的，HTTPS 中也广泛使用。如果需要和要求 128 位密钥的系统保持一致，可以选它。",
-  "AES-128-GCM · High · Standard": "AES-128-GCM · 高 · 标准",
+  "AES-128-GCM · High · Widely used": "AES-128-GCM · 高 · 广泛使用",
   "AES-192-GCM · High": "AES-192-GCM · 高",
   "AES-256 with an extra safety net (RFC 8452). If a random nonce were ever repeated, an attacker would only learn that the same file was encrypted twice, never its contents. Runs in a JavaScript library, so it is slower than the default on very large files.": "带额外保护的 AES-256（RFC 8452）。即使随机 nonce 万一重复，攻击者也只能知道同一个文件被加密了两次，看不到文件内容。它在 JavaScript 库中运行，所以加密很大的文件时比默认选项慢。",
   "AES-256-GCM · Max · Recommended": "AES-256-GCM · 最高 · 推荐",
