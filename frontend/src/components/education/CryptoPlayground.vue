@@ -107,7 +107,7 @@ async function runEncrypt() {
       output.value = result.ciphertext
     }
   } catch (e) {
-    errorMessage.value = e instanceof Error ? e.message : 'Encryption failed'
+    errorMessage.value = (e instanceof Error && e.message) || 'Encryption failed'
     output.value = ''
   } finally {
     isProcessing.value = false
@@ -135,7 +135,8 @@ async function runDecrypt() {
       rsaSteps.value = rsaToyStepsFromCiphertext(plaintext.value)
     }
   } catch (e) {
-    errorMessage.value = e instanceof Error ? e.message : 'Decryption failed'
+    // Some browser errors carry an empty message; never leave the error line blank.
+    errorMessage.value = (e instanceof Error && e.message) || 'Decryption failed'
     output.value = ''
   } finally {
     isProcessing.value = false

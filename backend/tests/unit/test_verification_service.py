@@ -70,7 +70,15 @@ class FakeVerificationRepository:
         email: str,
         purpose: VerificationPurpose,
     ) -> datetime | None:
-        return self.last_issued_at
+        # Like the real query: the newest row for this address and purpose, whatever its status.
+        issued = [
+            code.created_at
+            for code in self.added_codes
+            if code.email == email and code.purpose == purpose
+        ]
+        if self.last_issued_at is not None:
+            issued.append(self.last_issued_at)
+        return max(issued, default=None)
 
     def invalidate_pending_verification_codes(
         self,
@@ -182,6 +190,17 @@ def _stored_code(
     )
 
 
+def _assert_only_a_dead_time_marker(harness: Harness) -> None:
+    # A withheld send leaves one row so the resend interval can count it, but that row can
+    # never be consumed: it is born INVALIDATED and belongs to no account.
+    (marker,) = harness.repository.added_codes
+    assert marker.status == VerificationCodeStatus.INVALIDATED
+    assert marker.user_id is None
+    assert marker.created_at == NOW_DB
+    assert harness.repository.invalidated == []
+    assert harness.audit.events == []
+
+
 def test_registration_issue_sends_code_and_stores_only_a_digest() -> None:
     harness = _harness(code="654321")
 
@@ -219,10 +238,10 @@ def test_registration_issue_is_silent_for_an_address_that_already_exists() -> No
         context=CONTEXT,
     )
 
-    # No mail and no row, but the send throttle was still consumed so probing
+    # No mail and no usable code, but the send throttle was still consumed so probing
     # an existing address costs the same as probing a new one.
     assert harness.email.sent == []
-    assert harness.repository.added_codes == []
+    _assert_only_a_dead_time_marker(harness)
     assert any(
         scope == LoginThrottleScope.VERIFICATION_SEND_EMAIL
         for scope, _ in harness.repository.throttles
@@ -239,7 +258,7 @@ def test_password_reset_issue_is_silent_for_an_unknown_address() -> None:
     )
 
     assert harness.email.sent == []
-    assert harness.repository.added_codes == []
+    _assert_only_a_dead_time_marker(harness)
 
 
 def test_password_reset_issue_binds_the_code_to_the_account() -> None:
@@ -276,12 +295,37 @@ def test_issue_rejects_a_resend_inside_the_cooldown() -> None:
     assert harness.email.sent == []
 
 
+@pytest.mark.parametrize(
+    "purpose", [VerificationPurpose.REGISTRATION, VerificationPurpose.PASSWORD_RESET]
+)
+def test_a_quick_second_send_answers_the_same_whether_or_not_the_address_has_an_account(
+    purpose: VerificationPurpose,
+) -> None:
+    # Registration sends to new addresses and reset sends to known ones, so if only the
+    # sending path waited out the interval, a 200 or a 429 on the second try would say
+    # which kind of address it was.
+    outcomes = []
+    for registered in (True, False):
+        harness = _harness()
+        if registered:
+            harness.repository.users["alice@example.com"] = _active_user()
+
+        harness.service.issue(purpose=purpose, email="alice@example.com", context=CONTEXT)
+        with pytest.raises(AuthenticationRateLimitedError) as excinfo:
+            harness.service.issue(purpose=purpose, email="alice@example.com", context=CONTEXT)
+
+        outcomes.append(excinfo.value.headers["Retry-After"])
+
+    assert outcomes == ["60", "60"]
+
+
 def test_issue_blocks_after_the_per_email_send_limit() -> None:
     harness = _harness()
     settings = harness.service.settings
 
     for _ in range(settings.VERIFICATION_SEND_EMAIL_MAX_PER_WINDOW):
-        harness.repository.last_issued_at = None
+        # Forget the previous send so only the per-window limit is being exercised.
+        harness.repository.added_codes.clear()
         harness.service.issue(
             purpose=VerificationPurpose.REGISTRATION,
             email="new@example.com",

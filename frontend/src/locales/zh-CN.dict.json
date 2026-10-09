@@ -994,7 +994,7 @@
   "Recovery executed": "恢复已执行",
   "Recovery key": "恢复密钥",
   "Recovery key already registered (idempotent).": "恢复密钥已注册（幂等）。",
-  "Recovery key fingerprint — verify this out of band before trusting an upload.": "恢复密钥指纹 — 在信任上传之前，请在此之外验证此指纹。",
+  "Recovery key fingerprint — verify this out of band before trusting an upload.": "恢复密钥指纹 — 在信任上传之前，请通过其他独立渠道核对此指纹。",
   "Recovery officer": "恢复审批人",
   "Recovery public key": "恢复公钥",
   "Recovery public key revoked.": "恢复公钥已撤销。",
@@ -1413,7 +1413,7 @@
   "Under Currently shared with, press Revoke beside their name.": "在“当前分享给”下，按他们的名字旁边的“撤销”按钮。",
   "Under each file name in My Files, Encrypted preview shows the start of what the server stores: random-looking bytes, the stored size and the SHA-256 recorded at upload. It also checks that the original file type’s header is not visible. Nothing in it is decrypted.": "在我的文件中每个文件名下方，加密预览显示服务器存储的开始部分：看起来随机的字节、存储的大小和在上传时记录的 SHA-256。它还检查原始文件类型的头部是否不可见。其中没有任何内容被解密。",
   "Under the hood": "内部机制",
-  "Unique Users": "唯一用户",
+  "Unique Users": "涉及用户数",
   "Unknown action": "未知操作",
   "Unknown file": "未知文件",
   "Unlock": "解锁",
@@ -1884,7 +1884,7 @@
   "why not just send it on WhatsApp": "为什么不能直接通过WhatsApp发送",
   "why not just use Google Drive": "为什么不能直接使用Google Drive",
   "with the recovery private key, rewrap to the target public key, paste the base64 result below.": "使用恢复私钥，重新封装到目标公钥，粘贴以下base64结果。",
-  "with {0}": "使用{0}",
+  "with {0}": "对象：{0}",
   "workflow": "工作流程",
   "writes text in a zigzag across {0} rows, then reads row by row.": "在{0}行中交错写入文本，然后逐行读取。",
   "your {0} files": "你的{0}文件",
@@ -2122,5 +2122,8 @@
   "ChaCha20-Poly1305 · Max · Fast on phones": "ChaCha20-Poly1305 · 最高 · 手机上快",
   "The default and our recommendation. Most computers and phones have AES built into the processor, so it is fast, and it is the algorithm the recovery process is tested with.": "默认选项，也是我们推荐的。大多数电脑和手机的处理器自带 AES 加速，所以速度快，恢复流程也是用它测试的。",
   "XChaCha20-Poly1305 · Max · Long nonce": "XChaCha20-Poly1305 · 最高 · 长随机数",
-  "Account deletion refused: wrong password": "删除账户被拒绝：密码错误"
+  "Account deletion refused: wrong password": "删除账户被拒绝：密码错误",
+  "Failed to load more audit logs": "无法加载更多审计日志",
+  "Remove file": "移除文件",
+  "Wrong password, or the ciphertext was changed.": "密码错误，或密文已被修改。"
 }

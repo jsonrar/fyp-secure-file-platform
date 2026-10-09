@@ -46,11 +46,27 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md) 的 `[Unreleased]`。
 - [x] 面向新用户的讲解（2026-10-02）：`/how-it-works` 和首页的可逐步查看的原理动画，Help 页三段从真实产品录制、
   带字幕的视频，与普通网盘的对比，以及四步快速上手。各自内容见更新日志。对比表的问题列已加标签和编号，页脚中间不再空一块（[PR #194](https://github.com/jsonrar/fyp-secure-file-platform/pull/194)）。全站标题和简介：放得下就一行，只在句与句之间换行，不再有两句话的标题，由 `text-audit.mjs` 检查（[PR #195](https://github.com/jsonrar/fyp-secure-file-platform/pull/195)）。
-- [x] 访问记录筛选（2026-10-09）：`GET /audit-logs` 支持按事件类型、结果、日期范围和关键词筛选，可见范围规则不变；每页 100 条、点“加载更多”翻页，不再一打开就拉 1,000 条。
-- [x] 所有浏览器都能用全部六种上传套件（2026-10-09）：WebCrypto 不支持 AES-192 时改用 `@noble/ciphers`，实机测试里六种套件都走完分享，后端也自己校验 `docs/crypto/test_vectors.json`。
+- [x] 访问记录筛选（2026-10-09）：`GET /audit-logs` 支持按事件类型、结果、日期范围和关键词筛选，可见范围规则不变；每页 100 条、点“加载更多”翻页，不再一打开就拉 1,000 条（[PR #213](https://github.com/jsonrar/fyp-secure-file-platform/pull/213)）。
+- [x] 所有浏览器都能用全部六种上传套件（2026-10-09）：WebCrypto 不支持 AES-192 时改用 `@noble/ciphers`，实机测试里六种套件都走完分享，后端也自己校验 `docs/crypto/test_vectors.json`（[PR #211](https://github.com/jsonrar/fyp-secure-file-platform/pull/211)）。
+- [x] 账户相关修复（2026-10-09）：注册时已注册的邮箱和验证码错误得到相同的回答，注销账户有频率限制并写审计记录，管理员重置密码后本人下次登录必须设置新密码（`must_change_password`，Schema `0011`），并删除了无用的加密代码和 `app/utils`（[PR #212](https://github.com/jsonrar/fyp-secure-file-platform/pull/212)）。
+- [x] 按导师反馈修复上传（2026-10-09）：文件不会被上传两次，完成后显示绿色状态而不是按钮，算法下拉框为每个选项标出等级（例如 Max · Recommended）并有说明框，讲解动画每步约 3 秒（[PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215)）。
 
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
+
+## 2026-10-09 已核验（`main` 位于 `c3569c8`）
+
+| 门禁 | 结果 | 含义 |
+| --- | --- | --- |
+| `c3569c8` 上的 GitHub Actions | 所有测试 Job 全部通过 | 后端、前端、`mysql-gate`、`e2e-live` 和 `tamper-drill` |
+| 后端（`mysql-gate`） | 728 passed，0 skipped | 同时运行 MySQL 发布门禁和备份/恢复演练，均通过 |
+| 后端（`backend` Job，无 MySQL） | 661 passed；覆盖率 81.24% | 不需要 MySQL 的单元和 API 测试 |
+| 前端（`frontend` Job） | 875 passed，78 skipped；语句覆盖率 73.09% | 被跳过的是真实后端测试套件，在 `e2e-live` 里运行 |
+| 前端实时测试（`e2e-live`） | 953 passed，0 skipped | 全部套件针对一次性 API 与 MySQL 运行 |
+| 浏览器测试（`e2e-live`） | 57 passed | Playwright |
+| 篡改演练 | 通过 | 隔离的攻击容器（#90） |
+| 线上 staging | 运行 `c3569c8`，schema `0011_must_change_password` | `/health/ready` 返回 ready；按 DEPLOYMENT.md 的要求，部署前先手动执行了 0011 的 SQL |
+| Schema head | `0011_must_change_password` | 新增管理员重置标记（#212） |
 
 ## 2026-10-07 已核验（`main` 位于 `e4b3f13`）
 
@@ -115,7 +131,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   ——2026-09-24 起已在 staging 运行：每晚把加密备份集传到 Cloudflare R2（35 天生命周期、30 天 bucket
   lock），使用最小权限备份账号，失败时发邮件。一个真实备份集已在另一台机器上用离线私钥恢复，用时 6.97
   秒，与线上数据库和文件完全一致（[docs/BACKUP_AND_RECOVERY.zh-CN.md](docs/BACKUP_AND_RECOVERY.zh-CN.md)
-  §5）。后续：在全新 VPS 上计时 4 小时整体服务 RTO，并清理 `mcs21-deploy` 的发布前 dump。
+  §5）。后续：在全新 VPS 上计时 4 小时整体服务 RTO。清理 `mcs21-deploy` 的发布前 dump 已完成（[PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204)）。
 - [x] [#61 保持 README、TODO、Issues、changelog、PR 与部署同步](https://github.com/jsonrar/fyp-secure-file-platform/issues/61)
   ——本次同步 PR 建立统一记录与证据清单；后续变更沿用同一规则。
 
@@ -133,8 +149,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] [#57 安全验证并启用 staging 对账 timer](https://github.com/jsonrar/fyp-secure-file-platform/issues/57)
   ——仓库部分已完成：目录宽限期、数量保护（退出码 3）、边界两侧计数报告、MySQL 幂等性测试与不触碰审计/
   密钥/恢复表的语句测试、在同机备份之后 05:00 运行的 timer、邮件告警，以及
-  [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md)。待完成：在 staging 安装、
-  记录 report-only 审查，然后启用 timer。2026-09-24 已在 staging 安装，report-only 审查已记录（43 条可删、
+  [docs/RECONCILIATION_RUNBOOK.zh-CN.md](docs/RECONCILIATION_RUNBOOK.zh-CN.md)。
+  2026-09-24 已在 staging 安装，report-only 审查已记录（43 条可删、
   0 个孤立对象），timer 已启用。2026-09-25 05:00 的第一次计划运行，以及此后到 2026-10-01 的连续七次每日运行全部成功
   （journal 每次均为 0 条可删、0 个孤立对象）。这些重复运行只说明它在空集合上无害；由于此后一直没有可删项，
   真实删除之后的幂等重复运行尚未被观察到。
@@ -178,6 +194,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   的 20 项发现登记表。它是一份经过一次同行评审的自评，而非独立的外部评审，不构成任何认证。登记表已于 2026-10-01
   刷新（v1.1）：F-10、F-11、F-20 已解决，F-12 部分解决，F-19 已缓解；F-01 当天由以 CI 为门槛的部署缓解（#117，见下）。
   还有两项*建议修复*的发现尚未实施：F-02 恢复私钥保管、F-03 在预发布环境关闭 `/docs`。F-04 拒绝弱 passphrase 已于 2026-10-08 缓解（[PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)）。
+  当前版本为 v1.5（2026-10-09），也记录了 F-08 已由 #212 缓解。
 
 ## P3 — 计划中的产品 UX
 
@@ -205,10 +222,10 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   打开。见 Issue 上的范围记录。
 - [x] [#146 Help assistant：回答操作、原理与对比问题的悬浮助手（v1 不用大模型）](https://github.com/jsonrar/fyp-secure-file-platform/issues/146)
   ——2026-10-02 批准，排在 #74 之前。在浏览器内检索人工整理的意图和现有 Help/Education 内容；无网络请求，
-  对比回答附出处。部署验证并记录到 Issue 后关闭。见 [docs/HELP_ASSISTANT.zh-CN.md](docs/HELP_ASSISTANT.zh-CN.md)。
+  对比回答附出处。已部署、验证，并于 2026-10-02 关闭。见 [docs/HELP_ASSISTANT.zh-CN.md](docs/HELP_ASSISTANT.zh-CN.md)。
 - [x] [#148 Help assistant v2：回答已登录用户关于自己账户的问题](https://github.com/jsonrar/fyp-secure-file-platform/issues/148)
   ——七项只读检查（谁能打开某个文件、单个文件的历史、我分享了什么、别人分享给我什么、被标记为 Modified 的文件、
-  最近活动、账户概览），使用 My Files 和 Access Records 已有的请求。不用大模型；面板里不做任何修改。部署验证后关闭。
+  最近活动、账户概览），使用 My Files 和 Access Records 已有的请求。不用大模型；面板里不做任何修改。已部署、验证，并于 2026-10-02 关闭。
 - [x] [#74 持久化 English / 简体中文语言切换](https://github.com/jsonrar/fyp-secure-file-platform/issues/74)
   ——页头、手机菜单和设置页均可切换 English / 简体中文，按设备记住，并在首次渲染前恢复。公共界面（导航、登录、注册、
   设置等）使用 vue-i18n 键值消息；其余界面通过词典显示中文，词典在构建阶段由智谱 `glm-4-flash` 起草，并由脚本和测试
@@ -243,7 +260,7 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
   `backend/scripts/demo_tamper.py` 和 [docs/presentation/TAMPER_DEMO.zh-CN.md](docs/presentation/TAMPER_DEMO.zh-CN.md)
 - [ ] 幻灯片：架构图、加密流程图、需求完成表、局限（最后做）
 - [x] 界面改版（“Sealed”风格：暖白纸色、近黑墨色、薄荷绿强调、Geist 字体），所有功能保留。第 1 步全局风格：已完成（[PR #176](https://github.com/jsonrar/fyp-secure-file-platform/pull/176)）。
-  第 2 步公开页：已完成（[PR #177](https://github.com/jsonrar/fyp-secure-file-platform/pull/177)；深色首屏（深色首屏、替换 Core Features 卡片墙，保留“Under the hood”和六步指南）。第 3 步应用页：侧边栏、文件详情栏、上传封存回执、工作区和访问记录已改（PR #178、#180、#182）。第 3 步补充（来自 10-05 巡检）：P1 居中页头、统一内容宽度、设置和资料双栏、登录后所有页面保留侧边栏已完成（[#183](https://github.com/jsonrar/fyp-secure-file-platform/issues/183)）；P2（深色主色改近白、去胶囊标签、登录页分栏）已完成（[#184](https://github.com/jsonrar/fyp-secure-file-platform/issues/184)）；P3（访问记录无失败请求、步骤点点击区域、768px 溢出）代码已完成（[#185](https://github.com/jsonrar/fyp-secure-file-platform/issues/185)；线上 SHA-256 的确认由项目负责人做）。我的文件详情入口（整行、文件名、Details 按钮）和非模态侧边详情栏：已完成（[PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193)）。
+  第 2 步公开页：已完成（[PR #177](https://github.com/jsonrar/fyp-secure-file-platform/pull/177)；深色首屏、替换 Core Features 卡片墙，保留“Under the hood”和六步指南）。第 3 步应用页：侧边栏、文件详情栏、上传封存回执、工作区和访问记录已改（PR #178、#180、#182）。第 3 步补充（来自 10-05 巡检）：P1 居中页头、统一内容宽度、设置和资料双栏、登录后所有页面保留侧边栏已完成（[#183](https://github.com/jsonrar/fyp-secure-file-platform/issues/183)）；P2（深色主色改近白、去胶囊标签、登录页分栏）已完成（[#184](https://github.com/jsonrar/fyp-secure-file-platform/issues/184)）；P3（访问记录无失败请求、步骤点点击区域、768px 溢出）代码已完成（[#185](https://github.com/jsonrar/fyp-secure-file-platform/issues/185)；线上 SHA-256 的确认由项目负责人做）。我的文件详情入口（整行、文件名、Details 按钮）和非模态侧边详情栏：已完成（[PR #193](https://github.com/jsonrar/fyp-secure-file-platform/pull/193)）。
   第 4 步重拍图文指南截图（中英文）、帮助页视频和演示备用视频：已完成（[#186](https://github.com/jsonrar/fyp-secure-file-platform/issues/186)）；幻灯片由项目负责人自己做
 - [x] 如实说明 NFR2（可用性）——TALKING_POINTS 第 10 条（非正式真实使用，没有正式研究）
 

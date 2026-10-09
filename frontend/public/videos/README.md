@@ -12,7 +12,7 @@ Recorded from the real product, not mocked, by `frontend/scripts/record-walkthro
 
 Each has a `.jpg` poster. The accounts are made up (`sam`, `alex`, `@example.com`) on a disposable
 local stack; passwords and passphrases are masked by the page and were throwaway values.
-All three were re-recorded on 2026-10-05 after the "Sealed" redesign (sidebar, centred headers, two-column Settings, the new sign-in page). The captions are English; the videos have no sound. The caption, outline and sign-in helpers are shared with the
+All three were re-recorded on 2026-10-05 after the "Sealed" redesign (sidebar, centred headers, two-column Settings, the new sign-in page). That was before PR #215, so `encrypt-upload.mp4` still shows the old algorithm dropdown without grades or the explanation box, and the old "Encryption Complete" button where the page now shows a green status. The captions are English; the videos have no sound. The caption, outline and sign-in helpers are shared with the
 presentation's backup video in `frontend/scripts/lib/video.mjs`.
 
 To re-record after a UI change, start a local stack (API, MySQL, `npx vite`), seed two accounts with

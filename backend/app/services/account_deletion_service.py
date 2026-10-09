@@ -1,19 +1,20 @@
 from __future__ import annotations
 
+import logging
 from collections.abc import Callable
 from datetime import datetime
 from uuid import uuid4
 
 from sqlalchemy.orm import Session
 
-from app.core.security import PasswordManager
+from app.core.security import PasswordManager, PasswordOperationCapacityError
 from app.core.time import to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import UserStatus
 from app.domain.errors import (
     AuthenticationError,
+    AuthenticationRateLimitedError,
     InvalidCurrentPasswordError,
-    StorageUnavailableError,
 )
 from app.repositories.auth_repository import AuthRepository
 from app.repositories.file_repository import FileRepository
@@ -21,6 +22,8 @@ from app.services.audit_log_service import AuditLogService
 from app.services.auth_service import AuthService
 from app.services.avatar_storage_service import AvatarStorageService
 from app.services.file_storage_service import FileStorageService, StorageObjectError
+
+logger = logging.getLogger(__name__)
 
 
 class AccountDeletionResult:
@@ -87,10 +90,10 @@ class AccountDeletionService:
         is the one action in the application that cannot be undone, and a session left open
         on an unattended machine should not be enough to trigger it.
         """
-        now = self._clock()
-        # The throttle rows are second-resolution naive UTC, the way AuthService writes them.
-        # Comparing them with this service's aware clock raised a TypeError (a 500).
-        throttle_now = to_second_resolution_utc(now)
+        # Naive UTC to the second, the form every column written here stores. The throttle
+        # rows in particular are compared with it, and an aware value raised a TypeError (a
+        # 500). The audit row takes its own time from AuditLogService.
+        now = to_second_resolution_utc(self._clock())
         object_keys: list[str] = []
         avatar_key: str | None = None
 
@@ -103,7 +106,7 @@ class AccountDeletionService:
             buckets = self.reauthentication.begin_reauthentication(
                 username=account.username,
                 context=context,
-                now=throttle_now,
+                now=now,
             )
 
             user = self.auth.lock_user(actor.user_id)
@@ -117,12 +120,12 @@ class AccountDeletionService:
                     user=user,
                     buckets=buckets,
                     context=context,
-                    now=throttle_now,
+                    now=now,
                     action="ACCOUNT_DELETION_PASSWORD_FAILED",
                     description="Account deletion password verification failed",
                 )
                 raise InvalidCurrentPasswordError()
-            self.reauthentication.clear_reauthentication_throttle(buckets=buckets, now=throttle_now)
+            self.reauthentication.clear_reauthentication_throttle(buckets=buckets, now=now)
 
             avatar_key = user.avatar_object_key
             user.avatar_object_key = None
@@ -170,19 +173,36 @@ class AccountDeletionService:
             self.auth.release_identifiers(user, tombstone=uuid4().hex)
 
             self.db.commit()
+        except PasswordOperationCapacityError as exc:
+            # No memory budget for another hash right now. Like AuthService, this is a
+            # brief 429 rather than a 500, and nothing is recorded as a wrong guess.
+            self.db.rollback()
+            raise AuthenticationRateLimitedError(retry_after_seconds=1) from exc
         except Exception:
             self.db.rollback()
             raise
 
         # After the durable commit, for the same reason FileService.delete does it here.
+        # The account is already closed by now, so a failure to unlink one object must not
+        # turn the answer into an error: the caller would think nothing happened. Each
+        # failure is logged and the rest are still removed. What is left behind belongs to
+        # rows marked DELETED, which the reconcile job finds and removes.
         for object_key in object_keys:
             try:
                 self.storage.delete_object(object_key)
-            except StorageObjectError as exc:
-                raise StorageUnavailableError() from exc
+            except (StorageObjectError, OSError, ValueError) as exc:
+                # The type only: an OSError message carries the host path of the object.
+                logger.warning(
+                    "Could not remove a deleted account's file object: %s", type(exc).__name__
+                )
 
         if self.avatar_storage is not None and avatar_key:
-            self.avatar_storage.delete_sync(avatar_key)
+            try:
+                self.avatar_storage.delete_sync(avatar_key)
+            except (OSError, ValueError) as exc:
+                logger.warning(
+                    "Could not remove a deleted account's avatar: %s", type(exc).__name__
+                )
 
         return AccountDeletionResult(
             files_deleted=len(object_keys),

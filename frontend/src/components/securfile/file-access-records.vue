@@ -3,6 +3,7 @@ import { computed, onMounted, ref } from 'vue'
 import PageHeader from '@/components/securfile/PageHeader.vue'
 import { Activity, AlertTriangle, ChevronDown, ChevronUp, Clock, Download, FileIcon, Filter, RefreshCw, Share2, User } from 'lucide-vue-next'
 import { auditApi, type AuditLogFilters } from '@/api/audit_api'
+import { apiErrorMessage } from '@/api/http'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
 import { useAuthStore } from '@/stores/auth_store'
 import {
@@ -163,6 +164,13 @@ const hasMore = ref(false)
 const isLoadingMore = ref(false)
 
 /**
+ * Numbers each request, so only the newest one may change the list. Pressing Apply twice, or
+ * Apply while Load more was still waiting, let an older answer land last: the wrong filter's
+ * rows, or an old page appended to the new results.
+ */
+let requestSeq = 0
+
+/**
  * The first page for the applied filters.
  *
  * The page used to walk the whole trail before drawing anything: ten requests and a
@@ -170,32 +178,41 @@ const isLoadingMore = ref(false)
  * Now one page (100 rows, the server's cap) loads, and the next only when asked.
  */
 const loadLogs = async () => {
+  const seq = ++requestSeq
   isLoading.value = true
+  // Any Load more still waiting is now stale and will be dropped when it answers.
+  isLoadingMore.value = false
   errorMessage.value = ''
   try {
     const page = await fetchAuditPage(appliedFilters.value, 0)
+    if (seq !== requestSeq) return
     logs.value = page.logs
     hasMore.value = page.hasMore
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load audit logs'
+    if (seq !== requestSeq) return
+    errorMessage.value = apiErrorMessage(error, 'Failed to load audit logs')
   } finally {
-    isLoading.value = false
+    if (seq === requestSeq) isLoading.value = false
   }
 }
 
 const loadMore = async () => {
-  if (isLoadingMore.value || !hasMore.value) return
+  // Not while a first page is loading: its offset would count rows that are about to go.
+  if (isLoading.value || isLoadingMore.value || !hasMore.value) return
+  const seq = ++requestSeq
   isLoadingMore.value = true
   errorMessage.value = ''
   try {
     // Offset by what is on screen, so a page that came back short still lines up.
     const page = await fetchAuditPage(appliedFilters.value, logs.value.length)
+    if (seq !== requestSeq) return
     logs.value = [...logs.value, ...page.logs]
     hasMore.value = page.hasMore
   } catch (error) {
-    errorMessage.value = error instanceof Error ? error.message : 'Failed to load audit logs'
+    if (seq !== requestSeq) return
+    errorMessage.value = apiErrorMessage(error, 'Failed to load more audit logs')
   } finally {
-    isLoadingMore.value = false
+    if (seq === requestSeq) isLoadingMore.value = false
   }
 }
 
@@ -380,14 +397,16 @@ const toggle = (id: string) => {
             @click="toggle(file.id)"
           >
             <div class="flex items-center justify-between gap-4">
-              <div class="flex items-center gap-4">
-                <div class="p-3 rounded-lg bg-secondary">
+              <!-- min-w-0 and overflow-wrap let a long file name wrap instead of pushing a 360 px
+                   phone sideways. -->
+              <div class="flex min-w-0 items-center gap-4">
+                <div class="shrink-0 p-3 rounded-lg bg-secondary">
                   <User v-if="file.isAccount" class="h-5 w-5 text-muted-foreground" />
                   <FileIcon v-else class="h-5 w-5 text-muted-foreground" />
                 </div>
-                <div>
+                <div class="min-w-0">
                   <h3 class="text-base text-foreground">
-                    <span :translate="file.named ? 'no' : undefined">{{ file.name }}</span>
+                    <span :translate="file.named ? 'no' : undefined" class="[overflow-wrap:anywhere]">{{ file.name }}</span>
                     <span
                       v-if="file.isDeleted && !file.isAccount"
                       class="ml-2 rounded-md bg-secondary px-2 py-0.5 text-xs font-medium text-muted-foreground"
@@ -448,7 +467,7 @@ const toggle = (id: string) => {
           v-if="hasMore"
           type="button"
           class="h-10 inline-flex items-center gap-2 rounded-md border border-border bg-card px-4 text-sm hover:bg-secondary disabled:opacity-50"
-          :disabled="isLoadingMore"
+          :disabled="isLoadingMore || isLoading"
           data-testid="records-load-more"
           @click="loadMore"
         >

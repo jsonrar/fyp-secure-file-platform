@@ -49,6 +49,9 @@ _WATCHED = {
     "share": "FILE_SHARED",
     "upload": "FILE_UPLOADED",
     "password": "AUTH_PASSWORD_CHANGE_FAILED",
+    # Closing an account asks for the current password too, through the same throttle, so a
+    # guess made there is the same signal as one made on the change-password form.
+    "deletion_password": "ACCOUNT_DELETION_PASSWORD_FAILED",
     "recovery": "RECOVERY_REQUEST_EXECUTED",
 }
 
@@ -176,7 +179,9 @@ class SecurityAgentService:
             downloads=by_action[_WATCHED["download"]],
             shares=by_action[_WATCHED["share"]],
             uploads=by_action[_WATCHED["upload"]],
-            password_failures=by_action[_WATCHED["password"]],
+            password_failures=(
+                by_action[_WATCHED["password"]] + by_action[_WATCHED["deletion_password"]]
+            ),
             recoveries_executed=by_action[_WATCHED["recovery"]],
             recoveries_pending_old=self.repository.count_recovery_requests_pending_before(
                 to_second_resolution_utc(now - RECOVERY_PENDING_AFTER)

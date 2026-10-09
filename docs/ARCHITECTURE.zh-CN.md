@@ -50,7 +50,6 @@ backend/app/
 |-- repositories/        不独立提交的持久化操作
 |-- schemas/             严格 Pydantic 传输 DTO
 |-- services/            用例协调器及能力服务
-|-- utils/               纯工具函数
 `-- main.py              应用工厂与组合根
 
 backend/migrations/      开发/CI 的 Alembic 编写历史
@@ -58,7 +57,8 @@ database/mysql/          生产交付所用、经评审的管理员 SQL
 backend/tests/
 |-- unit/                策略、校验、密码学、存储及服务测试
 |-- api/                 HTTP 契约/依赖替换测试
-`-- integration/         MySQL、migration、repository 及存储测试
+|-- integration/         MySQL、migration、repository 及存储测试
+`-- e2e/                 供前端实时后端测试使用的真实 API 服务及运行脚本
 ```
 
 每个请求范围内的 SQLAlchemy `Session` 是工作单元。各服务负责 commit/rollback，并通过同一个

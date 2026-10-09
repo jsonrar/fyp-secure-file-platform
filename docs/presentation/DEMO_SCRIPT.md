@@ -168,7 +168,10 @@ without a network. If the presenter talks over it, pause it where needed; it is 
 on purpose.
 
 It was made on a disposable local stack running the same code as staging (the recording signs in
-automatically, which is only done on a local stack), so the screens are identical. To re-record after
+automatically, which is only done on a local stack). It was recorded on 2026-10-05, before PR #215, so
+the upload screen in it is slightly out of date: the algorithm dropdown has no grades or explanation box,
+and the finished upload shows an "Encryption Complete" button instead of the green status. The rest of
+the flow is the same as staging today. To re-record after
 a UI change, from `frontend/` with a local stack and two local `demo-*` accounts:
 
 ```bash
