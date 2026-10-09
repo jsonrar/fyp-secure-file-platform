@@ -363,53 +363,83 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
   })
 
   describe('sharing and revocation', () => {
-    const shared = () => uploaded.get('ChaCha20-Poly1305')!
+    // Once per suite, not once: sharing rewraps the DEK and the recipient opens the file
+    // under the suite named in the stored envelope, so a suite whose key length or library
+    // path differs from the default (AES-192 on Chromium, the three library suites) has to
+    // be shown to survive the whole hand-off, not only its own upload.
+    for (const algorithm of ENCRYPTION_ALGORITHMS) {
+      describe(`a file sealed under ${algorithm}`, () => {
+        const shared = () => uploaded.get(algorithm)!
 
-    it('shares a file with another account by username', async () => {
-      await signIn(alice)
-      await unlockWithPassphrase(alice.passphrase)
+        it('is shared with another account by username', async () => {
+          await signIn(alice)
+          await unlockWithPassphrase(alice.passphrase)
 
-      const outcome = await shareFileWithRecipient(shared().fileId, bob.username)
-      expect(outcome.created).toBe(true)
-    })
+          const outcome = await shareFileWithRecipient(shared().fileId, bob.username)
+          expect(outcome.created).toBe(true)
+        })
 
-    it('lets the recipient decrypt with their own passphrase and not the sender\'s', async () => {
-      await signIn(bob)
-      const row = (await listMine()).find((file) => file.file_id === shared().fileId)
-      expect(row?.owner).toBe(false)
+        it('appears in the recipient\'s list, decrypts with their passphrase, and is intact on the server', async () => {
+          await signIn(bob)
+          const row = (await listMine()).find((file) => file.file_id === shared().fileId)
+          expect(row?.owner).toBe(false)
+          expect(row?.owner_username).toBe(alice.username)
 
-      await expect(unlockWithPassphrase(alice.passphrase)).rejects.toThrow()
-      await unlockWithPassphrase(bob.passphrase)
-      const opened = await downloadAndDecrypt(shared().fileId)
-      expect(Buffer.from(opened.bytes).equals(Buffer.from(shared().bytes))).toBe(true)
-    })
+          await expect(unlockWithPassphrase(alice.passphrase)).rejects.toThrow()
+          await unlockWithPassphrase(bob.passphrase)
+          const opened = await downloadAndDecrypt(shared().fileId)
+          expect(Buffer.from(opened.bytes).equals(Buffer.from(shared().bytes))).toBe(true)
+          const seen = unwrapData(await fileApi.getFile(shared().fileId)) as FileOut
+          expect(seen.encryption_algorithm).toBe(algorithm)
 
-    it('does not let a download-only recipient pass the file on', async () => {
-      // Bob is unlocked from the previous step. The server, not the client, has to refuse.
-      await expect(shareFileWithRecipient(shared().fileId, ADMIN!)).rejects.toMatchObject({
-        response: { status: 404 },
+          // The server's own check: the stored ciphertext still hashes to what was recorded
+          // at upload. A recipient may ask, since they can read the file.
+          const check = unwrapData(await fileApi.integrityCheck(shared().fileId)) as {
+            status: string
+            expected_hash: string
+            actual_hash: string | null
+          }
+          expect(check.status).toBe('VALID')
+          expect(check.actual_hash).toBe(check.expected_hash)
+        })
+
+        it('cannot be passed on by a download-only recipient', async () => {
+          // Bob is unlocked from the previous step. The server, not the client, has to refuse.
+          await expect(shareFileWithRecipient(shared().fileId, ADMIN!)).rejects.toMatchObject({
+            response: { status: 404 },
+          })
+        })
+
+        it('is revoked, after which the recipient cannot see, fetch, or download it', async () => {
+          await signIn(alice)
+          const holder = unwrapData(await shareApi.sharedUsers(shared().fileId)).users.find(
+            (user) => user.username === bob.username,
+          )!
+          expect(
+            unwrapData(await shareApi.revokeAccess(shared().fileId, { target_user_id: holder.user_id }))
+              .revoked,
+          ).toBe(true)
+
+          const bobTokens = await signIn(bob)
+          expect((await listMine()).some((file) => file.file_id === shared().fileId)).toBe(false)
+          const fetch = await raw.get(`/files/${shared().fileId}`, bearer(bobTokens.access_token))
+          const download = await raw.post(
+            `/files/${shared().fileId}/download`,
+            null,
+            bearer(bobTokens.access_token),
+          )
+          const integrity = await raw.post(
+            `/files/${shared().fileId}/integrity-check`,
+            null,
+            bearer(bobTokens.access_token),
+          )
+          // A uniform not-found, so no route can be used to probe for existence.
+          expect(fetch.status).toBe(404)
+          expect(download.status).toBe(404)
+          expect(integrity.status).toBe(404)
+        })
       })
-    })
-
-    it('revokes, after which the recipient cannot see, fetch, or download it', async () => {
-      await signIn(alice)
-      const holder = unwrapData(await shareApi.sharedUsers(shared().fileId)).users.find(
-        (user) => user.username === bob.username,
-      )!
-      expect(unwrapData(await shareApi.revokeAccess(shared().fileId, { target_user_id: holder.user_id })).revoked).toBe(true)
-
-      const bobTokens = await signIn(bob)
-      expect((await listMine()).some((file) => file.file_id === shared().fileId)).toBe(false)
-      const fetch = await raw.get(`/files/${shared().fileId}`, bearer(bobTokens.access_token))
-      const download = await raw.post(
-        `/files/${shared().fileId}/download`,
-        null,
-        bearer(bobTokens.access_token),
-      )
-      // A uniform not-found, so the route cannot be used to probe for existence.
-      expect(fetch.status).toBe(404)
-      expect(download.status).toBe(404)
-    })
+    }
   })
 
   describe('audit visibility', () => {

@@ -46,7 +46,7 @@ const statusView = {
 } as const
 
 const people = ref<SharedUser[]>([])
-const peopleState = ref<'idle' | 'loading' | 'error'>('idle')
+const peopleState = ref<'idle' | 'loading' | 'error' | 'paused'>('idle')
 const closeButton = ref<HTMLButtonElement | null>(null)
 const copied = ref(false)
 let copiedTimer = 0
@@ -66,6 +66,12 @@ async function copyDigest() {
 async function loadPeople() {
   people.value = []
   if (!props.file.owned) return
+  // The server only lists recipients of an intact file, so for a modified one the request
+  // would come back as not found. Say why instead of showing it as a failure.
+  if (props.file.status === 'modified') {
+    peopleState.value = 'paused'
+    return
+  }
   peopleState.value = 'loading'
   try {
     people.value = unwrapData(await shareApi.sharedUsers(props.file.id)).users ?? []
@@ -111,7 +117,7 @@ onBeforeUnmount(() => {
   narrowQuery.removeEventListener('change', onNarrowChange)
   window.clearTimeout(copiedTimer)
 })
-watch(() => props.file.id, loadPeople, { immediate: true })
+watch(() => [props.file.id, props.file.status], loadPeople, { immediate: true })
 </script>
 
 <template>
@@ -181,6 +187,9 @@ watch(() => props.file.id, loadPeople, { immediate: true })
         <template v-else>
           <p v-if="peopleState === 'loading'" class="flex items-center gap-2 text-sm text-muted-foreground"><Loader2 class="h-4 w-4 animate-spin" /> Loading…</p>
           <p v-else-if="peopleState === 'error'" class="text-sm text-destructive">The list of people could not be loaded.</p>
+          <p v-else-if="peopleState === 'paused'" class="text-sm text-muted-foreground">
+            Sharing details are hidden while this file fails its integrity check. They come back once it is restored.
+          </p>
           <ul v-else class="flex flex-col divide-y divide-border rounded-lg border border-border text-sm">
             <li v-for="person in people" :key="person.user_id" class="flex items-center justify-between gap-3 px-3.5 py-2.5">
               <span translate="no" class="truncate">{{ person.is_owner ? 'You' : person.username }}</span>

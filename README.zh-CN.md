@@ -41,7 +41,7 @@ passphrase、KEK、AMK、明文私钥、文件 DEK 和文件明文都不得出�
 浏览器 MVP 已端到端可运行：邮箱验证码注册与重置登录密码、客户端账户密钥登记、使用
 passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲自动上锁、上传前认证加密、下载后本地解密、文件名搜索、将
 文件密钥重新包装给接收者的共享、撤销、逐文件访问历史、静默刷新会话、登出及注销账户。
-每个文件可选择 AES-128/192/256-GCM、AES-256-GCM-SIV、ChaCha20-Poly1305 或 XChaCha20-Poly1305，默认仍为 AES-256-GCM；旧有硬编码
+每个文件可在任何浏览器里选择 AES-128/192/256-GCM、AES-256-GCM-SIV、ChaCha20-Poly1305 或 XChaCha20-Poly1305（WebCrypto 没有 AES-192-GCM 时回退到 `@noble/ciphers`，字节完全相同），默认仍为 AES-256-GCM；旧有硬编码
 凭据和演示 token 后备均已移除。
 
 “Sealed”改版（2026-10-05，#176–#182、#188–#195）之后全站统一风格：自托管 Geist 字体，绿色只表示“已验证/已封装”，
@@ -100,7 +100,7 @@ CI 门禁部署、MySQL 8.4 发布门禁、加密异地备份、洁净主机恢�
 [docs/PERFORMANCE_TESTING.zh-CN.md](docs/PERFORMANCE_TESTING.zh-CN.md) 末尾的结论。
 
 **上传限额（威胁模型 F-09）：** 每个账户最多存储 2 GiB、24 小时内最多上传 5 GiB；存储磁盘剩余空间低于底线时停止接受上传；
-nginx 限制每个地址同时最多 10 个上传；安全 Agent 会报告上传突增。服务器始终只保存密文，无法扫描恶意软件，所以接收者在保存
+nginx 限制每个地址同时最多 50 个上传（整个会场的网络到服务器只是一个地址）；安全 Agent 会报告上传突增。服务器始终只保存密文，无法扫描恶意软件，所以接收者在保存
 他人分享的程序或可能带宏的文件之前会看到警告。详见 [docs/THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md) 第 11.3 节。
 
 **第三方扫描（2026-10-04）：** 用 OWASP ZAP 对 staging 做基线扫描，没有高风险问题（0 FAIL、8 WARN、59 PASS）；它指出的静态代码包
@@ -439,7 +439,7 @@ npm run build
 
 第四个 Job `e2e-live` 会针对另一个一次性 MySQL 启动真实 API，并在不跳过任何测试的前提下运行
 前端所有依赖真实后端的测试套件：邮箱验证码注册、登录/refresh/重放/登出、解锁、全部六种文件
-算法、分享与撤销、审计可见性、角色拒绝以及注销账户；随后运行 Chromium 冒烟测试（Playwright），
+算法（每种都上传、分享、由接收方解密、完整性检查并撤销）、审计可见性、角色拒绝以及注销账户；随后运行 Chromium 冒烟测试（Playwright），
 在构建后的页面上点击走完同一条黄金路径，因此按钮接错处理函数也会让 CI 失败。每个 Job 都会把 JUnit 与覆盖率报告作为
 构建产物上传，但前提是 `backend/scripts/check_report_hygiene.py` 确认其中不含密钥、令牌、非示例
 邮箱地址或测试夹具明文。

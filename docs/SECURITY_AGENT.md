@@ -75,7 +75,7 @@ can tell.
 
 The throttle bounds what the audit log can show. Its policy (`backend/app/core/config.py`): an
 **account** is blocked for **5 minutes** after **10** failures in 15 minutes; an **address** for
-**15 minutes** after **50**. Attempts it refuses with 429 are **not audited**, on purpose: auditing
+**15 minutes** after **500** (an address is a whole venue behind one NAT, see THREAT_MODEL §11.6). Attempts it refuses with 429 are **not audited**, on purpose: auditing
 every 429 would let an attacker flood the hash-chained log, and every append takes the chain-head
 lock. So while a block lasts, the rules above cannot see whether the guessing goes on.
 `SIGN_IN_THROTTLE_ACTIVE` reads the throttle table instead and reports how many blocks are in force.

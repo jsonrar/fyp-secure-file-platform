@@ -174,11 +174,29 @@ plaintext is byte-identical to the input; confirm the ciphertext length equals
 top of that range this second pass dominates the cost of an upload and holds several copies
 of the file in memory at once.
 
-**Before sharing:** unwrap the DEK from your own wrapping and confirm it *opens the file*
-before rewrapping it to anyone. The recipient's private key is unavailable, so the rewrapping
-itself cannot be checked; sharing a DEK that does not open the file creates a grant that
-silently fails for them. Also recompute the recipient's public-key fingerprint from the PEM
-and show it — nothing else binds that key to the intended person.
+**Before sharing:** unwrap the DEK from your own wrapping and rewrap it to the recipient.
+The client does not decrypt the file first. An earlier version of this section asked for that,
+but `verifyDekOpensFile` needs the whole ciphertext, so a share would have to download the
+file in full before it could start, and for a large file that is slower than the share itself.
+It is also not needed for safety:
+
+- RSA-OAEP decryption is authenticated. A wrapping made under a different key, or altered in
+  transit, fails to unwrap rather than yielding wrong bytes, and `unwrapDek` then checks that
+  the result has the key length the suite requires. A DEK that reaches the rewrap step is the
+  one that was sealed at upload.
+- The rewrapping itself cannot be checked, because the recipient's private key is not
+  available. The server checks the shape of what is sent (an RSA-OAEP ciphertext of 384
+  bytes for a key of 3072 bits).
+- If a wrong DEK were shared anyway, the recipient's download fails closed. The server first
+  compares the stored ciphertext against its recorded SHA-256, then the recipient's browser
+  verifies the AEAD tag under the DEK it unwrapped. A wrong DEK fails that tag check, so the
+  recipient sees an error and no plaintext. Nothing about the file leaks, because the
+  ciphertext was already theirs to download the moment the grant existed, and the DEK they
+  hold opens nothing.
+
+So the cost of a bad share is a grant that does not work, which the recipient notices at
+once, and not a disclosure. Do recompute the recipient's public key fingerprint from the PEM
+and show it. Nothing else binds that key to the intended person.
 
 **Not verifiable at all:** the recovery wrapping. The recovery private key is held offline,
 so a client cannot confirm `recovery_wrapped_file_key` decrypts to the DEK. A wrong or
