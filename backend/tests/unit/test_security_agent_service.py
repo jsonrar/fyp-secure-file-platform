@@ -287,7 +287,7 @@ def test_throttle_blocks_are_read_by_scope_and_carry_the_configured_policy() -> 
     assert finding.rule_id == "SIGN_IN_THROTTLE_ACTIVE" and finding.priority == "MEDIUM"
     assert (
         "Throttle policy: an account is blocked for 5 minutes after 10 failures in 15 minutes, "
-        "an address for 15 minutes after 50"
+        "an address for 15 minutes after 500"
     ) in finding.evidence
 
 
