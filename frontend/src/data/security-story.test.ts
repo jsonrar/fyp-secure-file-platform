@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { COMPARISON, STORY_SCENES } from './security-story'
+import { COMPARISON, SCENE_BASE_MS, SCENE_MAX_MS, STORY_SCENES, sceneDuration } from './security-story'
 
 describe('the explainer story', () => {
   it('runs in the order the animation draws it, each scene once', () => {
@@ -24,6 +24,17 @@ describe('the explainer story', () => {
     }
     // Sharing is account to account; there are no share links in the product.
     expect(STORY_SCENES.find((s) => s.id === 'share')!.why).toContain('no public link')
+  })
+
+  it('moves on after about 3 seconds, a little longer for longer captions', () => {
+    const durations = STORY_SCENES.map(sceneDuration)
+    for (const ms of durations) {
+      expect(ms).toBeGreaterThanOrEqual(SCENE_BASE_MS)
+      expect(ms).toBeLessThanOrEqual(SCENE_MAX_MS)
+    }
+    const pick = sceneDuration(STORY_SCENES.find((s) => s.id === 'pick')!)
+    const encrypt = sceneDuration(STORY_SCENES.find((s) => s.id === 'encrypt')!)
+    expect(encrypt).toBeGreaterThan(pick)
   })
 
   it('compares every row on both sides', () => {

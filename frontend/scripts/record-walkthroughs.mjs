@@ -93,7 +93,7 @@ await recordFlow('encrypt-upload', async (page) => {
 
   await caption(page, 5, 'Start Encryption', 'Your browser encrypts the file with a new random key. Only the scrambled result is uploaded.')
   await click(page.getByRole('button', { name: 'Start Encryption' }), 1000)
-  await page.getByRole('button', { name: 'Encryption Complete' }).waitFor({ timeout: 60_000 })
+  await page.getByTestId('encryption-complete').waitFor({ timeout: 60_000 })
   const steps = page.getByTestId('encryption-progress')
   await caption(page, 5, 'Every step is real and timed', 'Read, encrypt and self-check, wrap the key, upload. The bytes below are the file’s real first bytes and what the server received.')
   await point(steps, 4500)

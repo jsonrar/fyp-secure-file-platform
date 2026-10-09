@@ -103,7 +103,7 @@ test('AC4a screenshots: Modified, refused, admin view, restored', async ({ page,
     buffer: fileBytes,
   })
   await page.getByRole('button', { name: 'Start Encryption' }).click()
-  await expect(page.getByRole('button', { name: 'Encryption Complete' })).toBeVisible({
+  await expect(page.getByTestId('encryption-complete')).toBeVisible({
     timeout: 60_000,
   })
   const listed = page.waitForResponse(
