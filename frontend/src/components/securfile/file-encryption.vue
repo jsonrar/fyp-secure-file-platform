@@ -72,7 +72,7 @@ const ALGORITHM_LABELS: Record<EncryptionAlgorithm, string> = {
   'XChaCha20-Poly1305': 'XChaCha20-Poly1305 · Max · Long nonce',
   'ChaCha20-Poly1305': 'ChaCha20-Poly1305 · Max · Fast on phones',
   'AES-192-GCM': 'AES-192-GCM · High',
-  'AES-128-GCM': 'AES-128-GCM · High · Standard',
+  'AES-128-GCM': 'AES-128-GCM · High · Widely used',
 }
 
 const ALGORITHM_NOTES: Record<EncryptionAlgorithm, string> = {

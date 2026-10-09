@@ -21,7 +21,7 @@ Backend should be running at `http://localhost:8000`.
 | Route | Description |
 |-------|-------------|
 | `/` | Home: hero with real sample bytes, how it works, comparison questions |
-| `/how-it-works` | Animated explainer and the six-step picture guide |
+| `/how-it-works` | Animated explainer and the seven-step picture guide |
 | `/login` | Sign in |
 | `/register` | Two-step registration: the account (email, code, login password), then the encryption passphrase; offers the private key file once |
 | `/forgot-password` | Email-code login-password reset |

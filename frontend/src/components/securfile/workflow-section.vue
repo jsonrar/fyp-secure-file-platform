@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
           See exactly what to click.
         </h2>
         <p class="mx-auto mt-4 text-muted-foreground">
-          <SentenceLines text="Your first secure share in six screenshots. Follow at your own pace, from picking a file to your teammate downloading it." />
+          <SentenceLines text="Your first secure share in seven screenshots. Follow at your own pace, from picking a file to your teammate downloading it." />
         </p>
       </div>
 
@@ -393,7 +393,7 @@ onBeforeUnmount(() => {
 
 .guide-steps {
   display: grid;
-  grid-template-columns: repeat(6, minmax(0, 1fr));
+  grid-template-columns: repeat(7, minmax(0, 1fr));
   border-bottom: 1px solid var(--border);
   padding: 0.75rem;
   gap: 0.25rem;

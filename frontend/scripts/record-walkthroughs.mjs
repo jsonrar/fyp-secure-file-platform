@@ -87,9 +87,39 @@ await recordFlow('encrypt-upload', async (page) => {
   await unpoint(picker)
   await pause(page, 1200)
 
-  await caption(page, 4, 'Pick the cipher — AES-256-GCM is the default', 'AES-GCM-SIV, ChaCha20, XChaCha20 and AES-128/192 are here too. All of them detect tampering.')
-  await point(page.getByRole('combobox').first(), 2200)
-  await unpoint(page.getByRole('combobox').first())
+  // The cipher list is a native <select>; its pop-up is drawn by the OS and never reaches the
+  // recording. For a few seconds the same element is shown as a six-row list (size=6): the same
+  // six options, on their own line under the label, nothing drawn by the script. It is put back
+  // before encrypting.
+  const cipher = page.locator('#content-algorithm')
+  const detail = page.getByTestId('algorithm-detail')
+  await cipher.evaluate((select) => {
+    select.size = select.options.length
+    Object.assign(select.style, { height: 'auto', flexBasis: '100%', width: '100%', fontSize: '12px' })
+    select.parentElement.style.flexWrap = 'wrap'
+  })
+  await caption(page, 4, 'Six ciphers to choose from, each with a grade', 'AES-256-GCM is the default and our recommendation. All six detect tampering.')
+  await point(cipher, 3200)
+  await unpoint(cipher)
+  await caption(page, 4, 'Pick one to read what it is good at', 'The box under the list explains the cipher you choose, in plain words.')
+  for (const choice of ['ChaCha20-Poly1305', 'AES-128-GCM']) {
+    await cipher.selectOption(choice)
+    await point(detail, 2400)
+    await unpoint(detail)
+  }
+  const education = page.getByRole('navigation').getByRole('link', { name: 'Education', exact: true })
+  await caption(page, 4, 'Want the details? Education explains each one', 'The Education page goes through every cipher step by step.')
+  await point(education, 2400)
+  await unpoint(education)
+  await cipher.selectOption('AES-256-GCM')
+  await point(detail, 1400)
+  await unpoint(detail)
+  await cipher.evaluate((select) => {
+    select.removeAttribute('size')
+    for (const name of ['height', 'flex-basis', 'width', 'font-size']) select.style.removeProperty(name)
+    select.parentElement.style.removeProperty('flex-wrap')
+  })
+  await pause(page, 600)
 
   await caption(page, 5, 'Start Encryption', 'Your browser encrypts the file with a new random key. Only the scrambled result is uploaded.')
   await click(page.getByRole('button', { name: 'Start Encryption' }), 1000)
@@ -98,6 +128,10 @@ await recordFlow('encrypt-upload', async (page) => {
   await caption(page, 5, 'Every step is real and timed', 'Read, encrypt and self-check, wrap the key, upload. The bytes below are the file’s real first bytes and what the server received.')
   await point(steps, 4500)
   await unpoint(steps)
+  const done = page.getByTestId('encryption-complete')
+  await caption(page, 5, 'Encryption Complete', 'A status, not a button: the file is already uploaded, so there is nothing to press twice.')
+  await point(done, 2200)
+  await unpoint(done)
 
   await caption(page, 6, 'Your file is now stored encrypted')
   await click(page.getByRole('button', { name: 'View Encrypted Files' }))

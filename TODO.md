@@ -30,8 +30,9 @@ current passphrase ([PR #201](https://github.com/jsonrar/fyp-secure-file-platfor
 ([PR #203](https://github.com/jsonrar/fyp-secure-file-platform/pull/203)); pre-deploy backup pruning, installed on the VPS the same day (175 old sets removed, 73 GB freed) ([PR #204](https://github.com/jsonrar/fyp-secure-file-platform/pull/204));
 and browser-side rejection of weak passphrases, threat model F-04 ([PR #205](https://github.com/jsonrar/fyp-secure-file-platform/pull/205)).
 
-The homepage picture guide (six annotated screenshots, English and Chinese) and the Help videos
-were re-shot after the "Sealed" redesign and are live on staging (#192). The scrolling Core
+The homepage picture guide (seven annotated screenshots, English and Chinese) and the Help videos
+were re-shot after the "Sealed" redesign and are live on staging (#192); the guide and the two Help
+walkthroughs were re-shot again on 2026-10-10 for the upload page after #215. The scrolling Core
 Features lane was retired from the home page in that redesign (#177).
 
 - [x] Email-code registration and login-password reset, login plus server-revoking logout,
@@ -315,9 +316,10 @@ Must do:
 - [x] Demo script for a 4-minute live demo — [docs/presentation/DEMO_SCRIPT.md](docs/presentation/DEMO_SCRIPT.md)
 - [x] Demo accounts `demo-alice` / `demo-bob` created on staging (2026-10-04)
 - [x] Record the backup video — [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)
-- [ ] Re-record the backup video [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4) and the Help video
-  `frontend/public/videos/encrypt-upload.mp4` once the account-safety changes are live on staging: both still show the upload page
-  from before [PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215)
+- [x] Re-record the Help videos `frontend/public/videos/encrypt-upload.mp4` and `share-open.mp4` and re-shoot the homepage
+  picture guide for the upload page after [PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215) (2026-10-10)
+- [ ] Re-record the backup video [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4): it still shows
+  the upload page from before PR #215, and it has no Access history (AC5) or Security agent (AC8) step
 - [x] On staging, upload `quarterly-results.txt` as `demo-alice` and share it with `demo-bob` (verified 2026-10-08: shared and active; needed for the live tamper step)
 - [x] File-row actions: Download (decrypt), Share and Delete visible with labels, the rest under "More";
   fix the Help assistant button covering the row at ~800 px ([PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159))
