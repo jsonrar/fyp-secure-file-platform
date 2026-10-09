@@ -2110,7 +2110,6 @@
   "Totals cover the {0} loaded events that match the filters.": "统计只基于已加载且符合筛选条件的 {0} 条事件。",
   "Totals cover the {0} loaded events.": "统计只基于已加载的 {0} 条事件。",
   "Sharing details are hidden while this file fails its integrity check. They come back once it is restored.": "这个文件没通过完整性检查，分享信息暂时不显示，恢复后会重新出现。",
-  "Sharing details are hidden while this file fails its integrity check. They come back once it is restored.": "这个文件没通过完整性检查，分享信息暂时不显示，恢复后会重新出现。",
   "A stream cipher authenticated by Poly1305, built differently from AES rather than with a different key length. It is designed to be fast in plain software, which is why phones without AES hardware use it. Here it runs in a JavaScript library.": "一种由 Poly1305 认证的流密码，和 AES 是不同的构造，而不只是密钥长度不同。它的设计在纯软件中就很快，所以没有 AES 硬件加速的手机常用它。这里它在 JavaScript 库中运行。",
   "AES with its middle key length. Rarely used in practice. Chrome and Edge do not offer it in WebCrypto, so there it runs in a JavaScript library and is slower; the encrypted file is the same either way.": "中间密钥长度的 AES，实际中很少用。Chrome 和 Edge 的 WebCrypto 不提供它，所以在这些浏览器中它由 JavaScript 库运行，速度较慢；两种方式加密出来的文件完全一样。",
   "AES with its shortest key. Still considered secure and widely used in HTTPS. Pick it if you need to match a system that expects 128-bit keys.": "密钥最短的 AES。目前仍被认为是安全的，HTTPS 中也广泛使用。如果需要和要求 128 位密钥的系统保持一致，可以选它。",
@@ -2122,5 +2121,6 @@
   "ChaCha20-Poly1305 with a 24-byte nonce, long enough to pick at random without ever repeating. What libsodium recommends, and a good choice on devices without AES hardware.": "使用 24 字节 nonce 的 ChaCha20-Poly1305，nonce 足够长，随机生成也不会重复。这是 libsodium 推荐的方式，适合没有 AES 硬件加速的设备。",
   "ChaCha20-Poly1305 · Max · Fast on phones": "ChaCha20-Poly1305 · 最高 · 手机上快",
   "The default and our recommendation. Most computers and phones have AES built into the processor, so it is fast, and it is the algorithm the recovery process is tested with.": "默认选项，也是我们推荐的。大多数电脑和手机的处理器自带 AES 加速，所以速度快，恢复流程也是用它测试的。",
-  "XChaCha20-Poly1305 · Max · Long nonce": "XChaCha20-Poly1305 · 最高 · 长随机数"
+  "XChaCha20-Poly1305 · Max · Long nonce": "XChaCha20-Poly1305 · 最高 · 长随机数",
+  "Account deletion refused: wrong password": "删除账户被拒绝：密码错误"
 }

@@ -147,6 +147,7 @@
   "Account activity",
   "Account created",
   "Account deleted",
+  "Account deletion refused: wrong password",
   "Account details",
   "Account disabled",
   "Account enabled",

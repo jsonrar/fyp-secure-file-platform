@@ -18,6 +18,7 @@ class _StrictModel(BaseModel):
 AUDIT_ACTIONS: frozenset[str] = frozenset(
     {
         "ACCOUNT_DELETED",
+        "ACCOUNT_DELETION_PASSWORD_FAILED",
         "ADMIN_PASSWORD_RESET",
         "AUTH_ALL_SESSIONS_REVOKED",
         "AUTH_LOGGED_OUT",

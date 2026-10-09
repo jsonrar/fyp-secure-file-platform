@@ -45,6 +45,7 @@ const ACTIONS: Record<string, AuditActionInfo> = {
   KEY_PROTECTION_RESET_WITH_PRIVATE_KEY: { label: 'Passphrase reset with key file', category: 'other' },
   USER_KEY_ADDED: { label: 'Account key added', category: 'other' },
   ACCOUNT_DELETED: { label: 'Account deleted', category: 'other' },
+  ACCOUNT_DELETION_PASSWORD_FAILED: { label: 'Account deletion refused: wrong password', category: 'other' },
   // Account-level events now have a group of their own on the records page, so they are
   // worth naming properly rather than leaving to the title-case fallback.
   AUTH_REGISTERED: { label: 'Account created', category: 'other' },
