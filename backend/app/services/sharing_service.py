@@ -66,7 +66,7 @@ class SharingService:
         can_share: bool,
         context: RequestContext,
     ) -> tuple[bool, str]:
-        created, status = run_with_deadlock_retry(
+        created, status, newly_granted = run_with_deadlock_retry(
             self.db,
             lambda: self._attempt_share(
                 actor=actor,
@@ -83,7 +83,10 @@ class SharingService:
         # After the commit, deliberately. The share has happened; a mail server that is
         # down must not turn a successful share into a reported failure, and must not roll
         # one back. The notifier swallows its own delivery errors for the same reason.
-        if self.notifier is not None:
+        # Only when the recipient did not already have the file: sharing it again to change
+        # permissions or re-wrap the key mailed them a second "shared with you" for a file
+        # they could already open.
+        if self.notifier is not None and newly_granted:
             now = to_second_resolution_utc(self.clock())
             target_user = self.repository.get_user_by_uuid(target_user_id)
             actor_user = self.repository.get_user(actor.user_id)
@@ -111,8 +114,11 @@ class SharingService:
         can_download: bool,
         can_share: bool,
         context: RequestContext,
-    ) -> tuple[bool, str]:
+    ) -> tuple[bool, str, bool]:
         """One full attempt, from re-reading the grant to the commit.
+
+        Returns whether a grant row was created, the grant's status, and whether the
+        recipient gained access with this call: a new grant, or a revoked one restored.
 
         A deadlock aborts the whole transaction (issue #139: sharing raced against a
         download can deadlock over the audit-chain-head lock and a `users` row), so a retry
@@ -154,6 +160,7 @@ class SharingService:
 
             now = to_second_resolution_utc(self.clock())
             created = grant is None
+            newly_granted = grant is None or grant.status != "ACTIVE"
             if grant is None:
                 grant = FileAccessGrant(
                     file_id=file.id,
@@ -229,7 +236,7 @@ class SharingService:
                 },
             )
             self.db.commit()
-            return created, "ACTIVE"
+            return created, "ACTIVE", newly_granted
         except Exception:
             self.db.rollback()
             raise

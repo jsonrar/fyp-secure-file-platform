@@ -8,7 +8,11 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole
-from app.domain.errors import AuthenticationError, AuthorizationError
+from app.domain.errors import (
+    AuthenticationError,
+    AuthorizationError,
+    PasswordChangeRequiredError,
+)
 from app.services.account_deletion_service import AccountDeletionService
 from app.services.account_notice_service import AccountNoticeService
 from app.services.admin_service import AdminService
@@ -27,6 +31,26 @@ from app.services.share_notification_service import ShareNotificationService
 from app.services.sharing_service import SharingService
 
 _bearer_scheme = HTTPBearer(auto_error=False)
+
+# What an account may still do while an administrator's temporary password is in place
+# (`users.must_change_password`). Everything else answers 403 `password_change_required`,
+# including routes added later, which is why this is an allow-list. Method and path, after
+# the API prefix.
+_PASSWORD_CHANGE_ALLOWED_ROUTES = frozenset(
+    {
+        # Settings and the router guard read the flag from here, and the password card
+        # checks the new password against the username and email it returns.
+        ("GET", "/auth/me"),
+        # The way out: clears the flag and ends every session.
+        ("POST", "/auth/change-password"),
+        # Leaving must always work.
+        ("POST", "/auth/logout"),
+        ("POST", "/auth/logout-all"),
+    }
+)
+# Not listed because they never reach `get_current_actor`: `POST /auth/refresh` presents the
+# refresh token instead, and the tokens it returns are held to this same list. The emailed
+# reset (`POST /auth/password-reset`) needs no session and also clears the flag.
 
 
 def get_request_context(request: Request) -> RequestContext:
@@ -167,7 +191,22 @@ def get_security_agent_service(
     return SecurityAgentService(db=db)
 
 
+def _route_key(request: Request) -> tuple[str, str]:
+    """The request as (method, path), with the API prefix removed.
+
+    The path the router matched, not a route template: templates no longer carry the
+    prefixes of the routers they are included in, so `/me` alone could be `/auth/me` or
+    `/keys/me`. Every allowed route has a fixed path, so the two are the same thing.
+    """
+    path = str(request.scope.get("path") or "")
+    prefix = request.app.state.settings.API_PREFIX.rstrip("/")
+    if prefix and path.startswith(f"{prefix}/"):
+        path = path[len(prefix) :]
+    return request.method, path
+
+
 def get_current_actor(
+    request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)],
     auth_service: Annotated[AuthService, Depends(get_auth_service)],
     db: Annotated[Session, Depends(get_request_db)],
@@ -180,6 +219,11 @@ def get_current_actor(
     # that then waited on the thread pool kept it while every thread waited for a connection,
     # and at 100 concurrent users the pool timed out (#140).
     db.rollback()
+    # Enforced here rather than only by the frontend guard, which any other API client could
+    # ignore. Every authenticated route, `require_admin` and `require_recovery_reviewer`
+    # included, comes through this function.
+    if actor.must_change_password and _route_key(request) not in _PASSWORD_CHANGE_ALLOWED_ROUTES:
+        raise PasswordChangeRequiredError()
     return actor
 
 

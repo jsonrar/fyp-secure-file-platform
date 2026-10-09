@@ -15,6 +15,7 @@ from app.domain.errors import (
     AuthenticationError,
     AuthenticationRateLimitedError,
     InvalidCurrentPasswordError,
+    LastAdministratorError,
 )
 from app.services.account_deletion_service import AccountDeletionService
 from app.services.file_storage_service import StorageObjectError
@@ -66,11 +67,20 @@ class FakeAuthRepo:
         self.user = user
         self.revoked_reason: str | None = None
         self.released: str | None = None
+        # Other administrator rows, besides `user` when it is one.
+        self.other_administrators: list = []
+        self.calls: list[str] = []
+
+    def lock_administrators(self):
+        self.calls.append("lock_administrators")
+        admins = [self.user] if self.user.role is SystemRole.ADMIN else []
+        return sorted(admins + self.other_administrators, key=lambda row: row.id)
 
     def get_user(self, _user_id: int):
         return self.user
 
     def lock_user(self, _user_id: int):
+        self.calls.append("lock_user")
         return self.user
 
     def revoke_all_session_families(self, _user_id: int, *, now, reason: str) -> int:
@@ -151,12 +161,15 @@ def _file(pk: int, key: str):
     )
 
 
-def _service(*, password="correct-horse", files=None, user=None, blocked=False):
+def _service(
+    *, password="correct-horse", files=None, user=None, blocked=False, role=SystemRole.USER
+):
     user = user or SimpleNamespace(
         id=7,
         username="waldo",
         email="waldo@secureview.tech",
         password_hash="argon2-hash",
+        role=role,
         status=UserStatus.ACTIVE,
         avatar_object_key=None,
         avatar_content_type=None,
@@ -261,6 +274,7 @@ def test_an_already_closed_account_cannot_be_closed_again() -> None:
         username="deleted-abc",
         email="deleted+abc@secureview.tech",
         password_hash="argon2-hash",
+        role=SystemRole.USER,
         status=UserStatus.DELETED,
     )
     service, fakes = _service(user=closed)
@@ -414,3 +428,49 @@ def test_a_failed_avatar_unlink_after_the_commit_is_logged_not_raised(
     assert fakes.user.status is UserStatus.DELETED
     assert fakes.user.avatar_object_key is None
     assert len(caplog.records) == 1
+
+
+def _administrator(pk: int, status: UserStatus = UserStatus.ACTIVE):
+    return SimpleNamespace(id=pk, role=SystemRole.ADMIN, status=status)
+
+
+def test_the_last_active_administrator_cannot_close_their_account() -> None:
+    # Nothing in the application can appoint an administrator, so this would leave the
+    # admin console out of reach. A disabled administrator does not count as the one who stays.
+    service, fakes = _service(files=[_file(1, "objects/a")], role=SystemRole.ADMIN)
+    fakes.auth.other_administrators = [_administrator(3, UserStatus.DISABLED)]
+    verified: list[str] = []
+    service.passwords.verify = lambda candidate, _hash: verified.append(candidate) or True  # type: ignore[method-assign]
+
+    with pytest.raises(LastAdministratorError) as excinfo:
+        service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    assert excinfo.value.code == "last_admin"
+    assert verified == []
+    assert fakes.user.status is UserStatus.ACTIVE
+    assert fakes.files.files[0].status == "ACTIVE"
+    assert fakes.storage.deleted == []
+    assert fakes.db.committed == 0
+    assert fakes.db.rolled_back == 1
+
+
+def test_an_administrator_can_close_their_account_while_another_is_active() -> None:
+    service, fakes = _service(role=SystemRole.ADMIN)
+    fakes.auth.other_administrators = [_administrator(3)]
+
+    service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    assert fakes.user.status is UserStatus.DELETED
+    assert fakes.db.committed == 1
+    # The administrator rows are locked before the account's own row, in the order an
+    # administrator disable takes them, so two such changes cannot interleave.
+    assert fakes.auth.calls == ["lock_administrators", "lock_user"]
+
+
+def test_an_ordinary_account_does_not_lock_the_administrators() -> None:
+    service, fakes = _service()
+
+    service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    assert fakes.user.status is UserStatus.DELETED
+    assert fakes.auth.calls == ["lock_user"]

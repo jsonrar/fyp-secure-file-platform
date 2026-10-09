@@ -13,6 +13,7 @@ from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import (
     AuthorizationError,
     FileResourceNotFoundError,
+    LastAdministratorError,
     ShareStateConflictError,
 )
 from app.repositories.audit_repository import AuditRepository
@@ -152,6 +153,100 @@ def test_share_atomically_persists_only_target_wrapped_dek_and_permissions() -> 
     assert repository.wrappings[0].wrapped_file_key == b"w" * 256
     assert repository.wrappings[0].user_key_id == 19
     assert audit.events[0]["action"] == "FILE_SHARED"
+
+
+class NotifyingSharingRepository(FakeSharingRepository):
+    """Adds the reads `share` makes after the commit to address the email."""
+
+    def get_user_by_uuid(self, user_id: UUID):
+        assert user_id == TARGET_USER_ID
+        return SimpleNamespace(id=9, email="bob@example.com", username="bob")
+
+    def get_user(self, user_id: int):
+        return SimpleNamespace(id=user_id, username="alice")
+
+    def count_shares_since(self, _since) -> int:
+        return 0
+
+
+class FakeShareNotifier:
+    def __init__(self) -> None:
+        self.sent: list[dict] = []
+        self.sent_today = None
+
+    def notify_shared(self, **values) -> bool:
+        self.sent.append(values)
+        return True
+
+
+def _existing_grant(status: str):
+    return SimpleNamespace(
+        granted_by=7,
+        can_download=True,
+        can_share=False,
+        can_revoke=False,
+        can_manage=False,
+        status=status,
+        revoked_at=None if status == "ACTIVE" else NOW.replace(tzinfo=None),
+        revision=3,
+        updated_at=None,
+    )
+
+
+def _share_with_notifier(repository) -> tuple[FakeShareNotifier, tuple[bool, str]]:
+    notifier = FakeShareNotifier()
+    service = SharingService(
+        db=FakeDb(),
+        repository=repository,
+        audit_service=FakeAudit(),
+        notifier=notifier,  # type: ignore[arg-type]
+        clock=lambda: NOW,
+    )
+    result = service.share(
+        actor=_actor(),
+        file_id=FILE_ID,
+        target_user_id=TARGET_USER_ID,
+        target_key_id=TARGET_KEY_ID,
+        wrapped_file_key=b"w" * 256,
+        can_download=True,
+        can_share=False,
+        context=RequestContext(),
+    )
+    return notifier, result
+
+
+def test_a_new_share_emails_the_recipient() -> None:
+    notifier, result = _share_with_notifier(NotifyingSharingRepository())
+
+    assert result == (True, "ACTIVE")
+    (sent,) = notifier.sent
+    assert sent["recipient_email"] == "bob@example.com"
+    assert sent["sender_username"] == "alice"
+
+
+def test_restoring_a_revoked_share_emails_the_recipient_again() -> None:
+    # They had lost the file; being able to open it again is news to them.
+    repository = NotifyingSharingRepository()
+    repository.target_grant = _existing_grant("REVOKED")
+
+    notifier, result = _share_with_notifier(repository)
+
+    assert result == (False, "ACTIVE")
+    assert repository.target_grant.status == "ACTIVE"
+    assert len(notifier.sent) == 1
+
+
+def test_sharing_again_to_someone_who_already_has_the_file_sends_no_email() -> None:
+    # Changing permissions or re-wrapping the key is not a new share from the recipient's
+    # side, and each call used to mail them "shared with you" again.
+    repository = NotifyingSharingRepository()
+    repository.target_grant = _existing_grant("ACTIVE")
+
+    notifier, result = _share_with_notifier(repository)
+
+    assert result == (False, "ACTIVE")
+    assert repository.target_grant.revision == 4
+    assert notifier.sent == []
 
 
 def test_share_denial_is_uniform_not_found_and_rolls_back() -> None:
@@ -478,20 +573,31 @@ class FakeAdminRepository:
         self.user = SimpleNamespace(
             id=9,
             user_uuid=str(TARGET_USER_ID),
+            role=SystemRole.USER,
             status=UserStatus.ACTIVE,
             updated_at=NOW.replace(tzinfo=None),
         )
         self.lock_calls = 0
+        self.order: list[str] | None = None
 
     def lock_user_by_uuid(self, user_id: UUID):
         assert user_id == TARGET_USER_ID
         self.lock_calls += 1
+        if self.order is not None:
+            self.order.append("lock_user_by_uuid")
         return self.user
 
 
 class FakeAuthRepository:
     def __init__(self) -> None:
         self.calls = []
+        self.administrators: list = []
+        self.order: list[str] | None = None
+
+    def lock_administrators(self):
+        if self.order is not None:
+            self.order.append("lock_administrators")
+        return self.administrators
 
     def revoke_all_session_families(self, user_id: int, *, now: datetime, reason: str) -> int:
         self.calls.append((user_id, now, reason))
@@ -523,6 +629,85 @@ def test_admin_disable_is_atomic_and_revokes_target_sessions() -> None:
     assert db.commits == 1
     assert auth_repository.calls[0][2] == "account_disabled"
     assert audit.events[0]["action"] == "USER_DISABLED"
+
+
+def _admin_service(repository, auth_repository, db=None, audit=None) -> AdminService:
+    return AdminService(
+        db=db or FakeDb(),
+        repository=repository,
+        auth_repository=auth_repository,
+        audit_service=audit or FakeAudit(),
+        clock=lambda: NOW,
+    )
+
+
+def test_disabling_the_last_active_administrator_is_refused() -> None:
+    # The acting administrator cannot disable themselves, so this is the case where they were
+    # disabled a moment ago by the administrator they are now disabling. Both requests take
+    # the administrator rows first, so the second sees the first one's change.
+    db = FakeDb()
+    repository = FakeAdminRepository()
+    repository.user.role = SystemRole.ADMIN
+    actor_row = SimpleNamespace(id=7, role=SystemRole.ADMIN, status=UserStatus.DISABLED)
+    auth_repository = FakeAuthRepository()
+    auth_repository.administrators = [actor_row, repository.user]
+    service = _admin_service(repository, auth_repository, db=db)
+
+    with pytest.raises(LastAdministratorError):
+        service.set_user_enabled(
+            actor=_actor(SystemRole.ADMIN),
+            user_id=TARGET_USER_ID,
+            enabled=False,
+            context=RequestContext(),
+        )
+
+    assert repository.user.status is UserStatus.ACTIVE
+    assert auth_repository.calls == []
+    assert (db.commits, db.rollbacks) == (0, 1)
+
+
+def test_an_administrator_can_be_disabled_while_another_stays_active() -> None:
+    repository = FakeAdminRepository()
+    repository.user.role = SystemRole.ADMIN
+    auth_repository = FakeAuthRepository()
+    auth_repository.administrators = [
+        SimpleNamespace(id=7, role=SystemRole.ADMIN, status=UserStatus.ACTIVE),
+        repository.user,
+    ]
+    order: list[str] = []
+    repository.order = auth_repository.order = order
+    service = _admin_service(repository, auth_repository)
+
+    user, changed, _revoked = service.set_user_enabled(
+        actor=_actor(SystemRole.ADMIN),
+        user_id=TARGET_USER_ID,
+        enabled=False,
+        context=RequestContext(),
+    )
+
+    assert changed is True
+    assert user.status is UserStatus.DISABLED
+    # The same lock order as account deletion, so the two cannot deadlock or interleave.
+    assert order == ["lock_administrators", "lock_user_by_uuid"]
+
+
+def test_enabling_an_account_does_not_lock_the_administrators() -> None:
+    repository = FakeAdminRepository()
+    repository.user.status = UserStatus.DISABLED
+    auth_repository = FakeAuthRepository()
+    order: list[str] = []
+    repository.order = auth_repository.order = order
+    service = _admin_service(repository, auth_repository)
+
+    _user, changed, _revoked = service.set_user_enabled(
+        actor=_actor(SystemRole.ADMIN),
+        user_id=TARGET_USER_ID,
+        enabled=True,
+        context=RequestContext(),
+    )
+
+    assert changed is True
+    assert order == ["lock_user_by_uuid"]
 
 
 def test_non_admin_service_call_is_denied_before_repository_access() -> None:

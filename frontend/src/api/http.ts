@@ -3,6 +3,7 @@ import axios, { type AxiosRequestConfig } from 'axios'
 import { currentLocale, i18n, t } from '@/i18n'
 import {
   clearSession,
+  notifyPasswordChangeRequired,
   notifySessionExpired,
   readAccessToken,
   readRefreshToken,
@@ -105,6 +106,9 @@ interface RetriableConfig extends AxiosRequestConfig {
 
 const REFRESH_PATH = '/auth/refresh'
 
+/** The error code the server answers with while an administrator's reset is unresolved. */
+export const PASSWORD_CHANGE_REQUIRED_CODE = 'password_change_required'
+
 /**
  * One refresh at a time.
  *
@@ -156,6 +160,17 @@ function refreshOnce(): Promise<boolean> {
 http.interceptors.response.use(
   (response) => response,
   async (error) => {
+    // The server refuses almost everything while an administrator's temporary password is
+    // in place. The request still fails as it would have; this only sends the holder to the
+    // card that fixes it, which the router guard already does when it knows in advance.
+    if (
+      axios.isAxiosError(error) &&
+      error.response?.status === 403 &&
+      apiErrorCode(error) === PASSWORD_CHANGE_REQUIRED_CODE
+    ) {
+      notifyPasswordChangeRequired()
+      return Promise.reject(error)
+    }
     if (!axios.isAxiosError(error) || error.response?.status !== 401) {
       return Promise.reject(error)
     }

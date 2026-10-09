@@ -640,6 +640,7 @@ class AuthService:
             role=SystemRole(user.role),
             status=UserStatus(user.status),
             access_token_hash=token_hash,
+            must_change_password=bool(user.must_change_password),
         )
 
     def get_me(self, *, actor: ActorContext) -> AccountSnapshot:

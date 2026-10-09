@@ -256,6 +256,8 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 - [x] 4 分钟现场演示的脚本——[docs/presentation/DEMO_SCRIPT.zh-CN.md](docs/presentation/DEMO_SCRIPT.zh-CN.md)
 - [x] 在 staging 上建好演示账号 `demo-alice` / `demo-bob`（2026-10-04）
 - [x] 录备用视频——[docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4)
+- [ ] 账户安全这批改动上线到 staging 之后，重录备用视频 [docs/presentation/media/demo-backup.mp4](docs/presentation/media/demo-backup.mp4) 和帮助页视频
+  `frontend/public/videos/encrypt-upload.mp4`：两者拍到的仍是 [PR #215](https://github.com/jsonrar/fyp-secure-file-platform/pull/215) 之前的上传页面
 - [x] 在 staging 上用 `demo-alice` 上传 `quarterly-results.txt` 并分享给 `demo-bob`（2026-10-08 核实：已分享且有效；现场篡改那一步要用）
 - [x] 文件行操作：下载（解密）、分享、删除三个按钮带文字直接显示，其余收进"更多"；修掉约 800 px 宽度下助手按钮压住操作的问题（[PR #159](https://github.com/jsonrar/fyp-secure-file-platform/pull/159)）
 - [x] 重新截取首页图文指南：截图里还是旧的六个图标（2026-10-04 已更新；第 5 步现在显示带密钥指纹的接收方确认）

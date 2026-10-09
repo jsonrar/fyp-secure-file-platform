@@ -11,7 +11,8 @@ vi.stubGlobal('localStorage', {
 })
 
 const { apiErrorCode, http } = await import('./http')
-const { notifySessionExpired, setSessionExpiredHandler, writeSession } = await import('./session')
+const { notifySessionExpired, setPasswordChangeRequiredHandler, setSessionExpiredHandler, writeSession } =
+  await import('./session')
 
 /** An axios error shaped the way an interceptor sees one. */
 const unauthorized = (config: Record<string, unknown>) =>
@@ -24,6 +25,7 @@ const unauthorized = (config: Record<string, unknown>) =>
 beforeEach(() => {
   store.clear()
   setSessionExpiredHandler(undefined)
+  setPasswordChangeRequiredHandler(undefined)
   vi.restoreAllMocks()
 })
 
@@ -136,6 +138,38 @@ describe('the 401 refresh interceptor', () => {
 
     await expect(rejectThrough(serverError)).rejects.toThrow()
     expect(post).not.toHaveBeenCalled()
+  })
+})
+
+describe('the password_change_required interceptor', () => {
+  const refused = (code: string) =>
+    Object.assign(new Error('Request failed with status code 403'), {
+      isAxiosError: true,
+      response: { status: 403, data: { message: 'Refused', data: { error_code: code } } },
+      config: { url: '/files' },
+    })
+
+  it('tells the app, so the holder is sent to the password card, and still fails the request', async () => {
+    writeSession({ accessToken: 'good', refreshToken: 'still-good' })
+    const required = vi.fn()
+    setPasswordChangeRequiredHandler(required)
+    const post = vi.spyOn(axios, 'post')
+
+    await expect(rejectThrough(refused('password_change_required'))).rejects.toThrow()
+
+    expect(required).toHaveBeenCalledOnce()
+    // The session is fine; only the password needs replacing.
+    expect(post).not.toHaveBeenCalled()
+    expect(localStorage.getItem('access_token')).toBe('good')
+  })
+
+  it('leaves any other 403 alone', async () => {
+    const required = vi.fn()
+    setPasswordChangeRequiredHandler(required)
+
+    await expect(rejectThrough(refused('access_denied'))).rejects.toThrow()
+
+    expect(required).not.toHaveBeenCalled()
   })
 })
 

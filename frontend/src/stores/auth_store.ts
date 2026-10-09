@@ -34,8 +34,8 @@ export const useAuthStore = defineStore('auth', {
     isAdmin: (state) => state.user?.role === 'ADMIN',
     /**
      * An administrator reset this account's login password to a temporary one. The server
-     * only reports it; the router guard is what sends the holder to Settings until they
-     * have chosen a password of their own.
+     * refuses every route but the few needed to choose a new one; the router guard sends the
+     * holder to Settings so they meet the card instead of a page of errors.
      */
     mustChangePassword: (state) => state.user?.must_change_password === true,
     /** ADMIN and RECOVERY_OFFICER can review recovery requests. */
@@ -68,6 +68,16 @@ export const useAuthStore = defineStore('auth', {
      */
     adoptUser(user: AuthUserOut) {
       this.user = user
+    },
+    /**
+     * The server answered `password_change_required`, so the account carries the marker even
+     * if what this tab last heard from `/auth/me` said otherwise. Keeping it here is what
+     * stops the guard letting the holder straight back to the page that failed.
+     */
+    markPasswordChangeRequired() {
+      if (this.user && !this.user.must_change_password) {
+        this.user = { ...this.user, must_change_password: true }
+      }
     },
     _revokeAvatarUrl() {
       if (this.avatarObjectUrl) {

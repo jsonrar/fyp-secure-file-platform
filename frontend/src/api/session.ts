@@ -71,3 +71,20 @@ export function setSessionExpiredHandler(handler: SessionExpiredHandler | undefi
 export function notifySessionExpired(): void {
   sessionExpiredHandler?.()
 }
+
+/**
+ * Called when the API refuses a request because an administrator reset the login password
+ * and the holder has not chosen their own yet (`password_change_required`). Wired up in
+ * `main.ts` for the same reason as the handler above.
+ */
+type PasswordChangeRequiredHandler = () => void
+
+let passwordChangeRequiredHandler: PasswordChangeRequiredHandler | undefined
+
+export function setPasswordChangeRequiredHandler(handler: PasswordChangeRequiredHandler | undefined): void {
+  passwordChangeRequiredHandler = handler
+}
+
+export function notifyPasswordChangeRequired(): void {
+  passwordChangeRequiredHandler?.()
+}

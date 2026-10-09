@@ -492,6 +492,7 @@
   "Disable and sign out?",
   "Disabled",
   "Disabled {0}; signed out of {1} session{2}.",
+  "Disabling {0} would leave no active administrator, so it was not disabled.",
   "Disk encryption",
   "do I need to keep the key file",
   "does it work on my phone",
