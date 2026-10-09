@@ -23,6 +23,23 @@ _FILE_RECOVERY_ACTIONS = (
 )
 
 
+def _about_a_file():
+    """Rows whose resource id names a file: the file itself, its shares, its integrity checks,
+    and the recovery steps taken on it.
+
+    A resource id is only a string, and an upload's file id is chosen by the client. Matching on
+    the id alone would let someone upload a file whose id equals another person's user or key
+    id and then read that person's account rows as if they were about the file.
+    """
+    return or_(
+        AuditLog.resource_type.in_(("FILE", "SHARE", "INTEGRITY")),
+        and_(
+            AuditLog.resource_type == "RECOVERY",
+            AuditLog.action.in_(_FILE_RECOVERY_ACTIONS),
+        ),
+    )
+
+
 def _contains(search: str) -> str:
     """A LIKE pattern for "contains this text", with the wildcards taken literally.
 
@@ -80,26 +97,18 @@ class AuditRepository:
         # ownership: a recipient holds an ACTIVE grant, so any recipient could read the
         # whole trail -- learning that other recipients existed and when each of them
         # downloaded. Owning the file is what earns the right to see who touched it.
+        # "Done to a file" means a row about a file, not any row that shares its id.
         if not admin:
             owned_files = select(File.file_uuid).where(File.owner_id == actor_user_id)
             statement = statement.where(
                 or_(
                     AuditLog.actor_user_id == actor_user_id,
                     AuditLog.target_user_id == actor_user_id,
-                    AuditLog.resource_id.in_(owned_files),
+                    and_(AuditLog.resource_id.in_(owned_files), _about_a_file()),
                 )
             )
         if resource_id is not None:
-            statement = statement.where(
-                AuditLog.resource_id == resource_id,
-                or_(
-                    AuditLog.resource_type.in_(("FILE", "SHARE", "INTEGRITY")),
-                    and_(
-                        AuditLog.resource_type == "RECOVERY",
-                        AuditLog.action.in_(_FILE_RECOVERY_ACTIONS),
-                    ),
-                ),
-            )
+            statement = statement.where(AuditLog.resource_id == resource_id, _about_a_file())
         # The optional filters only ever narrow. They are added after the visibility rule
         # above, so a non-admin who filters still sees a subset of their own page and never a
         # row that belongs to somebody else.

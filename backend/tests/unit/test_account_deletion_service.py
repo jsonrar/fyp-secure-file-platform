@@ -1,12 +1,14 @@
 from __future__ import annotations
 
 import contextlib
+import logging
 from datetime import UTC, datetime
 from types import SimpleNamespace
 from uuid import UUID
 
 import pytest
 
+from app.core.security import PasswordOperationCapacityError
 from app.domain.auth import ActorContext, RequestContext
 from app.domain.enums import SystemRole, UserStatus
 from app.domain.errors import (
@@ -15,8 +17,11 @@ from app.domain.errors import (
     InvalidCurrentPasswordError,
 )
 from app.services.account_deletion_service import AccountDeletionService
+from app.services.file_storage_service import StorageObjectError
 
-NOW = datetime(2026, 8, 26, 12, 0, tzinfo=UTC)
+# Aware and with a fractional second, as the real clock returns it.
+NOW = datetime(2026, 8, 26, 12, 0, 0, 734_512, tzinfo=UTC)
+NOW_STORED = datetime(2026, 8, 26, 12, 0, 0)
 USER_ID = UUID("11111111-1111-4111-8111-111111111111")
 
 
@@ -91,10 +96,13 @@ class FakeFileRepo:
 
 
 class FakeStorage:
-    def __init__(self) -> None:
+    def __init__(self, *, failing: dict[str, Exception] | None = None) -> None:
         self.deleted: list[str] = []
+        self.failing = failing or {}
 
     def delete_object(self, key: str) -> None:
+        if key in self.failing:
+            raise self.failing[key]
         self.deleted.append(key)
 
 
@@ -326,6 +334,83 @@ def test_the_throttle_gets_the_naive_second_resolution_time_it_stores(password: 
         service.delete_account(actor=_actor(), password=password, context=_context())
 
     assert fakes.reauth.times
-    for value in fakes.reauth.times:
-        assert value.tzinfo is None
-        assert value.microsecond == 0
+    assert set(fakes.reauth.times) == {NOW_STORED}
+
+
+def test_the_file_rows_get_the_same_naive_second_resolution_time() -> None:
+    # One instant for the whole deletion, in the form the DATETIME columns store, so what is
+    # written is exactly what a later read returns.
+    service, fakes = _service(files=[_file(1, "objects/a")])
+
+    service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    (deleted,) = fakes.files.files
+    assert deleted.deleted_at == deleted.updated_at == NOW_STORED
+    assert set(fakes.reauth.times) == {NOW_STORED}
+
+
+def test_no_memory_for_a_password_hash_is_a_brief_429_not_a_500() -> None:
+    service, fakes = _service(files=[_file(1, "objects/a")])
+
+    def no_capacity(_candidate: str, _hash: str) -> bool:
+        raise PasswordOperationCapacityError()
+
+    service.passwords.verify = no_capacity  # type: ignore[method-assign]
+
+    with pytest.raises(AuthenticationRateLimitedError) as excinfo:
+        service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    assert excinfo.value.headers["Retry-After"] == "1"
+    # Nothing was checked, so nothing counts as a wrong guess and nothing is deleted.
+    assert fakes.reauth.failures == []
+    assert fakes.files.files[0].status == "ACTIVE"
+    assert fakes.user.status is UserStatus.ACTIVE
+    assert fakes.db.committed == 0
+    assert fakes.db.rolled_back == 1
+
+
+@pytest.mark.parametrize(
+    "error",
+    [StorageObjectError("disk gone"), PermissionError("denied"), ValueError("bad key")],
+)
+def test_a_failed_unlink_after_the_commit_is_logged_and_the_rest_are_still_removed(
+    error: Exception, caplog: pytest.LogCaptureFixture
+) -> None:
+    # The account is already closed when the objects are removed. Answering with an error
+    # would tell the person it was not, and stopping would leave the later objects behind.
+    service, fakes = _service(
+        files=[_file(1, "objects/a"), _file(2, "objects/b"), _file(3, "objects/c")]
+    )
+    fakes.storage.failing = {"objects/b": error}
+
+    with caplog.at_level(logging.WARNING, logger="app.services.account_deletion_service"):
+        result = service.delete_account(
+            actor=_actor(), password="correct-horse", context=_context()
+        )
+
+    assert result.files_deleted == 3
+    assert fakes.user.status is UserStatus.DELETED
+    assert fakes.db.committed == 1
+    assert fakes.storage.deleted == ["objects/a", "objects/c"]
+    (record,) = caplog.records
+    assert type(error).__name__ in record.getMessage()
+
+
+def test_a_failed_avatar_unlink_after_the_commit_is_logged_not_raised(
+    caplog: pytest.LogCaptureFixture,
+) -> None:
+    service, fakes = _service()
+    fakes.user.avatar_object_key = "ab/cdef"
+
+    class BrokenAvatars:
+        def delete_sync(self, _key: str) -> None:
+            raise OSError("read-only file system")
+
+    service.avatar_storage = BrokenAvatars()  # type: ignore[assignment]
+
+    with caplog.at_level(logging.WARNING, logger="app.services.account_deletion_service"):
+        service.delete_account(actor=_actor(), password="correct-horse", context=_context())
+
+    assert fakes.user.status is UserStatus.DELETED
+    assert fakes.user.avatar_object_key is None
+    assert len(caplog.records) == 1

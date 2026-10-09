@@ -42,6 +42,8 @@ These come from the code and the server, and they bound what any test can show:
 | Upload size | 500 MiB plaintext (`MAX_UPLOAD_SIZE_BYTES`), nginx body 501 MB, 300 s proxy timeout | Largest file; a slow link can time out near the top |
 | Access token | 30 minutes | The tool renews tokens for long runs |
 
+The nginx row is the setting at the time of these tests. PR #210 (2026-10-09) raised it to 30 API requests/s (burst 60), 60 credential checks/min (burst 30) and 50 uploads in flight per IP.
+
 ## Findings from the local dry run
 
 The first local runs already found two concurrency bugs. Both are MySQL deadlocks (error 1213) that
@@ -76,6 +78,8 @@ The nginx per-IP limits mean the choice of target matters:
 | **Origin through an SSH tunnel** (recommended for capacity) | `ssh -N -L 18000:127.0.0.1:8000 mcs21-vps`, then `--base-url http://127.0.0.1:18000/api/v1` | The application and database, without nginx or TLS | Large-file throughput is capped by the generator's own upload bandwidth; say so in the report |
 | Edge (public URL) | `--base-url https://secureview.tech/api/v1` | The real path including nginx and TLS | From one machine, mostly the 10 req/s limit; useful to *show* the limiter, not capacity |
 | Generator on another server (for example the j1900) | Same tunnel from that box | Like origin, with that box's bandwidth | Needs the loadtest venv there |
+
+Since PR #210 the edge limit is 30 req/s (burst 60), so a single generator through the public URL can push harder than in the table above.
 
 Running the generator **on** the VPS itself would avoid the network but take CPU from the server
 being measured, so it is not recommended.

@@ -163,6 +163,7 @@ def test_the_window_is_measured_back_from_now_and_only_watched_events_are_reques
         "FILE_SHARED",
         "FILE_UPLOADED",
         "AUTH_PASSWORD_CHANGE_FAILED",
+        "ACCOUNT_DELETION_PASSWORD_FAILED",
         "RECOVERY_REQUEST_EXECUTED",
     }
     assert repository.asked["recovery_cutoff"] == (NOW - timedelta(hours=24)).replace(tzinfo=None)
@@ -181,6 +182,23 @@ def test_a_burst_of_failed_sign_ins_becomes_a_ranked_finding_with_an_action() ->
     assert source.priority == "MEDIUM" and "203.0.113.9" in source.title
     assert "fail2ban" in source.recommended_action
     assert report.inputs.audit_events_read == 14
+
+
+def test_wrong_passwords_on_the_close_account_form_count_as_password_guessing() -> None:
+    # Both forms ask for the current password through one shared throttle, so the rule sees
+    # them together: three wrong guesses on one and two on the other make the five it needs.
+    def failure(action: str, minute: int) -> AuditEventRow:
+        return AuditEventRow(action, NAIVE_NOW - timedelta(minutes=10 - minute), "bob", None)
+
+    events = [failure("AUTH_PASSWORD_CHANGE_FAILED", m) for m in range(3)] + [
+        failure("ACCOUNT_DELETION_PASSWORD_FAILED", m) for m in range(3, 5)
+    ]
+
+    report = _service(FakeAgentRepository(events=events)).report(actor=_actor(), window_hours=24)
+
+    (finding,) = [f for f in report.findings if f.rule_id == "PASSWORD_CHANGE_GUESSING"]
+    assert finding.priority == "MEDIUM"
+    assert "bob" in finding.title and "5" in finding.title
 
 
 def test_events_outside_the_window_are_ignored() -> None:

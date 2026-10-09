@@ -231,7 +231,14 @@ export async function aesDecrypt(ciphertextB64: string, password: string): Promi
   const iv = raw.slice(0, 12)
   const data = raw.slice(12)
   const key = await deriveAesKey(password)
-  const plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data)
+  let plain: ArrayBuffer
+  try {
+    plain = await crypto.subtle.decrypt({ name: 'AES-GCM', iv }, key, data)
+  } catch {
+    // A failed tag check is an OperationError with an empty message in Chrome and Safari, so
+    // the page showed nothing at all. Both causes look the same to AES-GCM, by design.
+    throw new Error('Wrong password, or the ciphertext was changed.')
+  }
   return new TextDecoder().decode(plain)
 }
 

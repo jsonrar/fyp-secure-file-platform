@@ -92,15 +92,20 @@ class VerificationService:
 
         user = self.repository.get_user_by_email(normalized_email)
         target_user = self._eligible_user(purpose, user)
+        # Checked before eligibility, and a withheld send below records its time too, so a
+        # quick second request answers 429 whether or not the address has an account.
+        # Checking it only on the sending path let that answer tell the two apart.
+        self._enforce_resend_interval(normalized_email, purpose, now=now)
         if target_user is None and purpose == VerificationPurpose.PASSWORD_RESET:
             # No account to reset. Stop before sending, but leave the throttle
             # consumed so probing costs the same as a real request.
+            self._record_withheld_send(purpose, normalized_email, context, now=now)
             return
         if target_user is not None and purpose == VerificationPurpose.REGISTRATION:
             # The address already has an account; registration cannot proceed.
+            self._record_withheld_send(purpose, normalized_email, context, now=now)
             return
 
-        self._enforce_resend_interval(normalized_email, purpose, now=now)
         self.repository.invalidate_pending_verification_codes(
             email=normalized_email,
             purpose=purpose,
@@ -177,6 +182,37 @@ class VerificationService:
         record.status = VerificationCodeStatus.CONSUMED
         record.consumed_at = now
         return record
+
+    def _record_withheld_send(
+        self,
+        purpose: VerificationPurpose,
+        email: str,
+        context: RequestContext,
+        *,
+        now: datetime,
+    ) -> None:
+        """Note when a send was asked for and withheld, so the resend interval counts it.
+
+        The interval is read from the newest code row for this address and purpose. This row
+        is born INVALIDATED and its digest is of a random value nobody holds, so it can never
+        be consumed; it exists only to carry the time. The cleanup job removes it once it
+        expires, like any other code.
+        """
+        self.repository.add_verification_code(
+            EmailVerificationCode(
+                code_uuid=str(self.uuid_factory()),
+                purpose=purpose,
+                email=email,
+                user_id=None,
+                code_hash=self._digest(purpose=purpose, email=email, code=secrets.token_hex(32)),
+                status=VerificationCodeStatus.INVALIDATED,
+                attempt_count=0,
+                max_attempts=self.settings.VERIFICATION_CODE_MAX_ATTEMPTS,
+                ip_address=_safe_ip(context),
+                created_at=now,
+                expires_at=now + timedelta(seconds=self.settings.VERIFICATION_CODE_TTL_SECONDS),
+            )
+        )
 
     def _reject_attempt(
         self,

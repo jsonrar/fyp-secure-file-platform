@@ -102,7 +102,7 @@ Node 测试套件通过真实 HTTP 运行浏览器自己的代码——API 客�
 | 注册两个账户 | 两步注册表单：填写账户信息并点 **Send code**、**Next**，再设置加密 passphrase 并点 **Register** |
 | 邮箱验证 | 从环境的邮箱目录（与 `e2e/live-stack` 读取的是同一个）读出验证码并填入表单；不会真的发送 |
 | 登录 | 登录表单 |
-| 上传 | `/upload` 上的文件选择器和 **Start Encryption**，然后 **View Encrypted Files**；在此之前用 **Close the seal receipt** 关闭封存回执，并确认它从页面上消失（#200） |
+| 上传 | `/upload` 上的文件选择器和 **Start Encryption**，然后 **View Encrypted Files**；在此之前用 **Close the seal receipt** 关闭封存回执，并确认它从页面上消失（#200）。测试会统计 `POST /files/upload` 请求，必须正好一次；完成状态必须是状态提示而不是按钮，点击它也不能发出任何请求（#215） |
 | 密文预览 | 行上的 **Encrypted preview** 显示服务器保存的字节，且开头与原文件不同 |
 | 文件夹 | 把文件放进文件夹，再移回 **All files** |
 | 解锁密钥库 | **Download and decrypt** 弹出的 passphrase 对话框 |

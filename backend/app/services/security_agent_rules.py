@@ -655,10 +655,11 @@ def rule_password_change_failures(inputs: AgentInputs) -> list[Finding]:
         span=PASSWORD_FAILURE_SPAN,
         medium=PASSWORD_FAILURES_MEDIUM,
         high=None,
-        title=lambda s, n: f"{n} failed password changes on {s}",
+        title=lambda s, n: f"{n} failed password checks on {s}",
         summary=(
-            "Changing a password needs the current one. Repeated failures from a signed-in "
-            "session suggest someone is guessing it from a session they should not have."
+            "Changing a password or closing the account needs the current one. Repeated "
+            "failures from a signed-in session suggest someone is guessing it from a session "
+            "they should not have."
         ),
         action=lambda s: (
             f"Contact {s} to check their session. If it was not them, disable the account on the "
@@ -812,7 +813,7 @@ RULES: tuple[tuple[RuleInfo, Callable[[AgentInputs], list[Finding]]], ...] = (
         RuleInfo(
             "PASSWORD_CHANGE_GUESSING",
             "Guessing the current password",
-            "Failed password changes, grouped by account",
+            "Failed password changes and account-closing checks, grouped by account",
             f"{PASSWORD_FAILURES_MEDIUM}+ in 15 minutes is medium",
         ),
         rule_password_change_failures,

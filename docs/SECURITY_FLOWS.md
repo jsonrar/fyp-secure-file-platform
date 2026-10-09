@@ -246,9 +246,10 @@ Password change rechecks the current password under lock, applies the full passw
 writes a new Argon2id hash, and revokes every session. None of these operations changes the
 client-side encryption passphrase or key envelopes.
 
-Forgotten-login-password reset, email verification, MFA, and external identity federation
-are not implemented because they require trusted external channels. They are distinct from
-file-key recovery.
+Forgotten-login-password reset and email verification are implemented with emailed codes
+(see Emailed Verification Codes and Login-Password Reset above). MFA and external identity
+federation are not implemented and stay out of scope. All of these are distinct from file-key
+recovery.
 
 ## Encrypted Upload
 
