@@ -485,7 +485,7 @@ def test_one_address_getting_into_many_accounts_on_one_run_of_failures_is_one_fi
         "sign-ins"
     )
     text = " ".join(finding.evidence)
-    assert "29 other accounts signed in from the same address on the same failures" in text
+    assert "29 other accounts signed in from the same address on the same run of failures" in text
     assert "load-01, load-02, load-03, load-04, load-05 and 24 more" in text
     assert "1 more sign-in to these accounts after that" in text
     assert "the owners of load-00 and the other accounts listed" in finding.recommended_action
