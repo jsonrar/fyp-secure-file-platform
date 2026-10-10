@@ -77,11 +77,14 @@ under them. The price of the address count is that, behind a shared address (a c
 runner), someone else's sign-in just after a guessing run is flagged too; the evidence says which count
 fired, so an administrator can tell.
 
-An account that has been closed by its owner or disabled by an administrator since its events is said
-so in the evidence of a burst or takeover finding, and the advice changes with it: there is no account
-left to disable, so the finding points at the Access Records page instead. Before this the finding
-named the `deleted-<hex>` tombstone and told the administrator to disable it. The repository reads
-`users.status` for this; still no metadata, user agents or file contents.
+An account that is not active now (closed by its owner, or disabled by an administrator) is said so
+in the evidence of a burst, guessing or takeover finding keyed on that account, and the advice changes
+with it: a download, share or upload burst points at the Access Records page, since there is no account
+left to disable; guessing at its password gets "have the owner reset the password before enabling it
+again", since nothing was reached while it stays inactive. The flag is the account's status now, not at
+the time of the events, so the note does not claim an order. Findings keyed on an address never carry
+it. Before this the finding named the `deleted-<hex>` tombstone and told the administrator to disable
+it. The repository reads `users.status` for this; still no metadata, user agents or file contents.
 
 ### What the sign-in throttle hides
 

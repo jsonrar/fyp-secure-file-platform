@@ -327,7 +327,9 @@ def _burst_findings(
     """
     findings: list[Finding] = []
     minutes = int(span.total_seconds() // 60)
-    inactive = {key(e) for e in events if not e.active and key(e)}
+    # Only account-keyed rules pass `inactive_action`; for a rule keyed by address the flag
+    # would describe whichever account was tried, which is not the finding's subject.
+    inactive = {key(e) for e in events if not e.active and key(e)} if inactive_action else set()
     for subject, times in sorted(_group(events, key).items()):
         peak, began = max_in_span(times, span)
         if high is not None and peak >= high:
@@ -363,17 +365,29 @@ def _burst_findings(
     return findings
 
 
+# The flag is the account's status now, not at the time of the events: a disabled account can be
+# guessed at after it was disabled, so the note does not say when.
 INACTIVE_ACCOUNT_NOTE = (
-    "This account is no longer active: it has been closed by its owner or disabled by an "
-    "administrator since these events"
+    "This account is not active now: it has been closed by its owner or disabled by an "
+    "administrator"
 )
 
 
 def _inactive_burst_action(subject: str) -> str:
+    """For the download, share and upload bursts: the account did reach things."""
     return (
         f"{subject} is already closed or disabled, so there is nothing to switch off. Check the "
         "Access Records page for what it reached and whether any share it made still needs "
         "revoking. If the burst was your own test run, no action is needed."
+    )
+
+
+def _inactive_guessing_action(subject: str) -> str:
+    """For guessing at an account's password: nothing was reached while it stays inactive."""
+    return (
+        f"{subject} is not active, so the guessing cannot get in while it stays that way. If it "
+        "is a disabled account you mean to enable again, have its owner reset the password "
+        "first. The Audit chain tab shows whether any attempt on it succeeded."
     )
 
 
@@ -442,7 +456,7 @@ def rule_login_guessing_by_account(inputs: AgentInputs) -> list[Finding]:
             "tab (this also ends its sessions) and have them reset the password before enabling it."
         ),
         describe_subject="Account",
-        inactive_action=_inactive_burst_action,
+        inactive_action=_inactive_guessing_action,
         extra_evidence=lambda s: [f"From {_plural(len(sources[s]), 'address')}"],
     )
 
@@ -454,9 +468,10 @@ class _Takeover:
     from_source: int
     failures: set[int]
     first_failure: datetime
-    sources: int
+    source_set: set[str]
     last_success: datetime
-    later_successes: int = field(default=0)
+    later_successes: int = field(default=0)  # same account again, no new failures between
+    repeat_successes: int = field(default=0)  # same account again while the failures went on
     # Other accounts that signed in from the same address on the same run of failures: one
     # address stuffing many accounts is one incident with many victims, not many incidents.
     other_accounts: list[Event] = field(default_factory=list)
@@ -517,7 +532,10 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
             (
                 i
                 for i in incidents
-                if success.source and i.success.source == success.source and matched & i.failures
+                if success.source
+                and i.success.source == success.source
+                and len(from_source) >= SIGN_IN_AFTER_FAILURES
+                and from_source & i.failures
             ),
             None,
         )
@@ -526,15 +544,15 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
             # sign-ins happen: extend the one incident rather than open another.
             same_run.failures |= matched
             same_run.first_failure = min(same_run.first_failure, failures[min(matched)].at)
-            same_run.from_source = max(same_run.from_source, len(from_source))
-            same_run.sources = len(
-                {failures[i].source for i in same_run.failures if failures[i].source}
+            same_run.from_source = sum(
+                1 for i in same_run.failures if failures[i].source == success.source
             )
+            same_run.source_set |= {failures[i].source for i in matched if failures[i].source}
             same_run.last_success = success.at
             if success.actor == same_run.success.actor or any(
                 success.actor == e.actor for e in same_run.other_accounts
             ):
-                same_run.later_successes += 1
+                same_run.repeat_successes += 1
             else:
                 same_run.other_accounts.append(success)
             latest[key] = same_run
@@ -545,7 +563,7 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
             from_source=len(from_source),
             failures=matched,
             first_failure=min(failures[i].at for i in matched),
-            sources=len({failures[i].source for i in matched if failures[i].source}),
+            source_set={failures[i].source for i in matched if failures[i].source},
             last_success=success.at,
         )
         latest[key] = incident
@@ -563,7 +581,7 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
             f"{'the last of these sign-ins' if others else 'the success'}: "
             f"{incident.on_account} against this account, {incident.from_source} from the "
             "address that then signed in",
-            f"Failures came from {_plural(incident.sources, 'address')}",
+            f"Failures came from {_plural(len(incident.source_set), 'address')}",
             (
                 f"Sign-ins between {_stamp(success.at)} and {_stamp(incident.last_success)} from "
                 f"{success.source}"
@@ -578,19 +596,24 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
             admins = sum(1 for e in others if e.admin)
             evidence.append(
                 f"{_plural(len(others), 'other account')} signed in from the same address on the "
-                f"same failures, with no new failures between: {shown}"
+                f"same run of failures: {shown}"
                 + (f" ({_plural(admins, 'administrator')} among them)" if admins else "")
             )
+        which = "these accounts" if others else "this account"
         if incident.later_successes:
             evidence.append(
-                f"{_plural(incident.later_successes, 'more sign-in')} to "
-                f"{'these accounts' if others else 'this account'} after that, with no new "
-                "failures"
+                f"{_plural(incident.later_successes, 'more sign-in')} to {which} after that, "
+                "with no new failures"
+            )
+        if incident.repeat_successes:
+            evidence.append(
+                f"{_plural(incident.repeat_successes, 'more sign-in')} to {which} while the "
+                "failures went on"
             )
         if incident.inactive:
             evidence.append(
-                "At least one of these accounts is no longer active: closed by its owner or "
-                "disabled by an administrator since the sign-in"
+                "At least one of these accounts is not active now: closed by its owner or "
+                "disabled by an administrator"
             )
         if others:
             title = (
@@ -783,7 +806,7 @@ def rule_password_change_failures(inputs: AgentInputs) -> list[Finding]:
             "Users tab, which ends its sessions."
         ),
         describe_subject="Account",
-        inactive_action=_inactive_burst_action,
+        inactive_action=_inactive_guessing_action,
     )
 
 

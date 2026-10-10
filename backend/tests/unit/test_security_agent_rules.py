@@ -543,9 +543,9 @@ def test_a_closed_account_in_a_burst_is_said_so_and_not_sent_to_the_users_tab() 
     assert set(by_title) == {"deleted-abc", "dave"}
     closed, open_ = by_title["deleted-abc"], by_title["dave"]
     assert closed.priority == open_.priority == Priority.HIGH
-    assert "This account is no longer active" in closed.evidence[-1]
+    assert "This account is not active now" in closed.evidence[-1]
     assert "nothing to switch off" in closed.recommended_action
-    assert "no longer active" not in " ".join(open_.evidence)
+    assert "not active now" not in " ".join(open_.evidence)
     assert "disable the account on the Users tab" in open_.recommended_action
 
 
@@ -560,7 +560,7 @@ def test_a_takeover_of_an_account_closed_since_says_it_cannot_be_disabled() -> N
     (finding,) = _takeovers(
         evaluate(_inputs(login_failures=failures, login_successes=[success]))[0]
     )
-    assert "no longer active" in " ".join(finding.evidence)
+    assert "not active now" in " ".join(finding.evidence)
     assert "already closed cannot be disabled" in finding.recommended_action
 
 
@@ -589,3 +589,102 @@ def test_a_run_of_failures_that_keeps_growing_while_accounts_sign_in_is_still_on
     assert (
         f"Sign-ins between {(start + timedelta(seconds=30)).strftime('%Y-%m-%d %H:%M UTC')}" in text
     )
+
+
+def test_the_inactive_note_never_lands_on_an_address_finding() -> None:
+    # LOGIN_GUESSING_SOURCE is keyed by address; the tried account's status is not its subject.
+    tried = _events(12, every=timedelta(seconds=10), actor="bob", source="203.0.113.5")
+    tried = [Event(at=e.at, actor=e.actor, source=e.source, active=False) for e in tried]
+
+    findings, _ = evaluate(_inputs(login_failures=tried))
+    (source,) = [f for f in findings if f.rule_id == "LOGIN_GUESSING_SOURCE"]
+    assert "not active" not in " ".join(source.evidence)
+    assert "fail2ban" in source.recommended_action
+
+
+def test_guessing_at_a_disabled_account_advises_a_reset_before_enabling_it() -> None:
+    start = NOW - timedelta(minutes=30)
+    tried = [
+        Event(at=start + timedelta(seconds=10 * i), actor="carol", source=s, active=False)
+        for i, s in enumerate(["198.51.100.1", "198.51.100.2"] * 6)
+    ]
+
+    findings, _ = evaluate(_inputs(login_failures=tried))
+    (account,) = [f for f in findings if f.rule_id == "LOGIN_GUESSING_ACCOUNT"]
+    assert "This account is not active now" in account.evidence[-1]
+    assert "reset the password first" in account.recommended_action
+    assert "Access Records" not in account.recommended_action
+    assert "disable the account" not in account.recommended_action
+
+
+def test_a_repeat_sign_in_while_the_guessing_goes_on_is_not_called_no_new_failures() -> None:
+    source = "203.0.113.7"
+    first = _success(NOW - timedelta(minutes=30), actor="victim", source=source)
+    failures = _events(
+        6,
+        every=timedelta(seconds=10),
+        actor="victim",
+        source=source,
+        start=first.at - timedelta(minutes=2),
+    )
+    failures += _events(
+        3,
+        every=timedelta(seconds=10),
+        actor="victim",
+        source=source,
+        start=first.at + timedelta(minutes=1),
+    )
+    again = _success(first.at + timedelta(minutes=2), actor="victim", source=source)
+
+    (finding,) = _takeovers(
+        evaluate(_inputs(login_failures=failures, login_successes=[first, again]))[0]
+    )
+    text = " ".join(finding.evidence)
+    assert "9 failed sign-ins" in text and "9 from the address" in text
+    assert "1 more sign-in to this account while the failures went on" in text
+    assert "no new failures" not in text
+
+
+def test_merged_counts_add_up_when_the_run_spans_two_windows() -> None:
+    # The union of failures and the per-address count are computed from the same set, so the
+    # sentence "N failed sign-ins: M from the address" cannot show N > M for a one-address run.
+    source = "203.0.113.50"
+    start = NOW - timedelta(hours=1)
+    early = [Event(at=start + timedelta(seconds=i), actor=None, source=source) for i in range(20)]
+    late = [
+        Event(at=start + timedelta(minutes=14, seconds=i), actor=None, source=source)
+        for i in range(20)
+    ]
+    a = _success(start + timedelta(seconds=30), actor="a", source=source)
+    # b's 15-minute window still holds the early failures, so the two sign-ins are one run.
+    b = _success(start + timedelta(minutes=14, seconds=30), actor="b", source=source)
+
+    (finding,) = _takeovers(
+        evaluate(_inputs(login_failures=early + late, login_successes=[a, b]))[0]
+    )
+    text = " ".join(finding.evidence)
+    assert "40 failed sign-ins" in text and "40 from the address that then signed in" in text
+
+
+def test_an_account_guessed_elsewhere_is_not_folded_into_an_address_incident() -> None:
+    # A is stuffed from S1 and signs in from S1. B is guessed from S2 and S3 and then signs in
+    # from S1 (a shared office address) with fewer than five S1 failures: B's own finding, not
+    # a victim of the S1 run.
+    start = NOW - timedelta(hours=1)
+    # Five S1 failures spread over 14 minutes: all five are in A's window, only three in B's.
+    s1 = [
+        Event(at=start + timedelta(minutes=m), actor=None, source="198.51.100.1")
+        for m in (0, 4, 8, 12, 14)
+    ]
+    b_elsewhere = [
+        Event(at=start + timedelta(minutes=18, seconds=10 * i), actor="b", source=s)
+        for i, s in enumerate(["198.51.100.2", "198.51.100.3"] * 3)
+    ]
+    a = _success(start + timedelta(minutes=14, seconds=30), actor="a", source="198.51.100.1")
+    b = _success(start + timedelta(minutes=20), actor="b", source="198.51.100.1")
+
+    takeovers = _takeovers(
+        evaluate(_inputs(login_failures=s1 + b_elsewhere, login_successes=[a, b]))[0]
+    )
+    assert len(takeovers) == 2
+    assert not any("other account" in f.title for f in takeovers)

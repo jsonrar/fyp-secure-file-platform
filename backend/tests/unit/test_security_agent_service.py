@@ -479,8 +479,8 @@ def test_an_account_closed_since_its_burst_gets_advice_that_fits_a_closed_accoun
         (f for f in report.findings if f.rule_id == "UPLOAD_BURST"), key=lambda f: f.title
     )
     assert closed.title.startswith("deleted-") and closed.priority == "HIGH"
-    assert any("no longer active" in line for line in closed.evidence)
+    assert any("not active now" in line for line in closed.evidence)
     assert "nothing to switch off" in closed.recommended_action
     assert "disable the account" not in closed.recommended_action
     assert open_.title.startswith("bob") and "disable the account" in open_.recommended_action
-    assert not any("no longer active" in line for line in open_.evidence)
+    assert not any("not active now" in line for line in open_.evidence)
