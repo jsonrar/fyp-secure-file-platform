@@ -485,6 +485,23 @@ class _Takeover:
         return not self.success.active or any(not e.active for e in self.other_accounts)
 
 
+def _extend(
+    incident: _Takeover,
+    success: Event,
+    matched: set[int],
+    failures: Sequence[Event],
+    from_source: set[int],
+) -> None:
+    """Fold one more success, and the failures it saw, into an open incident."""
+    incident.failures |= matched
+    incident.first_failure = min(incident.first_failure, failures[min(matched)].at)
+    incident.from_source = sum(
+        1 for i in incident.failures if failures[i].source == incident.success.source
+    )
+    incident.source_set |= {failures[i].source for i in matched if failures[i].source}
+    incident.last_success = success.at
+
+
 def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
     """A sign-in that succeeded right after a run of failures: guessing that may have worked.
 
@@ -528,6 +545,11 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
         if previous is not None and matched <= previous.failures:
             previous.later_successes += 1
             continue
+        if previous is not None and matched & previous.failures:
+            # The same account again while the guessing at it went on: the same incident.
+            _extend(previous, success, matched, failures, from_source)
+            previous.repeat_successes += 1
+            continue
         same_run = next(
             (
                 i
@@ -546,16 +568,8 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
             # still growing while the sign-ins happen: extend that incident rather than open
             # another. An account that was guessed at directly keeps its own finding, with its
             # own "N against this account" count, even from that address.
-            same_run.failures |= matched
-            same_run.first_failure = min(same_run.first_failure, failures[min(matched)].at)
-            same_run.from_source = sum(
-                1 for i in same_run.failures if failures[i].source == success.source
-            )
-            same_run.source_set |= {failures[i].source for i in matched if failures[i].source}
-            same_run.last_success = success.at
-            if success.actor == same_run.success.actor or any(
-                success.actor == e.actor for e in same_run.other_accounts
-            ):
+            _extend(same_run, success, matched, failures, from_source)
+            if any(success.actor == e.actor for e in same_run.other_accounts):
                 same_run.repeat_successes += 1
             else:
                 same_run.other_accounts.append(success)
