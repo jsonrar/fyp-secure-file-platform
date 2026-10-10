@@ -66,6 +66,10 @@ class Event:
     actor: str | None = None  # account name, when the event had one
     source: str | None = None  # source address, when the event had one
     admin: bool = False  # the account is an administrator
+    # False once the account has been closed by its owner or disabled by an administrator. The
+    # events still count (a burst is a burst), but "disable the account" is no advice for one
+    # that is already gone, and the deleted-… tombstone name alone does not explain itself.
+    active: bool = True
 
 
 @dataclass(frozen=True, slots=True)
@@ -313,9 +317,19 @@ def _burst_findings(
     action: Callable[[str], str],
     describe_subject: str,
     extra_evidence: Callable[[str], list[str]] | None = None,
+    inactive_action: Callable[[str], str] | None = None,
 ) -> list[Finding]:
+    """One finding per subject whose busiest `span` reaches a threshold.
+
+    `inactive_action` replaces `action` when the subject is an account that is no longer active:
+    telling the administrator to disable an account that its owner already closed, or that an
+    administrator already disabled, would send them looking for a button that is not there.
+    """
     findings: list[Finding] = []
     minutes = int(span.total_seconds() // 60)
+    # Only account-keyed rules pass `inactive_action`; for a rule keyed by address the flag
+    # would describe whichever account was tried, which is not the finding's subject.
+    inactive = {key(e) for e in events if not e.active and key(e)} if inactive_action else set()
     for subject, times in sorted(_group(events, key).items()):
         peak, began = max_in_span(times, span)
         if high is not None and peak >= high:
@@ -329,6 +343,7 @@ def _burst_findings(
         window_text = f"{_plural(peak, 'event')} within {minutes} minutes"
         if began is not None:
             window_text += f", starting {_stamp(began)}"
+        closed = subject in inactive
         findings.append(
             Finding(
                 rule_id=rule_id,
@@ -340,11 +355,40 @@ def _burst_findings(
                     window_text,
                     f"{_plural(len(times), 'event')} in the whole analysis window",
                     *(extra_evidence(subject) if extra_evidence else ()),
+                    *((INACTIVE_ACCOUNT_NOTE,) if closed else ()),
                 ),
-                recommended_action=action(subject),
+                recommended_action=(
+                    inactive_action(subject) if closed and inactive_action else action(subject)
+                ),
             )
         )
     return findings
+
+
+# The flag is the account's status now, not at the time of the events: a disabled account can be
+# guessed at after it was disabled, so the note does not say when.
+INACTIVE_ACCOUNT_NOTE = (
+    "This account is not active now: it has been closed by its owner or disabled by an "
+    "administrator"
+)
+
+
+def _inactive_burst_action(subject: str) -> str:
+    """For the download, share and upload bursts: the account did reach things."""
+    return (
+        f"{subject} is already closed or disabled, so there is nothing to switch off. Check the "
+        "Access Records page for what it reached and whether any share it made still needs "
+        "revoking. If the burst was your own test run, no action is needed."
+    )
+
+
+def _inactive_guessing_action(subject: str) -> str:
+    """For guessing at an account's password: nothing was reached while it stays inactive."""
+    return (
+        f"{subject} is not active, so the guessing cannot get in while it stays that way. If it "
+        "is a disabled account you mean to enable again, have its owner reset the password "
+        "first. The Audit chain tab shows whether any attempt on it succeeded."
+    )
 
 
 def _accounts_tried(events: Sequence[Event], source: str) -> list[str]:
@@ -412,6 +456,7 @@ def rule_login_guessing_by_account(inputs: AgentInputs) -> list[Finding]:
             "tab (this also ends its sessions) and have them reset the password before enabling it."
         ),
         describe_subject="Account",
+        inactive_action=_inactive_guessing_action,
         extra_evidence=lambda s: [f"From {_plural(len(sources[s]), 'address')}"],
     )
 
@@ -423,8 +468,38 @@ class _Takeover:
     from_source: int
     failures: set[int]
     first_failure: datetime
-    sources: int
-    later_successes: int = field(default=0)
+    source_set: set[str]
+    last_success: datetime
+    later_successes: int = field(default=0)  # same account again, no new failures between
+    repeat_successes: int = field(default=0)  # same account again while the failures went on
+    # Other accounts that signed in from the same address on the same run of failures: one
+    # address stuffing many accounts is one incident with many victims, not many incidents.
+    other_accounts: list[Event] = field(default_factory=list)
+
+    @property
+    def admin(self) -> bool:
+        return self.success.admin or any(e.admin for e in self.other_accounts)
+
+    @property
+    def inactive(self) -> bool:
+        return not self.success.active or any(not e.active for e in self.other_accounts)
+
+
+def _extend(
+    incident: _Takeover,
+    success: Event,
+    matched: set[int],
+    failures: Sequence[Event],
+    from_source: set[int],
+) -> None:
+    """Fold one more success, and the failures it saw, into an open incident."""
+    incident.failures |= matched
+    incident.first_failure = min(incident.first_failure, failures[min(matched)].at)
+    incident.from_source = sum(
+        1 for i in incident.failures if failures[i].source == incident.success.source
+    )
+    incident.source_set |= {failures[i].source for i in matched if failures[i].source}
+    incident.last_success = success.at
 
 
 def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
@@ -441,8 +516,13 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
 
     One incident is reported once. A later success to the same account whose failures were all
     counted already (the intruder signing in a second time, say) is added to that finding instead
-    of raising another. The guessing itself may still be reported by LOGIN_GUESSING_SOURCE or
-    LOGIN_GUESSING_ACCOUNT: that the guessing happened and that it worked are different facts.
+    of raising another. So is a success to a *different* account from the same address on the
+    same failures: one address that tries many names and then gets into thirty accounts is one
+    incident with thirty victims, and thirty findings that all quote the same 68 failures only
+    bury the rest of the report (the 2026-10-09 load test did exactly this). The accounts are
+    listed in the one finding so each owner can still be asked. The guessing itself may still be
+    reported by LOGIN_GUESSING_SOURCE or LOGIN_GUESSING_ACCOUNT: that the guessing happened and
+    that it worked are different facts.
     """
     failures = sorted(inputs.login_failures, key=lambda e: e.at)
     times = [e.at for e in failures]
@@ -465,13 +545,44 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
         if previous is not None and matched <= previous.failures:
             previous.later_successes += 1
             continue
+        if previous is not None and matched & previous.failures:
+            # The same account again while the guessing at it went on: the same incident.
+            _extend(previous, success, matched, failures, from_source)
+            previous.repeat_successes += 1
+            continue
+        same_run = next(
+            (
+                i
+                for i in incidents
+                if success.source
+                and i.success.source == success.source
+                and len(on_account) < SIGN_IN_AFTER_FAILURES
+                and len(from_source) >= SIGN_IN_AFTER_FAILURES
+                and from_source & i.failures
+            ),
+            None,
+        )
+        if same_run is not None:
+            # A sign-in explained only by the address's run of failures (not by failures on its
+            # own account), from the same address as an open incident, on the same run, perhaps
+            # still growing while the sign-ins happen: extend that incident rather than open
+            # another. An account that was guessed at directly keeps its own finding, with its
+            # own "N against this account" count, even from that address.
+            _extend(same_run, success, matched, failures, from_source)
+            if any(success.actor == e.actor for e in same_run.other_accounts):
+                same_run.repeat_successes += 1
+            else:
+                same_run.other_accounts.append(success)
+            latest[key] = same_run
+            continue
         incident = _Takeover(
             success=success,
             on_account=len(on_account),
             from_source=len(from_source),
             failures=matched,
             first_failure=min(failures[i].at for i in matched),
-            sources=len({failures[i].source for i in matched if failures[i].source}),
+            source_set={failures[i].source for i in matched if failures[i].source},
+            last_success=success.at,
         )
         latest[key] = incident
         incidents.append(incident)
@@ -480,25 +591,64 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
     for incident in incidents:
         success = incident.success
         account = success.actor or "an unknown account"
+        others = incident.other_accounts
         evidence = [
             f"Account: {account}" + (" (administrator)" if success.admin else ""),
             f"{_plural(len(incident.failures), 'failed sign-in')} between "
-            f"{_stamp(incident.first_failure)} and the success: {incident.on_account} against "
-            f"this account, {incident.from_source} from the address that then signed in",
-            f"Failures came from {_plural(incident.sources, 'address')}",
-            f"Successful sign-in at {_stamp(success.at)} from "
-            f"{success.source or 'an unrecorded address'}",
+            f"{_stamp(incident.first_failure)} and "
+            f"{'the last of these sign-ins' if others else 'the success'}: "
+            f"{incident.on_account} against this account, {incident.from_source} from the "
+            "address that then signed in",
+            f"Failures came from {_plural(len(incident.source_set), 'address')}",
+            (
+                f"Sign-ins between {_stamp(success.at)} and {_stamp(incident.last_success)} from "
+                f"{success.source}"
+                if others
+                else f"Successful sign-in at {_stamp(success.at)} from "
+                f"{success.source or 'an unrecorded address'}"
+            ),
         ]
+        if others:
+            names = [e.actor or "an unknown account" for e in others]
+            shown = ", ".join(names[:5]) + (f" and {len(names) - 5} more" if len(names) > 5 else "")
+            admins = sum(1 for e in others if e.admin)
+            evidence.append(
+                f"{_plural(len(others), 'other account')} signed in from the same address on the "
+                f"same run of failures: {shown}"
+                + (f" ({_plural(admins, 'administrator')} among them)" if admins else "")
+            )
+        which = "these accounts" if others else "this account"
         if incident.later_successes:
             evidence.append(
-                f"{_plural(incident.later_successes, 'more sign-in')} to this account after "
-                "that, with no new failures"
+                f"{_plural(incident.later_successes, 'more sign-in')} to {which} after that, "
+                "with no new failures"
             )
+        if incident.repeat_successes:
+            evidence.append(
+                f"{_plural(incident.repeat_successes, 'more sign-in')} to {which} while the "
+                "failures went on"
+            )
+        if incident.inactive:
+            evidence.append(
+                "At least one of these accounts is not active now: closed by its owner or "
+                "disabled by an administrator"
+            )
+        if others:
+            title = (
+                f"{account} and {_plural(len(others), 'other account')} signed in from "
+                f"{success.source} right after a run of failed sign-ins"
+            )
+            whom = f"the owners of {account} and the other accounts listed"
+            disable = "disable each account that was not its owner on the Users tab"
+        else:
+            title = f"{account} signed in right after a run of failed sign-ins"
+            whom = f"the owner of {account}"
+            disable = "disable the account on the Users tab"
         findings.append(
             Finding(
                 rule_id="SIGN_IN_AFTER_GUESSING",
-                priority=Priority.CRITICAL if success.admin else Priority.HIGH,
-                title=f"{account} signed in right after a run of failed sign-ins",
+                priority=Priority.CRITICAL if incident.admin else Priority.HIGH,
+                title=title,
                 summary=(
                     "A sign-in succeeded straight after repeated failures. If the failures were "
                     "someone guessing, the guess worked: this is what an account takeover looks "
@@ -506,10 +656,15 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
                 ),
                 evidence=tuple(evidence),
                 recommended_action=(
-                    f"Confirm with the owner of {account} that it was them. If it was not, "
-                    "disable the account on the Users tab (this ends its sessions), have them "
-                    "reset the password, and review the account's Access Records from "
-                    f"{_stamp(success.at)} onwards."
+                    f"Confirm with {whom} that it was them. If it was not, {disable} (this ends "
+                    "its sessions), have them reset the password, and review the account's "
+                    f"Access Records from {_stamp(success.at)} onwards."
+                    + (
+                        " An account that is already closed cannot be disabled; its Access "
+                        "Records still show what it reached."
+                        if incident.inactive
+                        else ""
+                    )
                 ),
             )
         )
@@ -604,6 +759,7 @@ def rule_download_burst(inputs: AgentInputs) -> list[Finding]:
             "downloaded. If it was not them, disable the account on the Users tab."
         ),
         describe_subject="Account",
+        inactive_action=_inactive_burst_action,
     )
 
 
@@ -622,6 +778,7 @@ def rule_share_burst(inputs: AgentInputs) -> list[Finding]:
             f"Check {s}'s shares on the Access Records page and revoke any that are not intended."
         ),
         describe_subject="Account",
+        inactive_action=_inactive_burst_action,
     )
 
 
@@ -644,6 +801,7 @@ def rule_upload_burst(inputs: AgentInputs) -> list[Finding]:
             "on the Users tab."
         ),
         describe_subject="Account",
+        inactive_action=_inactive_burst_action,
     )
 
 
@@ -666,6 +824,7 @@ def rule_password_change_failures(inputs: AgentInputs) -> list[Finding]:
             "Users tab, which ends its sessions."
         ),
         describe_subject="Account",
+        inactive_action=_inactive_guessing_action,
     )
 
 

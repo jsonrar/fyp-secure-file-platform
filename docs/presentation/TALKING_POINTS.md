@@ -178,7 +178,9 @@ be trusted.
 - nginx limits each IP: 30 API requests per second (burst 60), 60 sign-in and other password checks per minute (burst 30)
 - 500 MB per file; nginx receives the whole upload before passing it on, so slow clients cannot tie up the backend
 - Disk above 85 % and error bursts email an alert; the security agent detects password guessing,
-  download bursts and share bursts
+  download bursts and share bursts. It has fired on real traffic: the morning after the 2026-10-09
+  load test it mailed us 43 High findings, all of them our own test accounts, and the audit log let us
+  confirm that in minutes (user agent, addresses, times)
 
 **The gap that existed:** recorded in the threat model (`docs/THREAT_MODEL.md` T-D2 / F-09): no
 per-account storage quota, so one account could in principle fill the disk.

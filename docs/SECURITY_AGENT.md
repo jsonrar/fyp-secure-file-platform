@@ -66,10 +66,25 @@ where one address tries many accounts and the one it gets into may have had no f
 A successful sign-in clears the account's throttle bucket, but the failures stay in the audit log, so
 the rule still sees them. It does not double-report: the guessing itself may still appear as
 `LOGIN_GUESSING_SOURCE` (that it happened and that it worked are two facts), but a second sign-in to the
-same account on the same failures is added to the first finding, not raised again. The price of the
-address count is that, behind a shared address (a campus NAT, the CI runner), someone else's sign-in
-just after a guessing run is flagged too; the evidence says which count fired, so an administrator
-can tell.
+same account on the same failures is added to the first finding, not raised again. Neither is a
+sign-in to a *different* account from the same address on the same run of failures: one address that
+tries many names and then gets into thirty accounts is one incident with thirty victims, so it is one
+finding that lists the accounts (the first five and a count), with the whole run of failures and the
+first and last sign-in time. It is Critical if any of those accounts is an administrator. The
+2026-10-09 load test's cleanup showed why: 68 failures at already-deleted names and then 32 sign-ins
+from one address gave 32 findings quoting the same failures, and the five real bursts were hard to see
+under them. The price of the address count is that, behind a shared address (a campus NAT, the CI
+runner), someone else's sign-in just after a guessing run is flagged too; the evidence says which count
+fired, so an administrator can tell.
+
+An account that is not active now (closed by its owner, or disabled by an administrator) is said so
+in the evidence of a burst, guessing or takeover finding keyed on that account, and the advice changes
+with it: a download, share or upload burst points at the Access Records page, since there is no account
+left to disable; guessing at its password gets "have the owner reset the password before enabling it
+again", since nothing was reached while it stays inactive. The flag is the account's status now, not at
+the time of the events, so the note does not claim an order. Findings keyed on an address never carry
+it. Before this the finding named the `deleted-<hex>` tombstone and told the administrator to disable
+it. The repository reads `users.status` for this; still no metadata, user agents or file contents.
 
 ### What the sign-in throttle hides
 
@@ -128,6 +143,17 @@ The tab only analyses when someone opens it, so the same analysis also runs ever
 - **An unresolved Critical finding mails every day until it is fixed.** A damaged file that has not
   been restored, for example, fails the check each morning. That is intended: it is a reminder, not
   noise. Medium and Low findings never mail.
+- **A load test trips it, and should.** `loadtest/` signs in dozens of throwaway accounts from one
+  address and moves hundreds of files in minutes, which is exactly what the burst and guessing rules
+  look for. The morning after the 2026-10-09 run (2026-10-10 06:00) the check exited 3 with 43 High
+  findings: `UPLOAD_BURST` and `DOWNLOAD_BURST` for the five busiest test accounts, `LOGIN_GUESSING_SOURCE`
+  for 68 sign-in attempts at accounts the first cleanup had already deleted, and `SIGN_IN_AFTER_GUESSING`
+  for each of the 32 accounts that then signed in from that address (one finding since the merge
+  described above). Every event carried the `secureview-loadtest/1.0` user agent and came from the
+  tester's two home addresses, and the accounts had been deleted by the test's own cleanup. Nothing was
+  changed on the server; the 24-hour window moves past the run by the next morning, so the check clears
+  by itself. After a load test, expect that mail, and check the addresses and times against the test
+  report before dismissing it.
 - The units are on `mcs21-deploy`'s closed `ops_units` list, so a healthy release installs them like
   the integrity sweep ([AUTOMATIC_DEPLOYMENT.md](AUTOMATIC_DEPLOYMENT.md#ops-units-a-release-installs-by-itself)).
   That needs the current `mcs21-deploy` installed on the server by someone with root; see the

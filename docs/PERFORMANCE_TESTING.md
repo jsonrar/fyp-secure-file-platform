@@ -211,6 +211,12 @@ nginx, limits on). Full numbers and test conditions are in
   same file then went through from an empty account). MySQL reported 8 deadlocks; each was retried
   once by #139 and succeeded, which the #202 log line made visible.
 - **Not re-run:** the 15, 30 and 60 minute soaks.
+- **The next morning:** the security agent's daily check (06:00 on 2026-10-10) failed with 43 High
+  findings, every one of them this run: the upload and download bursts of the five busiest accounts,
+  the 68 failed sign-ins of the cleanup at already-deleted accounts, and the 32 accounts that signed in
+  right after them. That is the agent doing its job on real traffic; see
+  [SECURITY_AGENT.md](SECURITY_AGENT.md#proactive-alerts-daily) for how it was confirmed and what the
+  rules now say about it.
 
 ### Before-fix baseline (staging run, 2026-10-03/04)
 

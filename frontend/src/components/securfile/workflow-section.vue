@@ -16,7 +16,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
 import { workflowSlides } from '@/data/workflow-guide'
 
-const STEP_MS = 8000
+const STEP_MS = 3000
 const slides = workflowSlides
 const current = ref(0)
 const playing = ref(true)

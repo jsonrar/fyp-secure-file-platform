@@ -71,6 +71,20 @@ Features lane was retired from the home page in that redesign (#177).
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.
 
+## Verified on 2026-10-10 (`main` at `2ffc36c`)
+
+| Gate | Result | Interpretation |
+| --- | --- | --- |
+| GitHub Actions on `2ffc36c` (PR #222) | All test jobs and `promote` green | Backend, frontend, `mysql-gate`, `e2e-live` and `tamper-drill` |
+| Backend (`mysql-gate`) | 759 passed, 0 skipped; coverage 86.52 % | Also runs the MySQL release gate and the backup/restore drill, both passing |
+| Backend (`backend` job, no MySQL) | 691 passed, 68 deselected; coverage 81.67 % | Unit and API tests without MySQL |
+| Frontend (`frontend` job) | 886 passed, 78 skipped; statements 74.97 % | The skips are live-backend suites, run in `e2e-live` |
+| Frontend live suites (`e2e-live`) | 964 passed, 0 skipped; statements 79.12 % | Every suite against a disposable API and MySQL |
+| Browser specs (`e2e-live`) | 57 passed | Playwright |
+| Tamper drill | Passed | Isolated attacker container (#90) |
+| Live staging | Running `2ffc36c`, schema `0011_must_change_password` | `/opt/mcs21/current` points at that release; `/health/ready` answers ready |
+| Security agent daily check | 2026-10-10 06:00: exit 3, 43 High findings | All from the 2026-10-09 load test (load-test user agent, the tester's addresses, accounts deleted by the test's cleanup); nothing to do on the server. See [SECURITY_AGENT.md](docs/SECURITY_AGENT.md#proactive-alerts-daily) |
+
 ## Verified on 2026-10-09 (`main` at `0bb6238`)
 
 | Gate | Result | Interpretation |
