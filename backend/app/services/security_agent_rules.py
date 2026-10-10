@@ -534,14 +534,18 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
                 for i in incidents
                 if success.source
                 and i.success.source == success.source
+                and len(on_account) < SIGN_IN_AFTER_FAILURES
                 and len(from_source) >= SIGN_IN_AFTER_FAILURES
                 and from_source & i.failures
             ),
             None,
         )
         if same_run is not None:
-            # The same run of failures from the same address, perhaps still growing while the
-            # sign-ins happen: extend the one incident rather than open another.
+            # A sign-in explained only by the address's run of failures (not by failures on its
+            # own account), from the same address as an open incident, on the same run, perhaps
+            # still growing while the sign-ins happen: extend that incident rather than open
+            # another. An account that was guessed at directly keeps its own finding, with its
+            # own "N against this account" count, even from that address.
             same_run.failures |= matched
             same_run.first_failure = min(same_run.first_failure, failures[min(matched)].at)
             same_run.from_source = sum(

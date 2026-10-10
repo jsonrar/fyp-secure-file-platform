@@ -688,3 +688,30 @@ def test_an_account_guessed_elsewhere_is_not_folded_into_an_address_incident() -
     )
     assert len(takeovers) == 2
     assert not any("other account" in f.title for f in takeovers)
+
+
+def test_an_account_guessed_directly_keeps_its_own_finding_even_from_the_stuffing_address() -> None:
+    # The live suite runs everything from 127.0.0.1: earlier tests leave ten failures and an
+    # administrator sign-in behind, then a throwaway account gets five wrong passwords and signs
+    # in. That account was guessed at itself, so it is its own finding, not a line under the
+    # administrator's.
+    source = "127.0.0.1"
+    start = NOW - timedelta(minutes=20)
+    earlier = [
+        Event(at=start + timedelta(seconds=i), actor="mallory", source=source) for i in range(10)
+    ]
+    admin = _success(start + timedelta(minutes=1), actor="root-admin", source=source, admin=True)
+    own = [
+        Event(at=start + timedelta(minutes=2, seconds=i), actor="takeover-1", source=source)
+        for i in range(5)
+    ]
+    target = _success(start + timedelta(minutes=3), actor="takeover-1", source=source)
+
+    findings = _takeovers(
+        evaluate(_inputs(login_failures=earlier + own, login_successes=[admin, target]))[0]
+    )
+    assert len(findings) == 2
+    (mine,) = [f for f in findings if f.title.startswith("takeover-1 ")]
+    assert mine.priority == Priority.HIGH
+    assert "5 against this account" in " ".join(mine.evidence)
+    assert "disable the account on the Users tab" in mine.recommended_action
