@@ -54,6 +54,20 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
 
+## 2026-10-10 已核验（`main` 位于 `2ffc36c`）
+
+| 门禁 | 结果 | 含义 |
+| --- | --- | --- |
+| `2ffc36c`（PR #222）上的 GitHub Actions | 所有测试 Job 和 `promote` 全部通过 | 后端、前端、`mysql-gate`、`e2e-live` 和 `tamper-drill` |
+| 后端（`mysql-gate`） | 759 passed，0 skipped；覆盖率 86.52% | 同时运行 MySQL 发布门禁和备份/恢复演练，均通过 |
+| 后端（`backend` Job，无 MySQL） | 691 passed，68 deselected；覆盖率 81.67% | 不需要 MySQL 的单元和 API 测试 |
+| 前端（`frontend` Job） | 886 passed，78 skipped；语句覆盖率 74.97% | 被跳过的是真实后端测试套件，在 `e2e-live` 里运行 |
+| 前端实时测试（`e2e-live`） | 964 passed，0 skipped；语句覆盖率 79.12% | 全部套件针对一次性 API 与 MySQL 运行 |
+| 浏览器测试（`e2e-live`） | 57 passed | Playwright |
+| 篡改演练 | 通过 | 隔离的攻击容器（#90） |
+| 线上 staging | 运行 `2ffc36c`，schema `0011_must_change_password` | `/opt/mcs21/current` 指向该版本；`/health/ready` 返回 ready |
+| 安全 Agent 每日检查 | 2026-10-10 06:00：退出码 3，43 条 High 发现 | 全部来自 2026-10-09 的压测（压测工具的 User-Agent、测试者的地址、账号已被压测的清理步骤删除）；服务器上无需处理。见 [SECURITY_AGENT.zh-CN.md](docs/SECURITY_AGENT.zh-CN.md#主动告警每日) |
+
 ## 2026-10-09 已核验（`main` 位于 `0bb6238`）
 
 | 门禁 | 结果 | 含义 |

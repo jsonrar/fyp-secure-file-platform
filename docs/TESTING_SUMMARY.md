@@ -3,8 +3,8 @@
 English | [简体中文](TESTING_SUMMARY.zh-CN.md)
 
 One page with every number about how SecureView is tested, so the report, the slides and the
-README can quote the same figures. Numbers are from the CI run on `main` at `0bb6238` (PR #217,
-2026-10-09) and the load test on the same day. Where a number changes, change it here first.
+README can quote the same figures. Numbers are from the CI run on `main` at `2ffc36c` (PR #222,
+2026-10-09) and the load test of 2026-10-09. Where a number changes, change it here first.
 
 ## Automated tests (every pull request and every push to `main`)
 
@@ -12,12 +12,12 @@ CI runs on three self-hosted runners on the staging VPS ([deployment/ci-runner](
 A pull request cannot deploy, and `main` only deploys after all of these pass
 ([AUTOMATIC_DEPLOYMENT.md](AUTOMATIC_DEPLOYMENT.md#the-ci-gate)).
 
-| Job | What it runs | Result on `0bb6238` | Coverage |
+| Job | What it runs | Result on `2ffc36c` | Coverage |
 | --- | --- | --- | --- |
 | `backend` | Backend unit and API tests, no database; ruff lint and format | 691 passed | 81.67 % (gate 78 %) |
 | `mysql-gate` | The full backend suite against a real MySQL 8.4 over TLS, the runtime grant checks, the MySQL release gate (fresh install, migrations, read-only verification) and the encrypted backup and restore drill | 759 passed, 0 skipped; release gate and restore drill passed | 86.52 % (gate 82 %) |
-| `frontend` | Vue type check, vitest unit tests, production build, `npm audit` | 881 passed, 78 skipped | 74.89 % statements |
-| `e2e-live` | Every frontend suite against a disposable API and MySQL, including the 78 above; then Playwright in Chromium through the built pages | 959 passed, 0 skipped; 57 browser tests passed | 79.05 % statements |
+| `frontend` | Vue type check, vitest unit tests, production build, `npm audit` | 886 passed, 78 skipped | 74.97 % statements |
+| `e2e-live` | Every frontend suite against a disposable API and MySQL, including the 78 above; then Playwright in Chromium through the built pages | 964 passed, 0 skipped; 57 browser tests passed | 79.12 % statements |
 | `tamper-drill` | An isolated attacker container changes stored ciphertext and the database; the app must report MODIFIED or MISSING and refuse the download | Passed | |
 
 "0 skipped" is enforced, not hoped for: `check_no_skips.py` fails the job if any test in those

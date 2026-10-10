@@ -32,3 +32,8 @@ and decrypts and SHA-256-verifies every download, while timing each operation.
 Never point it at a shared server without telling the team; it refuses a non-local host unless
 `--confirm-remote` is given. `cleanup` deletes every test account and its files; it waits and
 retries when nginx answers 429, so no account is left behind.
+
+Expect the security agent's alert mail at 06:00 the next morning: a run from one address is a burst
+of uploads, downloads and sign-ins by the rules' definition, and the check is meant to fail on it.
+Confirm the addresses and times against your report, then let the 24-hour window move past it. See
+[SECURITY_AGENT.md](../docs/SECURITY_AGENT.md#proactive-alerts-daily).

@@ -459,3 +459,133 @@ def test_throttle_blocks_are_counted_and_graded_by_scope() -> None:
     assert with_address.priority == Priority.MEDIUM
     assert with_address.title == "The sign-in throttle is blocking 1 address and 3 accounts"
     assert "not in the audit log" in " ".join(with_address.evidence)
+
+
+def test_one_address_getting_into_many_accounts_on_one_run_of_failures_is_one_finding() -> None:
+    # Credential stuffing, or a load test: one address fails 68 times at names that do not
+    # exist, then signs in to thirty accounts. Thirty findings quoting the same failures would
+    # bury the report; one finding that lists the accounts is what the administrator needs.
+    source = "203.0.113.50"
+    start = NOW - timedelta(minutes=40)
+    tried = [Event(at=start + timedelta(seconds=i), actor=None, source=source) for i in range(68)]
+    accounts = [f"load-{i:02d}" for i in range(30)]
+    successes = [
+        Event(at=start + timedelta(minutes=2, seconds=i), actor=name, source=source)
+        for i, name in enumerate(accounts)
+    ]
+    # The first account signs in once more later, still with no new failures.
+    successes.append(Event(at=start + timedelta(minutes=5), actor=accounts[0], source=source))
+
+    findings, outcomes = evaluate(_inputs(login_failures=tried, login_successes=successes))
+    (finding,) = _takeovers(findings)
+    assert next(o for o in outcomes if o.info.rule_id == "SIGN_IN_AFTER_GUESSING").findings == 1
+    assert finding.priority == Priority.HIGH
+    assert finding.title == (
+        "load-00 and 29 other accounts signed in from 203.0.113.50 right after a run of failed "
+        "sign-ins"
+    )
+    text = " ".join(finding.evidence)
+    assert "29 other accounts signed in from the same address on the same failures" in text
+    assert "load-01, load-02, load-03, load-04, load-05 and 24 more" in text
+    assert "1 more sign-in to these accounts after that" in text
+    assert "the owners of load-00 and the other accounts listed" in finding.recommended_action
+    assert "disable each account that was not its owner" in finding.recommended_action
+
+
+def test_an_administrator_among_the_stuffed_accounts_makes_the_one_finding_critical() -> None:
+    source = "203.0.113.50"
+    start = NOW - timedelta(minutes=40)
+    tried = [Event(at=start + timedelta(seconds=i), actor=None, source=source) for i in range(6)]
+    user = _success(start + timedelta(minutes=1), actor="carol", source=source)
+    admin = _success(start + timedelta(minutes=2), actor="root-admin", source=source, admin=True)
+
+    (finding,) = _takeovers(
+        evaluate(_inputs(login_failures=tried, login_successes=[user, admin]))[0]
+    )
+    assert finding.priority == Priority.CRITICAL
+    assert "1 other account signed in" in " ".join(finding.evidence)
+    assert "(1 administrator among them)" in " ".join(finding.evidence)
+
+
+def test_sign_ins_from_different_addresses_are_not_folded_together() -> None:
+    # Two addresses each guessing and getting in are two incidents, even in the same minutes.
+    start = NOW - timedelta(minutes=40)
+    first = [
+        Event(at=start + timedelta(seconds=i), actor=None, source="198.51.100.1") for i in range(6)
+    ]
+    second = [
+        Event(at=start + timedelta(seconds=i), actor=None, source="198.51.100.2") for i in range(6)
+    ]
+    a = _success(start + timedelta(minutes=1), actor="alice", source="198.51.100.1")
+    b = _success(start + timedelta(minutes=1), actor="bob", source="198.51.100.2")
+
+    assert (
+        len(_takeovers(evaluate(_inputs(login_failures=first + second, login_successes=[a, b]))[0]))
+        == 2
+    )
+
+
+def test_a_closed_account_in_a_burst_is_said_so_and_not_sent_to_the_users_tab() -> None:
+    start = NOW - timedelta(minutes=30)
+    gone = [
+        Event(
+            at=start + timedelta(seconds=i), actor="deleted-abc", source="203.0.113.9", active=False
+        )
+        for i in range(70)
+    ]
+    here = [
+        Event(at=start + timedelta(seconds=i), actor="dave", source="203.0.113.9")
+        for i in range(70)
+    ]
+
+    findings, _ = evaluate(_inputs(downloads=gone + here))
+    by_title = {f.title.split(" ")[0]: f for f in findings if f.rule_id == "DOWNLOAD_BURST"}
+    assert set(by_title) == {"deleted-abc", "dave"}
+    closed, open_ = by_title["deleted-abc"], by_title["dave"]
+    assert closed.priority == open_.priority == Priority.HIGH
+    assert "This account is no longer active" in closed.evidence[-1]
+    assert "nothing to switch off" in closed.recommended_action
+    assert "no longer active" not in " ".join(open_.evidence)
+    assert "disable the account on the Users tab" in open_.recommended_action
+
+
+def test_a_takeover_of_an_account_closed_since_says_it_cannot_be_disabled() -> None:
+    success = Event(
+        at=NOW - timedelta(minutes=30), actor="deleted-abc", source="203.0.113.7", active=False
+    )
+    failures = _events(
+        6, every=timedelta(seconds=10), actor="deleted-abc", start=success.at - timedelta(minutes=2)
+    )
+
+    (finding,) = _takeovers(
+        evaluate(_inputs(login_failures=failures, login_successes=[success]))[0]
+    )
+    assert "no longer active" in " ".join(finding.evidence)
+    assert "already closed cannot be disabled" in finding.recommended_action
+
+
+def test_a_run_of_failures_that_keeps_growing_while_accounts_sign_in_is_still_one_incident() -> (
+    None
+):
+    # The real 2026-10-09 pattern: the failures and the successes were interleaved over two
+    # minutes, so a sign-in at 12:18 saw 68 failures and one at 12:17 only 59. Those are not
+    # separate incidents; the same address, the same run.
+    source = "203.0.113.50"
+    start = NOW - timedelta(minutes=40)
+    tried = [
+        Event(at=start + timedelta(seconds=2 * i), actor=None, source=source) for i in range(68)
+    ]
+    successes = [
+        Event(at=start + timedelta(seconds=30 + 3 * i), actor=f"load-{i:02d}", source=source)
+        for i in range(30)
+    ]
+
+    (finding,) = _takeovers(evaluate(_inputs(login_failures=tried, login_successes=successes))[0])
+    text = " ".join(finding.evidence)
+    # Failures after the last sign-in are not counted: 59 of the 68 fall before it.
+    assert "59 failed sign-ins between" in text and "the last of these sign-ins" in text
+    assert "59 from the address that then signed in" in text
+    assert "29 other accounts signed in from the same address" in text
+    assert (
+        f"Sign-ins between {(start + timedelta(seconds=30)).strftime('%Y-%m-%d %H:%M UTC')}" in text
+    )

@@ -368,7 +368,7 @@ class _Db:
         return 0
 
 
-def test_the_event_query_selects_five_columns_and_never_metadata_or_user_agents() -> None:
+def test_the_event_query_selects_six_columns_and_never_metadata_or_user_agents() -> None:
     db = _Db()
     AgentRepository(db).audit_events(["AUTH_LOGIN_FAILED"], since=NAIVE_NOW)  # type: ignore[arg-type]
 
@@ -387,7 +387,7 @@ def test_the_event_query_selects_five_columns_and_never_metadata_or_user_agents(
         assert private not in select_list
     assert "audit_logs.action = 'AUTH_LOGIN_FAILED'" in sql
     assert "audit_logs.created_at >= " in sql and "LIMIT 5000" in sql
-    assert "users.`role`" in select_list
+    assert "users.`role`" in select_list and "users.status" in select_list
 
 
 def test_the_throttle_query_counts_blocks_and_never_selects_the_hashed_keys() -> None:
@@ -448,3 +448,39 @@ def test_the_agent_modules_have_no_database_write_path() -> None:
     assert not write.search(script), "the daily check script can write to the database"
     assert re.search(r"\bdb\.\w+", script) is None, "the daily check script uses the session itself"
     assert "AuditLogService" not in script and "commit" not in script
+
+
+def test_an_account_closed_since_its_burst_gets_advice_that_fits_a_closed_account() -> None:
+    # The 2026-10-09 load test: throwaway accounts uploaded hundreds of files and were then
+    # deleted, so the next morning's report named "deleted-…" accounts and told the
+    # administrator to disable them. The status column is what lets the rule say otherwise.
+    at = NAIVE_NOW - timedelta(minutes=30)
+    uploads = [
+        AuditEventRow(
+            "FILE_UPLOADED",
+            at + timedelta(seconds=i),
+            "deleted-2674f2de84b34c308f261034489c8308",
+            "203.0.113.9",
+            "USER",
+            "DELETED",
+        )
+        for i in range(120)
+    ]
+    still_open = [
+        AuditEventRow("FILE_UPLOADED", at + timedelta(seconds=i), "bob", "203.0.113.9", "USER")
+        for i in range(120)
+    ]
+
+    report = _service(FakeAgentRepository(events=uploads + still_open)).report(
+        actor=_actor(), window_hours=24
+    )
+
+    open_, closed = sorted(
+        (f for f in report.findings if f.rule_id == "UPLOAD_BURST"), key=lambda f: f.title
+    )
+    assert closed.title.startswith("deleted-") and closed.priority == "HIGH"
+    assert any("no longer active" in line for line in closed.evidence)
+    assert "nothing to switch off" in closed.recommended_action
+    assert "disable the account" not in closed.recommended_action
+    assert open_.title.startswith("bob") and "disable the account" in open_.recommended_action
+    assert not any("no longer active" in line for line in open_.evidence)

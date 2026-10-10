@@ -9,7 +9,7 @@ from sqlalchemy.orm import Session
 from app.core.config import Settings, get_settings
 from app.core.time import to_api_utc, to_database_utc, to_second_resolution_utc, utc_now
 from app.domain.auth import ActorContext
-from app.domain.enums import LoginThrottleScope, SystemRole
+from app.domain.enums import LoginThrottleScope, SystemRole, UserStatus
 from app.domain.errors import AuthorizationError
 from app.repositories.admin_repository import AdminRepository
 from app.repositories.agent_repository import AgentRepository, DamagedFileHistory
@@ -147,6 +147,9 @@ class SecurityAgentService:
                     actor=row.actor_username,
                     source=row.ip_address,
                     admin=row.actor_role == SystemRole.ADMIN,
+                    # No actor row (a failed sign-in at a name that does not exist) is not an
+                    # inactive account, so only a known status other than ACTIVE counts.
+                    active=row.actor_status is None or row.actor_status == UserStatus.ACTIVE,
                 )
             )
 

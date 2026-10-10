@@ -30,6 +30,9 @@ class AuditEventRow:
     actor_username: str | None
     ip_address: str | None
     actor_role: str | None = None
+    # ACTIVE, DISABLED or DELETED. A burst from an account that has since been closed needs
+    # different advice from one that is still open ("disable it" is no use for a deleted account).
+    actor_status: str | None = None
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,6 +73,7 @@ class AgentRepository:
                         User.username,
                         AuditLog.ip_address,
                         User.role,
+                        User.status,
                     )
                     .outerjoin(User, User.id == AuditLog.actor_user_id)
                     .where(AuditLog.action == action, AuditLog.created_at >= since)
