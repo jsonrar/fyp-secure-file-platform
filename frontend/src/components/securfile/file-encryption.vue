@@ -346,12 +346,13 @@ const goToFiles = () => {
                 <div class="flex justify-between text-sm items-center gap-3">
                   <label for="content-algorithm" class="shrink-0 text-muted-foreground">File contents</label>
                   <!-- A select is as wide as its longest option, and "XChaCha20-Poly1305" pushed a
-                       360 px phone 10 px sideways. min-w-0 lets it shrink with the row instead. -->
+                       360 px phone 10 px sideways. min-w-0 lets it shrink with the row instead.
+                       text-align-last is what centres the closed select's text in Chrome and Firefox. -->
                   <select
                     id="content-algorithm"
                     v-model="algorithm"
                     :disabled="isEncrypting"
-                    class="h-10 min-w-0 max-w-full font-mono text-sm text-foreground bg-transparent border border-input rounded-md px-2 py-1 disabled:opacity-50"
+                    class="h-10 min-w-0 max-w-full text-center [text-align-last:center] font-mono text-sm text-foreground bg-transparent border border-input rounded-md px-2 py-1 disabled:opacity-50"
                   >
                     <option v-for="choice in algorithmChoices" :key="choice" :value="choice">
                       {{ ALGORITHM_LABELS[choice] }}
