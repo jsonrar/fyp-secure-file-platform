@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### AC4a screenshots re-captured after the refused-download wording change / 下载被拒文案改动后重拍 AC4a 截图
+
+- `docs/presentation/screenshots/ac4a-*.png` were taken before #227, so `ac4a-2-download-refused.png` still showed "The encrypted file could not be verified". The seven images were captured again with the same script (`E2E_BROWSER=capture bash backend/tests/e2e/run_live_stack.sh` on a disposable local stack at `b44ec15`); the refused-download one now shows the sentence that names the next step. The other six changed only in timestamps and the generated account name.
+- `docs/presentation/screenshots/ac4a-*.png` 是 #227 之前拍的，`ac4a-2-download-refused.png` 里还是 “The encrypted file could not be verified”。用同一个脚本（`E2E_BROWSER=capture bash backend/tests/e2e/run_live_stack.sh`，本地一次性环境，版本 `b44ec15`）把七张图重拍了一遍；下载被拒那张现在显示写明下一步的句子，另外六张只有时间戳和随机账号名不同。
+
 ### A refused download says what happens next / 下载被拒时说明接下来会怎样
 
 - When the server's integrity check refuses a download, My Files showed the server's sentence, "The encrypted file could not be verified", and nothing else. A recipient has no button for this (the fix is on the server side), so the page now says: the stored copy was changed and was not sent; the daily check alerts the administrator, who restores it from backup; or ask the owner to upload it again. The AC4a capture script looks for the new sentence; the AC4a screenshots in `docs/presentation/figures/` and the slide pack still show the old one.
