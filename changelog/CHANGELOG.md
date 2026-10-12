@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### A refused download says what happens next / 下载被拒时说明接下来会怎样
+
+- When the server's integrity check refuses a download, My Files showed the server's sentence, "The encrypted file could not be verified", and nothing else. A recipient has no button for this (the fix is on the server side), so the page now says: the stored copy was changed and was not sent; the daily check alerts the administrator, who restores it from backup; or ask the owner to upload it again. The AC4a capture script looks for the new sentence; the AC4a screenshots in `docs/presentation/figures/` and the slide pack still show the old one.
+- 服务器的完整性检查拒绝下载时，“我的文件”只显示服务器那句 “The encrypted file could not be verified”，别的什么都没有。接收方这边没有任何可点的按钮（修复在服务器那边），所以页面现在直接说明：存储副本被改动过，没有发送；每日检查会提醒管理员从备份恢复；或者请文件主人重新上传。AC4a 的截图脚本改为查找新句子；`docs/presentation/figures/` 和幻灯片包里的 AC4a 截图仍是旧句子。
+
 ### Recovery request on a changed file: a clear answer instead of "not found" / 对被改动文件申请恢复：给出明确回答，不再说“未找到”
 
 - The tamper demo: after the stored copy of `quarterly-results.txt` was changed, the recipient saw the Modified status and the refused download as designed, then pressed Request recovery and got "The requested file was not found". The integrity sweep sets a changed file's status to CORRUPTED, and `RecoveryService.create_request` treated anything but ACTIVE as missing. A recovery request re-seals the file key to the requester's account key; it cannot repair content, which is the administrator's restore from backup. The server now answers a 409 that says so, after the grant check, so someone without access still sees "not found". On My Files the Request recovery item is disabled for a Modified file, with one line under it saying an administrator restores it from backup. `docs/BACKUP_AND_RECOVERY.md` section 9 says the same.
