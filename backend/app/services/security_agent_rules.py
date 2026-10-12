@@ -238,9 +238,10 @@ def rule_integrity(inputs: AgentInputs) -> list[Finding]:
                 summary=cause,
                 evidence=tuple(evidence),
                 recommended_action=(
-                    "Restore the original from the encrypted backup with scripts/restore_file.py "
-                    f"--file-id {file.file_id} (run without --apply first). "
-                    + backup_window_advice(file)
+                    "Restore the original with scripts/restore_file.py "
+                    f"--file-id {file.file_id} (run without --apply first; the Integrity tab "
+                    "shows the exact command). By default it reads the server's nightly backup; "
+                    "an encrypted off-site set is the fallback. " + backup_window_advice(file)
                 ),
                 file_id=file.file_id,
             )

@@ -351,17 +351,35 @@ sudo systemctl daemon-reload && sudo systemctl enable --now mcs21-integrity-swee
 
 ### Putting the original back
 
-`backend/scripts/restore_file.py`, run on the server as the service account, with the **offline
-backup private key** brought by the custodian for the duration of the restore:
+`backend/scripts/restore_file.py`, run on the server. Admin → Integrity shows the two commands
+for the damaged file, and they run as pasted:
 
 ```bash
 cd /opt/mcs21/current/backend
+sudo .venv/bin/python scripts/restore_file.py --file-id <file uuid>            # dry run
+sudo .venv/bin/python scripts/restore_file.py --file-id <file uuid> --apply    # write
+```
+
+With no `--backup-set` the script uses the **same-host nightly backup** that `mcs21-backup`
+writes to `/var/backups/mcs21-daily` (a plaintext tar of the object store, root-only, kept 14
+days): newest archive first, each checked against its `.sha256` manifest, the one object read out
+and compared with the recorded digest, and an archive that already holds the damaged bytes skipped
+for the next older one. No key is needed for that. Run as root it loads
+`/etc/fyp-secure-file-platform/backend.env` itself and gives the restored object, the quarantine
+copy and the quarantine directory back to the service account. On the staging VPS the dry run
+takes about 1.5 s against a 780 MB archive.
+
+For a server whose disk is gone, or whose nightly copies are also suspect, the **encrypted
+off-site set** is the fallback, with the **offline backup private key** brought by the custodian
+for the duration of the restore:
+
+```bash
 .venv/bin/python scripts/restore_file.py --file-id <file uuid> \
     --backup-set /path/to/<manifest-id> --private-key /path/to/backup_priv.pem          # dry run
 .venv/bin/python scripts/restore_file.py ... --apply                                      # write
 ```
 
-The first command changes nothing and reports which backup set it would use. With `--apply` it:
+The first command changes nothing and reports which backup it would use. With `--apply` it:
 
 1. refuses unless the set's artifacts match `index.json`, decrypt and authenticate under this key
    and this set's manifest id, and the archive matches its manifest;
@@ -375,9 +393,9 @@ The first command changes nothing and reports which backup set it would use. Wit
 6. re-verifies the file by the same rule that condemned it, which records a `VALID` check and
    returns the status to `ACTIVE`, and writes `FILE_RESTORED_FROM_BACKUP` to the audit chain.
 
-The private key never goes on the server permanently and there is no web button for this: the
-admin page shows what is damaged and the command to run, and the decision stays with a person who
-holds the key.
+The off-site private key never goes on the server permanently and there is no web button for
+this: the admin page shows what is damaged and the command to run, and the decision stays with a
+person who has root.
 
 ### Limits, stated plainly
 

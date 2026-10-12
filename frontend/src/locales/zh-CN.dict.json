@@ -2136,5 +2136,11 @@
   "Disabling {0} would leave no active administrator, so it was not disabled.": "停用 {0} 会导致没有任何在用的管理员，所以没有停用。",
   "server errors with 100 concurrent users on the live server": "个服务器错误（线上服务器，100 个并发用户）",
   "This file's stored copy was changed. An administrator restores it from backup; Request recovery only re-seals a key.": "这个文件在服务器上保存的副本被改动过。由管理员从备份恢复；“申请恢复”只会重新封装密钥。",
-  "The stored copy of this file was changed, so it was not sent. The daily check alerts the administrator, who restores it from backup; or ask the owner to upload it again.": "这个文件在服务器上保存的副本被改动过，所以没有发送。每日检查会提醒管理员从备份恢复；或者请文件主人重新上传一次。"
+  "The stored copy of this file was changed, so it was not sent. The daily check alerts the administrator, who restores it from backup; or ask the owner to upload it again.": "这个文件在服务器上保存的副本被改动过，所以没有发送。每日检查会提醒管理员从备份恢复；或者请文件主人重新上传一次。",
+  "cd /opt/mcs21/current/backend && sudo .venv/bin/python scripts/restore_file.py {0}": "cd /opt/mcs21/current/backend && sudo .venv/bin/python scripts/restore_file.py {0}",
+  "On the server, paste this as it is. It reads the newest nightly backup that still holds the original and changes nothing:": "在服务器上原样粘贴这条命令。它会读取仍保存着原件的最新一份每夜备份，不改动任何东西：",
+  "If it reports": "如果它输出",
+  ", run it again with": "，就加上",
+  "The damaged bytes are kept in quarantine, the original is put back, the file is re-verified and the restore is written to the audit chain. A file uploaded after the last nightly backup is not in any backup yet. If the server's own backups are gone or suspect, add": "受损的字节会被隔离保存，原件放回原位，文件重新校验，恢复操作写入审计链。在最近一次每夜备份之后上传的文件还不在任何备份里。如果服务器自己的备份已丢失或不可信，请加上",
+  "for an encrypted off-site set; the key custodian brings the key.": "指向加密的异地备份集；私钥由保管人带来。"
 }

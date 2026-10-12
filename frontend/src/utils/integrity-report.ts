@@ -20,11 +20,15 @@ export function findingText(result: string | null): string {
   }
 }
 
-/** The command an operator runs on the server; the backup set and key come from the custodian. */
-export function restoreCommand(fileId: string): string {
+/**
+ * The command an operator pastes on the server, as is. Without `--backup-set` the script uses
+ * the server's own nightly backup, which needs no key, and as root it loads the deployment
+ * environment itself; the encrypted off-site set and the custodian's key are the fallback.
+ */
+export function restoreCommand(fileId: string, apply = false): string {
   return (
-    'cd /opt/mcs21/current/backend && .venv/bin/python scripts/restore_file.py ' +
-    `--file-id ${fileId} --backup-set <backup set directory> --private-key <backup private key>`
+    'cd /opt/mcs21/current/backend && sudo .venv/bin/python scripts/restore_file.py ' +
+    `--file-id ${fileId}${apply ? ' --apply' : ''}`
   )
 }
 
