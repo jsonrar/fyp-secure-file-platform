@@ -22,6 +22,7 @@ import {
   toAuditLogFilters,
   type AuditFilterForm,
 } from '@/utils/audit-trail'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 interface AccessEvent {
   id: string
@@ -77,8 +78,7 @@ const ACCOUNT_GROUP = 'account'
 /** Same locale rendering the file list uses, so timestamps read alike across the app. */
 const formatTimestamp = (value: string | null | undefined): string => {
   if (!value) return '-'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+  return formatSiteDateTime(value)
 }
 
 /** Whatever this particular action has worth saying beyond its name. */

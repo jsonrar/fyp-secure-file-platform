@@ -6,6 +6,7 @@ import { adminApi, type AdminFileOut, type AdminFileStatusFilter } from '@/api/a
 import { apiErrorMessage } from '@/api/http'
 import { formatFileSize, unwrapData } from '@/api/types'
 import { matchesSearch, statusBadgeClass } from '@/utils/admin-lists'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 const files = ref<AdminFileOut[]>([])
 const isLoading = ref(false)
@@ -35,8 +36,7 @@ function setFilter(value: AdminFileStatusFilter | 'ALL') {
 }
 
 function formatTimestamp(value: string): string {
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+  return formatSiteDateTime(value)
 }
 
 async function load(reset = true) {

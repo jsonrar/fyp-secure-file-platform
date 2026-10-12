@@ -1,4 +1,11 @@
-from datetime import UTC, datetime
+from datetime import UTC, datetime, timedelta, timezone
+
+# Every time shown to a person -- on the site, in the security agent's text, in alert mail -- is
+# Kuala Lumpur time; storage and the API stay UTC. Malaysia has kept +08:00 all year since 1982,
+# so a fixed offset is exact and needs no tz database. The browser side is
+# `frontend/src/utils/site-time.ts`.
+SITE_TIME_ZONE = timezone(timedelta(hours=8), "MYT")
+SITE_TIME_ZONE_LABEL = "MYT"
 
 
 def utc_now() -> datetime:
@@ -39,3 +46,11 @@ def to_second_resolution_utc(value: datetime) -> datetime:
     must keep every digit they were hashed with. Use `to_database_utc` for those.
     """
     return to_database_utc(value).replace(microsecond=0)
+
+
+def site_stamp(value: datetime, *, seconds: bool = False) -> str:
+    """`2026-10-13 02:19 MYT`: an instant as people read it. A naive value is taken as UTC."""
+    if value.tzinfo is None:
+        value = value.replace(tzinfo=UTC)
+    clock = "%H:%M:%S" if seconds else "%H:%M"
+    return value.astimezone(SITE_TIME_ZONE).strftime(f"%Y-%m-%d {clock} {SITE_TIME_ZONE_LABEL}")

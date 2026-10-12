@@ -22,6 +22,7 @@ import { unwrapData } from '@/api/types'
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
 import { useAuthStore } from '@/stores/auth_store'
 import { knownFingerprint, rememberFingerprint } from '@/utils/known-keys'
+import { formatSiteDate } from '@/utils/site-time'
 
 const props = defineProps<{
   fileId: string
@@ -238,7 +239,7 @@ async function share() {
             <div class="min-w-0">
               <p translate="no" class="text-sm text-foreground truncate">{{ user.username }}</p>
               <p class="text-xs text-muted-foreground">
-                Since {{ new Date(user.granted_at).toLocaleDateString() }}
+                Since {{ formatSiteDate(user.granted_at) }}
                 <span v-if="!user.can_download"> · view only</span>
               </p>
             </div>

@@ -17,6 +17,7 @@ import { unwrapData, type AuditLogOut, type FileFolderOut, type FileListOut, typ
 import type { AccountCheckId, AssistantLink } from '@/data/assistant/intents'
 import { auditActionLabel } from '@/utils/audit-actions'
 import { unseenSharedIds } from '@/utils/seen-shares'
+import { formatSiteDateTime, SITE_TIME_ZONE } from '@/utils/site-time'
 
 export interface AccountApi {
   listFiles(params: { scope: 'all' | 'mine' | 'shared'; page?: number; page_size: number; search?: string }): Promise<FileListOut>
@@ -87,15 +88,20 @@ const MY_FILES: AssistantLink = { label: 'My Files', to: '/files' }
 const SHARED_WITH_ME: AssistantLink = { label: 'Shared with me', to: '/files?tab=shared' }
 const RECORDS: AssistantLink = { label: 'Access Records', to: '/audit-logs' }
 
-const dateFormat = new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'short', year: 'numeric' })
-const timeFormat = new Intl.DateTimeFormat('en-AU', { day: 'numeric', month: 'short', hour: 'numeric', minute: '2-digit' })
+const dateFormat = new Intl.DateTimeFormat('en-AU', {
+  timeZone: SITE_TIME_ZONE,
+  day: 'numeric',
+  month: 'short',
+  year: 'numeric',
+})
 
+/** The day in Kuala Lumpur, like every other date on the site (`utils/site-time`). */
 export function formatDay(iso: string): string {
   return dateFormat.format(new Date(iso))
 }
 
 function formatMoment(iso: string): string {
-  return timeFormat.format(new Date(iso))
+  return formatSiteDateTime(iso, { seconds: false })
 }
 
 function plural(n: number, one: string, many = `${one}s`): string {

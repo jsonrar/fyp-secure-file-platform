@@ -82,13 +82,13 @@ describe('toAuditLogFilters', () => {
     expect(hasAuditFilters({ ...EMPTY_AUDIT_FILTERS })).toBe(false)
   })
 
-  it('turns a local calendar day into its first and last UTC instant', () => {
-    // Whatever zone the test runs in, the window is that whole local day: the start is local
-    // midnight and the end is the last millisecond before the next midnight.
+  it('turns a Kuala Lumpur calendar day into its first and last UTC instant', () => {
+    // Whatever zone the browser is in, the window is that whole day in Kuala Lumpur (UTC+8),
+    // the zone every time on the site is shown in.
     const filters = toAuditLogFilters({ ...EMPTY_AUDIT_FILTERS, from: '2026-10-01', to: '2026-10-03' })
 
-    expect(filters.from).toBe(new Date(2026, 9, 1, 0, 0, 0, 0).toISOString())
-    expect(filters.to).toBe(new Date(2026, 9, 3, 23, 59, 59, 999).toISOString())
+    expect(filters.from).toBe('2026-09-30T16:00:00.000Z')
+    expect(filters.to).toBe('2026-10-03T15:59:59.999Z')
     expect(filters.from!.endsWith('Z')).toBe(true)
   })
 

@@ -9,6 +9,7 @@ import {
   type RecoveryRequestOut,
 } from '@/api/recovery_api'
 import { unwrapData } from '@/api/types'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 defineProps<{
   /** When true, show approve / reject / execute controls. */
@@ -29,8 +30,7 @@ const PAGE_SIZE = 50
 
 function formatTimestamp(value: string | null): string {
   if (!value) return '—'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+  return formatSiteDateTime(value)
 }
 
 function shortId(value: string): string {

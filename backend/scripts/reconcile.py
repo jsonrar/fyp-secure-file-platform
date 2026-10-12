@@ -65,7 +65,7 @@ from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
 from app.core.database import SessionLocal
-from app.core.time import to_second_resolution_utc, utc_now
+from app.core.time import site_stamp, to_second_resolution_utc, utc_now
 from app.models.auth_login_throttle import AuthLoginThrottle
 from app.models.email_verification_code import EmailVerificationCode
 from app.models.file import File
@@ -482,8 +482,9 @@ def format_report(report: Report) -> str:
     upcoming = f"next {BOUNDARY_DAYS}d"
     lines = [
         heading,
-        f"  rows lapsed before   {report.cutoff.isoformat()}Z  (retain {report.retain_days} days)",
-        f"  storage older than   {report.storage_cutoff.isoformat()}Z"
+        f"  rows lapsed before   {site_stamp(report.cutoff, seconds=True)}"
+        f"  (retain {report.retain_days} days)",
+        f"  storage older than   {site_stamp(report.storage_cutoff, seconds=True)}"
         f"  (grace {report.storage_grace_minutes} minutes)",
         "",
         f"  {'eligible':>8}  {'crossed':>8}  {'crosses':>8}",

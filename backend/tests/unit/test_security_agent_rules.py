@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 
+from app.core.time import site_stamp
 from app.services.security_agent_rules import (
     RULES,
     AgentInputs,
@@ -145,8 +146,8 @@ def test_a_modified_file_is_critical_and_names_the_backup_window() -> None:
         in finding.recommended_action
     )
     assert "certainly hold the original" in finding.recommended_action
-    assert "2026-09-30 12:00 UTC" in finding.recommended_action  # last intact check
-    assert "2026-10-02 09:00 UTC" in finding.recommended_action  # damage first seen
+    assert "2026-09-30 20:00 MYT" in finding.recommended_action  # last intact check
+    assert "2026-10-02 17:00 MYT" in finding.recommended_action  # damage first seen
     assert next(o for o in outcomes if o.info.rule_id == "INTEGRITY_DAMAGE").findings == 1
 
 
@@ -586,9 +587,7 @@ def test_a_run_of_failures_that_keeps_growing_while_accounts_sign_in_is_still_on
     assert "59 failed sign-ins between" in text and "the last of these sign-ins" in text
     assert "59 from the address that then signed in" in text
     assert "29 other accounts signed in from the same address" in text
-    assert (
-        f"Sign-ins between {(start + timedelta(seconds=30)).strftime('%Y-%m-%d %H:%M UTC')}" in text
-    )
+    assert f"Sign-ins between {site_stamp(start + timedelta(seconds=30))}" in text
 
 
 def test_the_inactive_note_never_lands_on_an_address_finding() -> None:
@@ -715,3 +714,9 @@ def test_an_account_guessed_directly_keeps_its_own_finding_even_from_the_stuffin
     assert mine.priority == Priority.HIGH
     assert "5 against this account" in " ".join(mine.evidence)
     assert "disable the account on the Users tab" in mine.recommended_action
+
+
+def test_times_in_findings_are_kuala_lumpur_time() -> None:
+    # Stored and compared in UTC; written for a person in MYT, naive values read as UTC.
+    assert site_stamp(datetime(2026, 10, 12, 18, 19, tzinfo=UTC)) == "2026-10-13 02:19 MYT"
+    assert site_stamp(datetime(2026, 10, 12, 18, 19)) == "2026-10-13 02:19 MYT"

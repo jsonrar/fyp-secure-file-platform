@@ -6,6 +6,7 @@ import type { AdminIntegrityReport } from '@/api/admin_api'
 import { apiErrorMessage } from '@/api/http'
 import { unwrapData } from '@/api/types'
 import { findingText, restoreCommand, scanSummary } from '@/utils/integrity-report'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 /**
  * Is the stored ciphertext still what was uploaded? Every stored object is compared with the
@@ -47,7 +48,7 @@ async function scanNow() {
 
 onMounted(() => void load())
 
-const asOf = (value: string | null) => (value ? new Date(value).toLocaleString() : '')
+const asOf = (value: string | null) => (value ? formatSiteDateTime(value) : '')
 const coverage = computed(() => report.value?.coverage ?? null)
 </script>
 

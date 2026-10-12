@@ -29,6 +29,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from enum import StrEnum
 
+from app.core.time import site_stamp
+
 
 class Priority(StrEnum):
     CRITICAL = "CRITICAL"
@@ -149,7 +151,7 @@ def max_in_span(times: Sequence[datetime], span: timedelta) -> tuple[int, dateti
 
 
 def _stamp(value: datetime) -> str:
-    return value.strftime("%Y-%m-%d %H:%M UTC")
+    return site_stamp(value)
 
 
 def _plural(count: int, noun: str) -> str:
@@ -175,7 +177,8 @@ def _group(
 def backup_window_advice(file: DamagedFile) -> str:
     """Which backup sets can hold the original, from when the file was last known good.
 
-    A backup set is named by the UTC time it was taken. The object was intact when it was last
+    A backup set is named by the UTC time it was taken, while every time here is Kuala Lumpur
+    time (MYT, UTC+8), so the advice says so. The object was intact when it was last
     checked VALID, so sets taken up to then certainly hold the original; sets taken up to when
     the damage was first seen probably do; later sets may already hold the damaged bytes, and
     `restore_file.py` refuses any set whose copy does not match the recorded SHA-256.
@@ -199,7 +202,10 @@ def backup_window_advice(file: DamagedFile) -> str:
     else:
         end = " A set taken after the damage began may already hold the damaged bytes."
     return (
-        start + end + " restore_file.py checks the SHA-256 and refuses a set that does not match. "
+        start
+        + end
+        + " Backup set names are in UTC, 8 hours behind MYT."
+        + " restore_file.py checks the SHA-256 and refuses a set that does not match. "
         "If the file was uploaded after the newest nightly backup, no set holds it yet."
     )
 

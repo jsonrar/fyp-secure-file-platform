@@ -15,6 +15,7 @@ import PageHeader from '@/components/securfile/PageHeader.vue'
 import DeleteAccountDialog from '@/components/DeleteAccountDialog.vue'
 import { apiErrorMessage } from '@/api/http'
 import { useAuthStore } from '@/stores/auth_store'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 const router = useRouter()
 const auth = useAuthStore()
@@ -28,8 +29,7 @@ const avatarMessage = ref('')
 /** Same locale rendering the file list and audit log use, so timestamps read alike. */
 function formatTimestamp(value: string | null | undefined): string {
   if (!value) return 'Never'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+  return formatSiteDateTime(value)
 }
 
 const details = computed(() => {
