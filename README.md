@@ -156,7 +156,9 @@ macro-capable file. See [docs/THREAT_MODEL.md](docs/THREAT_MODEL.md) §11.3.
 (0 FAIL, 8 WARN, 59 PASS); the missing security headers it reported on the static bundle are fixed in
 nginx. `pip-audit` and `npm audit` found nothing in production dependencies; six advisories in a
 test-only HTTP client were fixed by upgrading it. Report and raw output:
-[docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.md).
+[docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.md). Re-run on 2026-10-12 against
+release `1eb56d8`: 0 FAIL, 5 WARN, 62 PASS, the same five accepted or informational notes as after the fix
+([docs/security/scans-2026-10-12/](docs/security/scans-2026-10-12/README.md)).
 
 What to say in the final presentation, with the evidence for each point, is in
 [docs/presentation/TALKING_POINTS.md](docs/presentation/TALKING_POINTS.md); what is still missing

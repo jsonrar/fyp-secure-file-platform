@@ -108,7 +108,7 @@ nginx 限制每个地址同时最多 50 个上传（整个会场的网络到服�
 
 **第三方扫描（2026-10-04）：** 用 OWASP ZAP 对 staging 做基线扫描，没有高风险问题（0 FAIL、8 WARN、59 PASS）；它指出的静态代码包
 缺少安全响应头的问题已在 nginx 里修复。`pip-audit` 和 `npm audit` 在生产依赖里没有发现问题；仅测试用的 HTTP 客户端有 6 条公告，
-已通过升级修复。报告和原始输出见 [docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.zh-CN.md)。
+已通过升级修复。报告和原始输出见 [docs/security/scans-2026-10-04/](docs/security/scans-2026-10-04/README.zh-CN.md)。2026-10-12 对版本 `1eb56d8` 又扫了一次：0 FAIL、5 WARN、62 PASS，五条和修复后一样，都是已接受或仅供参考的提示（[docs/security/scans-2026-10-12/](docs/security/scans-2026-10-12/README.zh-CN.md)）。
 
 Final Presentation 要讲什么、每一点的证据在哪，见
 [docs/presentation/TALKING_POINTS.zh-CN.md](docs/presentation/TALKING_POINTS.zh-CN.md)；目前还有哪些不足、按优先级该怎么改，见
