@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Recovery request on a changed file: a clear answer instead of "not found" / 对被改动文件申请恢复：给出明确回答，不再说“未找到”
+
+- The tamper demo: after the stored copy of `quarterly-results.txt` was changed, the recipient saw the Modified status and the refused download as designed, then pressed Request recovery and got "The requested file was not found". The integrity sweep sets a changed file's status to CORRUPTED, and `RecoveryService.create_request` treated anything but ACTIVE as missing. A recovery request re-seals the file key to the requester's account key; it cannot repair content, which is the administrator's restore from backup. The server now answers a 409 that says so, after the grant check, so someone without access still sees "not found". On My Files the Request recovery item is disabled for a Modified file, with one line under it saying an administrator restores it from backup. `docs/BACKUP_AND_RECOVERY.md` section 9 says the same.
+- 篡改演示：`quarterly-results.txt` 在服务器上的副本被改一个字之后，接收方按设计看到了 Modified 状态和被拒绝的下载，接着点“申请恢复”，得到的却是“未找到所请求的文件”。完整性扫描会把被改动文件的状态设为 CORRUPTED，而 `RecoveryService.create_request` 把非 ACTIVE 的文件一律当作不存在。恢复申请做的是把文件密钥重新封装到申请人的账户密钥上，修不了内容，内容靠管理员从备份恢复。现在服务器在校验过授权之后返回 409 并把这件事说清楚，没有权限的人看到的仍是“未找到”。“我的文件”里，Modified 的文件上“申请恢复”变为禁用，下面一行说明由管理员从备份恢复。`docs/BACKUP_AND_RECOVERY.md` 第 9 节也补了这一段。
+
 ### OWASP ZAP baseline scan repeated for presentation week / 答辩周重跑 OWASP ZAP 基线扫描
 
 - The home page's "0 FAIL in an OWASP ZAP scan" rested on the 2026-10-04 scan, eight days and 45 merged pull requests before the final presentation. The same passive baseline was run again on 2026-10-12 against release `1eb56d8`: 0 FAIL, 5 WARN, 62 PASS, the same five accepted or informational notes as after the nginx fix, so the claim stands on a current scan. Raw output is in `docs/security/scans-2026-10-12/`; README, the traceability table, the reflection and the talking points point at it.

@@ -314,6 +314,12 @@ chain when the file was uploaded (`FILE_UPLOADED.metadata.ciphertext_sha256`), n
 that column as well. Files uploaded before this was recorded have no audit digest and fall back
 to the column.
 
+**The "Request recovery" button on My Files is not this.** A recovery request asks a recovery
+officer to re-seal the file *key* to the requester's current account key (a lost passphrase, a
+replaced key). It cannot put changed bytes back, so on a file the integrity check has flagged the
+button is off and the dialog, if reached, answers that an administrator restores the file from
+backup. Until PR #226 the server answered "not found" there, which read as if the file had vanished.
+
 ### Finding it
 
 | Where | What it does |

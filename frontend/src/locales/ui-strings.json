@@ -1651,6 +1651,7 @@
   "This file failed authentication: its ciphertext or the details it was encrypted under have changed since upload.",
   "This file is wrapped to account key {0}, which is not unlocked",
   "This file was encrypted under an earlier account key (",
+  "This file's stored copy was changed. An administrator restores it from backup; Request recovery only re-seals a key.",
   "This is a picture guide. Start in Upload when you’re ready.",
   "This is a PKCS#1 private key. SecureView issues PKCS#8 keys, which begin with \"BEGIN PRIVATE KEY\".",
   "This permanently removes the encrypted file from SecureView and revokes every share. Recipients lose access immediately. It cannot be undone from this app.",
