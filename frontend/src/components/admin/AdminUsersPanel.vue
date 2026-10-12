@@ -8,6 +8,7 @@ import { unwrapData } from '@/api/types'
 import { useAuthStore } from '@/stores/auth_store'
 import { matchesSearch, statusBadgeClass } from '@/utils/admin-lists'
 import AdminUserDialog from '@/components/admin/AdminUserDialog.vue'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 const auth = useAuthStore()
 const users = ref<AdminUserOut[]>([])
@@ -41,8 +42,7 @@ const visibleUsers = computed(() =>
 
 function formatTimestamp(value: string | null): string {
   if (!value) return 'Never'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+  return formatSiteDateTime(value)
 }
 
 const isSelf = (user: AdminUserOut) => user.user_id === auth.user?.id

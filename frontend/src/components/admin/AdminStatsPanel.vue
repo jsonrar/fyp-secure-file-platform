@@ -8,6 +8,7 @@ import { formatFileSize, unwrapData } from '@/api/types'
 import { auditActionLabel } from '@/utils/audit-actions'
 import { algorithmMix, attentionItems } from '@/utils/admin-stats'
 import type { AdminTabId } from '@/utils/admin-tabs'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 const emit = defineEmits<{ (e: 'navigate', tab: AdminTabId): void }>()
 
@@ -36,7 +37,7 @@ onMounted(() => void load())
 
 const attention = computed(() => (stats.value ? attentionItems(stats.value) : []))
 const mix = computed(() => (stats.value ? algorithmMix(stats.value.files.by_algorithm) : []))
-const asOf = computed(() => (stats.value ? new Date(stats.value.generated_at).toLocaleString() : ''))
+const asOf = computed(() => (stats.value ? formatSiteDateTime(stats.value.generated_at) : ''))
 const number = (value: number) => value.toLocaleString('en-US')
 </script>
 
@@ -148,7 +149,7 @@ const number = (value: number) => value.toLocaleString('en-US')
           <ul v-if="stats.audit.recent_failures.length" class="mt-1 divide-y divide-border text-sm" data-testid="admin-recent-failures">
             <li v-for="(event, index) in stats.audit.recent_failures" :key="index" class="flex flex-wrap items-baseline justify-between gap-x-3 py-1.5">
               <span class="text-foreground">{{ auditActionLabel(event.action) }}<span v-if="event.actor_username" translate="no" class="text-muted-foreground"> · {{ event.actor_username }}</span></span>
-              <span class="text-xs text-muted-foreground">{{ new Date(event.created_at).toLocaleString() }}</span>
+              <span class="text-xs text-muted-foreground">{{ formatSiteDateTime(event.created_at) }}</span>
             </li>
           </ul>
           <p v-else class="mt-1 text-sm text-muted-foreground">None recorded.</p>

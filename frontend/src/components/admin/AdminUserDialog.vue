@@ -5,6 +5,7 @@ import { Check, Copy, KeyRound, Loader2, ShieldAlert, UserRound, X } from 'lucid
 import { adminApi, type AdminPasswordReset, type AdminUserDetail } from '@/api/admin_api'
 import { apiErrorMessage } from '@/api/http'
 import { formatFileSize, unwrapData } from '@/api/types'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 /**
  * One account, for an administrator: who it is, what it holds, and a login-password reset.
@@ -33,8 +34,7 @@ const canReset = computed(
 
 function formatTimestamp(value: string | null | undefined): string {
   if (!value) return 'Never'
-  const parsed = new Date(value)
-  return Number.isNaN(parsed.getTime()) ? value : parsed.toLocaleString()
+  return formatSiteDateTime(value)
 }
 
 const roleLabel = (role: string) => (role === 'ADMIN' ? 'Admin' : role === 'RECOVERY_OFFICER' ? 'Recovery officer' : 'User')

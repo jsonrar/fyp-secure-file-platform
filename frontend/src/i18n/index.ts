@@ -2,6 +2,7 @@ import { computed } from 'vue'
 import { createI18n } from 'vue-i18n'
 import en from '@/locales/en.json'
 import { startDomTranslation, stopDomTranslation } from './dom-translate'
+import { SITE_TIME_ZONE } from '@/utils/site-time'
 
 /**
  * Interface language: English and Simplified Chinese (Issue #74).
@@ -146,15 +147,18 @@ export const t = i18n.global.t
 
 export const currentLocale = computed<LocaleCode>(() => i18n.global.locale.value)
 
-/** Dates and times in the interface language; the value itself is never altered. */
+/**
+ * Dates and times in the interface language, always in Kuala Lumpur time (`utils/site-time`);
+ * the value itself is never altered.
+ */
 export function formatDateTime(value: string | number | Date, options?: Intl.DateTimeFormatOptions) {
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleString(currentLocale.value, options)
+  return date.toLocaleString(currentLocale.value, { timeZone: SITE_TIME_ZONE, ...options })
 }
 
 export function formatDate(value: string | number | Date, options?: Intl.DateTimeFormatOptions) {
   const date = value instanceof Date ? value : new Date(value)
   if (Number.isNaN(date.getTime())) return String(value)
-  return date.toLocaleDateString(currentLocale.value, options)
+  return date.toLocaleDateString(currentLocale.value, { timeZone: SITE_TIME_ZONE, ...options })
 }

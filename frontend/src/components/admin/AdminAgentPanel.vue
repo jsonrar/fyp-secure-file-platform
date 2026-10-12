@@ -6,6 +6,7 @@ import type { AgentReport } from '@/api/admin_api'
 import { apiErrorMessage } from '@/api/http'
 import { unwrapData } from '@/api/types'
 import { coverageLine, headline, priorityStyle, WINDOWS } from '@/utils/agent-report'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 /**
  * The security agent: it reads what the platform already records -- the audit log, the
@@ -34,7 +35,7 @@ async function run() {
 onMounted(() => void run())
 watch(windowHours, () => void run())
 
-const asOf = (value: string) => new Date(value).toLocaleString()
+const asOf = (value: string) => formatSiteDateTime(value)
 </script>
 
 <template>

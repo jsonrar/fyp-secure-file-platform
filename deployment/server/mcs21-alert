@@ -21,6 +21,9 @@ set -Eeuo pipefail
 
 PATH=/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 umask 077
+# Times in the mail (the Time: line and systemctl's timestamps) are Kuala Lumpur time, like the
+# site, whatever zone the host is set to.
+export TZ=Asia/Kuala_Lumpur
 
 backend_env=/etc/fyp-secure-file-platform/backend.env
 alert_env=/etc/fyp-secure-file-platform/alert.env
@@ -74,7 +77,7 @@ printf 'Authorization: Bearer %s\n' "$api_key" >"$work/headers"
 unset api_key
 
 host="$(hostname -f 2>/dev/null || hostname)"
-now="$(date '+%Y-%m-%d %H:%M:%S %Z')"
+now="$(date '+%Y-%m-%d %H:%M:%S MYT (UTC+8)')"
 if [[ "$unit" == test ]]; then
     subject="[MCS21] Test alert from $host"
     printf 'This is a test of mcs21-alert@.service. No unit failed.\n' >"$work/status"

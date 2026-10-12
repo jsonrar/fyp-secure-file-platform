@@ -29,6 +29,7 @@ import {
   onRelock,
   saveDecryptedFile,
 } from '@/crypto/download'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 interface EncryptedFile {
   id: string
@@ -142,7 +143,7 @@ const mapFile = (file: FileSummaryOut): EncryptedFile => ({
   encryptedSize: formatFileSize(file.ciphertext_size),
   originalBytes: file.plaintext_size,
   encryptedBytes: file.ciphertext_size,
-  encryptedAt: new Date(file.created_at).toLocaleString(),
+  encryptedAt: formatSiteDateTime(file.created_at),
   // `files.status` is ACTIVE/CORRUPTED/DELETED, not the integrity vocabulary. Sending it
   // through mapFileStatus put every row on the fallback branch, so a damaged file looked
   // exactly like a healthy one.

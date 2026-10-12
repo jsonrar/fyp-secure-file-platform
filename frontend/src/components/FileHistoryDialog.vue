@@ -6,6 +6,7 @@ import { auditApi } from '@/api/audit_api'
 import { apiErrorMessage } from '@/api/http'
 import { formatFileSize, unwrapData, type AuditLogOut } from '@/api/types'
 import { auditActionLabel, auditActorLabel, isDownloadAction } from '@/utils/audit-actions'
+import { formatSiteDateTime } from '@/utils/site-time'
 
 const props = defineProps<{
   fileId: string
@@ -59,7 +60,7 @@ onMounted(async () => {
       action: auditActionLabel(log.action),
       detail: detailOf(log),
       summary: ` · ${auditActionLabel(log.action)}${detailOf(log) ? ` ${detailOf(log)}` : ''}`,
-      at: new Date(log.created_at).toLocaleString(),
+      at: formatSiteDateTime(log.created_at),
       succeeded: log.result === 'SUCCESS',
       isDownload: isDownloadAction(log.action),
     }))
