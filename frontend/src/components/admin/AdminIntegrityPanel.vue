@@ -153,15 +153,19 @@ const coverage = computed(() => report.value?.coverage ?? null)
           <details class="mt-3 text-sm">
             <summary class="cursor-pointer text-primary">How to put the original back</summary>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground">
-              <li>Get the offline backup private key and the latest backup set from the key custodian.</li>
-              <li>On the server, run this first to see what would be restored. It changes nothing:</li>
+              <li>On the server, paste this as it is. It reads the newest nightly backup that still holds the original and changes nothing:</li>
             </ol>
             <code class="mt-2 block overflow-x-auto rounded-md bg-secondary px-3 py-2 text-xs text-foreground">{{ restoreCommand(file.file_id) }}</code>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-muted-foreground" start="2">
+              <li>If it reports <code>dry_run_would_restore</code>, run it again with <code>--apply</code>:</li>
+            </ol>
+            <code class="mt-2 block overflow-x-auto rounded-md bg-secondary px-3 py-2 text-xs text-foreground">{{ restoreCommand(file.file_id, true) }}</code>
             <p class="mt-2 text-muted-foreground">
-              If it names the right backup set, run it again with <code>--apply</code>. The damaged
-              bytes are kept in quarantine, the original is put back, the file is re-verified and
-              the restore is written to the audit chain. A file uploaded after the last nightly
-              backup is not in any backup and cannot be restored this way.
+              The damaged bytes are kept in quarantine, the original is put back, the file is
+              re-verified and the restore is written to the audit chain. A file uploaded after the
+              last nightly backup is not in any backup yet. If the server's own backups are gone or
+              suspect, add <code>--backup-set</code> and <code>--private-key</code> for an encrypted
+              off-site set; the key custodian brings the key.
             </p>
           </details>
         </li>

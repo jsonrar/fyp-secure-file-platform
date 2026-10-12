@@ -26,12 +26,17 @@ describe('findingText', () => {
 })
 
 describe('restoreCommand', () => {
-  it('names the file and leaves the backup set and key for the custodian to supply', () => {
+  it('is a command that runs as pasted: no placeholders, the nightly backup by default', () => {
     const command = restoreCommand('11111111-1111-4111-8111-111111111111')
 
-    expect(command).toContain('scripts/restore_file.py --file-id 11111111-1111-4111-8111-111111111111')
-    expect(command).toContain('<backup set directory>')
-    expect(command).not.toContain('--apply')
+    expect(command).toBe(
+      'cd /opt/mcs21/current/backend && sudo .venv/bin/python scripts/restore_file.py --file-id 11111111-1111-4111-8111-111111111111',
+    )
+    expect(command).not.toContain('<')
+  })
+
+  it('adds --apply for the second run', () => {
+    expect(restoreCommand('11111111-1111-4111-8111-111111111111', true)).toMatch(/ --apply$/)
   })
 })
 

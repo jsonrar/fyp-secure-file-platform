@@ -287,16 +287,29 @@ sudo systemctl daemon-reload && sudo systemctl enable --now mcs21-integrity-swee
 
 ### 把原件放回去
 
-`backend/scripts/restore_file.py`，在服务器上以服务账户运行，**离线备份私钥**由保管人在恢复期间带来：
+`backend/scripts/restore_file.py`，在服务器上运行。Admin → Integrity 会针对受损文件显示这两条命令，原样粘贴即可：
 
 ```bash
 cd /opt/mcs21/current/backend
+sudo .venv/bin/python scripts/restore_file.py --file-id <文件 uuid>            # 演练（不写入）
+sudo .venv/bin/python scripts/restore_file.py --file-id <文件 uuid> --apply    # 写入
+```
+
+不带 `--backup-set` 时，脚本使用 `mcs21-backup` 写在 `/var/backups/mcs21-daily` 的**同机每夜备份**（对象存储的明文 tar，
+只有 root 可读，保留 14 天）：从最新的归档开始，每份先对照自己的 `.sha256` 清单，再从中读出这一个对象与记录的摘要比对，
+已经含有受损字节的归档会被跳过、改用更早的一份。这条路不需要密钥。以 root 运行时它会自己加载
+`/etc/fyp-secure-file-platform/backend.env`，并把恢复后的对象、隔离副本和隔离目录交还给服务账户。在 staging VPS 上，
+对 780 MB 的归档做一次演练约 1.5 秒。
+
+如果服务器磁盘已丢失，或每夜备份本身也不可信，则退回**加密的异地备份集**，**离线备份私钥**由保管人在恢复期间带来：
+
+```bash
 .venv/bin/python scripts/restore_file.py --file-id <文件 uuid> \
     --backup-set /path/to/<manifest-id> --private-key /path/to/backup_priv.pem          # 演练（不写入）
 .venv/bin/python scripts/restore_file.py ... --apply                                      # 写入
 ```
 
-第一条命令不改变任何东西，只报告将使用哪个备份集。加上 `--apply` 后依次：
+第一条命令不改变任何东西，只报告将使用哪份备份。加上 `--apply` 后依次：
 
 1. 除非该集的各 artifact 与 `index.json` 一致、能在此密钥和此集的 manifest id 下解密并认证、归档与 manifest
    一致，否则拒绝；
@@ -308,7 +321,7 @@ cd /opt/mcs21/current/backend
 6. 用当初判定它受损的同一规则重新验证，这会记录一条 `VALID` 检查并把状态恢复为 `ACTIVE`，同时把
    `FILE_RESTORED_FROM_BACKUP` 写入审计链。
 
-私钥不会长期放在服务器上，也没有网页按钮：管理员页面显示哪些文件受损以及要运行的命令，决定权留给持有密钥的人。
+异地备份的私钥不会长期放在服务器上，也没有网页按钮：管理员页面显示哪些文件受损以及要运行的命令，决定权留给有 root 权限的人。
 
 ### 明确的限制
 

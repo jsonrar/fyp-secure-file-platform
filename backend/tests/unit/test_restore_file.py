@@ -10,9 +10,10 @@ import hashlib
 import importlib.util
 import io
 import json
+import os
 import sys
 import tarfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 from cryptography.hazmat.primitives.asymmetric import rsa
@@ -223,3 +224,140 @@ def test_an_archive_whose_member_is_not_the_manifest_digest_is_refused(tmp_path,
 
     with pytest.raises(restore_file.RestoreRefused, match="does not match the recorded SHA-256"):
         _locate(set_dir, private, tmp_path)
+
+
+# --- the nightly same-host backup, which needs no key ---------------------------------------
+
+
+def _nightly(directory: Path, stamp: str, members: dict[str, bytes], *, manifest: bool = True):
+    """Write mcs21-files-<stamp>.tar.gz the way deployment/server/mcs21-backup does."""
+    import gzip
+    import io
+
+    archive = directory / f"mcs21-files-{stamp}.tar.gz"
+    raw = io.BytesIO()
+    with tarfile.open(fileobj=raw, mode="w") as tar:
+        for name, data in members.items():
+            info = tarfile.TarInfo(name=f"./encrypted/{name}")
+            info.size = len(data)
+            tar.addfile(info, io.BytesIO(data))
+    archive.write_bytes(gzip.compress(raw.getvalue()))
+    if manifest:
+        (directory / f"mcs21-{stamp}.sha256").write_text(
+            f"{_sha(b'dump')}  {directory}/mcs21-db-{stamp}.sql.gz\n"
+            f"{_sha(archive.read_bytes())}  {archive}\n"
+        )
+    return archive
+
+
+def _daily(restore_file, directory: Path, tmp_path: Path, data: bytes, **overrides):
+    work = tmp_path / "work-daily"
+    work.mkdir(exist_ok=True)
+    values = dict(
+        object_key="11111111-1111-4111-8111-111111111111/obj.ciphertext",
+        data_relative_dir=PurePosixPath("encrypted"),
+        trusted_sha256=_sha(data),
+        expected_size=len(data),
+        work=work,
+    )
+    values.update(overrides)
+    return restore_file.locate_in_daily_backups(directory, **values)
+
+
+def test_the_newest_nightly_archive_that_holds_the_original_is_used(tmp_path) -> None:
+    restore_file = _load("restore_file")
+    original = b"the original ciphertext"
+    key = "11111111-1111-4111-8111-111111111111/obj.ciphertext"
+    daily = tmp_path / "daily"
+    daily.mkdir()
+    _nightly(daily, "20261010T201600Z", {key: original})
+    _nightly(daily, "20261011T201600Z", {key: original})
+
+    located = _daily(restore_file, daily, tmp_path, original)
+
+    assert located.manifest_id == "mcs21-files-20261011T201600Z.tar.gz"
+    assert located.path.read_bytes() == original and located.size_bytes == len(original)
+
+
+def test_an_archive_taken_after_the_tampering_is_skipped_for_an_older_good_one(tmp_path) -> None:
+    restore_file = _load("restore_file")
+    original, damaged = b"the original ciphertext", b"the original ciphertexT"
+    key = "11111111-1111-4111-8111-111111111111/obj.ciphertext"
+    daily = tmp_path / "daily"
+    daily.mkdir()
+    _nightly(daily, "20261010T201600Z", {key: original})
+    _nightly(daily, "20261011T201600Z", {key: damaged})  # taken after the byte flip
+
+    located = _daily(restore_file, daily, tmp_path, original)
+
+    assert located.manifest_id == "mcs21-files-20261010T201600Z.tar.gz"
+    assert located.path.read_bytes() == original
+
+
+def test_an_archive_that_fails_its_own_checksum_manifest_is_not_trusted(tmp_path) -> None:
+    restore_file = _load("restore_file")
+    original = b"the original ciphertext"
+    key = "11111111-1111-4111-8111-111111111111/obj.ciphertext"
+    daily = tmp_path / "daily"
+    daily.mkdir()
+    _nightly(daily, "20261010T201600Z", {key: original})
+    newer = _nightly(daily, "20261011T201600Z", {key: original})
+    newer.write_bytes(newer.read_bytes() + b"\x00")  # the archive changed after the manifest
+
+    located = _daily(restore_file, daily, tmp_path, original)
+
+    assert located.manifest_id == "mcs21-files-20261010T201600Z.tar.gz"
+
+
+def test_no_archive_with_the_original_is_refused_and_names_each_one(tmp_path) -> None:
+    restore_file = _load("restore_file")
+    original = b"the original ciphertext"
+    key = "11111111-1111-4111-8111-111111111111/obj.ciphertext"
+    daily = tmp_path / "daily"
+    daily.mkdir()
+    _nightly(daily, "20261010T201600Z", {"other/obj.ciphertext": original})
+    _nightly(daily, "20261011T201600Z", {key: b"different"})
+
+    with pytest.raises(restore_file.RestoreRefused) as refused:
+        _daily(restore_file, daily, tmp_path, original)
+
+    text = str(refused.value)
+    assert "20261011T201600Z.tar.gz: holds different bytes" in text
+    assert "20261010T201600Z.tar.gz: does not hold the object" in text
+    assert "--backup-set" in text
+
+
+def test_an_empty_nightly_directory_points_at_the_encrypted_set_flags(tmp_path) -> None:
+    restore_file = _load("restore_file")
+    empty = tmp_path / "daily"
+    empty.mkdir()
+
+    with pytest.raises(restore_file.RestoreRefused, match="no nightly backup archives"):
+        _daily(restore_file, empty, tmp_path, b"x")
+
+
+def test_the_deployment_env_is_loaded_only_when_nothing_set_it(tmp_path, monkeypatch) -> None:
+    restore_file = _load("restore_file")
+    env = tmp_path / "backend.env"
+    env.write_text('DB_HOST=127.0.0.1\nDB_PASSWORD="quoted value"\n# comment\nSECRET_KEY=abc\n')
+    for name in ("DB_HOST", "DB_PASSWORD", "SECRET_KEY"):
+        monkeypatch.delenv(name, raising=False)
+    monkeypatch.setenv("SECRET_KEY", "already-set")
+
+    assert restore_file.load_deployment_env(env) is True
+    assert os.environ["DB_HOST"] == "127.0.0.1"
+    assert os.environ["DB_PASSWORD"] == "quoted value"
+    assert os.environ["SECRET_KEY"] == "already-set"  # setdefault: never overwrites
+    assert restore_file.load_deployment_env(env) is False  # DB_HOST is set now
+
+
+def test_the_backup_set_and_private_key_flags_go_together(capsys) -> None:
+    restore_file = _load("restore_file")
+    file_id = "11111111-1111-4111-8111-111111111111"
+
+    args = restore_file.parse_args(["--file-id", file_id])
+    assert args.backup_set is None and args.private_key is None and not args.apply
+
+    with pytest.raises(SystemExit):
+        restore_file.parse_args(["--file-id", file_id, "--backup-set", "/x"])
+    assert "go together" in capsys.readouterr().err

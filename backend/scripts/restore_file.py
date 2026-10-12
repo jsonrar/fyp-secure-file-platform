@@ -25,13 +25,29 @@ file is re-verified by the same rule that condemned it, and `FILE_RESTORED_FROM_
 into the audit chain. The backup private key stays with its custodian and is only brought to
 the machine for the duration of the restore, exactly as for `restore_drill.py`.
 
-Run from `backend/` with the deployment environment loaded, as the service account:
+Two sources, tried in this order of convenience:
 
+* **The same-host nightly backup** (`/var/backups/mcs21-daily`, written by `mcs21-backup` and
+  kept 14 days), when no `--backup-set` is given. The newest `mcs21-files-<stamp>.tar.gz` is
+  checked against its `.sha256` manifest, the one object is read out of it and compared with the
+  recorded digest; a set that holds the damaged bytes (taken after the tampering) is skipped and
+  the next older one tried. No key is needed: that backup is plaintext ciphertext on the same
+  disk, protected only by root. This is the command the Admin Integrity tab shows, and it runs
+  as pasted.
+* **An encrypted off-site set** (`--backup-set <dir> --private-key <pem>`), for a server whose
+  disk is gone or whose nightly copies are also suspect. The custodian brings the private key
+  for the duration of the restore, exactly as for `restore_drill.py`.
+
+Run on the server from `backend/`. As root, it loads `/etc/fyp-secure-file-platform/backend.env`
+itself and gives the restored object back to the service account, so the Integrity tab's command
+needs no `systemd-run`:
+
+    sudo .venv/bin/python scripts/restore_file.py --file-id <uuid>            # report only
+    sudo .venv/bin/python scripts/restore_file.py --file-id <uuid> --apply    # write
     .venv/bin/python scripts/restore_file.py --file-id <uuid> \\
         --backup-set /mnt/offsite/20260924T091500Z-3f9c2a1b --private-key /media/custodian/backup_priv.pem
-    ... the same, with --apply, once the dry-run report names the right set
 
-The backup archive is one authenticated stream, so the whole `objects.tar.enc` is decrypted to
+The encrypted archive is one authenticated stream, so the whole `objects.tar.enc` is decrypted to
 check it before the one object is taken out; that costs the same as a restore of the objects.
 """
 
@@ -75,6 +91,130 @@ class LocatedObject:
     sha256: str
     size_bytes: int
     manifest_id: str
+
+
+# Written by deployment/server/mcs21-backup: mcs21-files-<stamp>.tar.gz is `tar -C <data dir> .`
+# and mcs21-<stamp>.sha256 is `sha256sum` over the dump and the tar. Overridable for tests and
+# for a server that keeps them elsewhere.
+DAILY_BACKUP_DIR = Path(os.getenv("MCS21_DAILY_BACKUP_DIR", "/var/backups/mcs21-daily"))
+DEPLOYMENT_ENV_FILE = Path("/etc/fyp-secure-file-platform/backend.env")
+
+
+def load_deployment_env(path: Path = DEPLOYMENT_ENV_FILE) -> bool:
+    """Put the deployment's variables into the environment when nothing set them.
+
+    The service account gets them from systemd's EnvironmentFile=. Root, pasting the command the
+    Integrity tab shows, has nothing, and `Settings` would then fall back to development values
+    and point at the wrong database. Only variables not already set are added, and only when
+    DB_HOST is absent, so a `systemd-run` or an exported environment is left alone.
+    """
+    if os.getenv("DB_HOST") or not path.is_file():
+        return False
+    for raw in path.read_text(encoding="utf-8").splitlines():
+        line = raw.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, value = line.split("=", 1)
+        key = key.strip()
+        value = value.strip()
+        if len(value) >= 2 and value[0] == value[-1] and value[0] in "\"'":
+            value = value[1:-1]
+        os.environ.setdefault(key, value)
+    return True
+
+
+def daily_backup_files(directory: Path) -> list[Path]:
+    """The nightly object archives, newest first."""
+    return sorted(directory.glob("mcs21-files-*.tar.gz"), reverse=True)
+
+
+def _daily_manifest_digest(archive: Path) -> str | None:
+    """The SHA-256 that mcs21-backup recorded for this archive, or None if there is no manifest."""
+    stamp = archive.name[len("mcs21-files-") : -len(".tar.gz")]
+    manifest = archive.with_name(f"mcs21-{stamp}.sha256")
+    if not manifest.is_file():
+        return None
+    for line in manifest.read_text(encoding="utf-8").splitlines():
+        parts = line.split()
+        if len(parts) >= 2 and parts[-1].endswith(archive.name):
+            return parts[0]
+    return None
+
+
+def locate_in_daily_backups(
+    directory: Path,
+    *,
+    object_key: str,
+    data_relative_dir: PurePosixPath,
+    trusted_sha256: str,
+    expected_size: int | None,
+    work: Path,
+) -> LocatedObject:
+    """The verified bytes of `object_key` from the newest nightly archive that holds the original.
+
+    `data_relative_dir` is where the object store sits under the directory the archive was taken
+    from (`encrypted`, for `/var/lib/fyp-secure-file-platform/encrypted`). An archive whose own
+    checksum manifest does not match is skipped as damaged; one that holds other bytes for the
+    object was taken after the tampering and is skipped too; the first match wins.
+    """
+    archives = daily_backup_files(directory)
+    if not archives:
+        raise RestoreRefused(
+            f"no nightly backup archives in {directory}: give --backup-set and --private-key "
+            "for an encrypted off-site set"
+        )
+    member_name = f"./{PurePosixPath(data_relative_dir, object_key)}"
+    skipped: list[str] = []
+    for archive in archives:
+        recorded = _daily_manifest_digest(archive)
+        if recorded is not None and sha256_file(archive) != recorded:
+            skipped.append(f"{archive.name}: does not match its .sha256 manifest")
+            continue
+        candidate = work / f"candidate-{archive.name}.ciphertext"
+        found = False
+        with tarfile.open(archive, mode="r:gz") as tar:
+            for member in tar:
+                if member.name not in (member_name, member_name[2:]):
+                    continue
+                if not member.isfile():
+                    break
+                source = tar.extractfile(member)
+                assert source is not None
+                with candidate.open("xb") as out:
+                    while chunk := source.read(1024 * 1024):
+                        out.write(chunk)
+                found = True
+                break
+        if not found:
+            skipped.append(f"{archive.name}: does not hold the object")
+            continue
+        digest = sha256_file(candidate)
+        size = candidate.stat().st_size
+        if digest != trusted_sha256 or (expected_size is not None and size != expected_size):
+            skipped.append(f"{archive.name}: holds different bytes (taken after the damage?)")
+            candidate.unlink()
+            continue
+        return LocatedObject(
+            path=candidate, sha256=digest, size_bytes=size, manifest_id=archive.name
+        )
+    raise RestoreRefused(
+        "no nightly backup holds the original: " + "; ".join(skipped) + ". If the file was "
+        "uploaded after the newest backup it is in no backup yet; otherwise try an encrypted "
+        "off-site set with --backup-set and --private-key"
+    )
+
+
+def _give_back_to_service_account(paths: list[Path | None], reference: Path) -> None:
+    """Files written by root must end up owned like the object store, or the API cannot read them."""
+    if os.geteuid() != 0:
+        return
+    try:
+        stat = reference.stat()
+    except OSError:
+        return
+    for path in paths:
+        if path is not None and path.exists():
+            os.chown(path, stat.st_uid, stat.st_gid)
 
 
 def _decrypt(set_dir: Path, role: str, destination: Path, key, manifest_id: str) -> None:
@@ -231,17 +371,32 @@ def restore(args: argparse.Namespace) -> int:
         with tempfile.TemporaryDirectory(prefix="fyp-restore-file-") as tmp:
             work = Path(tmp)
             os.chmod(work, 0o700)
-            located = locate_object(
-                Path(args.backup_set),
-                _private_key(Path(args.private_key)),
-                object_key=file_record.storage_object_key,
-                trusted_sha256=trusted,
-                expected_size=None if digest_edited else file_record.encrypted_size_bytes,
-                work=work,
-            )
+            expected_size = None if digest_edited else file_record.encrypted_size_bytes
+            if args.backup_set:
+                located = locate_object(
+                    Path(args.backup_set),
+                    _private_key(Path(args.private_key)),
+                    object_key=file_record.storage_object_key,
+                    trusted_sha256=trusted,
+                    expected_size=expected_size,
+                    work=work,
+                )
+                source = "encrypted_set"
+            else:
+                object_root = settings.ENCRYPTED_FILE_DIR.resolve(strict=False)
+                located = locate_in_daily_backups(
+                    Path(args.daily_dir),
+                    object_key=file_record.storage_object_key,
+                    data_relative_dir=PurePosixPath(object_root.name),
+                    trusted_sha256=trusted,
+                    expected_size=expected_size,
+                    work=work,
+                )
+                source = "nightly_backup"
             report = {
                 "result": "restored" if args.apply else "dry_run_would_restore",
                 "file_id": file_record.file_uuid,
+                "source": source,
                 "manifest_id": located.manifest_id,
                 "ciphertext_sha256": located.sha256,
                 "bytes": located.size_bytes,
@@ -255,6 +410,12 @@ def restore(args: argparse.Namespace) -> int:
 
             kept = storage.replace_object(
                 file_record.storage_object_key, located.path, quarantine_dir=quarantine
+            )
+            object_path = settings.ENCRYPTED_FILE_DIR.resolve(strict=False) / (
+                file_record.storage_object_key
+            )
+            _give_back_to_service_account(
+                [object_path, kept, quarantine], settings.ENCRYPTED_FILE_DIR.resolve(strict=False)
             )
             if digest_edited:
                 file_record.encrypted_sha256 = trusted
@@ -298,18 +459,31 @@ def restore(args: argparse.Namespace) -> int:
 def parse_args(argv: list[str]) -> argparse.Namespace:
     parser = argparse.ArgumentParser(description=__doc__.split("\n", 1)[0])
     parser.add_argument("--file-id", required=True, type=UUID, help="the file's public UUID")
-    parser.add_argument("--backup-set", required=True, help="directory <dest>/<manifest-id>")
-    parser.add_argument("--private-key", required=True, help="PEM backup private key")
+    parser.add_argument(
+        "--backup-set",
+        help="encrypted off-site set, directory <dest>/<manifest-id>; default: the nightly backup",
+    )
+    parser.add_argument("--private-key", help="PEM backup private key, with --backup-set")
+    parser.add_argument(
+        "--daily-dir",
+        default=str(DAILY_BACKUP_DIR),
+        help=f"where mcs21-backup keeps the nightly archives (default {DAILY_BACKUP_DIR})",
+    )
     parser.add_argument(
         "--quarantine-dir", help="where the damaged bytes are kept before replacing them"
     )
     parser.add_argument("--apply", action="store_true", help="write; without it only report")
-    return parser.parse_args(argv)
+    args = parser.parse_args(argv)
+    if bool(args.backup_set) != bool(args.private_key):
+        parser.error("--backup-set and --private-key go together")
+    return args
 
 
 def main(argv: list[str]) -> int:
     try:
-        return restore(parse_args(argv))
+        args = parse_args(argv)
+        load_deployment_env()
+        return restore(args)
     except RestoreRefused as exc:
         print(f"restore_file: REFUSED -- {exc}", file=sys.stderr)
         return 1
