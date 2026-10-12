@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### OWASP ZAP baseline scan repeated for presentation week / 答辩周重跑 OWASP ZAP 基线扫描
+
+- The home page's "0 FAIL in an OWASP ZAP scan" rested on the 2026-10-04 scan, eight days and 45 merged pull requests before the final presentation. The same passive baseline was run again on 2026-10-12 against release `1eb56d8`: 0 FAIL, 5 WARN, 62 PASS, the same five accepted or informational notes as after the nginx fix, so the claim stands on a current scan. Raw output is in `docs/security/scans-2026-10-12/`; README, the traceability table, the reflection and the talking points point at it.
+- 首页的 "0 FAIL in an OWASP ZAP scan" 原来只靠 2026-10-04 那次扫描，离答辩已经过去八天、合并了 45 个 PR。2026-10-12 对版本 `1eb56d8` 又跑了一次同样的被动基线扫描：0 FAIL、5 WARN、62 PASS，五条和修好 nginx 之后的一样，都是已接受或仅供参考的提示，所以这个数字有了当前的依据。原始输出在 `docs/security/scans-2026-10-12/`；README、追溯表、反思和讲稿要点都指向它。
+
 ### Upload: the algorithm picker text is centred / 上传页：算法下拉框文字居中
 
 - On the Upload page the "File contents" picker in the Encryption box had its text stuck to the left edge, which looked off next to everything else in that box. It is centred now. Chrome and Firefox only centre a closed select with `text-align-last`, so it has that as well as `text-center`. We checked WebKit (the engine Safari uses) too and it centres the same way. On a 360 px phone the option name is wider than the box, so it still starts from the left there, and the page still does not scroll sideways. The open list of options and the note card under it are left aligned like before, since centred paragraphs are harder to read.

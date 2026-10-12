@@ -350,7 +350,7 @@ control, because the server never sees the passphrase by design.
 | How would you know something broke? | Monitoring emails an alert; each of the three overloads on test night sent one | 5 |
 | What if someone floods uploads? | Rate limits and email verification already; the quota gap was in the threat model and is now closed (PR #157) | 7 |
 | Could the server redirect a share to itself? | Not silently: the recipient's key fingerprint is computed in the browser, confirmed, and pinned with a warning on change | 9 |
-| Has anyone else checked it? | An OWASP ZAP scan of the live site: no High-risk issue; it caught missing headers on the static bundle, which we fixed. Dependency audits are clean ([scans](../security/scans-2026-10-04/README.md)) | REFLECTION 12 |
+| Has anyone else checked it? | An OWASP ZAP scan of the live site: no High-risk issue; it caught missing headers on the static bundle, which we fixed. Re-run on 2026-10-12 with the same result. Dependency audits are clean ([scans](../security/scans-2026-10-04/README.md), [re-scan](../security/scans-2026-10-12/README.md)) | REFLECTION 12 |
 | Is it easy to use? | Real use by the supervisor, the Teaching Team and other students, and a walkthrough that changed four things; no formal study, so no score (NFR2) | 10 |
 | Can you scan for viruses? | Not on the server under zero-knowledge; sharing scope, a download warning and endpoint antivirus instead | 8 |
 | What if a deploy gets stuck? | The live site keeps running the previous release; a stalled dependency download is cut off and retried, and a failed build rolls back and is quarantined ([PR #196](https://github.com/jsonrar/fyp-secure-file-platform/pull/196)) | — |
