@@ -132,7 +132,7 @@ test('AC4a screenshots: Modified, refused, admin view, restored', async ({ page,
   await row.getByRole('button', { name: 'Download and decrypt' }).click()
   // Registration leaves the key unlocked in this tab, so the passphrase dialog may not appear.
   const unlock = page.getByRole('heading', { name: 'Unlock your files' })
-  const refused = page.getByText('could not be verified')
+  const refused = page.getByText('was changed, so it was not sent')
   await expect(unlock.or(refused).first()).toBeVisible({ timeout: 60_000 })
   if (await unlock.isVisible()) {
     await page.getByRole('textbox', { name: /^Encryption passphrase/ }).fill(alice.passphrase)

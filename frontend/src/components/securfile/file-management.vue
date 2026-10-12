@@ -644,7 +644,10 @@ const handleDownload = async (id: string) => {
       // The server's own check found the stored bytes changed and refused to send them.
       const row = files.value.find((f) => f.id === id)
       if (row) row.status = 'modified'
-      errorMessage.value = apiErrorMessage(error, 'The stored copy of this file has been changed')
+      // The server's sentence ("could not be verified") says what happened, not what to do
+      // next, and the recipient has no button for this: the fix is on the server side.
+      errorMessage.value =
+        'The stored copy of this file was changed, so it was not sent. The daily check alerts the administrator, who restores it from backup; or ask the owner to upload it again.'
       return
     }
     if (!markSharedFileUnavailable(id, error)) {
