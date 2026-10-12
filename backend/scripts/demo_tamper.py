@@ -19,6 +19,9 @@ list    prints the owner's files with their ids, and marks any that are currentl
 Only files owned by an account whose name starts with ``demo-`` are touched, and only when the
 named owner really owns the file. The original bytes and row values are kept under
 ``<ENCRYPTED_FILE_DIR>/../demo-tamper/`` until restore, and a second flip or forge is refused.
+If the file was put back some other way (``scripts/restore_file.py``, the command the Admin
+Integrity tab shows), the kept copy is recognised as stale: ``list`` no longer marks the file and
+the next flip or forge goes ahead.
 """
 
 from __future__ import annotations
@@ -70,6 +73,22 @@ def _flip_one_byte(path: Path) -> bytes:
     return path.read_bytes()
 
 
+def _already_put_back(path: Path, saved_bytes: Path, saved_row: Path, recorded_sha256: str) -> bool:
+    """True when the stored object and its digest are the kept original again.
+
+    That happens when the administrator restored the file from backup with restore_file.py
+    instead of `restore` here. The kept copy then describes nothing and must not block the next
+    rehearsal's flip.
+    """
+    if not saved_bytes.exists() or not saved_row.exists() or not path.exists():
+        return False
+    original = json.loads(saved_row.read_text())
+    return (
+        recorded_sha256 == original["encrypted_sha256"]
+        and path.read_bytes() == saved_bytes.read_bytes()
+    )
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__.split("\n\n")[0])
     parser.add_argument("action", choices=("flip", "forge", "restore", "list"))
@@ -85,15 +104,27 @@ def main() -> int:
     with SessionLocal() as db:
         if args.action == "list":
             files = db.execute(
-                select(File.file_uuid, File.original_filename, File.status)
+                select(
+                    File.file_uuid,
+                    File.original_filename,
+                    File.status,
+                    File.storage_object_key,
+                    File.encrypted_sha256,
+                )
                 .join(User, User.id == File.owner_id)
                 .where(User.username == args.owner, File.deleted_at.is_(None))
                 .order_by(File.created_at.desc())
             ).all()
             if not files:
                 print(f"{args.owner} has no files")
-            for file_uuid, name, status in files:
-                tampered = (_backup_dir() / f"{file_uuid}.orig").exists()
+            for file_uuid, name, status, object_key, recorded_sha256 in files:
+                saved_bytes = _backup_dir() / f"{file_uuid}.orig"
+                tampered = saved_bytes.exists() and not _already_put_back(
+                    _object_path(object_key),
+                    saved_bytes,
+                    _backup_dir() / f"{file_uuid}.json",
+                    recorded_sha256,
+                )
                 print(f"{file_uuid}  {status:<8}  {'TAMPERED  ' if tampered else ''}{name}")
             return 0
 
@@ -113,6 +144,10 @@ def main() -> int:
         saved_row = _backup_dir() / f"{args.file_id}.json"
 
         if args.action in ("flip", "forge"):
+            if _already_put_back(path, saved_bytes, saved_row, record.encrypted_sha256):
+                saved_bytes.unlink()
+                saved_row.unlink()
+                print("The file had already been restored from backup; starting afresh.")
             if saved_bytes.exists():
                 raise SystemExit("Already tampered; run restore first")
             saved_bytes.write_bytes(path.read_bytes())

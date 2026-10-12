@@ -72,6 +72,27 @@ sudo -u fypapp --preserve-env=DB_HOST,DB_PORT,DB_NAME,DB_USER,DB_PASSWORD,DB_SSL
 Then, as `demo-alice`, click the file's **Modified** status badge in My Files once. That re-runs
 the integrity check, and the badge goes back to **Verified**.
 
+## Restoring from backup instead, live
+
+To show recovery as well, put the file back the way an administrator would after a real
+incident, not with `restore`:
+
+1. As the administrator, open Admin → **Integrity** and press **Scan now**. The file is listed as
+   **MODIFIED**.
+2. Open **How to put the original back** under it. Copy the first command, paste it in the
+   server terminal (logged in as root) and press Enter. It changes nothing and ends with
+   `"result": "dry_run_would_restore"`, with the nightly backup it would use as `manifest_id`.
+3. Copy the second command (the same, ending in `--apply`) and paste it. It prints
+   `"result": "restored"` once the original is back and has been re-verified.
+4. Press **Scan now** again. Nothing is listed as damaged.
+
+Both commands run as pasted: they read the server's own nightly backup in
+`/var/backups/mcs21-daily`, which needs no key. `demo_tamper.py` notices that the file was put
+back this way, so `list` no longer marks it and the next `flip` works without a `restore`.
+
+Say: "The damaged copy is kept in quarantine, the original comes from last night's backup, it is
+checked against the fingerprint recorded at upload, and the restore is written to the audit log."
+
 ## Things to know
 
 - The backup is kept in `/var/lib/fyp-secure-file-platform/demo-tamper/` (mode 0600, owned by
