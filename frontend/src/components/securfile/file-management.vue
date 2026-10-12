@@ -1187,12 +1187,21 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
           role="menuitem"
           type="button"
           class="flex min-h-10 w-full items-center gap-2 rounded-md px-3 py-2 text-sm md:min-h-0 text-foreground hover:bg-secondary disabled:opacity-40"
-          :disabled="Boolean(moreMenuFile.accessError)"
+          :disabled="Boolean(moreMenuFile.accessError) || moreMenuFile.status === 'modified'"
           @click="recoveryFileId = moreMenuFile.id; closeMoreMenu()"
         >
           <LifeBuoy class="h-4 w-4 shrink-0" />
           <span>Request recovery</span>
         </button>
+        <!-- A recovery request re-seals the file key to the account key. It cannot put changed
+             bytes back, so for a file the integrity check flagged it is off, with the reason. -->
+        <p
+          v-if="moreMenuFile.status === 'modified'"
+          class="max-w-64 px-3 pb-2 pt-1 text-xs leading-relaxed text-muted-foreground"
+          data-testid="recovery-unavailable-note"
+        >
+          This file's stored copy was changed. An administrator restores it from backup; Request recovery only re-seals a key.
+        </p>
       </div>
     </Teleport>
     <ConfirmActionDialog

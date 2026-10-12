@@ -392,6 +392,48 @@ def test_owner_create_requires_active_download_grant(grant) -> None:
     assert service.db.rollbacks == 1
 
 
+def test_a_changed_file_is_a_clear_conflict_not_a_missing_file() -> None:
+    # The integrity sweep marks a tampered file CORRUPTED. Someone with an active grant who asks
+    # for recovery is told what a recovery request can and cannot do, not "not found".
+    repository = FakeRepository()
+    repository.file = SimpleNamespace(id=20, file_uuid=str(FILE_ID), owner_id=7, status="CORRUPTED")
+    repository.grant = SimpleNamespace(status="ACTIVE", can_download=True)
+    service = _service(repository)
+
+    with pytest.raises(RecoveryStateConflictError) as raised:
+        service.create_request(
+            actor=_actor(),
+            file_id=FILE_ID,
+            reason="Modified",
+            target_key_id=TARGET_KEY_ID,
+            context=CONTEXT,
+        )
+
+    assert "failed its integrity check" in str(raised.value)
+    assert "restores the file from backup" in str(raised.value)
+    assert repository.calls == ["file", "grant"]
+    assert not repository.added_requests
+    assert service.db.rollbacks == 1
+
+
+def test_a_changed_file_still_looks_missing_to_someone_without_a_grant() -> None:
+    repository = FakeRepository()
+    repository.file = SimpleNamespace(
+        id=20, file_uuid=str(FILE_ID), owner_id=999, status="CORRUPTED"
+    )
+    repository.grant = None
+    service = _service(repository)
+
+    with pytest.raises(FileResourceNotFoundError):
+        service.create_request(
+            actor=_actor(),
+            file_id=FILE_ID,
+            reason="Modified",
+            target_key_id=TARGET_KEY_ID,
+            context=CONTEXT,
+        )
+
+
 def test_owner_create_requires_active_user_wrapping() -> None:
     repository = FakeRepository()
     repository.file = SimpleNamespace(id=20, owner_id=7, status="ACTIVE")

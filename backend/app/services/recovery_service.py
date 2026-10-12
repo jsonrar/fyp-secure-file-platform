@@ -204,11 +204,23 @@ class RecoveryService:
         try:
             now = self._now()
             file = self.repository.lock_file(file_id)
-            if file is None or file.status != "ACTIVE":
+            if file is None or file.status == "DELETED":
                 raise FileResourceNotFoundError()
             grant = self.repository.lock_grant(file.id, actor.user_id)
             if grant is None or grant.status != "ACTIVE" or not grant.can_download:
                 raise FileResourceNotFoundError()
+            if file.status != "ACTIVE":
+                # CORRUPTED: the integrity sweep found the stored ciphertext changed. A recovery
+                # request re-seals the file key to the requester's account key; it cannot put
+                # the bytes back, and answering "not found" here sent people looking for a
+                # file they could see in their list. The requester holds an active grant, so
+                # the status is nothing they do not already see on the file.
+                raise RecoveryStateConflictError(
+                    "This file's stored copy failed its integrity check. Request recovery "
+                    "re-seals the file key to your account key and cannot repair changed "
+                    "content; an administrator restores the file from backup, and it then "
+                    "downloads as before."
+                )
             target_key = self.repository.lock_active_target_key(actor.user_id, target_key_id)
             if target_key is None:
                 raise UserKeyNotFoundError()
