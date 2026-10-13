@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Reconcile test no longer flakes on the MYT cutoff lines / 清理脚本的测试不再因 MYT 截止时间行而随机失败
+
+- `test_the_report_prints_counts_and_never_a_name` runs the reconcile report twice and compares everything but the two cutoff lines, which it recognised by the old UTC `...Z  (` stamp. Since #231 those lines read MYT, so they were compared too, and the test failed whenever the second run landed in a different second (the `main` run after #239 did). The filter now drops the two lines by their labels.
+- `test_the_report_prints_counts_and_never_a_name` 把清理脚本的报告跑两遍，比较除两行截止时间以外的内容，而它是靠旧的 UTC `...Z  (` 时间戳认出那两行的。#231 之后那两行显示 MYT，于是也被拿来比较，只要第二遍落在不同的一秒就失败（#239 合并后的 `main` 就撞上了）。现在改为按行首标签去掉那两行。
+
 ### Help videos at 1080p with a light caption bar / 帮助页视频改为 1080p，字幕条改浅色
 
 - Full-screen on a laptop the 1280×720 videos looked soft, and the dark navy caption bar across the bottom, together with the site's own dimmed backdrop whenever a dialog is open, made them feel dark (measured, the frames were not: white 255, black 0). The page is now laid out and recorded at 1920×1080 (Playwright only scales a frame down into the video, never up, so the viewport has to be the video size), encoded at CRF 28, and the caption bar is white with dark text, smaller and narrower. The three videos were recorded again at `259e859`; the presentation backup video, which shares the overlay, is unchanged until it is next recorded.
