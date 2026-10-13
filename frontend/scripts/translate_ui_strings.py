@@ -55,7 +55,7 @@ GLOSSARY: list[tuple[str, str, str]] = [
 ]
 EXTRA_TERMS = [
     "share = 分享", "upload = 上传", "download = 下载", "file = 文件", "folder = 文件夹",
-    "My Files = 我的文件", "Access Records = 访问记录", "audit log = 审计日志",
+    "My Files = 我的文件", "Activity Log = 活动日志", "audit log = 审计日志",
     "account = 账户", "sign in = 登录", "settings = 设置", "unlock = 解锁", "encrypt = 加密",
     "decrypt = 解密", "tamper = 篡改", "verification code = 验证码",
     "Shuoxun Wen = 温硕勋", "Junyan Li = 李俊言", "Jason Huang = 黄建幸", "Tai Chen = 陈泰",
