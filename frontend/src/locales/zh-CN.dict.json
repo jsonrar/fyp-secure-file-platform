@@ -2157,7 +2157,7 @@
   "We cannot.": "我们不能。",
   "You pick a SecureView account and check their key fingerprint before anything is sent. There is no public link that could leak, and you can revoke access later.": "你选一个 SecureView 账号，发送前先核对对方的密钥指纹。没有会外泄的公开链接，之后也可以随时撤销访问。",
   "Your first share, one screen at a time": "第一次分享，一屏一步",
-  "Google can read your files.": "Google 能读取你的文件。",
-  "Google can read your files. We cannot.": "Google 能读取你的文件。我们不能。",
-  "Every file is encrypted in your browser before upload. Only you and the people you share it with can open it, so our server only ever stores scrambled bytes.": "每个文件在上传前就在你的浏览器里加密。只有你和你分享的人能打开，所以我们的服务器上只存着打乱的字节。"
+  "Your cloud drive can read your files.": "你的云盘能读取你的文件。",
+  "Your cloud drive can read your files. We cannot.": "你的云盘能读取你的文件。我们不能。",
+  "Every file is encrypted in your browser before upload. Only you and the people you share it with can open it. Our server only ever stores scrambled bytes.": "每个文件在上传前就在你的浏览器里加密。只有你和你分享的人能打开。我们的服务器上只存着打乱的字节。"
 }
