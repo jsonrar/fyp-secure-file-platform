@@ -422,8 +422,13 @@ def test_the_report_prints_counts_and_never_a_name(storage, recording, capsys) -
     assert "crossed" in first and "crosses" in first
 
     def without_cutoffs(text: str) -> list[str]:
-        # The two cutoff lines carry the run's own timestamp; everything else is fixed.
-        return [line for line in text.splitlines() if "Z  (" not in line]
+        # The two cutoff lines carry the run's own timestamp (MYT since #231; it was a UTC
+        # "...Z" stamp before, and filtering on that let the two runs differ by a second).
+        return [
+            line
+            for line in text.splitlines()
+            if not line.startswith(("  rows lapsed before", "  storage older than"))
+        ]
 
     assert without_cutoffs(first) == without_cutoffs(second)
 
