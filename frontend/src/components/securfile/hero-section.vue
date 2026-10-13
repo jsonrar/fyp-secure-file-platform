@@ -17,14 +17,14 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
       <div class="flex w-full min-w-0 flex-col gap-8 lg:w-auto lg:flex-1 lg:basis-[30rem]">
         <p class="inline-flex items-center gap-2.5 font-mono text-xs uppercase tracking-[0.16em] text-[#7ce0b5]">
           <span class="hero-dot h-2 w-2 rounded-full bg-[#7ce0b5]" />
-          Zero-knowledge file sharing
+          End-to-end encrypted file sharing
         </p>
         <h1 class="text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl lg:text-5xl 2xl:text-6xl">
-          Sealed in your browser,
-          <span class="block text-[#6b7280]">unreadable to others.</span>
+          Google can read your files.
+          <span class="block text-[#6b7280]">We cannot.</span>
         </h1>
         <p class="max-w-xl text-lg leading-relaxed text-[#b7bcc6] md:text-xl">
-          <SentenceLines text="Each file is encrypted on your device with its own key, shared only by re-sealing that key for a named person, and refused the moment a single byte changes. Not even our server can read it." />
+          <SentenceLines text="Every file is encrypted in your browser before upload. Only you and the people you share it with can open it, so our server only ever stores scrambled bytes." />
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <!-- Signed out, /upload only redirects to sign in, so the first step is an account. -->

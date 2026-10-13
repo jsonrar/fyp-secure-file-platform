@@ -2142,5 +2142,22 @@
   "If it reports": "如果它输出",
   ", run it again with": "，就加上",
   "The damaged bytes are kept in quarantine, the original is put back, the file is re-verified and the restore is written to the audit chain. A file uploaded after the last nightly backup is not in any backup yet. If the server's own backups are gone or suspect, add": "受损的字节会被隔离保存，原件放回原位，文件重新校验，恢复操作写入审计链。在最近一次每夜备份之后上传的文件还不在任何备份里。如果服务器自己的备份已丢失或不可信，请加上",
-  "for an encrypted off-site set; the key custodian brings the key.": "指向加密的异地备份集；私钥由保管人带来。"
+  "for an encrypted off-site set; the key custodian brings the key.": "指向加密的异地备份集；私钥由保管人带来。",
+  "● Modified, refused": "● 已被修改，拒绝下载",
+  "01 · Encrypt": "01 · 加密",
+  "02 · Share": "02 · 分享",
+  "03 · Check": "03 · 校验",
+  "AES key wrapped with RSA-OAEP": "AES 密钥用 RSA-OAEP 包装",
+  "Before a download, the file is checked against its recorded SHA-256 and the audit chain, then decrypted in your browser. A daily scan also checks every stored file.": "下载前，文件会先和记录的 SHA-256 以及审计链比对，再在你的浏览器里解密。每天的扫描也会检查服务器上存的每个文件。",
+  "Bob's key: 3C06 B3AC DFEA A038": "Bob 的密钥：3C06 B3AC DFEA A038",
+  "Checked before download": "下载前先校验",
+  "Every file gets its own random key and is encrypted in your browser, up to 500 MB. Your passphrase stays on your device, where Argon2id turns it into the key that opens your private key.": "每个文件都有自己的随机密钥，在你的浏览器里加密，最大 500 MB。你的口令只留在你的设备上，由 Argon2id 把它变成打开你私钥的密钥。",
+  "Seven screenshots of the real website, from picking a file to your teammate downloading it.": "七张真实网站截图，从选文件一直到队友下载。",
+  "Shared with one person": "只分享给一个人",
+  "We cannot.": "我们不能。",
+  "You pick a SecureView account and check their key fingerprint before anything is sent. There is no public link that could leak, and you can revoke access later.": "你选一个 SecureView 账号，发送前先核对对方的密钥指纹。没有会外泄的公开链接，之后也可以随时撤销访问。",
+  "Your first share, one screen at a time": "第一次分享，一屏一步",
+  "Google can read your files.": "Google 能读取你的文件。",
+  "Google can read your files. We cannot.": "Google 能读取你的文件。我们不能。",
+  "Every file is encrypted in your browser before upload. Only you and the people you share it with can open it, so our server only ever stores scrambled bytes.": "每个文件在上传前就在你的浏览器里加密。只有你和你分享的人能打开，所以我们的服务器上只存着打乱的字节。"
 }

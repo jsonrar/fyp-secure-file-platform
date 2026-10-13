@@ -171,12 +171,12 @@ onBeforeUnmount(() => {
   <section id="how-it-works" ref="section" class="guide-section py-20 md:py-28" aria-labelledby="guide-heading">
     <div class="container mx-auto px-4">
       <div class="mx-auto mb-9 max-w-3xl text-center">
-        <p class="mb-3 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">How it works</p>
+        <p class="mb-3 text-xs uppercase font-mono tracking-[0.14em] text-muted-foreground">Picture guide</p>
         <h2 id="guide-heading" class="text-balance text-3xl font-bold tracking-tight text-foreground md:text-4xl">
-          See exactly what to click.
+          Your first share, one screen at a time
         </h2>
         <p class="mx-auto mt-4 text-muted-foreground">
-          <SentenceLines text="Your first secure share in seven screenshots. Follow at your own pace, from picking a file to your teammate downloading it." />
+          <SentenceLines text="Seven screenshots of the real website, from picking a file to your teammate downloading it." />
         </p>
       </div>
 
