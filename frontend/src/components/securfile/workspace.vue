@@ -1,5 +1,4 @@
 <script setup lang="ts">
-import SentenceLines from '@/components/SentenceLines.vue'
 import GettingStartedCard from '@/components/GettingStartedCard.vue'
 import PageHeader from '@/components/securfile/PageHeader.vue'
 import { ChevronRight, FileIcon, LifeBuoy, Shield, Upload } from 'lucide-vue-next'
@@ -84,6 +83,15 @@ const destinations = computed(() => {
   ]
   return items
 })
+
+/**
+ * The card text as runs, every odd one a hyphenated word kept on one line: on a phone the
+ * browser otherwise broke "(AES-" / "256-GCM". Wrapped in a span, which the Chinese layer
+ * translates together with the sentence around it.
+ */
+function hyphenatedKeptWhole(text: string): string[] {
+  return text.split(/(\S+-\S+)/)
+}
 </script>
 
 <template>
@@ -103,9 +111,9 @@ const destinations = computed(() => {
           :to="item.to"
           class="group flex flex-col rounded-xl bg-card border border-border p-6 transition-colors hover:border-foreground/40"
         >
-          <component :is="item.icon" class="mb-5 h-5 w-5 text-muted-foreground" />
-          <h3 class="text-lg font-medium text-foreground mb-2">{{ item.title }}</h3>
-          <p class="text-sm text-muted-foreground flex-1"><SentenceLines :text="item.body" /></p>
+          <component :is="item.icon" class="mb-5 h-5 w-5 self-center text-muted-foreground" />
+          <h3 class="text-lg font-medium text-foreground mb-2 text-center">{{ item.title }}</h3>
+          <p class="text-sm text-muted-foreground flex-1"><template v-for="(part, index) in hyphenatedKeptWhole(item.body)" :key="index"><span v-if="index % 2" class="whitespace-nowrap">{{ part }}</span><template v-else>{{ part }}</template></template></p>
           <span class="mt-4 inline-flex items-center gap-1 text-sm font-medium text-foreground">
             {{ item.cta }}
             <ChevronRight class="h-4 w-4 transition-transform group-hover:translate-x-0.5" />
