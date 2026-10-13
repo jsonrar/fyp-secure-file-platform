@@ -2161,5 +2161,7 @@
   "Every file is encrypted in your browser before upload. Only you and the people you share it with can open it. Our server only ever stores scrambled bytes.": "每个文件在上传前就在你的浏览器里加密。只有你和你分享的人能打开。我们的服务器上只存着打乱的字节。",
   "Activity Log lists your own account activity (sign-ins, passphrase and key changes) and every upload, share and download, including what the people you shared with did. The log is hash-chained, so an edited or deleted entry breaks the chain and the page says so. For one file, press Access history in My Files.": "活动日志列出你自己的账户操作（登录、口令和密钥变更），以及每次上传、分享和下载，包括你分享对象的操作。日志是哈希链式的，任何被修改或删除的条目都会打断链条，页面会提示。查看单个文件，请在我的文件中点击访问历史。",
   "what is the activity log": "活动日志是什么",
-  "Nothing was shared. Your passphrase is needed to share a file.": "没有分享任何内容。分享文件需要输入你的口令。"
+  "Nothing was shared. Your passphrase is needed to share a file.": "没有分享任何内容。分享文件需要输入你的口令。",
+  "Unlock your key.": "解锁你的密钥。",
+  "Enter your encryption passphrase and click Unlock. It is asked for on every share and every decrypted download, and the key locks again straight after.": "输入加密口令并点击 Unlock。每次分享和每次解密下载都会要求输入，用完密钥会立刻重新锁定。"
 }
