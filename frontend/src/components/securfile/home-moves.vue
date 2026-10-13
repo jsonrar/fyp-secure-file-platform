@@ -33,42 +33,42 @@ const alsoIncluded = [
       <div class="mb-12 flex flex-col items-center gap-4 text-center">
         <p class="font-mono text-xs uppercase tracking-[0.14em] text-muted-foreground">How it works</p>
         <h2 id="moves-heading" class="text-balance text-4xl font-semibold leading-[1.1] md:text-5xl">
-          Three steps, no trust in the server.
+          What happens to your file
         </h2>
       </div>
       <div class="grid gap-6 lg:grid-cols-3">
         <article class="flex flex-col gap-5 rounded-xl border border-border bg-card p-7">
-          <span class="font-mono text-xs text-muted-foreground">01 — Seal</span>
-          <h3 class="text-xl font-semibold xl:text-2xl">Sealed before it leaves</h3>
+          <span class="font-mono text-xs text-muted-foreground">01 · Encrypt</span>
+          <h3 class="text-xl font-semibold xl:text-2xl">Encrypted before upload</h3>
           <p class="leading-relaxed text-muted-foreground">
-            A new random key for every file, up to 500 MB. Your passphrase unlocks your private key here, in
-            the browser, through Argon2id, and never travels.
+            Every file gets its own random key and is encrypted in your browser, up to 500 MB. Your passphrase
+            stays on your device, where Argon2id turns it into the key that opens your private key.
           </p>
           <p class="mt-auto rounded-lg bg-secondary px-4 py-3 font-mono text-xs">
-            key → RSA-OAEP → <span class="text-success">sealed ×2</span>
+            AES key wrapped with RSA-OAEP
           </p>
         </article>
         <article class="flex flex-col gap-5 rounded-xl border border-border bg-card p-7">
-          <span class="font-mono text-xs text-muted-foreground">02 — Share</span>
-          <h3 class="text-xl font-semibold xl:text-2xl">Only to a checked key</h3>
+          <span class="font-mono text-xs text-muted-foreground">02 · Share</span>
+          <h3 class="text-xl font-semibold xl:text-2xl">Shared with one person</h3>
           <p class="leading-relaxed text-muted-foreground">
-            Share with a named account by re-sealing the file key for them. Before anything is sent you see
-            their key fingerprint; no public link exists to leak, and access can be revoked.
+            You pick a SecureView account and check their key fingerprint before anything is sent. There is no
+            public link that could leak, and you can revoke access later.
           </p>
           <p class="mt-auto rounded-lg bg-secondary px-4 py-3 font-mono text-xs tracking-[0.06em]">
-            3C06 B3AC DFEA A038 …
+            Bob's key: 3C06 B3AC DFEA A038
           </p>
         </article>
         <article class="flex flex-col gap-5 rounded-xl border border-border bg-card p-7">
-          <span class="font-mono text-xs text-muted-foreground">03 — Verify</span>
-          <h3 class="text-xl font-semibold xl:text-2xl">Changed means refused</h3>
+          <span class="font-mono text-xs text-muted-foreground">03 · Check</span>
+          <h3 class="text-xl font-semibold xl:text-2xl">Checked before download</h3>
           <p class="leading-relaxed text-muted-foreground">
-            Every download is checked against its recorded SHA-256 and the audit chain, then by the cipher
-            itself in your browser. A daily scan checks every stored file.
+            Before a download, the file is checked against its recorded SHA-256 and the audit chain, then
+            decrypted in your browser. A daily scan also checks every stored file.
           </p>
           <p class="mt-auto flex flex-wrap gap-2.5 font-mono text-xs">
             <span class="rounded-lg bg-success-soft px-3 py-2 text-success">● Verified</span>
-            <span class="rounded-lg bg-destructive-soft px-3 py-2 text-destructive">● Modified · refused</span>
+            <span class="rounded-lg bg-destructive-soft px-3 py-2 text-destructive">● Modified, refused</span>
           </p>
         </article>
       </div>
