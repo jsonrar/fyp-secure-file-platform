@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { AlertTriangle, KeyRound, Loader2, Share2, UserMinus } from 'lucide-vue-next'
 
 import {
   FileKeyUnwrapError,
+  forgetUnlockedKeys,
   KeyNotUnlockedError,
   NotUnlockedError,
 } from '@/crypto/download'
@@ -129,11 +130,15 @@ onMounted(async () => {
   field.value?.focus()
 })
 
+// The passphrase was asked for when Share was clicked. Closing without sharing must not
+// leave the key open.
+onBeforeUnmount(forgetUnlockedKeys)
+
 /**
- * Set while the passphrase dialog is open on top of this one. Every share asks for the
- * passphrase again, because the key is forgotten after each share. The dialog opens over
- * the confirmation step, so the recipient and fingerprint the user just checked stay on
- * screen and the share goes ahead as soon as the key is open.
+ * Set while a passphrase dialog is open on top of this one. That happens when a second
+ * share is made from the same dialog (the key was dropped after the first one), or when
+ * the file is under an older key. The recipient and fingerprint stay on screen and the
+ * share goes ahead as soon as the key is open.
  */
 const unlockFor = ref<{ keyId: string | null } | null>(null)
 

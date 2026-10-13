@@ -149,6 +149,12 @@ test('a phone user can upload, inspect, share and download a file', async ({ pag
 
   await test.step('the share dialog fits the screen', async () => {
     await card.getByRole('button', { name: 'Share', exact: true }).click()
+    // Share asks for the passphrase first, every time.
+    const unlock = page.getByRole('heading', { name: 'Unlock your files' })
+    await expect(unlock).toBeVisible()
+    await page.getByRole('textbox', { name: /^Encryption passphrase/ }).fill(account.passphrase)
+    await page.getByRole('button', { name: 'Unlock', exact: true }).click()
+    await expect(unlock).toBeHidden({ timeout: 60_000 })
     await expect(page.getByRole('heading', { name: 'Share this file' })).toBeVisible()
     await expectDialogFits(page, page.locator('div.fixed.inset-0 > div').first(), 'share dialog')
     await page.getByRole('button', { name: 'Cancel' }).click()

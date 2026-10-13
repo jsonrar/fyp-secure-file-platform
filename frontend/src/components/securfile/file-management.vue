@@ -128,6 +128,8 @@ const downloadProgressMessage = computed(() => {
 })
 // Set while the passphrase dialog is open; holds the file to resume once unlocked.
 const pendingDownloadId = ref<string | null>(null)
+// The same for Share: the passphrase is asked for first, then the share dialog opens.
+const pendingShareId = ref<string | null>(null)
 const unlockKeyId = ref<string | null>(null)
 const showUnlock = ref(false)
 
@@ -678,14 +680,18 @@ const onUnlocked = async () => {
   showUnlock.value = false
   unlockKeyId.value = null
   const resumeDownload = pendingDownloadId.value
+  const resumeShare = pendingShareId.value
   pendingDownloadId.value = null
+  pendingShareId.value = null
   if (resumeDownload) await handleDownload(resumeDownload)
+  else if (resumeShare) shareFileId.value = resumeShare
 }
 
 const closeUnlock = () => {
   showUnlock.value = false
   unlockKeyId.value = null
   pendingDownloadId.value = null
+  pendingShareId.value = null
 }
 
 /** The file whose integrity check is in flight, so its badge can say so and refuse a second click. */
@@ -713,10 +719,12 @@ const handleIntegrityCheck = async (id: string) => {
   }
 }
 
-// The dialog asks for the passphrase itself when the user confirms a share, so listing and
-// revoking who holds the file does not need it.
+// Every click on Share asks for the passphrase first. The key stays open while the share
+// dialog is up and is forgotten after the share, or when the dialog closes.
 const openShare = (id: string) => {
-  shareFileId.value = id
+  pendingShareId.value = id
+  unlockKeyId.value = null
+  showUnlock.value = true
 }
 
 const historyFile = computed(() => files.value.find((file) => file.id === historyFileId.value))
