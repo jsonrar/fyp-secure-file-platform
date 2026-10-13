@@ -2153,7 +2153,6 @@
   "Checked before download": "下载前先校验",
   "Every file gets its own random key and is encrypted in your browser, up to 500 MB. Your passphrase stays on your device, where Argon2id turns it into the key that opens your private key.": "每个文件都有自己的随机密钥，在你的浏览器里加密，最大 500 MB。你的口令只留在你的设备上，由 Argon2id 把它变成打开你私钥的密钥。",
   "Seven screenshots of the real website, from picking a file to your teammate downloading it.": "七张真实网站截图，从选文件一直到队友下载。",
-  "Shared with demo-bob · key fingerprint": "已分享给 demo-bob · 密钥指纹",
   "Shared with one person": "只分享给一个人",
   "We cannot.": "我们不能。",
   "You pick a SecureView account and check their key fingerprint before anything is sent. There is no public link that could leak, and you can revoke access later.": "你选一个 SecureView 账号，发送前先核对对方的密钥指纹。没有会外泄的公开链接，之后也可以随时撤销访问。",

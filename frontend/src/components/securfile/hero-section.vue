@@ -56,7 +56,7 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
               <div class="text-[0.95rem] font-semibold text-white">board-minutes.pdf</div>
               <div class="font-mono text-xs text-[#8a92a3]">603 bytes · AES-256-GCM</div>
             </div>
-            <span class="rounded-md bg-[#7ce0b5] px-2.5 py-1 font-mono text-xs font-medium text-[#07090d]">ENCRYPTED</span>
+            <span class="rounded-md bg-[#7ce0b5] px-2.5 py-1 font-mono text-xs font-medium text-[#07090d]">SEALED</span>
           </div>
           <div class="flex flex-col gap-2.5 px-5 py-4 font-mono text-[0.7rem] sm:text-[0.8rem]">
             <div class="text-[#8a92a3]">your file</div>
@@ -65,7 +65,7 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
             <div class="tracking-[0.05em] text-[#7ce0b5]">a1 d6 0d a9 b8 75 31 9d 5f 9d 32 70</div>
           </div>
           <div class="flex flex-col gap-1.5 border-t border-white/10 px-5 py-4">
-            <span class="text-xs text-[#8a92a3]">Shared with demo-bob · key fingerprint</span>
+            <span class="text-xs text-[#8a92a3]">Sealed for demo-bob · key fingerprint</span>
             <span class="font-mono text-sm tracking-[0.08em] text-[#f2f3f5]">3C06 B3AC DFEA A038</span>
           </div>
         </div>
