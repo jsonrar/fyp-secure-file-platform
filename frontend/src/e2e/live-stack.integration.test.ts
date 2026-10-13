@@ -346,9 +346,12 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
         expect(served.length).toBe(bytes.length)
         expect(Buffer.from(served).equals(Buffer.from(bytes))).toBe(false)
 
+        // Every decrypted download needs the passphrase again, and the key is dropped after it.
+        await unlockWithPassphrase(alice.passphrase)
         const opened = await downloadAndDecrypt(result.fileId)
         expect(opened.filename).toBe(name)
         expect(Buffer.from(opened.bytes).equals(Buffer.from(bytes))).toBe(true)
+        expect(isUnlocked()).toBe(false)
       })
     }
 
@@ -377,6 +380,7 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
 
           const outcome = await shareFileWithRecipient(shared().fileId, bob.username)
           expect(outcome.created).toBe(true)
+          expect(isUnlocked()).toBe(false)
         })
 
         it('appears in the recipient\'s list, decrypts with their passphrase, and is intact on the server', async () => {
@@ -404,7 +408,9 @@ describe.skipIf(!live)('the product against a disposable stack', () => {
         })
 
         it('cannot be passed on by a download-only recipient', async () => {
-          // Bob is unlocked from the previous step. The server, not the client, has to refuse.
+          // Bob's key was dropped after his download, so he unlocks again. The server, not the
+          // client, has to refuse.
+          await unlockWithPassphrase(bob.passphrase)
           await expect(shareFileWithRecipient(shared().fileId, ADMIN!)).rejects.toMatchObject({
             response: { status: 404 },
           })

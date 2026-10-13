@@ -39,7 +39,7 @@ passphrase、KEK、AMK、明文私钥、文件 DEK 和文件明文都不得出�
 什么、以及尚未解决的发现，见自评性质的 [THREAT_MODEL.zh-CN.md](docs/THREAT_MODEL.zh-CN.md)。
 
 浏览器 MVP 已端到端可运行：邮箱验证码注册与重置登录密码、客户端账户密钥登记、使用
-passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲自动上锁、上传前认证加密、下载后本地解密、文件名搜索、将
+passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、每次解密下载和每次分享都要输入 passphrase、上传前认证加密、下载后本地解密、文件名搜索、将
 文件密钥重新包装给接收者的共享、撤销、逐文件访问历史、静默刷新会话、登出及注销账户。
 每个文件可在任何浏览器里选择 AES-128/192/256-GCM、AES-256-GCM-SIV、ChaCha20-Poly1305 或 XChaCha20-Poly1305（WebCrypto 没有 AES-192-GCM 时回退到 `@noble/ciphers`，字节完全相同），默认仍为 AES-256-GCM；旧有硬编码
 凭据和演示 token 后备均已移除。
@@ -57,7 +57,7 @@ passphrase 或私钥文件解锁、使用私钥文件重置 passphrase、空闲�
 每个页面右下角都有 **Help assistant** 按钮（#146）。它回答操作类、原理类以及“为什么不用 Google Drive /
 WhatsApp / 邮件”类问题，给出简短摘要、步骤和产品内链接；问题在浏览器内与人工整理的答案以及 Education、讲解动画、
 图文引导内容匹配。不使用大语言模型、匹配时不发网络请求，问题不会被发送或记录。登录后，它还能回答关于自己账户的问题
-（#148）：谁能打开某个文件、别人分享了什么给你、最近有没有失败的登录。这些回答只读取 My Files 和 Access Records
+（#148）：谁能打开某个文件、别人分享了什么给你、最近有没有失败的登录。这些回答只读取 My Files 和 Activity Log
 本来就能看到的内容，不做任何修改。见
 [docs/HELP_ASSISTANT.zh-CN.md](docs/HELP_ASSISTANT.zh-CN.md)。
 

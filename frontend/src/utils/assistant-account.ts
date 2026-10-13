@@ -2,7 +2,7 @@
  * The Help assistant's account checks (v2): answers about the signed-in visitor's own files and
  * records, such as "who has access to budget.xlsx?" or "what has been shared with me?".
  *
- * Each check is read-only and uses the requests My Files and Access Records already make, under
+ * Each check is read-only and uses the requests My Files and the Activity Log already make, under
  * the visitor's own session, so it can never show more than those pages would. The question
  * itself is still not sent: at most a file name goes to `GET /files?search=`, the same search
  * the My Files box runs. Nothing here changes anything; where the answer suggests an action
@@ -86,7 +86,7 @@ const ROWS = 8
 
 const MY_FILES: AssistantLink = { label: 'My Files', to: '/files' }
 const SHARED_WITH_ME: AssistantLink = { label: 'Shared with me', to: '/files?tab=shared' }
-const RECORDS: AssistantLink = { label: 'Access Records', to: '/audit-logs' }
+const RECORDS: AssistantLink = { label: 'Activity Log', to: '/audit-logs' }
 
 const dateFormat = new Intl.DateTimeFormat('en-AU', {
   timeZone: SITE_TIME_ZONE,
@@ -423,7 +423,7 @@ async function recentActivity(api: AccountApi, me: string | null): Promise<Accou
   const names = new Map((files?.items ?? []).map((f) => [f.file_id, f.original_filename]))
   const logs = all.filter((l) => !QUIET.has(l.action))
   if (logs.length === 0) {
-    return { kind: 'result', headline: 'There is nothing in your access records yet.', rows: [], links: [RECORDS] }
+    return { kind: 'result', headline: 'There is nothing in your Activity Log yet.', rows: [], links: [RECORDS] }
   }
   const failed = logs.filter((l) => l.action === 'AUTH_LOGIN_FAILED').length
   const headline =

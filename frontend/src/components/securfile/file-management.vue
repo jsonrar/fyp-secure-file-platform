@@ -128,10 +128,8 @@ const downloadProgressMessage = computed(() => {
 })
 // Set while the passphrase dialog is open; holds the file to resume once unlocked.
 const pendingDownloadId = ref<string | null>(null)
-// The same, for a share interrupted by the unlock. Sharing needs the account key too:
-// the file's key has to be unwrapped before it can be rewrapped to the recipient.
+// The same for Share: the passphrase is asked for first, then the share dialog opens.
 const pendingShareId = ref<string | null>(null)
-const pendingShareRecipient = ref('')
 const unlockKeyId = ref<string | null>(null)
 const showUnlock = ref(false)
 
@@ -593,6 +591,8 @@ const handleDownload = async (id: string) => {
     pendingRiskyDownload.value = row
     return
   }
+  // The key is forgotten after every download, so this asks for the passphrase each time.
+  // It is only open here when we come back from the passphrase dialog.
   if (!isUnlocked()) {
     try {
       // A stale recipient tab can still show a row after its owner revokes access. Check
@@ -683,11 +683,8 @@ const onUnlocked = async () => {
   const resumeShare = pendingShareId.value
   pendingDownloadId.value = null
   pendingShareId.value = null
-  if (resumeDownload) {
-    await handleDownload(resumeDownload)
-  } else if (resumeShare) {
-    shareFileId.value = resumeShare
-  }
+  if (resumeDownload) await handleDownload(resumeDownload)
+  else if (resumeShare) shareFileId.value = resumeShare
 }
 
 const closeUnlock = () => {
@@ -695,7 +692,6 @@ const closeUnlock = () => {
   unlockKeyId.value = null
   pendingDownloadId.value = null
   pendingShareId.value = null
-  pendingShareRecipient.value = ''
 }
 
 /** The file whose integrity check is in flight, so its badge can say so and refuse a second click. */
@@ -723,15 +719,12 @@ const handleIntegrityCheck = async (id: string) => {
   }
 }
 
+// Every click on Share asks for the passphrase first. The key stays open while the share
+// dialog is up and is forgotten after the share, or when the dialog closes.
 const openShare = (id: string) => {
-  if (!isUnlocked()) {
-    pendingShareId.value = id
-    pendingShareRecipient.value = ''
-    unlockKeyId.value = null
-    showUnlock.value = true
-    return
-  }
-  shareFileId.value = id
+  pendingShareId.value = id
+  unlockKeyId.value = null
+  showUnlock.value = true
 }
 
 const historyFile = computed(() => files.value.find((file) => file.id === historyFileId.value))
@@ -739,7 +732,6 @@ const recoveryFile = computed(() => files.value.find((file) => file.id === recov
 
 const closeShare = () => {
   shareFileId.value = null
-  pendingShareRecipient.value = ''
 }
 
 const onRecoveryRequested = () => {
@@ -755,15 +747,6 @@ const onShared = (username: string) => {
 
 const onRevoked = (username: string) => {
   actionMessage.value = `Revoked ${username}'s access`
-}
-
-/** The rewrap needs the account key open; stand the share down and raise the passphrase. */
-const onShareNeedsUnlock = (keyId: string | null, recipient: string) => {
-  pendingShareId.value = shareFileId.value
-  pendingShareRecipient.value = recipient
-  shareFileId.value = null
-  unlockKeyId.value = keyId
-  showUnlock.value = true
 }
 
 const shareFilename = computed(
@@ -1155,11 +1138,9 @@ const statusConfig: Record<EncryptedFile['status'], StatusConfig> = {
       v-if="shareFileId !== null"
       :file-id="shareFileId"
       :filename="shareFilename"
-      :initial-recipient="pendingShareRecipient"
       @close="closeShare"
       @shared="onShared"
       @revoked="onRevoked"
-      @needs-unlock="onShareNeedsUnlock"
     />
     <RequestRecoveryDialog
       v-if="recoveryFile"

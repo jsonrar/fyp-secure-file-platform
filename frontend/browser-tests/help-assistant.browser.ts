@@ -274,7 +274,7 @@ test.describe('signed in, on a phone', () => {
       await questionBox(page).fill('who downloaded my file')
       await questionBox(page).press('Enter')
       const latest = panel(page).getByRole('list', { name: 'Questions and answers' }).locator(':scope > li').last()
-      await expect(latest.getByTestId('assistant-answer')).toContainText('What do the access records show?')
+      await expect(latest.getByTestId('assistant-answer')).toContainText('What does the Activity Log show?')
       // Nothing is read until asked to: the earlier answers keep their results, this one has none yet.
       await expect(latest.getByRole('button', { name: 'Check one of my files’ history' })).toBeVisible()
       await expect(latest.getByTestId('assistant-account-result')).toHaveCount(0)

@@ -57,10 +57,10 @@ const steps = [
     title: 'Download, decrypt, check',
     body:
       'Download and decrypt asks for your passphrase and gives you back the original file, checked ' +
-      'against its fingerprint. Access Records shows every upload, share and download.',
+      'against its fingerprint. The Activity Log shows every upload, share and download.',
     tip: 'A changed file is refused rather than handed to you, and can be restored by an administrator.',
     to: '/audit-logs',
-    cta: 'Access Records',
+    cta: 'Activity Log',
   },
 ]
 </script>

@@ -31,7 +31,7 @@ const workspace = computed(() => [
   { to: '/dashboard', label: t('nav.dashboard'), icon: LayoutDashboard },
   { to: '/upload', label: t('nav.upload'), icon: Upload },
   { to: '/files', label: t('nav.myFiles'), icon: FolderLock },
-  { to: '/audit-logs', label: t('nav.accessRecords'), icon: Activity },
+  { to: '/audit-logs', label: t('nav.activityLog'), icon: Activity },
   { to: '/admin', label: consoleLabel.value, icon: LifeBuoy },
 ])
 const learn = computed(() => [
@@ -113,7 +113,7 @@ async function logout() {
         {{ unlocked ? 'Key unlocked in this browser' : 'Key locked' }}
       </p>
       <p v-if="fingerprint" translate="no" class="font-mono text-xs tracking-[0.06em] text-muted-foreground">{{ fingerprint }}</p>
-      <p v-if="!unlocked" class="text-xs leading-relaxed text-muted-foreground">It unlocks when you open or share a file.</p>
+      <p v-if="!unlocked" class="text-xs leading-relaxed text-muted-foreground">You enter your passphrase for each decrypted download or share.</p>
       <div class="flex items-center justify-between gap-2 border-t border-border pt-3">
         <span translate="no" class="truncate text-sm text-foreground">{{ auth.displayName }}</span>
         <button type="button" class="inline-flex h-8 w-8 items-center justify-center rounded-md text-muted-foreground hover:bg-secondary hover:text-foreground" aria-label="Log out" title="Log out" @click="logout">

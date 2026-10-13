@@ -28,7 +28,7 @@ Backend should be running at `http://localhost:8000`.
 | `/dashboard` | Signed-in workspace with a getting-started checklist |
 | `/upload` | File encryption upload with the live encryption steps and byte comparison (auth required) |
 | `/files` | My Files: owned and shared files, folders, details panel, share, revoke, access history, encrypted preview (auth required) |
-| `/audit-logs` | Access Records (auth required) |
+| `/audit-logs` | Activity Log: account activity first, then file access records (auth required) |
 | `/profile` | Profile and avatar (auth required) |
 | `/settings` | Theme, language, key fingerprint, login-password change, passphrase change with the current one, passphrase reset with the private key file, account deletion (auth required) |
 | `/admin` | Role-aware operations: overview statistics, users (details, enable/disable, temporary login password), files, integrity, security agent, audit chain, recovery requests, recovery key |

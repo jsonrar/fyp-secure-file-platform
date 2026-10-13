@@ -134,6 +134,18 @@ async function downloadDecrypted(page: Page, account: Account): Promise<Buffer> 
   return readFile(await saved.path())
 }
 
+/** Share asks for the passphrase before its dialog opens, every time. */
+async function openShareDialog(page: Page, account: Account) {
+  const row = page.getByRole('row').filter({ hasText: fileName })
+  await row.getByRole('button', { name: 'Share', exact: true }).click()
+  const unlock = page.getByRole('heading', { name: 'Unlock your files' })
+  await expect(unlock).toBeVisible()
+  await page.getByRole('textbox', { name: /^Encryption passphrase/ }).fill(account.passphrase)
+  await page.getByRole('button', { name: 'Unlock', exact: true }).click()
+  await expect(unlock).toBeHidden({ timeout: 60_000 })
+  await expect(page.getByRole('heading', { name: 'Share this file' })).toBeVisible()
+}
+
 async function signOut(page: Page) {
   await page.getByRole('button', { name: /^Account menu for/ }).hover()
   await page.getByRole('menuitem', { name: 'Log out' }).click()
@@ -236,21 +248,22 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
   await test.step('unlock the account key and download the original bytes', async () => {
     const bytes = await downloadDecrypted(owner, alice)
     expect(bytes.equals(fileBytes), 'the decrypted download equals the uploaded file').toBe(true)
+    // The key is used for that one download and locked again straight after.
+    await expect(owner.getByTestId('key-status')).toContainText('Key locked')
   })
 
   const recipientField = owner.getByRole('textbox', { name: /their username/i })
   const shareDialog = owner.locator('form').filter({ has: recipientField })
 
   await test.step('share the file with the second account', async () => {
-    const row = owner.getByRole('row').filter({ hasText: fileName })
-    await row.getByRole('button', { name: 'Share', exact: true }).click()
-    await expect(owner.getByRole('heading', { name: 'Share this file' })).toBeVisible()
+    await openShareDialog(owner, alice)
     await recipientField.fill(bob.username)
     await shareDialog.getByRole('button', { name: 'Share', exact: true }).click()
     // A second step names the recipient and shows their key fingerprint before anything is sent.
     await expect(owner.getByTestId('recipient-fingerprint')).toHaveText(/^([0-9A-F]{4} ){7}[0-9A-F]{4}$/)
     await owner.getByRole('button', { name: 'Confirm and share' }).click()
     await expect(owner.getByText(`Shared with ${bob.username}`)).toBeVisible({ timeout: 30_000 })
+    await expect(owner.getByTestId('key-status')).toContainText('Key locked')
     await expect(owner.getByRole('listitem').filter({ hasText: bob.username })).toBeVisible()
     await owner.getByRole('button', { name: 'Cancel' }).click()
   })
@@ -289,8 +302,7 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
   })
 
   await test.step('revoke the share', async () => {
-    const row = owner.getByRole('row').filter({ hasText: fileName })
-    await row.getByRole('button', { name: 'Share', exact: true }).click()
+    await openShareDialog(owner, alice)
     const holder = owner.getByRole('listitem').filter({ hasText: bob.username })
     await holder.getByRole('button', { name: 'Revoke' }).click()
     // #72: revoke states the consequence in a dedicated dialog before it runs.
@@ -298,6 +310,8 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     await expect(owner.getByText(`Revoked ${bob.username}'s access`)).toBeVisible()
     await expect(owner.getByText('Nobody yet')).toBeVisible()
     await owner.getByRole('button', { name: 'Cancel' }).click()
+    // Closing the dialog without sharing locks the key again.
+    await expect(owner.getByTestId('key-status')).toContainText('Key locked')
   })
 
   await test.step('the second account no longer sees the file', async () => {

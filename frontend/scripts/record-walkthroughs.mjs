@@ -161,7 +161,7 @@ await recordFlow('share-open', async (page) => {
   const row = page.getByRole('row').filter({ hasText: FILE_NAME }).first()
   await row.waitFor()
   await click(row.getByRole('button', { name: 'Share', exact: true }))
-  // Sharing needs Sam's key, so the first share of a session asks for the passphrase.
+  // Sharing needs Sam's key, so every share asks for the passphrase first.
   await unlockIfAsked(page, sam, 3)
   await page.getByRole('heading', { name: 'Share this file' }).waitFor()
 

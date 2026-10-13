@@ -330,7 +330,7 @@ def test_a_sign_in_after_five_failures_on_the_account_is_high_and_four_is_nothin
     assert "Failures came from 1 address" in text
     assert "from 203.0.113.7" in text  # where the success came from
     assert "disable the account on the Users tab" in finding.recommended_action
-    assert "Access Records" in finding.recommended_action
+    assert "Activity Log" in finding.recommended_action
 
 
 def test_five_failures_from_the_same_address_at_other_accounts_also_fire() -> None:
@@ -612,7 +612,7 @@ def test_guessing_at_a_disabled_account_advises_a_reset_before_enabling_it() -> 
     (account,) = [f for f in findings if f.rule_id == "LOGIN_GUESSING_ACCOUNT"]
     assert "This account is not active now" in account.evidence[-1]
     assert "reset the password first" in account.recommended_action
-    assert "Access Records" not in account.recommended_action
+    assert "Activity Log" not in account.recommended_action
     assert "disable the account" not in account.recommended_action
 
 

@@ -1,9 +1,10 @@
 <script setup lang="ts">
-import { computed, nextTick, onMounted, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
 import { AlertTriangle, KeyRound, Loader2, Share2, UserMinus } from 'lucide-vue-next'
 
 import {
   FileKeyUnwrapError,
+  forgetUnlockedKeys,
   KeyNotUnlockedError,
   NotUnlockedError,
 } from '@/crypto/download'
@@ -20,6 +21,7 @@ import { apiErrorMessage } from '@/api/http'
 import { shareApi, type SharedUser } from '@/api/share_api'
 import { unwrapData } from '@/api/types'
 import ConfirmActionDialog from '@/components/ConfirmActionDialog.vue'
+import UnlockDialog from '@/components/UnlockDialog.vue'
 import { useAuthStore } from '@/stores/auth_store'
 import { knownFingerprint, rememberFingerprint } from '@/utils/known-keys'
 import { formatSiteDate } from '@/utils/site-time'
@@ -27,18 +29,15 @@ import { formatSiteDate } from '@/utils/site-time'
 const props = defineProps<{
   fileId: string
   filename?: string
-  initialRecipient?: string
 }>()
 
 const emit = defineEmits<{
   (e: 'close'): void
   (e: 'shared', username: string): void
   (e: 'revoked', username: string): void
-  /** The account key must be opened before the file's key can be rewrapped. */
-  (e: 'needs-unlock', keyId: string | null, recipient: string): void
 }>()
 
-const targetUsername = ref(props.initialRecipient ?? '')
+const targetUsername = ref('')
 const errorMessage = ref('')
 const isSubmitting = ref(false)
 const field = ref<HTMLInputElement | null>(null)
@@ -128,10 +127,30 @@ const keyChanged = computed(
 onMounted(async () => {
   loadRecipients()
   await nextTick()
-  // Back from unlocking with a recipient already chosen: go straight to the confirmation.
-  if (props.initialRecipient) await findRecipient()
-  else field.value?.focus()
+  field.value?.focus()
 })
+
+// The passphrase was asked for when Share was clicked. Closing without sharing must not
+// leave the key open.
+onBeforeUnmount(forgetUnlockedKeys)
+
+/**
+ * Set while a passphrase dialog is open on top of this one. That happens when a second
+ * share is made from the same dialog (the key was dropped after the first one), or when
+ * the file is under an older key. The recipient and fingerprint stay on screen and the
+ * share goes ahead as soon as the key is open.
+ */
+const unlockFor = ref<{ keyId: string | null } | null>(null)
+
+async function onUnlocked() {
+  unlockFor.value = null
+  await share()
+}
+
+function closeUnlock() {
+  unlockFor.value = null
+  errorMessage.value = 'Nothing was shared. Your passphrase is needed to share a file.'
+}
 
 async function findRecipient() {
   const name = targetUsername.value.trim()
@@ -177,14 +196,13 @@ async function share() {
     await loadRecipients()
     emit('shared', name)
   } catch (error) {
-    // Unlocking is not a failure: the caller raises the passphrase dialog and the user
-    // comes back to this one.
+    // Not a failure: ask for the passphrase and carry on with the same recipient.
     if (error instanceof NotUnlockedError) {
-      emit('needs-unlock', null, name)
+      unlockFor.value = { keyId: null }
       return
     }
     if (error instanceof KeyNotUnlockedError) {
-      emit('needs-unlock', error.keyId, name)
+      unlockFor.value = { keyId: error.keyId }
       return
     }
     errorMessage.value =
@@ -365,5 +383,12 @@ async function share() {
     :busy="revokingUserId === pendingRevoke.user_id"
     @confirm="confirmRevoke"
     @close="closePendingRevoke"
+  />
+
+  <UnlockDialog
+    v-if="unlockFor"
+    :key-id="unlockFor.keyId"
+    @unlocked="onUnlocked"
+    @close="closeUnlock"
   />
 </template>

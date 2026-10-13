@@ -130,7 +130,7 @@ test('AC4a screenshots: Modified, refused, admin view, restored', async ({ page,
   await shot(page, 'ac4a-1-modified.png')
 
   await row.getByRole('button', { name: 'Download and decrypt' }).click()
-  // Registration leaves the key unlocked in this tab, so the passphrase dialog may not appear.
+  // Every decrypted download asks for the passphrase first; the server's refusal comes after it.
   const unlock = page.getByRole('heading', { name: 'Unlock your files' })
   const refused = page.getByText('was changed, so it was not sent')
   await expect(unlock.or(refused).first()).toBeVisible({ timeout: 60_000 })

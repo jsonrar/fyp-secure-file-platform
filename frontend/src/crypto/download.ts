@@ -32,12 +32,14 @@ import {
 } from './primitives'
 
 /**
- * Account keys, opened once and reused, keyed by the id they were opened for.
+ * Account keys opened for the operation in progress, keyed by the id they were opened for.
  *
- * Argon2id at the enrolled cost takes a noticeable moment by design, so asking for the
- * passphrase on every file would make downloading several files unpleasant enough that
- * people would look for a way around it. Keys are non-extractable and live only in this
- * module's closure: nothing is written to storage, and a reload discards them.
+ * A key is opened for one decrypted download or one share and forgotten as soon as that
+ * operation finishes, whether it worked or not (see `downloadAndDecrypt` and
+ * `shareFileWithRecipient`). So someone who signs in with a stolen password still needs the
+ * passphrase for every file they try to open or share, even in a tab where the owner typed it
+ * a minute ago. Keys are non-extractable and live only in this module's closure: nothing is
+ * written to storage, and a reload discards them.
  *
  * Keyed by id rather than held as a single key because a file stays wrapped to whichever
  * key was active when it was uploaded. After a rotation an account can legitimately need
@@ -48,8 +50,10 @@ const unlockedKeys = new Map<string, CryptoKey>()
 /**
  * How long an unlocked key survives without any sign of the person.
  *
- * Without this the key stays open for as long as the tab does, which on a shared or
- * unattended machine means "indefinitely". The clock used to be reset only by decrypting,
+ * Keys are now forgotten after every download or share, so this is only a backstop for a key
+ * that was opened and then never used (for example a passphrase dialog that succeeded while
+ * the request behind it hung). Without it such a key would stay open for as long as the tab
+ * does. The clock used to be reset only by decrypting,
  * which relocked the key under someone who was plainly still at the keyboard -- reading a
  * file list, filing folders, writing a share -- and sent them back to the passphrase dialog
  * mid-task. It is now reset by any activity in the page (see `ACTIVITY_EVENTS`) as well as
@@ -150,8 +154,7 @@ export function isUnlocked(): boolean {
  * The opened key for `keyId`, if this session holds it.
  *
  * Exported for the sharing rewrap, which needs the same key the download path uses and must
- * not keep its own copy. Handing the key out counts as use, so the idle clock is reset here
- * for the same reason `downloadAndDecrypt` resets it.
+ * not keep its own copy. Handing the key out counts as use, so the idle clock is reset here.
  */
 export function unlockedKeyFor(keyId: string): CryptoKey | undefined {
   const key = unlockedKeys.get(keyId)
@@ -313,7 +316,15 @@ export async function downloadAndDecrypt(fileId: string): Promise<DecryptedFile>
   if (unlockedKeys.size === 0) {
     throw new NotUnlockedError()
   }
+  // One passphrase, one download: the key is dropped whether this worked or not.
+  try {
+    return await decryptWithOpenKey(fileId)
+  } finally {
+    forgetUnlockedKeys()
+  }
+}
 
+async function decryptWithOpenKey(fileId: string): Promise<DecryptedFile> {
   const metadata = (await fileApi.getFile(fileId)).data.data as FileOut
   const envelope = metadata.crypto_envelope
 
@@ -370,7 +381,6 @@ export async function downloadAndDecrypt(fileId: string): Promise<DecryptedFile>
     )
   }
 
-  restartIdleTimer()
   return {
     filename: metadata.original_filename,
     mimeType: metadata.mime_type ?? 'application/octet-stream',

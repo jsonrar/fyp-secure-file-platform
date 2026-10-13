@@ -63,7 +63,7 @@ The rules they keep:
 
 - **Read-only.** No check changes anything. Where the answer suggests an action (revoke, restore,
   change the password) it links to the page where the visitor does it.
-- **No more than the pages show.** Each check uses the requests My Files and Access Records
+- **No more than the pages show.** Each check uses the requests My Files and the Activity Log
   already make, under the visitor's own session, so the server's ownership rules apply unchanged.
   `who-has-access` and `file-activity` only look at the visitor's own files, because only an owner
   may list a file's recipients or read its whole history.
