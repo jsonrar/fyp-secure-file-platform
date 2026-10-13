@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Home page wording in plain English / 首页文案改成直白的说法
+
+- Li's friends read the home page as obviously written by an AI, mostly because of its headings: paired slogans ("Sealed in your browser, unreadable to others."), a closing one-liner ("Not even our server can read it."), dashes in the step labels ("01 — Seal") and wordplay such as "Changed means refused". Only the text changed; the layout, colours and fonts are exactly as before. The hero now uses the poster's line, "Google can read your files. We cannot.", the steps section is "What happens to your file" with cards "01 · Encrypt / Encrypted before upload", "Shared with one person" and "Checked before download", and the picture guide is "Your first share, one screen at a time". The board-minutes.pdf card in the hero keeps its wording (SEALED, "Sealed for demo-bob") because slide 1 of the final presentation shows it. Chinese entries were added for every new line.
+- Li 的朋友一看首页就觉得是 AI 写的，主要是标题的问题：对仗口号（"Sealed in your browser, unreadable to others."）、结尾金句（"Not even our server can read it."）、步骤标签里的破折号（"01 — Seal"），还有 "Changed means refused" 这种文字游戏。这次只改文字，布局、颜色和字体完全不变。首屏标题改用海报上的那句 "Google can read your files. We cannot."，步骤部分改成 "What happens to your file"，三张卡片是 "01 · Encrypt / Encrypted before upload"、"Shared with one person" 和 "Checked before download"，图片指南改成 "Your first share, one screen at a time"。首屏右边 board-minutes.pdf 那张卡片的文字保持不变（SEALED、"Sealed for demo-bob"），因为期末汇报 PPT 第 1 页用了这张卡片的截图。每句新文案都加了中文翻译。
+
 ### Workspace cards: centred heading, text that wraps cleanly / 工作台卡片：标题居中，说明文字正常换行
 
 - On the signed-in Workspace page, the icon and title of the four cards (Upload & Encrypt, My Files, Access Records, Recovery requests) are now centred, as Li asked; the description and the link stay left-aligned. The first card's description was laid out one sentence per block, so on a laptop it broke as "Encrypt a new file in your / browser (AES-256-GCM / by default)." with a short orphan line, unlike the other three cards. The descriptions now wrap as ordinary text, and hyphenated terms such as `AES-256-GCM` are kept on one line, which also stops a phone splitting it as "(AES-" / "256-GCM". Checked locally in English and Chinese at desktop and phone widths.
