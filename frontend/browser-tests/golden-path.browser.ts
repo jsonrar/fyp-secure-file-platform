@@ -236,6 +236,8 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
   await test.step('unlock the account key and download the original bytes', async () => {
     const bytes = await downloadDecrypted(owner, alice)
     expect(bytes.equals(fileBytes), 'the decrypted download equals the uploaded file').toBe(true)
+    // The key is used for that one download and locked again straight after.
+    await expect(owner.getByTestId('key-status')).toContainText('Key locked')
   })
 
   const recipientField = owner.getByRole('textbox', { name: /their username/i })
@@ -250,7 +252,14 @@ test('a new user encrypts, shares and revokes a file through the pages', async (
     // A second step names the recipient and shows their key fingerprint before anything is sent.
     await expect(owner.getByTestId('recipient-fingerprint')).toHaveText(/^([0-9A-F]{4} ){7}[0-9A-F]{4}$/)
     await owner.getByRole('button', { name: 'Confirm and share' }).click()
+    // Every share asks for the passphrase again, even right after a download.
+    const unlock = owner.getByRole('heading', { name: 'Unlock your files' })
+    await expect(unlock).toBeVisible()
+    await owner.getByRole('textbox', { name: /^Encryption passphrase/ }).fill(alice.passphrase)
+    await owner.getByRole('button', { name: 'Unlock', exact: true }).click()
+    await expect(unlock).toBeHidden({ timeout: 60_000 })
     await expect(owner.getByText(`Shared with ${bob.username}`)).toBeVisible({ timeout: 30_000 })
+    await expect(owner.getByTestId('key-status')).toContainText('Key locked')
     await expect(owner.getByRole('listitem').filter({ hasText: bob.username })).toBeVisible()
     await owner.getByRole('button', { name: 'Cancel' }).click()
   })

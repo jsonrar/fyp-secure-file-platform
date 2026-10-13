@@ -23,6 +23,7 @@ import {
   FileKeyUnwrapError,
   KeyNotUnlockedError,
   NotUnlockedError,
+  forgetUnlockedKeys,
   isUnlocked,
   unlockedKeyFor,
 } from './download'
@@ -115,15 +116,28 @@ export async function lookupRecipient(identifier: string): Promise<RecipientCand
  * Given a confirmed `RecipientCandidate`, the file key is wrapped to exactly that key, with no
  * second lookup that could return a different one. Given a name, it looks the recipient up first.
  * Requires the sender's account key to be unlocked, for the same reason downloading does: the
- * DEK is reachable only through it.
+ * DEK is reachable only through it. Like a download, a share uses the key once: it is
+ * forgotten when this returns or throws, so the next share asks for the passphrase again.
  */
 export async function shareFileWithRecipient(
   fileId: string,
   target: string | RecipientCandidate,
   options: { canDownload?: boolean; canShare?: boolean } = {},
 ): Promise<ShareOutcome> {
-  if (typeof target === 'string' && !target.trim()) throw new RecipientNotFoundError(target)
-  if (!isUnlocked()) throw new NotUnlockedError()
+  try {
+    if (typeof target === 'string' && !target.trim()) throw new RecipientNotFoundError(target)
+    if (!isUnlocked()) throw new NotUnlockedError()
+    return await rewrapAndGrant(fileId, target, options)
+  } finally {
+    forgetUnlockedKeys()
+  }
+}
+
+async function rewrapAndGrant(
+  fileId: string,
+  target: string | RecipientCandidate,
+  options: { canDownload?: boolean; canShare?: boolean },
+): Promise<ShareOutcome> {
   const recipient = typeof target === 'string' ? await lookupRecipient(target) : target
   const name = recipient.identifier
 

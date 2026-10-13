@@ -79,7 +79,7 @@ fired, so an administrator can tell.
 
 An account that is not active now (closed by its owner, or disabled by an administrator) is said so
 in the evidence of a burst, guessing or takeover finding keyed on that account, and the advice changes
-with it: a download, share or upload burst points at the Access Records page, since there is no account
+with it: a download, share or upload burst points at the Activity Log page, since there is no account
 left to disable; guessing at its password gets "have the owner reset the password before enabling it
 again", since nothing was reached while it stays inactive. The flag is the account's status now, not at
 the time of the events, so the note does not claim an order. Findings keyed on an address never carry

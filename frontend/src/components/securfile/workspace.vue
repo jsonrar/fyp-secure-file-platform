@@ -67,9 +67,9 @@ const destinations = computed(() => {
     {
       to: '/audit-logs',
       icon: Shield,
-      title: 'Access Records',
-      body: 'The tamper-evident log of every upload, download and share on your account.',
-      cta: 'View records',
+      title: 'Activity Log',
+      body: 'Your account activity and every upload, download and share of your files, in one tamper-evident log.',
+      cta: 'View activity',
     },
     {
       to: '/admin',

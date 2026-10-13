@@ -223,7 +223,7 @@ Because factoring n back into p and q is computationally infeasible for large n 
 **Key rotation:**
 • Rotate keys periodically or after any suspected compromise
 • Re-encrypt files with new keys after rotation
-• Maintain an audit log of key usage (SecureView provides access records)
+• Maintain an audit log of key usage (SecureView provides an activity log)
 
 **Backup and recovery:**
 • Store recovery keys in a separate secure location
@@ -294,7 +294,7 @@ A recipient can download the file but cannot share it on to anyone else. Revoke 
 Every download is checked against its SHA-256 and authentication tag; a changed file is refused rather than handed over.
 
 **5. Review access**
-Access Records shows who uploaded, shared and downloaded each file, and when.
+The Activity Log shows who uploaded, shared and downloaded each file, and when.
 
 **6. Delete when done**
 Deleting a file removes it and every share of it.

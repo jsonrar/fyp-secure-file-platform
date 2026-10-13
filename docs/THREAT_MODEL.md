@@ -259,9 +259,9 @@ Median of five runs, 2026-09-30.
 | 128 MiB, t=3 | 206 ms | 1 327 ms ⚠ | 268 ms |
 | 256 MiB, t=3 | 426 ms | 433 ms | 555 ms |
 
-The production cost is **0.10–0.15 s** on every client tested, and an unlock happens once per page
-load — the opened key lives only in page memory — and again after each 15-minute idle relock. The user-facing cost of the current
-setting is negligible.
+The production cost is **0.10–0.15 s** on every client tested, and an unlock happens once for every
+decrypted download and every share. The opened key lives only in page memory and is dropped as soon as that one operation
+ends. The user-facing cost of the current setting is negligible.
 
 Notes on the data, stated rather than smoothed:
 

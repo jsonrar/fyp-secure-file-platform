@@ -48,9 +48,10 @@ async function unlock() {
     } else {
       await unlockWithPassphrase(passphrase.value)
     }
-    // Drop the passphrase as soon as it has done its work. The unwrapped key lives on as
-    // a non-extractable CryptoKey; keeping the string around buys nothing and loses if
-    // anything later serialises this component's state.
+    // Drop the passphrase as soon as it has done its work. The unwrapped key is a
+    // non-extractable CryptoKey that is forgotten after the one download or share it was
+    // opened for; keeping the string around buys nothing and loses if anything later
+    // serialises this component's state.
     passphrase.value = ''
     emit('unlocked')
   } catch (error) {
@@ -108,7 +109,8 @@ async function useKeyFile(event: Event) {
       </div>
       <p class="text-sm text-muted-foreground mb-4">
         Your files are decrypted in this browser, so your encryption passphrase is needed to
-        open the account key. It is never sent to the server.
+        open the account key. It is never sent to the server. It is asked for on every
+        decrypted download and every share, and the key locks again straight after.
       </p>
       <p v-if="props.keyId" class="text-sm text-muted-foreground mb-4">
         This file was encrypted under an earlier account key

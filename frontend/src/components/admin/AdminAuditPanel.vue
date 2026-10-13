@@ -39,7 +39,7 @@ onMounted(() => {
       <h2 class="text-lg font-semibold text-foreground">Audit chain verification</h2>
       <p class="text-sm text-muted-foreground">
         Recomputes every hash in the audit table and checks the singleton chain head. ADMIN only —
-        an ordinary user opening Access Records does not run this check.
+        an ordinary user opening the Activity Log does not run this check.
       </p>
     </div>
 

@@ -32,10 +32,10 @@ refused. No terminal is used during the talk.
 | --- | --- | --- | --- |
 | 0:00–0:15 | Set the scene | Window A is already on **Education** with the AES-256-GCM card open (AC6); point at it, then at the two windows | "Everything the app does is explained here, with a playground. Alice wants to send Bob a confidential report. Neither of them trusts the server, and neither should you." |
 | 0:15–1:05 | **1. Upload** | In A: Upload → choose `board-minutes.pdf`, leave the algorithm on **AES-256-GCM · Max · Recommended** (the box under it says why) → Start Encryption. Let the four stages play (AC7). The button turns into a green **Encryption Complete** status that cannot be pressed again, so nothing is uploaded twice. Close the receipt with its close button | "Every step you see is timed for real: encrypt in the browser with a fresh key, wrap that key, upload. Look at the bytes: the file starts `%PDF`; what the server receives is noise." |
-| 1:05–1:45 | **2. Share** | In A: My Files → `board-minutes.pdf` → Share → type `demo-bob` → Share. The confirmation shows Bob's key fingerprint → **Confirm and share**. In B: Settings shows the same fingerprint | "Before anything is sent, Alice sees which key the file will be locked to. Bob reads his fingerprint from his own Settings: they match, so only Bob can open it. The server never had the key." Then Confirm and share |
-| 1:45–2:20 | **3. Open** | In B: My Files → Shared with me → `board-minutes.pdf` → the download icon (its tooltip reads **Download and decrypt**). If the passphrase dialog appears, type Bob's passphrase. Open the saved file | "Bob unlocks with his own passphrase, never Alice's. The file is checked on the way out, then decrypted on his device." If the dialog appears: "His key is sealed under his passphrase, so the browser asks for it once." |
+| 1:05–1:45 | **2. Share** | In A: My Files → `board-minutes.pdf` → Share → type `demo-bob` → Share. The confirmation shows Bob's key fingerprint → **Confirm and share** → type Alice's passphrase in the dialog that opens. In B: Settings shows the same fingerprint | "Before anything is sent, Alice sees which key the file will be locked to. Bob reads his fingerprint from his own Settings: they match, so only Bob can open it. The server never had the key." Then Confirm and share |
+| 1:45–2:20 | **3. Open** | In B: My Files → Shared with me → `board-minutes.pdf` → the download icon (its tooltip reads **Download and decrypt**). The passphrase dialog appears every time: type Bob's passphrase. Open the saved file | "Bob unlocks with his own passphrase, never Alice's. The file is checked on the way out, then decrypted on his device." "His key is sealed under his passphrase, so the browser asks for it on every download, and locks it again straight after." |
 | 2:20–2:45 | **3b. Audit** | In A: My Files → `board-minutes.pdf` → Details → **Access history** | "Alice can see who opened it and when: her upload, her share, and Bob's download a few seconds ago. Every entry is chained to the one before, so the log itself cannot be quietly edited." |
-| 2:45–3:15 | **4. Tamper** | Still in B, Shared with me. Point at `quarterly-results.txt`, the second file Alice shared, which was changed on the server before the talk (preparation below). Press its download icon | "Last night one byte of this file was changed on the server's disk, the way an administrator or an intruder could. Bob asks for it." The download is refused with "The encrypted file could not be verified", a red line appears under the list, the row reads **Modified**, and nothing is saved. "Changed, so refused. Nobody was asked to trust us." |
+| 2:45–3:15 | **4. Tamper** | Still in B, Shared with me. Point at `quarterly-results.txt`, the second file Alice shared, which was changed on the server before the talk (preparation below). Press its download icon and type Bob's passphrase | "Last night one byte of this file was changed on the server's disk, the way an administrator or an intruder could. Bob asks for it." The download is refused with "The encrypted file could not be verified", a red line appears under the list, the row reads **Modified**, and nothing is saved. "Changed, so refused. Nobody was asked to trust us." |
 | 3:15–3:40 | **5. The agent saw it** | In window C (the administrator): Admin → **Security agent**. The top finding is **Critical**, `INTEGRITY_DAMAGE`, naming `quarterly-results.txt` | "The administrator did not have to notice. The security agent reads the audit log and the integrity checks every day and ranks what needs attention: here, one damaged file, with the restore command. Restoring it from the encrypted backup is on the next slide." |
 | 3:40–4:00 | Close | Back to the slides | "Encrypted before it leaves the device, opened only by the named person, refused if changed." |
 
@@ -135,11 +135,9 @@ Verified, and the agent finding disappears on the next report.
 ## 30 minutes before
 
 - [ ] Health check: `https://secureview.tech/health/live` returns 200.
-- [ ] Both windows signed in, and the account key unlocked in each (download any file once). The
-      key relocks after 15 minutes without any click, key press or return to the tab, so do this
-      within the last few minutes before going on and keep both windows in use. If the passphrase
-      dialog does appear anyway, it is not a fault: say that the key is sealed under the passphrase
-      and type it.
+- [ ] Both windows signed in, with both passphrases at hand. The passphrase is asked for on every
+      Download and decrypt and every share (Alice once in step 2, Bob in steps 3 and 4), and the
+      key locks again straight after, so there is nothing to unlock in advance.
 - [ ] Browser zoom 125 %, notifications and chat apps off, password-manager pop-ups dismissed.
 - [ ] `board-minutes.pdf` sits on the desktop; delete any earlier copy from Alice's My Files.
 - [ ] Window C is signed in as the administrator with Admin → Security agent already open, so step
@@ -152,7 +150,7 @@ Verified, and the agent finding disappears on the next report.
 | --- | --- |
 | The network drops or staging does not answer | Switch to the backup video at the same step; it follows this script |
 | Unlock or a download hangs for more than ~10 s | Say "this is where it would…", switch to the video for that step |
-| The passphrase dialog appears at download or share | Type the passphrase and carry on; it is the design, not an error |
+| The passphrase dialog appears at download or share | Expected every time: type the passphrase and carry on |
 | Bob's list does not show the new share or the Modified row | Click the refresh control on the list, or click into the window again; it reloads when it comes to the front |
 | The tamper download unexpectedly succeeds | The `flip` was not in place (someone ran `restore`, or `list` shows no TAMPERED mark); show the video's step 4 and the Modified screenshot |
 | The Security agent tab shows no Critical finding | The file has not been checked since the flip; it appears after the refused download in step 4, press Refresh on the tab. Otherwise show the screenshot |

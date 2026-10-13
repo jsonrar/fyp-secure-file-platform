@@ -27,7 +27,7 @@ import { http } from '@/api/http'
 import { shareApi } from '@/api/share_api'
 import { unwrapData, type FileSummaryOut } from '@/api/types'
 
-import { downloadAndDecrypt, forgetUnlockedKeys, unlockWithPassphrase } from './download'
+import { downloadAndDecrypt, forgetUnlockedKeys, isUnlocked, unlockWithPassphrase } from './download'
 import { shareFileWithUsername } from './share'
 import { encryptAndUpload } from './upload'
 
@@ -137,9 +137,12 @@ describe.skipIf(!live)('the MVP, end to end', () => {
 
     expect(file.filename).toBe(FILENAME)
     expect(new TextDecoder().decode(file.bytes)).toBe(CONTENT)
+    // The key is used for one download only.
+    expect(isUnlocked()).toBe(false)
   })
 
   it('shares it with the recipient by username', async () => {
+    await unlockWithPassphrase(SENDER_PASSPHRASE!)
     const outcome = await shareFileWithUsername(uploadedFileId, RECIPIENT!)
 
     expect(outcome.username).toBe(RECIPIENT)

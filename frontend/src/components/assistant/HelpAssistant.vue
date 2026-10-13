@@ -9,7 +9,7 @@
  *
  * Since v2 it also answers questions about the signed-in visitor's own account ("who has access
  * to budget.xlsx?", "what has been shared with me?") with `AccountCheckCard`, which reads the
- * same API My Files and Access Records use and changes nothing.
+ * same API My Files and the Activity Log use and changes nothing.
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { RouterLink } from 'vue-router'
@@ -404,7 +404,7 @@ watch(
         </div>
         <p class="mt-2 text-[11px] leading-snug text-muted-foreground">
           Answers come from SecureView's own help content; your question is not sent anywhere. Answers about your
-          account only read what My Files and Access Records already show you.
+          account only read what My Files and the Activity Log already show you.
         </p>
       </form>
     </section>

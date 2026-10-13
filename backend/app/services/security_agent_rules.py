@@ -384,7 +384,7 @@ def _inactive_burst_action(subject: str) -> str:
     """For the download, share and upload bursts: the account did reach things."""
     return (
         f"{subject} is already closed or disabled, so there is nothing to switch off. Check the "
-        "Access Records page for what it reached and whether any share it made still needs "
+        "Activity Log page for what it reached and whether any share it made still needs "
         "revoking. If the burst was your own test run, no action is needed."
     )
 
@@ -665,10 +665,10 @@ def rule_sign_in_after_guessing(inputs: AgentInputs) -> list[Finding]:
                 recommended_action=(
                     f"Confirm with {whom} that it was them. If it was not, {disable} (this ends "
                     "its sessions), have them reset the password, and review the account's "
-                    f"Access Records from {_stamp(success.at)} onwards."
+                    f"Activity Log from {_stamp(success.at)} onwards."
                     + (
-                        " An account that is already closed cannot be disabled; its Access "
-                        "Records still show what it reached."
+                        " An account that is already closed cannot be disabled; its Activity "
+                        "Log still shows what it reached."
                         if incident.inactive
                         else ""
                     )
@@ -762,7 +762,7 @@ def rule_download_burst(inputs: AgentInputs) -> list[Finding]:
             "reach. It can also be a legitimate bulk download."
         ),
         action=lambda s: (
-            f"Ask {s} whether this was them. The Access Records page lists exactly what was "
+            f"Ask {s} whether this was them. The Activity Log page lists exactly what was "
             "downloaded. If it was not them, disable the account on the Users tab."
         ),
         describe_subject="Account",
@@ -782,7 +782,7 @@ def rule_share_burst(inputs: AgentInputs) -> list[Finding]:
         title=lambda s, n: f"{s} shared files {n} times in an hour",
         summary="A burst of sharing widens who can read the account's files.",
         action=lambda s: (
-            f"Check {s}'s shares on the Access Records page and revoke any that are not intended."
+            f"Check {s}'s shares on the Activity Log page and revoke any that are not intended."
         ),
         describe_subject="Account",
         inactive_action=_inactive_burst_action,

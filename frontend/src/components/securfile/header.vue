@@ -44,7 +44,7 @@ const guestLinks = [
 const authedLinks = [
   { to: '/upload', label: 'nav.upload', match: ['/upload'] },
   { to: '/files', label: 'nav.myFiles', match: ['/files'] },
-  { to: '/audit-logs', label: 'nav.accessRecords', match: ['/audit-logs'] },
+  { to: '/audit-logs', label: 'nav.activityLog', match: ['/audit-logs'] },
   { to: '/help', label: 'nav.help', match: ['/help'] },
   { to: '/education', label: 'nav.education', match: ['/education'] },
   { to: '/team', label: 'nav.contact', match: ['/team'] },

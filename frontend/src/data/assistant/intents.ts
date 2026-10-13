@@ -19,7 +19,7 @@ export type IntentGroup = 'using' | 'how' | 'compare' | 'account'
 
 /**
  * A read-only look at the signed-in visitor's own account (v2), run in `utils/assistant-account.ts`
- * with the same requests My Files and Access Records already make.
+ * with the same requests My Files and the Activity Log already make.
  */
 export type AccountCheckId =
   | 'overview'
@@ -591,22 +591,24 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
   {
     id: 'access-records',
     group: 'how',
-    title: 'What do the access records show?',
+    title: 'What does the Activity Log show?',
     phrasings: [
       'who opened my file',
       'can I see who downloaded my file',
       'what are access records',
+      'what is the activity log',
       'where is the audit log',
       'can someone edit the log',
     ],
     keywords: ['access', 'records', 'audit', 'log', 'history', 'who', 'opened', 'downloaded', 'activity', 'chain'],
     summary:
-      'Access Records lists every upload, share and download, including what the people you shared with ' +
-      'did. The log is hash-chained, so an edited or deleted entry breaks the chain and the page says so. ' +
+      'Activity Log lists your own account activity (sign-ins, passphrase and key changes) and every ' +
+      'upload, share and download, including what the people you shared with did. The log is ' +
+      'hash-chained, so an edited or deleted entry breaks the chain and the page says so. ' +
       'For one file, press Access history in My Files.',
     check: 'file-activity',
     links: [
-      { label: 'Access Records', to: '/audit-logs' },
+      { label: 'Activity Log', to: '/audit-logs' },
       { label: 'My Files', to: '/files' },
     ],
   },
@@ -737,7 +739,7 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
       'Signed in, name one of your files and I will summarise its access history: who downloaded it, ' +
       'when it was shared or revoked, and any failed integrity check. Access history in My Files shows the full list.',
     links: [
-      { label: 'Access Records', to: '/audit-logs' },
+      { label: 'Activity Log', to: '/audit-logs' },
       { label: 'My Files', to: '/files' },
     ],
     check: 'file-activity',
@@ -809,10 +811,10 @@ export const ASSISTANT_INTENTS: AssistantIntent[] = [
     ],
     keywords: ['recent', 'recently', 'lately', 'happened', 'tried', 'failed', 'attempts', 'suspicious', 'account'],
     summary:
-      'Signed in, I show the latest events on your account and your files from Access Records, and ' +
+      'Signed in, I show the latest events on your account and your files from the Activity Log, and ' +
       'point out failed sign-ins. If one was not you, change your password.',
     links: [
-      { label: 'Access Records', to: '/audit-logs' },
+      { label: 'Activity Log', to: '/audit-logs' },
       { label: 'Settings', to: '/settings' },
     ],
     check: 'recent-activity',

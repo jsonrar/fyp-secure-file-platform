@@ -129,9 +129,10 @@ const groups = computed<AuditGroup[]>(() => {
       })
     }
   }
-  // Files first; the account group is context, not the subject of the page.
+  // Account activity first (sign-ins, passphrase and key changes), then the file records.
+  // Someone checking whether their account was misused looks here before anything else.
   return Array.from(grouped.values()).sort(
-    (a, b) => Number(a.isAccount) - Number(b.isAccount),
+    (a, b) => Number(b.isAccount) - Number(a.isAccount),
   )
 })
 
@@ -277,7 +278,7 @@ const toggle = (id: string) => {
 <template>
   <section id="access-records" class="product-page">
     <div class="page-container">
-      <PageHeader title="File Access Records" subtitle="Track security-sensitive actions recorded by the audit log service">
+      <PageHeader title="Activity Log" subtitle="What happened on your account and who accessed your files, as recorded by the audit log">
         <template #actions>
           <button class="h-10 px-4 inline-flex items-center gap-2 rounded-md border border-border bg-card hover:bg-secondary" @click="loadLogs">
             <RefreshCw class="h-4 w-4" :class="{ 'animate-spin': isLoading }" />
@@ -378,7 +379,7 @@ const toggle = (id: string) => {
       <p v-if="errorMessage" class="text-center text-sm text-destructive mb-4">{{ errorMessage }}</p>
       <p v-if="groups.length" class="mb-4 flex items-center gap-2 text-sm text-muted-foreground" data-testid="records-hint">
         <ChevronDown class="h-4 w-4 shrink-0" />
-        Select a file below to open its full access history: who uploaded, shared or downloaded it, and when.
+        Select an entry below to open its full history: your account activity, or who uploaded, shared or downloaded a file, and when.
       </p>
 
       <div v-if="isLoading && !groups.length" class="text-center py-12 text-muted-foreground">

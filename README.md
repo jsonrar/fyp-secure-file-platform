@@ -46,7 +46,7 @@ the open findings, are in the self-assessed [THREAT_MODEL.md](docs/THREAT_MODEL.
 
 The browser MVP is operational end to end: emailed-code registration and password reset,
 client-held account-key enrolment, passphrase or private-key-file unlock, passphrase reset
-with the private-key file, idle relock,
+with the private-key file, a passphrase prompt on every decrypted download and every share,
 authenticated encryption before upload, local decryption after download, filename search,
 sharing by rewrapping the file key to the recipient, revocation, per-file access history,
 silent session refresh, logout, and account deletion. AES-128/192/256-GCM,
@@ -80,7 +80,7 @@ and links into the product, matching the question in the browser against curated
 Education, explainer and picture-guide content. There is no language model and no network call;
 questions are not sent or logged. Signed in, it also answers questions about your own account
 (#148): who has access to a file, what has been shared with you, recent failed sign-ins. Those
-answers only read what My Files and Access Records already show, and change nothing. See
+answers only read what My Files and the Activity Log already show, and change nothing. See
 [docs/HELP_ASSISTANT.md](docs/HELP_ASSISTANT.md).
 
 The interface can be switched between **English and 简体中文** (#74) from the header (#166)

@@ -7,7 +7,6 @@ import { useI18n } from 'vue-i18n'
 import { authApi } from '@/api/auth_api'
 import { apiErrorMessage } from '@/api/http'
 import PasswordField from '@/components/PasswordField.vue'
-import { unlockWithPrivateKeyPem } from '@/crypto/download'
 import { useAuthStore } from '@/stores/auth_store'
 import { enrolAccountKey } from '@/utils/account-crypto'
 
@@ -172,20 +171,19 @@ function backToStepOne() {
 }
 
 /**
- * Sign in with the credentials just registered, and open this session's account key with the
- * private key generated a moment ago, so the first upload or share does not ask for the
- * passphrase again. Either step failing is not an error: the key page then offers sign-in.
+ * Sign in with the credentials just registered. The account key is not opened here: uploading
+ * only needs the public key, and every decrypted download or share asks for the passphrase
+ * anyway. Failing is not an error: the key page then offers sign-in.
  */
-async function signInAfterRegistering(pem: string) {
+async function signInAfterRegistering() {
   try {
     const res = await authApi.login({ username: username.value.trim(), password: password.value })
     const token = res.data?.data?.access_token
     if (!token) return
     auth.setSession(token, res.data?.data?.refresh_token ?? '')
     signedIn.value = true
-    await unlockWithPrivateKeyPem(pem)
   } catch {
-    // Throttled, or the key check failed: the user signs in from the login page as before.
+    // Throttled: the user signs in from the login page as before.
   }
 }
 
@@ -283,7 +281,7 @@ async function register() {
     })
 
     progressLabel.value = t('register.progressSignIn')
-    await signInAfterRegistering(generatedPem)
+    await signInAfterRegistering()
 
     privateKeyPem.value = generatedPem
     publicKeyFingerprint.value = response.data.data.public_key_fingerprint
