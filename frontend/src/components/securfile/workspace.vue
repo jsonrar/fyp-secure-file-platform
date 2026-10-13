@@ -54,21 +54,21 @@ const destinations = computed(() => {
       to: '/upload',
       icon: Upload,
       title: 'Upload & Encrypt',
-      body: 'Encrypt a new file in your browser (AES-256-GCM by default). Only the ciphertext is uploaded.',
+      body: 'Encrypt a file in your browser with AES-256-GCM. Only the ciphertext is uploaded.',
       cta: 'Encrypt a file',
     },
     {
       to: '/files',
       icon: FileIcon,
       title: 'My Files',
-      body: 'Download and decrypt, share with another account, verify integrity, or delete what you have already uploaded.',
+      body: 'Download, share, verify or delete the files you have already uploaded.',
       cta: 'Manage files',
     },
     {
       to: '/audit-logs',
       icon: Shield,
       title: 'Access Records',
-      body: 'Review the tamper-evident audit log of every upload, download, and share on your account.',
+      body: 'The tamper-evident log of every upload, download and share on your account.',
       cta: 'View records',
     },
     {
@@ -77,7 +77,7 @@ const destinations = computed(() => {
       title: auth.isAdmin ? 'Admin console' : auth.isRecoveryReviewer ? 'Recovery review' : 'Recovery requests',
       body: auth.isRecoveryReviewer
         ? 'Review recovery requests, manage users and files, verify the audit hash chain, and register the recovery public key.'
-        : 'Track your recovery requests, or cancel one that is no longer needed.',
+        : 'Track your recovery requests, or cancel one you no longer need.',
       cta: auth.isRecoveryReviewer ? 'Open console' : 'View requests',
     },
   ]
