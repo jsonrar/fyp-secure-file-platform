@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Help videos at 1080p with a light caption bar / 帮助页视频改为 1080p，字幕条改浅色
+
+- Full-screen on a laptop the 1280×720 videos looked soft, and the dark navy caption bar across the bottom, together with the site's own dimmed backdrop whenever a dialog is open, made them feel dark (measured, the frames were not: white 255, black 0). The page is now laid out and recorded at 1920×1080 (Playwright only scales a frame down into the video, never up, so the viewport has to be the video size), encoded at CRF 28, and the caption bar is white with dark text, smaller and narrower. The three videos were recorded again at `259e859`; the presentation backup video, which shares the overlay, is unchanged until it is next recorded.
+- 1280×720 的视频在笔记本上全屏显得发虚，底部深蓝色字幕条再加上网站弹窗时自带的压暗背景，看起来就偏暗（实测画面并不暗：白是 255，黑是 0）。页面改为按 1920×1080 排版并以该尺寸录制（Playwright 只会把画面缩小进视频，不会放大，所以视口必须等于视频尺寸），编码 CRF 28；字幕条改为白底深字、更小更窄。三段视频在 `259e859` 上重录；共用这层字幕的答辩备用视频下次重录时才会跟着变。
+
 ### Picture guide, Help videos and AC4a screenshots re-made after the Activity Log rename / 改名 Activity Log 之后重拍图文指南、帮助视频和 AC4a 截图
 
 - #237 renamed Access Records to Activity Log in the sidebar, made every share ask for the passphrase first, and #231 put MYT on every time, so the Help videos, the AC4a screenshots and part of the homepage picture guide showed a site that no longer exists. Re-made from the current code on a disposable local stack with made-up accounts: `encrypt-upload.mp4` (98.1 s), `share-open.mp4` (100.7 s, the passphrase step before the share dialog is in it) and `how-it-works.mp4` by `record-walkthroughs.mjs`; the 28 picture-guide images by `capture-workflow.cjs`, of which 15 changed (the cipher list is centred since #224, the Unlock dialog carries the new wording, the dialogs' times are MYT; the file-row crops do not show the sidebar and are byte-identical); the seven `docs/presentation/screenshots/ac4a-*.png` by the capture run. The guide's step 5 reads "Unlock your key." instead of "if asked", since it is asked every time now. The Education animations are drawn by code and needed nothing.

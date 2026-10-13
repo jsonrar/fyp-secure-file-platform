@@ -34,7 +34,11 @@ const BASE = args.base ?? 'http://localhost:5174'
 const OUT = resolve(args.out ?? 'public/videos')
 const ONLY = args.only ? args.only.split(',') : null
 const accounts = JSON.parse(readFileSync(args.accounts, 'utf8'))
-const SIZE = { width: 1280, height: 720 }
+// 1920x1080: the page is laid out at that size and recorded at it, so full-screen on a laptop the
+// video is as crisp as the site itself. Playwright only ever scales a frame down into the video,
+// never up, so the viewport has to be the video size (a 1280x720 page in a 1080p video is padded,
+// not enlarged, and a deviceScaleFactor does not change what the screencast delivers).
+const SIZE = { width: 1920, height: 1080 }
 const FILE_NAME = 'Project notes.txt'
 const FILE_TEXT =
   'Project notes\n\nMilestone 3 is due on Friday. Budget review moved to Monday.\n' +

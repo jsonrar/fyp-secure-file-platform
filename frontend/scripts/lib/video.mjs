@@ -16,17 +16,18 @@ import { join } from 'node:path'
 export const OVERLAY = `
 (() => {
   const css = \`
-    #sv-cap { position: fixed; left: 50%; bottom: 22px; transform: translateX(-50%); z-index: 2147483647;
-      max-width: 1040px; width: calc(100% - 48px); display: flex; gap: 14px; align-items: center;
-      padding: 14px 20px; border-radius: 16px; background: rgba(15, 23, 42, 0.92); color: #fff;
-      font: 500 17px/1.45 system-ui, -apple-system, Segoe UI, sans-serif; box-shadow: 0 10px 30px rgba(0,0,0,.25);
+    #sv-cap { position: fixed; left: 50%; bottom: 18px; transform: translateX(-50%); z-index: 2147483647;
+      max-width: 1100px; width: calc(100% - 64px); display: flex; gap: 14px; align-items: center;
+      padding: 14px 20px; border-radius: 16px; background: rgba(255, 255, 255, 0.96); color: #0f172a;
+      border: 1px solid rgba(15, 23, 42, 0.14);
+      font: 500 20px/1.4 system-ui, -apple-system, Segoe UI, sans-serif; box-shadow: 0 8px 24px rgba(15, 23, 42, .16);
       transition: opacity .3s; }
     #sv-cap[hidden], #sv-who[hidden] { display: none; }
     #sv-cap b { flex: none; display: inline-flex; align-items: center; justify-content: center;
-      min-width: 34px; height: 34px; border-radius: 999px; background: rgb(0, 109, 199); font-size: 15px; }
-    #sv-cap small { display: block; font-weight: 400; color: #cbd5e1; font-size: 14px; margin-top: 2px; }
+      min-width: 38px; height: 38px; border-radius: 999px; background: rgb(0, 109, 199); color: #fff; font-size: 17px; }
+    #sv-cap small { display: block; font-weight: 400; color: #475569; font-size: 16px; margin-top: 2px; }
     #sv-who { position: fixed; left: 16px; top: 84px; z-index: 2147483647; padding: 6px 14px;
-      border-radius: 999px; color: #fff; font: 600 15px/1.4 system-ui, -apple-system, Segoe UI, sans-serif;
+      border-radius: 999px; color: #fff; font: 600 18px/1.4 system-ui, -apple-system, Segoe UI, sans-serif;
       box-shadow: 0 6px 18px rgba(0,0,0,.2); }
     .sv-focus { outline: 3px solid rgb(0, 109, 199) !important; outline-offset: 4px !important;
       border-radius: 8px; box-shadow: 0 0 0 9px rgba(0, 109, 199, .18) !important; transition: outline-color .2s; }
@@ -128,7 +129,7 @@ export async function unlockIfAsked(page, account, step, text = 'Unlock your key
 export function encode(webm, outDir, name, posterAt = 4) {
   const mp4 = join(outDir, `${name}.mp4`)
   execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-ss', '0.6', '-i', webm, '-an', '-c:v', 'libx264',
-    '-preset', 'slow', '-crf', '30', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4])
+    '-preset', 'slow', '-crf', '28', '-pix_fmt', 'yuv420p', '-movflags', '+faststart', mp4])
   execFileSync('ffmpeg', ['-loglevel', 'error', '-y', '-ss', String(posterAt), '-i', mp4, '-frames:v', '1',
     '-q:v', '4', join(outDir, `${name}.jpg`)])
   console.log(`wrote ${mp4}`)
