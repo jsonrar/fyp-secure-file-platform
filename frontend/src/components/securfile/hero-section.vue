@@ -20,11 +20,11 @@ const standards = ['AES-256-GCM', 'RSA-OAEP', 'Argon2id', 'SHA-256', 'Hash-chain
           End-to-end encrypted file sharing
         </p>
         <h1 class="text-5xl font-semibold leading-[1.02] tracking-[-0.045em] text-white sm:text-6xl lg:text-5xl 2xl:text-6xl">
-          Google can read your files.
-          <span class="block text-[#6b7280]">We cannot.</span>
+          Your cloud drive can read your files.
+          <span class="block text-[#7ce0b5]">We cannot.</span>
         </h1>
         <p class="max-w-xl text-lg leading-relaxed text-[#b7bcc6] md:text-xl">
-          <SentenceLines text="Every file is encrypted in your browser before upload. Only you and the people you share it with can open it, so our server only ever stores scrambled bytes." />
+          <SentenceLines text="Every file is encrypted in your browser before upload. Only you and the people you share it with can open it. Our server only ever stores scrambled bytes." />
         </p>
         <div class="flex flex-wrap items-center gap-3">
           <!-- Signed out, /upload only redirects to sign in, so the first step is an account. -->

@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Home headline: "Your cloud drive can read your files. We cannot." / 首页大标题改为 "Your cloud drive can read your files. We cannot."
+
+- After #234 Li pointed out that naming Google narrowed the claim to one company, and that "We cannot.", the point of the headline, was the dimmed grey line. The headline is now "Your cloud drive can read your files. We cannot.", the same sentence as slide 3 of the final presentation, and "We cannot." is in the green used for SEALED, as on the poster. The paragraph under it is three sentences, one per line on a laptop, so "so our" no longer hangs at the end of the second line. Li picked this from three previews.
+- #234 上线后 Li 指出：直接写 Google 把对比局限在一家公司；标题的重点 "We cannot." 却是暗灰色。现在大标题改成 "Your cloud drive can read your files. We cannot."，和期末汇报 PPT 第 3 页的大标题同一句；"We cannot." 用 SEALED 标签的绿色，和海报一致。下面的小字改成三句，笔记本上一句一行，"so our" 不会再挂在第二行末尾。这是 Li 从三个预览里选的。
+
 ### Home page wording in plain English / 首页文案改成直白的说法
 
 - Li's friends read the home page as obviously written by an AI, mostly because of its headings: paired slogans ("Sealed in your browser, unreadable to others."), a closing one-liner ("Not even our server can read it."), dashes in the step labels ("01 — Seal") and wordplay such as "Changed means refused". Only the text changed; the layout, colours and fonts are exactly as before. The hero now uses the poster's line, "Google can read your files. We cannot.", the steps section is "What happens to your file" with cards "01 · Encrypt / Encrypted before upload", "Shared with one person" and "Checked before download", and the picture guide is "Your first share, one screen at a time". The board-minutes.pdf card in the hero keeps its wording (SEALED, "Sealed for demo-bob") because slide 1 of the final presentation shows it. Chinese entries were added for every new line.
