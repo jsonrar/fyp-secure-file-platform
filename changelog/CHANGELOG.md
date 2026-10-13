@@ -18,10 +18,10 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
-### Records: removed the claim that AC2, AC3, AC4, AC5 and AC8 were signed off / 文档：删除 AC2、AC3、AC4、AC5、AC8 已签核的说法
+### Records: removed the list naming AC2, AC3, AC4, AC5 and AC8 as the sign-off items / 文档：删除把 AC2、AC3、AC4、AC5、AC8 写成签核项的名单
 
-- `docs/presentation/RTM_DEMO_MAP.md` said "the five sign-off items are AC2, AC3, AC4, AC5 and AC8" and marked those rows **sign-off**. No such sign-off by the teaching team ever happened, so a reader could take it as an assessment result. The sentence and the five markers are gone in both languages, and the older changelog entry that introduced the map no longer repeats the claim. The rows themselves, including what the security agent does for AC8, are unchanged. Docs only; no code changed.
-- `docs/presentation/RTM_DEMO_MAP.md` 原来写着 “五个签核项是 AC2、AC3、AC4、AC5 和 AC8”，并在这几行标了 **签核**。教学团队从来没有做过这样的签核，读者可能把它当成评审结果。中英文两版都删掉了这句话和五处标记，引入这张对照表的旧更新日志条目也不再重复这个说法。表格各行内容不变，包括 AC8 安全代理做什么。只改文档，没有改代码。
+- `docs/presentation/RTM_DEMO_MAP.md` said "the five sign-off items are AC2, AC3, AC4, AC5 and AC8" and marked those rows **sign-off**. That list is not a record of what the teaching team agreed for the live demo, and a reader could take it as one. The sentence and the five markers are gone in both languages, and the older changelog entry that introduced the map no longer repeats the claim. The rows themselves, including what the security agent does for AC8, are unchanged. Docs only; no code changed.
+- `docs/presentation/RTM_DEMO_MAP.md` 原来写着 “五个签核项是 AC2、AC3、AC4、AC5 和 AC8”，并在这几行标了 **签核**。这份名单并不是教学团队对现场演示项目的确认记录，读者却可能把它当成确认记录。中英文两版都删掉了这句话和五处标记，引入这张对照表的旧更新日志条目也不再重复这个说法。表格各行内容不变，包括 AC8 安全代理做什么。只改文档，没有改代码。
 
 ### Home headline: "Your cloud drive can read your files. We cannot." / 首页大标题改为 "Your cloud drive can read your files. We cannot."
 
