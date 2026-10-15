@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### All test results copied into one folder / 所有测试结果复制到一个文件夹
+
+- `docs/test report/` now holds copies of the testing summary, the end to end and performance testing pages, the 2026-10-09 load test report with its charts, server CSV and raw data, the 2026-10-12 ZAP scan, and the encryption and tamper evidence, with a README listing each file. They are copies so every existing link and CI keeps working; relative links inside the copies point back at the originals.
+- `docs/test report/` 现在放着测试汇总、端到端测试和性能测试说明、2026-10-09 压力测试报告及其图表、服务器 CSV 和原始数据、2026-10-12 ZAP 扫描、加密和篡改证明的副本，并有一个 README 列出每个文件。用复制而不是移动，现有链接和 CI 都不受影响；副本里的相对链接已改为指回原文件。
+
 ### Reconcile test no longer flakes on the MYT cutoff lines / 清理脚本的测试不再因 MYT 截止时间行而随机失败
 
 - `test_the_report_prints_counts_and_never_a_name` runs the reconcile report twice and compares everything but the two cutoff lines, which it recognised by the old UTC `...Z  (` stamp. Since #231 those lines read MYT, so they were compared too, and the test failed whenever the second run landed in a different second (the `main` run after #239 did). The filter now drops the two lines by their labels.
