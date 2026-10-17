@@ -54,6 +54,19 @@ M3 已依据导师看过并签署确认的 MVP/UI 检查点标为 Done；导师�
 已交付行为的原因和证据统一写在
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md)，不再复制进历史 TODO。
 
+## 2026-10-17 已核验（`main` 位于 `a96fed9`，测试最后一次运行在 `1b1bcce`）
+
+| 门禁 | 结果 | 含义 |
+| --- | --- | --- |
+| `1b1bcce`（PR #240，2026-10-13）上的 GitHub Actions | 所有测试 Job 和 `promote` 全部通过 | 这是最后一次真正跑测试的 `main` 推送；`a96fed9`（#241）只改文档，测试 Job 和 `promote` 按设计被跳过 |
+| 后端（`mysql-gate`） | 786 passed，0 skipped；覆盖率 86.64% | 同时运行 MySQL 发布门禁和备份/恢复演练，均通过 |
+| 后端（`backend` Job，无 MySQL） | 718 passed，68 deselected；覆盖率 81.84% | 不需要 MySQL 的单元和 API 测试 |
+| 前端（`frontend` Job） | 899 passed，78 skipped；语句覆盖率 77.36% | 被跳过的是真实后端测试套件，在 `e2e-live` 里运行 |
+| 前端实时测试（`e2e-live`） | 977 passed，0 skipped；语句覆盖率 79.72% | 全部套件针对一次性 API 与 MySQL 运行 |
+| 浏览器测试（`e2e-live`） | 57 passed | Playwright |
+| 篡改演练 | 通过 | 隔离的攻击容器（#90） |
+| 线上 staging | 运行 `1b1bcce`，schema `0011_must_change_password` | `/opt/mcs21/current` 指向该版本；`/health/ready` 返回 ready（2026-10-17 检查） |
+
 ## 2026-10-10 已核验（`main` 位于 `2ffc36c`）
 
 | 门禁 | 结果 | 含义 |

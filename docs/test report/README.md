@@ -6,7 +6,7 @@ This folder puts all of our test results in one place so they are easy to find f
 Everything here is a copy. The originals are still in their old folders, so older links, the main README and CI all keep working.
 If a number is ever different between a copy and the original, trust the original.
 
-The test counts in TESTING_SUMMARY come from the CI run on main at 2ffc36c (2026-10-09): 759 backend tests against real MySQL and 964 frontend tests, all passing.
+The test counts in TESTING_SUMMARY come from the CI run on main at 1b1bcce (2026-10-13, PR #240): 786 backend tests against real MySQL, 977 frontend tests and 57 browser tests, all passing.
 
 ## Overview
 
