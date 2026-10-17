@@ -2,18 +2,18 @@
 
 [English](TESTING_SUMMARY.md) | 简体中文
 
-把 SecureView 所有和测试有关的数字放在一页里，报告、幻灯片和 README 引用同一组数字。数字来自 `main` 在 `2ffc36c`（PR #222，2026-10-09）上的 CI，以及同一天的压测。数字有变化时，先改这里。
+把 SecureView 所有和测试有关的数字放在一页里，报告、幻灯片和 README 引用同一组数字。数字来自 `main` 在 `1b1bcce`（PR #240，2026-10-13）上的 CI，以及 2026-10-09 的压测。数字有变化时，先改这里。
 
 ## 自动化测试（每个 pull request 和每次推送到 `main`）
 
 CI 跑在 staging VPS 上的三台自托管 runner 上（[deployment/ci-runner](../../deployment/ci-runner/README.zh-CN.md)）。pull request 不会部署；`main` 只有在下面全部通过后才会部署（[AUTOMATIC_DEPLOYMENT.zh-CN.md](../AUTOMATIC_DEPLOYMENT.zh-CN.md)）。
 
-| Job | 跑什么 | `2ffc36c` 上的结果 | 覆盖率 |
+| Job | 跑什么 | `1b1bcce` 上的结果 | 覆盖率 |
 | --- | --- | --- | --- |
-| `backend` | 不需要数据库的后端单元测试和 API 测试；ruff 检查和格式 | 691 通过 | 81.67%（门槛 78%） |
-| `mysql-gate` | 在真实 MySQL 8.4（TLS）上跑完整后端测试，检查运行时权限，跑 MySQL 发布门禁（全新安装、迁移、只读核验）和加密备份恢复演练 | 759 通过，0 跳过；发布门禁和恢复演练通过 | 86.52%（门槛 82%） |
-| `frontend` | Vue 类型检查、vitest 单元测试、生产构建、`npm audit` | 886 通过，78 跳过 | 语句 74.97% |
-| `e2e-live` | 所有前端测试套件连一次性的 API 和 MySQL 跑，包括上面跳过的 78 个；然后用 Playwright 在 Chromium 里操作构建好的页面 | 964 通过，0 跳过；57 个浏览器测试通过 | 语句 79.12% |
+| `backend` | 不需要数据库的后端单元测试和 API 测试；ruff 检查和格式 | 718 通过 | 81.84%（门槛 78%） |
+| `mysql-gate` | 在真实 MySQL 8.4（TLS）上跑完整后端测试，检查运行时权限，跑 MySQL 发布门禁（全新安装、迁移、只读核验）和加密备份恢复演练 | 786 通过，0 跳过；发布门禁和恢复演练通过 | 86.64%（门槛 82%） |
+| `frontend` | Vue 类型检查、vitest 单元测试、生产构建、`npm audit` | 899 通过，78 跳过 | 语句 77.36% |
+| `e2e-live` | 所有前端测试套件连一次性的 API 和 MySQL 跑，包括上面跳过的 78 个；然后用 Playwright 在 Chromium 里操作构建好的页面 | 977 通过，0 跳过；57 个浏览器测试通过 | 语句 79.72% |
 | `tamper-drill` | 隔离的攻击容器修改存储的密文和数据库，程序必须报告 MODIFIED 或 MISSING 并拒绝下载 | 通过 | |
 
 "0 跳过"是强制的：只要这些 JUnit 报告里有任何测试被跳过，`check_no_skips.py` 就会让 Job 失败，所以缺数据库或缺环境变量不会变成一次假的通过。

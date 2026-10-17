@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Test counts refreshed to the 13 October CI run / 测试数量更新到 10 月 13 日的 CI
+
+- `docs/TESTING_SUMMARY.md`, its copy under `docs/test report/`, the test report README, the talking points and the "Verified" table in `TODO.md` quoted the CI run on `2ffc36c` (#222, 2026-10-09). Tests were added by #223 to #240 and the last run that executed them, on `1b1bcce` (#240, 2026-10-13), counts `backend` 718 passed (81.84 %), `mysql-gate` 786 passed with 0 skipped (86.64 %), `frontend` 899 passed and 78 skipped (77.36 % statements), `e2e-live` 977 passed with 0 skipped (79.72 % statements) and 57 browser tests. All of those records now quote that run, and the TODO table notes that a documentation-only push such as #241 skips the test jobs, so counts must be read from the newest run whose jobs actually ran. The final report uses the same figures.
+- `docs/TESTING_SUMMARY.md`、它在 `docs/test report/` 下的副本、测试报告 README、讲稿要点和 `TODO.md` 的“已核验”表引用的还是 `2ffc36c`（#222，2026-10-09）那次 CI。#223 到 #240 之间加了测试，最后一次真正跑测试的是 `1b1bcce`（#240，2026-10-13）：`backend` 718 通过（81.84%），`mysql-gate` 786 通过、0 跳过（86.64%），`frontend` 899 通过、78 跳过（语句 77.36%），`e2e-live` 977 通过、0 跳过（语句 79.72%），另有 57 个浏览器测试。这些记录现在都引用这次运行；TODO 表里注明了像 #241 这样只改文档的推送会跳过测试 Job，所以数字要从最近一次真正跑了测试的运行里读。期末报告用的是同一组数字。
+
 ### All test results copied into one folder / 所有测试结果复制到一个文件夹
 
 - `docs/test report/` now holds copies of the testing summary, the end to end and performance testing pages, the 2026-10-09 load test report with its charts, server CSV and raw data, the 2026-10-12 ZAP scan, and the encryption and tamper evidence, with a README listing each file. They are copies so every existing link and CI keeps working; relative links inside the copies point back at the originals.

@@ -71,6 +71,19 @@ Features lane was retired from the home page in that redesign (#177).
 The reason and evidence for shipped behavior belong in
 [`changelog/CHANGELOG.md`](changelog/CHANGELOG.md), not in duplicated historical TODO text.
 
+## Verified on 2026-10-17 (`main` at `a96fed9`, tests last ran on `1b1bcce`)
+
+| Gate | Result | Interpretation |
+| --- | --- | --- |
+| GitHub Actions on `1b1bcce` (PR #240, 2026-10-13) | All test jobs and `promote` green | The last push to `main` that ran the test jobs; `a96fed9` (#241) was documentation only, so its test jobs and `promote` were skipped by design |
+| Backend (`mysql-gate`) | 786 passed, 0 skipped; coverage 86.64 % | Also runs the MySQL release gate and the backup/restore drill, both passing |
+| Backend (`backend` job, no MySQL) | 718 passed, 68 deselected; coverage 81.84 % | Unit and API tests without MySQL |
+| Frontend (`frontend` job) | 899 passed, 78 skipped; statements 77.36 % | The skips are live-backend suites, run in `e2e-live` |
+| Frontend live suites (`e2e-live`) | 977 passed, 0 skipped; statements 79.72 % | Every suite against a disposable API and MySQL |
+| Browser specs (`e2e-live`) | 57 passed | Playwright |
+| Tamper drill | Passed | Isolated attacker container (#90) |
+| Live staging | Running `1b1bcce`, schema `0011_must_change_password` | `/opt/mcs21/current` points at that release; `/health/ready` answers ready (checked 2026-10-17) |
+
 ## Verified on 2026-10-10 (`main` at `2ffc36c`)
 
 | Gate | Result | Interpretation |
