@@ -1,0 +1,49 @@
+# Dependency update pull requests, once a month, one per ecosystem.
+#
+# Each ecosystem's updates are grouped into a single pull request so a month brings at most
+# four of them, each run through the full CI like any other change. Security updates for a
+# known advisory are not held for the monthly run; Dependabot opens those as soon as the
+# advisory is published (when Dependabot security updates are enabled for the repository).
+#
+# backend/requirements.txt and requirements-dev.txt are the pinned source the deploy and CI
+# install from, so they are what the pip updates change. The Dockerfiles are the CI runner
+# image and the security lab; the production backend is not a container.
+version: 2
+updates:
+  - package-ecosystem: pip
+    directory: /backend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      pip:
+        patterns: ["*"]
+
+  - package-ecosystem: npm
+    directory: /frontend
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      npm:
+        patterns: ["*"]
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      github-actions:
+        patterns: ["*"]
+
+  - package-ecosystem: docker
+    directories:
+      - /deployment/ci-runner
+      - /security-lab
+    schedule:
+      interval: monthly
+    open-pull-requests-limit: 5
+    groups:
+      docker:
+        patterns: ["*"]
