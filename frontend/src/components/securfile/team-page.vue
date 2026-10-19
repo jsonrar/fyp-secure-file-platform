@@ -4,14 +4,19 @@ import { ArrowUpRight, Bug, Code, Github, GraduationCap, Lightbulb, LockKeyhole,
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import type { Component } from 'vue'
 import asadPhoto from '@/assets/people/asad-malik.jpg'
+import jasonPhoto from '@/assets/people/jason-huang.jpg'
+import junyanPhoto from '@/assets/people/junyan-li.jpg'
+import shuoxunPhoto from '@/assets/people/shuoxun-wen.jpg'
+import taiPhoto from '@/assets/people/tai-chen.jpg'
 
 /**
  * Contact us: feedback, then the supervisor and the development team as tilted sticker tiles.
  *
  * The tile design is Junyan Li's and is kept as it was. What changed is the information on it:
  * names, roles and one-line responsibilities follow the group's MCS21 presentation, each member
- * links their GitHub profile and Monash student email, and the supervisor's tile carries the
- * title, research interests, photo and profile link from his Monash research profile.
+ * links their GitHub profile and Monash student email, and every tile has a photo. The supervisor's
+ * tile also carries the title, research interests and profile link from his Monash research profile,
+ * and his portrait is the larger sticker because his tile is the wide one.
  */
 
 const SUPERVISOR_PROFILE_URL = 'https://research.monash.edu/en/persons/asad-malik/'
@@ -25,7 +30,7 @@ interface TeamMember {
   detail: string
   accent: string
   stickerTone: string
-  /** The supervisor's tile shows his portrait in the sticker and a profile link. */
+  /** Everyone has a photo in the sticker. Only the supervisor's sticker is the large one, and only he has a profile link. */
   photo?: string
   title?: string
   affiliation?: string
@@ -62,6 +67,7 @@ const members: TeamMember[] = [
       'Runs the backlog and the release process, owns the staging server and its deployment, the MySQL database, and the testing and documentation that show the platform does what it claims.',
     accent: 'from-foreground/5 via-transparent to-transparent',
     stickerTone: 'sticker-blue',
+    photo: shuoxunPhoto,
     github: { url: 'https://github.com/Waldo0926', handle: 'Waldo0926' },
     email: 'swen0027@student.monash.edu',
   },
@@ -75,6 +81,7 @@ const members: TeamMember[] = [
       'Implements the browser-side cryptography, the encrypted file envelope and key wrapping, and the test vectors that check them, so plaintext never needs to leave the client trust boundary.',
     accent: 'from-emerald-500/20 via-transparent to-emerald-500/5',
     stickerTone: 'sticker-emerald',
+    photo: taiPhoto,
     github: { url: 'https://github.com/Charter888', handle: 'Charter888' },
     email: 'tche0186@student.monash.edu',
   },
@@ -88,6 +95,7 @@ const members: TeamMember[] = [
       'Builds the SecureView interface: the Vue pages, the product journeys, and the Education and Help content, so security features stay readable and approachable on every screen size.',
     accent: 'from-sky-500/20 via-transparent to-sky-500/5',
     stickerTone: 'sticker-sky',
+    photo: junyanPhoto,
     github: { url: 'https://github.com/jlii0421', handle: 'jlii0421' },
     email: 'jlii0421@student.monash.edu',
   },
@@ -101,6 +109,7 @@ const members: TeamMember[] = [
       'Maintains the FastAPI services behind the platform: authentication, file storage, sharing and the audit endpoints, so encrypted collaboration has a dependable server backbone.',
     accent: 'from-slate-500/20 via-transparent to-slate-500/5',
     stickerTone: 'sticker-slate',
+    photo: jasonPhoto,
     github: { url: 'https://github.com/jsonrar', handle: 'jsonrar' },
     email: 'jhua0176@student.monash.edu',
   },
@@ -318,13 +327,13 @@ onBeforeUnmount(() => {
             <div class="team-tile__frame" :class="`bg-gradient-to-br ${member.accent}`">
               <div class="team-tile__split" :class="{ 'team-tile__split--supervisor': member.profileUrl }">
                 <div class="team-tile__identity">
-                  <div class="team-sticker" :class="[member.stickerTone, { 'team-sticker--lg': member.photo }]">
+                  <div class="team-sticker" :class="[member.stickerTone, { 'team-sticker--lg': member.profileUrl }]">
                     <img
                       v-if="member.photo"
                       :src="member.photo"
                       :alt="`Portrait of ${member.name}`"
                       width="640"
-                      height="789"
+                      :height="member.profileUrl ? 789 : 640"
                       class="team-sticker__photo"
                       loading="lazy"
                     />
@@ -429,7 +438,10 @@ onBeforeUnmount(() => {
             </button>
 
             <div class="team-profile">
-              <div class="team-profile__media" :class="activeMember.stickerTone">
+              <div
+                class="team-profile__media"
+                :class="[activeMember.stickerTone, { 'team-profile__media--member': !activeMember.profileUrl }]"
+              >
                 <img
                   v-if="activeMember.photo"
                   :src="activeMember.photo"
@@ -825,6 +837,25 @@ onBeforeUnmount(() => {
   height: 100%;
   object-fit: cover;
   object-position: top;
+}
+
+/* The supervisor's portrait is cropped from the top so his face stays in view. The members'
+   pictures are square and one of them is a logo with its name under it, so they are cropped
+   evenly from the middle instead, and on a phone the box is made square and the whole picture
+   is shown, because the short wide box there cut the logo's name in half. */
+.team-profile__media--member .team-profile__photo {
+  object-position: center;
+}
+
+@media (max-width: 767px) {
+  .team-profile__media--member {
+    width: 100%;
+    aspect-ratio: 1;
+  }
+
+  .team-profile__media--member .team-profile__photo {
+    object-fit: contain;
+  }
 }
 
 .team-profile__initials {
