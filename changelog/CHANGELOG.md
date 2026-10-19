@@ -18,6 +18,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Team stickers centred, and every member's photo as large as the supervisor's / 团队贴纸居中，组员头像和导师一样大
+
+- After #248 the member photos were in the small sticker, and on every tile the sticker, name and role sat in the left half of the left column with the right half empty, which looked odd. Every tile with a photo now uses the large sticker (8rem by 9.85rem), so the members' pictures are as clear as the supervisor's, and the sticker, name and role are centred in that column. Between 768 and 1023 px the member tiles sit two to a row and the left column (161 to 190 px) was too narrow for the large sticker, and some names and roles already broke onto two lines there, so in that range the member tiles stack like on a phone and names never wrap. Card widths, the right column, colours and fonts are unchanged. The four member tiles now run Shuoxun Wen, Junyan Li, Jason Huang, Tai Chen, as the group asked; the supervisor's tile stays first.
+- #248 之后组员头像在小号贴纸里，而且每张卡的贴纸、名字和角色都挤在左栏的左半边，右半边空着，看着很怪。现在有照片的卡都用大号贴纸（8rem × 9.85rem），组员头像和导师的一样清楚，贴纸、名字和角色在左栏里居中。768 到 1023 px 之间组员卡一行两张，左栏只有 161 到 190 px，放不下大贴纸，有些名字和角色原本在这个宽度就会折成两行，所以这段宽度下组员卡改成和手机一样上下排列，名字也不再折行。卡片宽度、右栏、配色和字体都没变。四位组员的卡片顺序按组里的要求改成 Shuoxun Wen、Junyan Li、Jason Huang、Tai Chen，导师卡仍在最前面。
+
 ### Photos for the four team members on Contact us / Contact us 页加上四位组员的头像
 
 - Only the supervisor's tile on Contact us had a picture, so the four student tiles showed initials and the page looked unfinished next to his portrait. Shuoxun Wen, Tai Chen, Junyan Li and Jason Huang now each have a square picture in `frontend/src/assets/people/` and served from the site's own origin like the supervisor's (the CSP blocks hot-linked images). The large sticker used to follow "has a photo", which would have made every member's sticker grow, so it now follows "is the supervisor" and the member stickers keep their size. In the enlarged profile the members' pictures are cropped from the middle, not the top, and on screens narrower than 768 px the box is square and shows the whole picture, because Tai Chen's picture is a logo with its name underneath and the short wide box on a phone cut that name in half. The browser test now checks that all five pictures load.

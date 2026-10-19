@@ -14,9 +14,9 @@ import taiPhoto from '@/assets/people/tai-chen.jpg'
  *
  * The tile design is Junyan Li's and is kept as it was. What changed is the information on it:
  * names, roles and one-line responsibilities follow the group's MCS21 presentation, each member
- * links their GitHub profile and Monash student email, and every tile has a photo. The supervisor's
- * tile also carries the title, research interests and profile link from his Monash research profile,
- * and his portrait is the larger sticker because his tile is the wide one.
+ * links their GitHub profile and Monash student email, and every tile has a photo in a large
+ * sticker centred in the left column. The supervisor's tile also carries the title, research
+ * interests and profile link from his Monash research profile.
  */
 
 const SUPERVISOR_PROFILE_URL = 'https://research.monash.edu/en/persons/asad-malik/'
@@ -30,7 +30,7 @@ interface TeamMember {
   detail: string
   accent: string
   stickerTone: string
-  /** Everyone has a photo in the sticker. Only the supervisor's sticker is the large one, and only he has a profile link. */
+  /** Everyone has a photo, shown in the large sticker. Only the supervisor has a profile link. */
   photo?: string
   title?: string
   affiliation?: string
@@ -72,20 +72,6 @@ const members: TeamMember[] = [
     email: 'swen0027@student.monash.edu',
   },
   {
-    name: 'Tai Chen',
-    role: 'Cryptography',
-    icon: LockKeyhole,
-    initials: 'TC',
-    bio: 'Browser encryption, file envelope, key wrapping and test vectors.',
-    detail:
-      'Implements the browser-side cryptography, the encrypted file envelope and key wrapping, and the test vectors that check them, so plaintext never needs to leave the client trust boundary.',
-    accent: 'from-emerald-500/20 via-transparent to-emerald-500/5',
-    stickerTone: 'sticker-emerald',
-    photo: taiPhoto,
-    github: { url: 'https://github.com/Charter888', handle: 'Charter888' },
-    email: 'tche0186@student.monash.edu',
-  },
-  {
     name: 'Junyan Li',
     role: 'Frontend and Interface',
     icon: Code,
@@ -112,6 +98,20 @@ const members: TeamMember[] = [
     photo: jasonPhoto,
     github: { url: 'https://github.com/jsonrar', handle: 'jsonrar' },
     email: 'jhua0176@student.monash.edu',
+  },
+  {
+    name: 'Tai Chen',
+    role: 'Cryptography',
+    icon: LockKeyhole,
+    initials: 'TC',
+    bio: 'Browser encryption, file envelope, key wrapping and test vectors.',
+    detail:
+      'Implements the browser-side cryptography, the encrypted file envelope and key wrapping, and the test vectors that check them, so plaintext never needs to leave the client trust boundary.',
+    accent: 'from-emerald-500/20 via-transparent to-emerald-500/5',
+    stickerTone: 'sticker-emerald',
+    photo: taiPhoto,
+    github: { url: 'https://github.com/Charter888', handle: 'Charter888' },
+    email: 'tche0186@student.monash.edu',
   },
 ]
 
@@ -327,7 +327,7 @@ onBeforeUnmount(() => {
             <div class="team-tile__frame" :class="`bg-gradient-to-br ${member.accent}`">
               <div class="team-tile__split" :class="{ 'team-tile__split--supervisor': member.profileUrl }">
                 <div class="team-tile__identity">
-                  <div class="team-sticker" :class="[member.stickerTone, { 'team-sticker--lg': member.profileUrl }]">
+                  <div class="team-sticker" :class="[member.stickerTone, { 'team-sticker--lg': member.photo }]">
                     <img
                       v-if="member.photo"
                       :src="member.photo"
@@ -343,7 +343,7 @@ onBeforeUnmount(() => {
                       <component :is="member.icon" class="h-4 w-4" />
                     </span>
                   </div>
-                  <h3 class="mt-4 text-xl font-semibold tracking-tight text-foreground md:text-2xl">
+                  <h3 class="mt-4 whitespace-nowrap text-xl font-semibold tracking-tight text-foreground md:text-2xl">
                     {{ member.name }}
                   </h3>
                   <p class="mt-1 text-sm font-medium text-primary">{{ member.role }}</p>
@@ -567,7 +567,9 @@ onBeforeUnmount(() => {
 .team-tile__identity {
   display: flex;
   flex-direction: column;
+  align-items: center;
   justify-content: center;
+  text-align: center;
   padding: 1.25rem 1.1rem 1.25rem 1.25rem;
   border-right: 1px dashed color-mix(in oklab, var(--border) 85%, var(--primary));
   background: color-mix(in oklab, var(--secondary) 55%, transparent);
@@ -752,6 +754,19 @@ onBeforeUnmount(() => {
 
   .team-tile__bio {
     padding: 1.6rem 1.75rem;
+  }
+}
+
+/* Between 768 and 1023 px the member tiles sit two to a row and the left column is too narrow
+   for the large sticker and a name on one line, so the tile is stacked like on a phone. */
+@media (min-width: 768px) and (max-width: 1023px) {
+  .team-mosaic .team-tile__split {
+    grid-template-columns: 1fr;
+  }
+
+  .team-mosaic .team-tile__identity {
+    border-right: 0;
+    border-bottom: 1px dashed color-mix(in oklab, var(--border) 85%, var(--primary));
   }
 }
 
