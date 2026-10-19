@@ -72,20 +72,6 @@ const members: TeamMember[] = [
     email: 'swen0027@student.monash.edu',
   },
   {
-    name: 'Tai Chen',
-    role: 'Cryptography',
-    icon: LockKeyhole,
-    initials: 'TC',
-    bio: 'Browser encryption, file envelope, key wrapping and test vectors.',
-    detail:
-      'Implements the browser-side cryptography, the encrypted file envelope and key wrapping, and the test vectors that check them, so plaintext never needs to leave the client trust boundary.',
-    accent: 'from-emerald-500/20 via-transparent to-emerald-500/5',
-    stickerTone: 'sticker-emerald',
-    photo: taiPhoto,
-    github: { url: 'https://github.com/Charter888', handle: 'Charter888' },
-    email: 'tche0186@student.monash.edu',
-  },
-  {
     name: 'Junyan Li',
     role: 'Frontend and Interface',
     icon: Code,
@@ -112,6 +98,20 @@ const members: TeamMember[] = [
     photo: jasonPhoto,
     github: { url: 'https://github.com/jsonrar', handle: 'jsonrar' },
     email: 'jhua0176@student.monash.edu',
+  },
+  {
+    name: 'Tai Chen',
+    role: 'Cryptography',
+    icon: LockKeyhole,
+    initials: 'TC',
+    bio: 'Browser encryption, file envelope, key wrapping and test vectors.',
+    detail:
+      'Implements the browser-side cryptography, the encrypted file envelope and key wrapping, and the test vectors that check them, so plaintext never needs to leave the client trust boundary.',
+    accent: 'from-emerald-500/20 via-transparent to-emerald-500/5',
+    stickerTone: 'sticker-emerald',
+    photo: taiPhoto,
+    github: { url: 'https://github.com/Charter888', handle: 'Charter888' },
+    email: 'tche0186@student.monash.edu',
   },
 ]
 
