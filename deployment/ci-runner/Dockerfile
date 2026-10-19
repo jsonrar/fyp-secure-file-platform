@@ -1,7 +1,7 @@
 # The CI runner image: the official GitHub Actions runner plus the few tools ci.yml expects
 # a GitHub-hosted ubuntu-latest machine to have (docker compose, python3, gh, mysql-client).
 # It never talks to the host's Docker: DOCKER_HOST points at the dind sidecar (compose.yml).
-FROM ghcr.io/actions/actions-runner:2.337.0
+FROM ghcr.io/actions/actions-runner:2.338.0
 
 ARG COMPOSE_VERSION=v2.40.3
 ARG GH_VERSION=2.102.0
