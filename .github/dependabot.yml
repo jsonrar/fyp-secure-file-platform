@@ -24,6 +24,10 @@ updates:
     schedule:
       interval: monthly
     open-pull-requests-limit: 5
+    ignore:
+      # vue-tsc does not support TypeScript 7 yet; revisit when TypeScript 7.1 ships its API.
+      - dependency-name: typescript
+        versions: [">=7"]
     groups:
       npm:
         patterns: ["*"]
