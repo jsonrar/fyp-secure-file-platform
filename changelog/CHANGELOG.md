@@ -487,6 +487,11 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 - The updated nginx file was installed on the VPS by the user and ZAP re-run: 0 FAIL, 5 WARN, 62 PASS (was 8 WARN, 59 PASS); the missing-header alerts are gone. `demo-alice` and `demo-bob` were created on staging with the seeder (no email code needed) for the live demo.
 - 用户已把更新后的 nginx 文件装到 VPS，并重跑 ZAP：0 FAIL、5 WARN、62 PASS（之前 8 个 WARN、59 PASS），缺失响应头的告警已消失。另外用种子脚本在 staging 上建了 `demo-alice` 和 `demo-bob`（不需要邮箱验证码），供现场演示使用。
 
+### Restore CI execution for the public repository / 恢复公开仓库的 CI 执行
+
+- The PR queue was waiting for the legacy VPS label and expiring before any checkout. Use ephemeral GitHub-hosted Ubuntu 24.04 runners for all seven jobs, default the token to read-only and bound job runtime. Keep all test, report-hygiene and main-only deployment gates. No server or production process is changed.
+- PR 一直等待旧 VPS 标签，检出代码前就排队过期。七个任务改用一次性 GitHub 托管 Ubuntu 24.04 runner，默认令牌只读并限制运行时间；全部测试、报告检查与仅 main 可用的部署门禁均保留。不修改服务器或生产进程。
+
 ### CI: judge a docs-only push against `deploy`, so it cannot strand a code commit / CI：纯文档推送相对 `deploy` 判断，不再让代码 commit 卡住不部署
 
 - A push to `main` cancels the run still in progress for `main`. On 2026-10-04 the docs-only #168 was merged three minutes after #169, cancelled #169's run, and then skipped the tests because it changed only documentation; `promote` was skipped with them, so `deploy` did not move to #169. Here no served code was involved, but the same order after a code merge would have left that code undeployed until the next code commit. The `changes` job now compares a push with the `deploy` branch (the last promoted commit) instead of the previous push, so unpromoted code is still in the diff and every job runs. A structural test in `test_deploy_gate.py` keeps it that way. Pull requests are unchanged.
