@@ -18,6 +18,12 @@ existing [`work-packages/`](work-packages/) files are read-only historical archi
 
 ## [Unreleased] / [未发布]
 
+### Redirect transport dependency advisory / 重定向传输依赖安全公告
+
+- Refresh the locked transitive `follow-redirects` dependency from 1.16.1 to 1.16.2 for GHSA-mrwp-f3q8-3g9p. Add a loopback-only check that custom sensitive headers are stripped from cross-origin redirects for both ordinary and cross-realm arrays. This is a dependency hygiene fix; the upstream advisory does not establish that Axios or this browser application is exploitable.
+- 针对 GHSA-mrwp-f3q8-3g9p，将锁定的传递依赖 `follow-redirects` 从 1.16.1 更新到 1.16.2；新增仅访问本机回环地址的检查，验证普通和跨 realm 数组中的自定义敏感头在跨域重定向时被移除。这是依赖维护修复，上游公告并未证明 Axios 或本浏览器应用可以被利用。
+
+
 ### First monthly dependency updates: TypeScript held at 6.0, security lab kept on Python 3.12 / 第一批每月依赖更新：TypeScript 停在 6.0，安全实验室保持 Python 3.12
 
 - The four grouped Dependabot pull requests (#244 to #247) are merged. Three needed a fix first. Ruff 0.17 adds RUF036 (`None` last in a type union), SQLAlchemy 2.1 deprecates `Row._tuple()` because a `Row` is now a tuple, and Alembic 1.20 renames `version_path_separator` to `path_separator`; the backend now follows all three. TypeScript 7 removes the entry point vue-tsc loads, so the typecheck could not run at all: TypeScript stays on `~6.0.3`, `tsconfig.json` drops the deprecated `baseUrl` and names `"types": ["node"]` (6.0 no longer loads it by default), and Dependabot skips TypeScript 7 until vue-tsc supports it. The security lab image was proposed on Python 3.14, where the pinned `pydantic-core` has no wheel and the slim image has no compiler; the lab should attack the backend on the Python CI and the server run anyway, so it moved to 3.12.15 instead and Dependabot now proposes only 3.12 patch releases for it. GitHub Actions moved to `checkout`, `setup-python` and `setup-node` v7, `cache` v6 and `upload-artifact` v7, and the CI runner image to 2.338.0, which takes effect when the runner is next rebuilt on the VPS.
