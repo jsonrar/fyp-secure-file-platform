@@ -2,11 +2,9 @@
 
 [English](README.md) | [简体中文](README.zh-CN.md)
 
-Every job in `.github/workflows/ci.yml` runs on these runners on the staging VPS, not on
-GitHub-hosted machines. There are three independent runners, so the five test jobs of one run go
-in parallel and a full run takes about as long as on GitHub (about 5 minutes). A private repository on GitHub's free plan has 2,000 Actions minutes a month. That ran
-out on 2026-10-04, after 145 runs in four days at about 13 billed minutes each. A self-hosted
-runner's minutes are not billed.
+Every job in The public repository now uses GitHub-hosted `ubuntu-24.04` for CI; these runners are no longer workflow targets.
+The instructions below describe the former private-repository setup. Do not install or restart them for the current public repository.
+This change does not stop, delete or update VPS containers. An administrator should separately review legacy registrations, execution access and retirement.
 
 ## Isolation from production
 
@@ -24,9 +22,7 @@ daemon in its own network namespace, so two jobs that both publish MySQL on 3306
 | Secrets | Nothing from `/opt/mcs21`, `/run/secrets` or `/etc` is mounted. The only state is three named volumes. |
 
 **Residual risk:** dind needs `privileged: true`, so a container escape from a malicious package
-in CI would reach the host. This was accepted because the repository is private and only the five
-team members can push. If that changes (for example, the repository becomes public), stop the
-runner first.
+in CI would reach the host. This was accepted only for the former private repository. That assumption no longer applies to the current public repository.
 
 ## Install or update (root, on the VPS)
 

@@ -319,7 +319,7 @@ fyp-secure-file-platform/
 |-- deployment/
 |   |-- server/              mcs21-deploy, mcs21-auto-deploy, alert/backup scripts, systemd
 |   |                        units and timers, nginx and fail2ban config
-|   `-- ci-runner/           the self-hosted GitHub Actions runners on the VPS
+|   `-- ci-runner/           legacy self-hosted runner configuration (not used by CI)
 |-- frontend/
 |   |-- src/                 pages, components, api, crypto, stores, i18n, locales
 |   |-- browser-tests/       Playwright specs (golden path, tamper view, phone widths, ...)
@@ -507,21 +507,19 @@ Frontend: <http://localhost:5173>
 
 ## Continuous Integration
 
-`.github/workflows/ci.yml` runs on every pull request and on push to `main`, with five test jobs
-after a small `changes` job. A change made only of Markdown files, or only of files under `docs/`
-(except `docs/crypto/`, whose test vectors the suites read), skips the five test jobs: the
-repository's free Actions allowance is 2,000 minutes a month, and a full run costs about 13.
-A push to `main` is compared with the `deploy` branch, not with the previous push, so code whose
-own run was cancelled by a later docs-only push is still tested and promoted
-([details](docs/AUTOMATIC_DEPLOYMENT.md#the-ci-gate)).
-Since 2026-10-04 every job runs on the project's own runner on the VPS, isolated from production
-([deployment/ci-runner/](deployment/ci-runner/README.md)); three runners take jobs in parallel, so a
-full run still takes about 5 minutes.
-`backend` and `frontend` are required checks by convention: GitHub branch protection is not
-available while the repository is private on the free plan, so nothing stops a merge on red CI
-except the reviewer. Deployment is gated, though: staging deploys only the `deploy` branch, which
-the `promote` job moves after all five jobs pass on `main`. Run the same commands locally before pushing so a failure never arrives
-as a surprise in CI:
+`.github/workflows/ci.yml` runs `changes` and five test jobs for each pull request and push to `main`.
+The repository is now public. Every job uses an ephemeral GitHub-hosted `ubuntu-24.04` runner,
+so checks no longer wait for the legacy VPS runners. Standard hosted runners for public repositories
+do not consume private-repository compute allowance; see [GitHub billing](https://docs.github.com/en/billing/concepts/product-billing/github-actions).
+Legacy runner files remain for operator review, not as evidence that those containers are active or retired.
+This repository change does not operate the VPS.
+
+Documentation-only changes still skip test work, except `docs/crypto/`, whose vectors are test inputs.
+Pushes to `main` still compare with `deploy`, preventing a later docs commit from hiding untested code.
+All five test jobs, MySQL no-skip checks, tamper drill, report hygiene and deployment gates remain.
+Only `promote`, on `main` after the gates succeed, receives write permission to advance `deploy`; PRs do not deploy.
+An administrator must separately verify branch protection; this change neither reads nor modifies it.
+Run the same checks locally before pushing:
 
 ```bash
 # backend (from backend/, matches the "backend" job; fails below 78% branch coverage)
