@@ -8,6 +8,8 @@ mark it done early. What to say and where the evidence is: [TALKING_POINTS.md](T
 
 Last updated: 2026-10-09
 
+CI update (#255, in review): the public repository switches to GitHub-hosted runners with every gate retained. Historical VPS runner evidence is not current CI status. Use the PR checks; queued or skipped suites are not passes.
+
 ## How these were found
 
 - **A first-time-user walkthrough (2026-10-04):** registering a brand-new account on a local stack and
