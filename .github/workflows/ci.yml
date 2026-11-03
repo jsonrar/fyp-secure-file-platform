@@ -9,24 +9,21 @@ concurrency:
   group: ci-${{ github.workflow }}-${{ github.ref }}
   cancel-in-progress: true
 
-# Every job runs on the project's own runner on the VPS (deployment/ci-runner/), not on
-# GitHub-hosted machines: the free allowance for a private repository is 2,000 minutes a month
-# and ran out on 2026-10-04. The runner is isolated from production by its own Docker daemon,
-# network and firewall rule. Three runners take three jobs at once, so a run takes about as
-# long as on GitHub's parallel machines. If they are down, jobs wait in the queue; to fall back, change
-# `[self-hosted, mcs21-ci]` back to `ubuntu-latest`.
+# This repository is public. Standard hosted runners keep PR execution independent
+# of the legacy VPS and its privileged, persistent runner containers.
+permissions:
+  contents: read
 
 jobs:
   # Decides whether this change can affect anything the tests check. A change made only of
   # Markdown files, or only of files under docs/ (except docs/crypto/, whose test vectors the
   # frontend and loadtest suites read), cannot, so the five test jobs are skipped for it and
-  # the run passes in about a minute instead of thirteen billed minutes. The free Actions
-  # allowance for a private repository is 2,000 minutes a month, and documentation PRs were
-  # using a large share of it. Anything uncertain (a range that cannot be diffed, a new
+  # the run avoids unnecessary test work for a documentation-only change. Anything uncertain (a range that cannot be diffed, a new
   # branch) counts as code, so the full suite runs.
   changes:
     name: changes
-    runs-on: [self-hosted, mcs21-ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     outputs:
       code: ${{ steps.diff.outputs.code }}
     steps:
@@ -76,7 +73,8 @@ jobs:
     name: backend
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: [self-hosted, mcs21-ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: backend
@@ -153,7 +151,8 @@ jobs:
     name: frontend
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: [self-hosted, mcs21-ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: frontend
@@ -206,7 +205,8 @@ jobs:
     name: mysql-gate
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: [self-hosted, mcs21-ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     defaults:
       run:
         working-directory: backend
@@ -398,7 +398,8 @@ jobs:
     name: e2e-live
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: [self-hosted, mcs21-ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     services:
       mysql:
         image: mysql:8.4
@@ -547,7 +548,8 @@ jobs:
     name: tamper-drill
     needs: changes
     if: needs.changes.outputs.code == 'true'
-    runs-on: [self-hosted, mcs21-ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
 
@@ -581,7 +583,8 @@ jobs:
     name: promote
     if: github.event_name == 'push' && github.ref == 'refs/heads/main'
     needs: [changes, backend, frontend, mysql-gate, e2e-live, tamper-drill]
-    runs-on: [self-hosted, mcs21-ci]
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
     permissions:
       contents: write
     concurrency:

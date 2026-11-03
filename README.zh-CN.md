@@ -76,7 +76,7 @@ WhatsApp / 邮件”类问题，给出简短摘要、步骤和产品内链接；
 （每步 8 秒，带进度条），用户可暂停；也可放大图片或在手机上滑动换步；已完成步骤显示勾选。图片使用虚构数据，并提供手机
 裁切图；已在 2026-10-05 改版后重新截取（#192），2026-10-10 又按上传页带等级的算法列表（#215）重拍一次。
 
-剩余工作属于生产级加固，而非基础演示尚未闭环：后继密钥的界面（API 已有）、两项未处理的 *建议* 级安全发现（F-02、F-03），以及独立安全评审。运行在自建 runner 上的强制 CI 与
+剩余工作属于生产级加固，而非基础演示尚未闭环：后继密钥的界面（API 已有）、两项未处理的 *建议* 级安全发现（F-02、F-03），以及独立安全评审。运行在托管 runner 上的强制 CI 与
 CI 门禁部署、MySQL 8.4 发布门禁、加密异地备份、洁净主机恢复证据、定时对账、每日完整性巡检、外部审计检查点、监控告警、
 安全 Agent，以及同 VPS 的隔离篡改演练现均已到位。优先级摘要见
 [TODO.zh-CN.md](TODO.zh-CN.md)，带验收标准的可执行工作统一放在
@@ -237,7 +237,7 @@ fyp-secure-file-platform/
 |-- deployment/
 |   |-- server/              mcs21-deploy, mcs21-auto-deploy, alert/backup scripts, systemd
 |   |                        units and timers, nginx and fail2ban config
-|   `-- ci-runner/           the self-hosted GitHub Actions runners on the VPS
+|   `-- ci-runner/           legacy self-hosted runner configuration (not used by CI)
 |-- frontend/
 |   |-- src/                 pages, components, api, crypto, stores, i18n, locales
 |   |-- browser-tests/       Playwright specs (golden path, tamper view, phone widths, ...)
@@ -405,16 +405,17 @@ npm run dev
 
 ## 持续集成
 
-`.github/workflows/ci.yml` 会在每次 PR 及推送到 `main` 时运行：先跑一个很小的 `changes` Job，再跑五个测试 Job。
-如果改动只包含 Markdown 文件，或只包含 `docs/` 下的文件（`docs/crypto/` 除外，测试会读取其中的测试向量），
-五个测试 Job 会被跳过：私有仓库的免费 Actions 额度每月只有 2,000 分钟，而完整跑一次约耗 13 分钟。
-推送到 `main` 时与 `deploy` 分支比较，而不是与上一次推送比较，所以即使代码那次 CI 被随后的纯文档推送取消，
-它仍会被测试并推进部署（[详见](docs/AUTOMATIC_DEPLOYMENT.zh-CN.md#ci-门禁)）。
-自 2026-10-04 起，所有 Job 都在 VPS 上项目自建、并与线上环境隔离的 runner 上运行
-（[deployment/ci-runner/](deployment/ci-runner/README.zh-CN.md)）；三台 runner 并行接任务，一次完整 CI 仍约 5 分钟。`backend` 与
-`frontend` 按约定是必需检查：仓库为免费套餐下的私有仓库，无法使用 GitHub 分支保护，所以 CI 变红时除了评审人
-之外没有任何机制阻止合并。但部署是有门禁的：staging 只部署 `deploy` 分支，而只有 `main` 上五个 Job 全部通过，
-`promote` 才会移动它。推送前请在本地执行相同命令，避免失败在 CI 中才被发现：
+`.github/workflows/ci.yml` 在每个 PR 和 `main` 推送时运行 `changes` 及五个测试任务。
+仓库现已公开，所有任务使用一次性的 GitHub 托管 `ubuntu-24.04` runner；不再等待旧 VPS runner。
+公开仓库的标准托管 runner 不消耗私有仓库计算额度，见 [GitHub 计费说明](https://docs.github.com/en/billing/concepts/product-billing/github-actions)。
+旧自建 runner 配置保留供运维人员审查，不代表仍在使用或已停用；本次仓库变更没有操作 VPS。
+
+只有 Markdown 和 `docs/`（不含作为测试输入的 `docs/crypto/`）变化时跳过测试任务。
+`main` 推送仍与 `deploy` 比较，防止后续文档提交掩盖尚未验证的代码。
+五个测试任务、MySQL 零跳过检查、篡改演练、报告敏感信息检查和部署门禁均保留。
+只有 `main` 且所有门禁通过时，`promote` 才有写权限推进 `deploy`；PR 不部署。
+分支保护设置需要管理员单独核实，本次没有读取或修改它。
+推送前请在本地运行相同检查：
 
 ```bash
 # 后端（在 backend/ 下执行，对应 "backend" Job；分支覆盖率低于 78% 即失败）

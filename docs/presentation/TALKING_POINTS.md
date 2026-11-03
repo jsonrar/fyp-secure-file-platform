@@ -11,6 +11,8 @@ Last updated: 2026-10-09
 
 ---
 
+CI update (#255, in review): the public repository switches to GitHub-hosted runners with every gate retained. Historical VPS runner evidence is not current CI status. Use the PR checks; queued or skipped suites are not passes.
+
 ## 0. The 12 minutes
 
 The unit's guidance (Ed #66) is that the presentation is about outcomes and deliverables, with **no
